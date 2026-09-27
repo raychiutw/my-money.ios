@@ -29,10 +29,12 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
+    @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
+    @MainActor
     private func signIn(_ app: XCUIApplication) {
         let email = app.textFields["login.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
