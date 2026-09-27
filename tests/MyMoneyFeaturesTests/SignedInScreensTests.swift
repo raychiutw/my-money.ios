@@ -14,7 +14,8 @@ struct SignedInScreensTests {
         SignedInScreens {
             MainScreens(
                 accountRepository: InMemoryAccountRepository.sample(),
-                transactionRepository: InMemoryTransactionRepository(transactions: [])
+                transactionRepository: InMemoryTransactionRepository(transactions: []),
+                recurringRepository: InMemoryRecurringRepository(items: [])
             )
         }
     }

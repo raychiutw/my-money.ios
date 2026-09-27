@@ -21,7 +21,7 @@ struct MainTabView: View {
                 }
             }
             Tab("規劃", systemImage: "calendar") {
-                PlanningScreen()
+                PlanningScreen(recurring: screens.recurring)
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -54,10 +54,15 @@ private struct OverviewScreen: View {
 
 /// 規劃：固定收支、儲蓄目標、現金流預測的列表。
 private struct PlanningScreen: View {
+    let recurring: RecurringModel
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(["固定收支", "儲蓄目標", "現金流預測"], id: \.self) { title in
+                NavigationLink("固定收支") {
+                    RecurringScreen(model: recurring)
+                }
+                ForEach(["儲蓄目標", "現金流預測"], id: \.self) { title in
                     NavigationLink(title) {
                         ComingSoonView(title: title)
                     }

@@ -60,6 +60,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `transactions-delete.json` | `DELETE /transactions/:id`,刪除上面那筆 | 200 | `{success, data: null}` 視為成功 |
 | `transactions-delete-not-found.json` | 再刪一次同一個 id | 404 | 「紀錄不存在」原樣傳遞 |
 | `export-transactions.csv` | `GET /export/csv?from=2026-09-01&to=2026-09-30` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳(不是 JSON envelope) |
+| `recurring-create-rent.json` | `POST /recurring`,固定支出「房租」12000,每月 5 號，關聯「iOS 測試存款」 | 201 | 新增成功 |
+| `recurring-create-insurance.json` | `POST /recurring`,固定支出「年繳保費」24000,每年 15 號，不指定關聯帳戶 | 201 | `account_id` 是 `null` |
+| `recurring-create-salary.json` | `POST /recurring`,固定收入「薪水」45000,每月 25 號，關聯「iOS 測試存款」 | 201 | 新增成功 |
+| `recurring-create-missing-name.json` | `POST /recurring`,沒有 `name` | 400 | 「請填寫所有必填欄位」原樣傳遞 |
+| `recurring-list.json` | `GET /recurring`,上面三項建立之後 | 200 | snake_case;`account_id` 可以是 `null`;JOIN 的 `account_name` |
+| `recurring-amortize.json` | `GET /recurring/amortize`,同上 | 200 | 後端算好的 `monthly_expense` 14000、`monthly_income` 45000 |
+| `recurring-update.json` | `PUT /recurring/:id`,用暫時建立的項目(改成每半年 20 號 360),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
+| `recurring-delete.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` 視為成功 |
+| `recurring-delete-not-found.json` | 再刪一次同一個 id | 404 | 「項目不存在」原樣傳遞 |
+| `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 
 ### 從缺:`auth-register-success.json`
 
