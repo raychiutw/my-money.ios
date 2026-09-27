@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 登入後的 tab 外殼(ADR-0003、DESIGN.md「導覽」)。iPad 用 sidebar,入口跟 iPhone 同一套。
 struct MainTabView: View {
+    let screens: MainScreens
+
     var body: some View {
         TabView {
             Tab("總覽", systemImage: "house") {
@@ -13,9 +15,7 @@ struct MainTabView: View {
                 }
             }
             Tab("帳戶", systemImage: "creditcard") {
-                NavigationStack {
-                    ComingSoonView(title: "帳戶")
-                }
+                AccountsScreen(model: screens.accounts)
             }
             Tab("統計", systemImage: "chart.bar") {
                 NavigationStack {

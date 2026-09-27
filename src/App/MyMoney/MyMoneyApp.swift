@@ -12,10 +12,11 @@ struct MyMoneyApp: App {
     private let session: AppSession
     private let login: LoginModel
     private let register: RegisterModel
+    private let signedIn: SignedInScreens
 
     init() {
         #if DEBUG
-        // UI 測試不連網路：登入改用 in-memory repository。session 仍存在 Keychain
+        // UI 測試不連網路：改用 in-memory repository。session 仍存在 Keychain
         // (另一個 service,不碰真的 session),才驗證得到「重開 app 直接進入 tab 外殼」。
         // 只在 Debug 生效,Release(TestFlight)不理會 -uiTesting。
         let arguments = ProcessInfo.processInfo.arguments
@@ -28,6 +29,8 @@ struct MyMoneyApp: App {
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
+            let accounts = InMemoryAccountRepository.sample()
+            signedIn = SignedInScreens { MainScreens(accounts: AccountsModel(repository: accounts)) }
             return
         }
         #endif
@@ -37,11 +40,14 @@ struct MyMoneyApp: App {
         let auth = LiveAuthRepository(client: client)
         login = LoginModel(auth: auth, session: session)
         register = RegisterModel(auth: auth, session: session)
+        let accounts = LiveAccountRepository(client: client)
+        // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`)。
+        signedIn = SignedInScreens { MainScreens(accounts: AccountsModel(repository: accounts)) }
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(login: login, register: register)
+            RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
         }
     }

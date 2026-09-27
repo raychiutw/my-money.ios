@@ -27,6 +27,16 @@ public struct APIClient: Sendable {
         body: some Encodable
     ) async throws -> Payload {
         let data = try await perform(method, path, body: try JSONEncoder().encode(body))
+        return try decodeData(data)
+    }
+
+    /// 送出 GET,並取出 `{success, data}` 裡的 `data`。
+    package func get<Payload: Decodable>(_ path: String) async throws -> Payload {
+        let data = try await perform("GET", path, body: nil)
+        return try decodeData(data)
+    }
+
+    private func decodeData<Payload: Decodable>(_ data: Data) throws -> Payload {
         guard let envelope = try? JSONDecoder().decode(DataEnvelope<Payload>.self, from: data) else {
             throw RepositoryError.unreadableResponse
         }
