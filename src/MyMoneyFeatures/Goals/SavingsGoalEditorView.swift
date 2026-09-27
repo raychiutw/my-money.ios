@@ -36,6 +36,7 @@ struct SavingsGoalEditorView: View {
                             selection: Binding(get: { model.deadline.startOfDay }, set: { model.deadline = CalendarDay(date: $0) }),
                             displayedComponents: .date
                         )
+                        .calendarDayTimeZone()
                     }
                 }
 
