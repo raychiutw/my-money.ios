@@ -62,6 +62,11 @@ final class RegisterFlowUITests: XCTestCase {
     private func type(_ text: String, into field: XCUIElement) {
         XCTAssertTrue(field.waitForExistence(timeout: 3), "找不到欄位 \(field)")
         field.tap()
+        // 系統的高強度密碼建議會用 sheet 蓋掉鍵盤，這時 typeText 只送得進 1 個字元。
+        XCTAssertTrue(
+            XCUIApplication().keyboards.firstMatch.waitForExistence(timeout: 3),
+            "點了 \(field) 之後沒有出現鍵盤(可能被系統的高強度密碼建議擋住)"
+        )
         field.typeText(text)
     }
 }
