@@ -6,17 +6,17 @@
 
 ## 全域
 
-- [ ] 用 Email 加密碼登入;登入後保持 30 天，沒有 refresh 機制。token 存在 Keychain。
-- [ ] 任何非 `/auth/*` 的 API 回應 401 時：清掉 token 和使用者資料，回到登入頁。
-- [ ] 登出時不打 API,也不跳確認，直接清除本機狀態，回到登入頁。
-- [ ] API 錯誤顯示後端回傳的 `error` 字串;回應不是 JSON 時，顯示「伺服器無回應」。
+- [x] 用 Email 加密碼登入;登入後保持 30 天，沒有 refresh 機制。token 存在 Keychain。
+- [x] 任何非 `/auth/*` 的 API 回應 401 時：清掉 token 和使用者資料，回到登入頁。
+- [x] 登出時不打 API,也不跳確認，直接清除本機狀態，回到登入頁。
+- [x] API 錯誤顯示後端回傳的 `error` 字串;回應不是 JSON 時，顯示「伺服器無回應」。
 - [ ] UI 只有繁體中文。
 
 ## 登入(W:pages/Login.tsx)
 
-- [ ] 畫面有「我的記帳本」、「家庭財務，輕鬆掌握」,以及 email 和密碼兩個欄位，都是必填。密碼可以切換顯示或隱藏。
-- [ ] 呼叫 `POST /auth/login {email,password}`,成功後進入總覽。
-- [ ] 錯誤訊息顯示後端的字串，例如「請填寫 Email 和密碼」、「Email 或密碼錯誤」。送出期間按鈕停用，文字改成「登入中…」。
+- [x] 畫面有「我的記帳本」、「家庭財務，輕鬆掌握」,以及 email 和密碼兩個欄位，都是必填。密碼可以切換顯示或隱藏。
+- [x] 呼叫 `POST /auth/login {email,password}`,成功後進入總覽。
+- [x] 錯誤訊息顯示後端的字串，例如「請填寫 Email 和密碼」、「Email 或密碼錯誤」。送出期間按鈕停用，文字改成「登入中…」。
 - [ ] 有連到註冊頁的入口。
 
 ## 註冊(W:pages/Register.tsx)
@@ -219,6 +219,8 @@
 | 20 | Modal、`window.confirm`、`alert` | sheet、confirmation dialog、alert(見 `DESIGN.md`) | HIG 轉譯 |
 | 21 | 總覽標題固定是「早安」 | 依裝置的當地時間問候(早安、午安、晚安) | bug 修正 |
 | 22 | 「智慧核心已連線」是寫死的狀態 | 不顯示假的連線狀態 | bug 修正 |
+| 23 | 必填欄位靠 HTML `required`:按下送出才由瀏覽器跳出提示(W:pages/Login.tsx:51,57) | 必填欄位還沒填好時，停用送出按鈕 | HIG 轉譯 |
+| 24 | 連不上伺服器(離線、逾時)時，顯示瀏覽器的英文錯誤，例如「Failed to fetch」(W:api/client.ts:10) | 顯示系統提供的錯誤說明(`URLError` 的 `localizedDescription`) | HIG 轉譯 |
 
 ## 後端造成、iOS 照舊保留的行為
 

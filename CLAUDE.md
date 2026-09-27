@@ -15,10 +15,16 @@
 swift test --explicit-target-dependency-import-check error     # package 全部測試，並檢查依賴方向
 swift test --filter MyMoneyAPITests                             # 單一 test target
 xcodebuild test -project src/App/MyMoney.xcodeproj -scheme MyMoney \
-  -destination 'platform=iOS Simulator,name=iPhone 17'          # app + UI 測試
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -derivedDataPath .derivedData -parallel-testing-enabled NO    # app + UI 測試(不平行，避免複製模擬器)
+xcodebuild build -scheme MyMoney-Package -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath .derivedData/package SWIFT_TREAT_WARNINGS_AS_ERRORS=YES  # 以 iOS 編譯 package
+scripts/record-fixture.sh <檔名> <METHOD> <path> [body]         # 從 prod 錄 fixture,見 Fixtures/README.md
 ```
 
-開發時直接連 prod API,**一律用專用測試帳號**(`mymoney-ios-test@example.com`,密碼只放在本機環境變數，不進 repo),而且這個帳號不加入任何家庭。
+warning 當 error 有三道：`Package.swift` 的 `treatAllWarnings`(只對 macOS,也就是 `swift test`)、app 專案的 `SWIFT_TREAT_WARNINGS_AS_ERRORS`,以及上面第四行的 package iOS 編譯。Xcode 建置 app 時會把 package 的 warning 壓掉，所以第四行不能省。
+
+開發時直接連 prod API,**一律用專用測試帳號**(`mymoney-ios-test@example.com`),而且這個帳號不加入任何家庭。密碼不進 repo:存在本機 Keychain(service `my-money-ios-test`),或放在環境變數 `MYMONEY_TEST_PASSWORD`。
 
 ## 開發流程(強制)
 
@@ -56,14 +62,15 @@ tests/MyMoneyUITests/          # XCUITest
 - **日期**:「今天」和「本月」一律用台灣時間算。呼叫 API 時明確帶上月份，不依賴後端用 UTC 算的預設值。wire 上的日期維持 `YYYY-MM-DD` 字串。
 - **DI**:只用 initializer 注入;app 層級的物件用 `Environment` 往下傳;`App` 是唯一的 composition root。畫面 model 由父層或路由建立後傳入，不在 view 裡用 `@State` 直接建立。
 - **Concurrency**:Domain 型別是 `Sendable` 的 value type;API 層維持 nonisolated;畫面 model 放在 main actor。
-- **認證**:JWT 存在 Keychain(Security framework),效期 30 天，沒有 refresh。任何非 `/auth/*` 的 401 都清掉 token、回到登入頁。
+- **認證**:JWT 存在 Keychain(Security framework),效期 30 天，沒有 refresh。任何非 `/auth/*` 的 401 都清掉 token、回到登入頁。這件事只在 `APIClient` 一個地方判斷：它透過 Domain 的 `SessionProvider` 通知 `AppSession`,所以新的 repository 只要經過 `APIClient` 就自動套用，畫面 model 不必自己處理。
 - **套件政策**:優先用 Apple 第一方。第一方真的做不到時，才用最活躍的免費第三方套件，並在 PR 說明第一方為什麼做不到。
 
 ## 測試慣例
 
 - 單元測試和 integration 測試用 Swift Testing;少數 UI 流程用 XCTest/XCUITest。兩者分開 target。
-- `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫。網路用 `URLProtocol` stub。
-- UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository。
+- `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫，用 `scripts/record-fixture.sh` 錄(token 會換成假值)。流程和清單見 `tests/MyMoneyAPITests/Fixtures/README.md`。網路用 `URLProtocol` stub(`HTTPStub`,每個測試一個 host,可以平行跑)。
+- UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository(登入帳密是 `InMemoryAuthRepository.Member.sample`)。session 仍存在模擬器的 Keychain(UI 測試專用的 service),再加 `-resetSession` 會在啟動時清掉。
+- 畫面 model 測試要觀察「送出期間」的狀態時，用 `MyMoneyTestSupport` 的 `Gate` 讓 in-memory repository 停住，不用 `sleep`。
 - 測試名稱使用 `CONTEXT.md` 的詞彙。
 
 ## Agent skills

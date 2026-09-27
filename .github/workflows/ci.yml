@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# 兩個 job 都跑在 xcode-27:GitHub 的 preview 映像(底層 macOS 27,預設 Xcode 27 / iOS 27 SDK)。
+# preview 不穩(排隊超過 30 分鐘、映像壞掉)時，把 runs-on 暫時退回 macos-26(預設 Xcode 26.6),
+# 並在 PR 記錄證據;穩定後改回 xcode-27。
+jobs:
+  package:
+    name: Package 測試(swift test)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 工具鏈版本
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # warning 當 error 寫在 Package.swift(只對 macOS 套用)。
+      # import check 抓「沒宣告依賴卻 import」,例如 Features import API。
+      - name: swift test
+        run: swift test --explicit-target-dependency-import-check error
+
+      # Xcode 建置 app 時會把 package 的 warning 壓掉，所以另外在 package 根目錄以 iOS 編譯一次，
+      # 讓只有 iOS 才編譯的程式碼(#if os(iOS))也受 warning 當 error 把關。
+      - name: 以 iOS 編譯 package
+        run: >
+          xcodebuild build
+          -scheme MyMoney-Package
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath .derivedData/package
+          SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+  app:
+    name: App 與 UI 測試(xcodebuild test)
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 工具鏈版本
+        run: xcodebuild -version
+
+      # 映像上的模擬器名稱會隨 Xcode 版本改變，挑最新 iOS runtime 的第一台 iPhone。
+      - name: 選擇 iPhone 模擬器
+        id: simulator
+        run: |
+          device="$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries
+            | map(select(.key | test("SimRuntime\\.iOS-")))
+            | sort_by(.key | capture("iOS-(?<major>[0-9]+)-(?<minor>[0-9]+)") | [(.major | tonumber), (.minor | tonumber)])
+            | reverse
+            | map(.value[] | select(.name | test("^iPhone")))
+            | first
+            | "\(.udid) \(.name)"')"
+          echo "使用模擬器:$device"
+          echo "udid=${device%% *}" >> "$GITHUB_OUTPUT"
+
+      # 關掉平行測試，避免複製多台模擬器。warning 當 error 設在專案的 build settings。
+      - name: xcodebuild test
+        run: >
+          xcodebuild test
+          -project src/App/MyMoney.xcodeproj
+          -scheme MyMoney
+          -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}"
+          -derivedDataPath .derivedData
+          -parallel-testing-enabled NO
+          -resultBundlePath .derivedData/MyMoney.xcresult
+
+      - name: 檢查零 warning
+        run: |
+          xcrun xcresulttool get build-results --path .derivedData/MyMoney.xcresult > build-results.json
+          warnings="$(jq '.warningCount' build-results.json)"
+          echo "warningCount=$warnings"
+          jq -r '.warnings[]? | "::warning::\(.message)"' build-results.json
+          test "$warnings" -eq 0
+
+      - name: 測試摘要
+        if: always()
+        run: |
+          if [ -d .derivedData/MyMoney.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path .derivedData/MyMoney.xcresult \
+              | jq -r '"### xcodebuild test\n\n- 結果:\(.result)\n- 通過:\(.passedTests)\n- 失敗:\(.failedTests)\n- 略過:\(.skippedTests)"' \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: 上傳測試結果
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyMoney.xcresult
+          path: .derivedData/MyMoney.xcresult
+          retention-days: 7

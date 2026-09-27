@@ -6,7 +6,11 @@
 import PackageDescription
 
 /// warning 一律當 error(CLAUDE.md 完成定義)。
-let strictSettings: [SwiftSetting] = [.treatAllWarnings(as: .error)]
+///
+/// 只在 macOS(`swift test`)套用：Xcode 建置 app 時會對 package target 加上 `-suppress-warnings`,
+/// 跟 `-warnings-as-errors` 同時出現會直接建置失敗。iOS 才編譯的程式碼由 CI 在 package 根目錄
+/// 另外跑一次 `xcodebuild build SWIFT_TREAT_WARNINGS_AS_ERRORS=YES` 把關。
+let strictSettings: [SwiftSetting] = [.treatAllWarnings(as: .error, .when(platforms: [.macOS]))]
 
 let package = Package(
     name: "MyMoney",
@@ -15,6 +19,8 @@ let package = Package(
     products: [
         .library(name: "MyMoneyDomain", targets: ["MyMoneyDomain"]),
         .library(name: "MyMoneyAPI", targets: ["MyMoneyAPI"]),
+        .library(name: "MyMoneyFeatures", targets: ["MyMoneyFeatures"]),
+        .library(name: "MyMoneyTestSupport", targets: ["MyMoneyTestSupport"]),
     ],
     targets: [
         .target(
@@ -26,6 +32,25 @@ let package = Package(
             name: "MyMoneyAPI",
             dependencies: ["MyMoneyDomain"],
             path: "src/MyMoneyAPI",
+            swiftSettings: strictSettings
+        ),
+        .target(
+            name: "MyMoneyFeatures",
+            dependencies: ["MyMoneyDomain"],
+            path: "src/MyMoneyFeatures",
+            swiftSettings: strictSettings
+        ),
+        // in-memory repository:畫面 model 測試(Seam 1)與 `-uiTesting` 啟動的 app 共用。
+        .target(
+            name: "MyMoneyTestSupport",
+            dependencies: ["MyMoneyDomain"],
+            path: "tests/MyMoneyTestSupport",
+            swiftSettings: strictSettings
+        ),
+        .testTarget(
+            name: "MyMoneyFeaturesTests",
+            dependencies: ["MyMoneyFeatures", "MyMoneyDomain", "MyMoneyTestSupport"],
+            path: "tests/MyMoneyFeaturesTests",
             swiftSettings: strictSettings
         ),
         .testTarget(
