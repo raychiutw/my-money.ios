@@ -121,7 +121,7 @@ xcrun actool design/app-icon/AppIcon.icon --compile /tmp/appicon-check \
 2. 在 app target 的 General › App Icons and Launch Screen,確認 App Icon 欄位是 `AppIcon`(也就是 build setting `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`)。這個名稱必須和 `.icon` 的檔名(不含副檔名)一致。
 3. 如果 Xcode 範本在 `Assets.xcassets` 裡建立了空的 `AppIcon.appiconset`,把它刪掉。新版 Xcode 會優先使用 Icon Composer 文件，留著 appiconset 只會造成混淆。
 4. 用 `xcodebuild` 建置，確認零 warning。然後在 iPhone 17 模擬器的主畫面，檢查 default、dark、clear、tinted 四種外觀(長按主畫面 › 編輯 › 自訂)。
-5. 在 PR 附上模擬器主畫面的截圖。使用者同意後才 close #17。
+5. 在 PR 附上模擬器主畫面的截圖。使用者同意後才關閉 #17。
 
 ## 授權
 
