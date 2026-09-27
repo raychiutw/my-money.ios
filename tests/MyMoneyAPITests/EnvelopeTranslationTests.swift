@@ -29,6 +29,17 @@ struct EnvelopeTranslationTests {
         try await client.send("DELETE", "/bot/bindings/fixture-nonexistent-binding")
     }
 
+    @Test("失敗的回應沒有附訊息時，跟 web 一樣顯示「請求失敗」")
+    func failureWithoutMessageShowsRequestFailed() async throws {
+        // body 是真實的 `{success, message}` 回應，只把狀態碼換成 500:
+        // web 的判斷是 `!res.ok || !data.success`,兩者任一成立就丟出 `data.error || '請求失敗'`。
+        try stub.reply(status: 500, fixture: "bot-bindings-delete.json")
+
+        await #expect(throws: RepositoryError.rejected("請求失敗")) {
+            try await client.send("DELETE", "/bot/bindings/fixture-nonexistent-binding")
+        }
+    }
+
     @Test("非 /auth/* 的請求回應 401 時是 session 過期")
     func unauthorizedIsSessionExpired() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")

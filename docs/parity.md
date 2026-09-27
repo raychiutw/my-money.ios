@@ -221,6 +221,7 @@
 | 22 | 「智慧核心已連線」是寫死的狀態 | 不顯示假的連線狀態 | bug 修正 |
 | 23 | 必填欄位靠 HTML `required`:按下送出才由瀏覽器跳出提示(W:pages/Login.tsx:51,57) | 必填欄位還沒填好時，停用送出按鈕 | HIG 轉譯 |
 | 24 | 連不上伺服器(離線、逾時)時，顯示瀏覽器的英文錯誤，例如「Failed to fetch」(W:api/client.ts:10) | 顯示系統提供的錯誤說明(`URLError` 的 `localizedDescription`) | HIG 轉譯 |
+| 25 | 登入表單的欄位上方有標籤「電子郵件」「密碼」,placeholder 是 `your@email.com`、`••••••`(W:pages/Login.tsx:50-57) | `Form` 的欄位不另外顯示標籤:Email 欄位的 placeholder 是 `your@email.com`,密碼欄位的 placeholder 是「密碼」。「電子郵件」「密碼」仍是 VoiceOver 念出的欄位名稱 | HIG 轉譯 |
 
 ## 後端造成、iOS 照舊保留的行為
 

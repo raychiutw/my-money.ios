@@ -10,22 +10,25 @@ struct MyMoneyApp: App {
     private let login: LoginModel
 
     init() {
+        #if DEBUG
+        // UI 測試不連網路：登入改用 in-memory repository。session 仍存在 Keychain
+        // (另一個 service,不碰真的 session),才驗證得到「重開 app 直接進入 tab 外殼」。
+        // 只在 Debug 生效,Release(TestFlight)不理會 -uiTesting。
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
-            // UI 測試不連網路：登入改用 in-memory repository。session 仍存在 Keychain
-            // (另一個 service,不碰真的 session),才驗證得到「重開 app 直接進入 tab 外殼」。
             let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
             if arguments.contains("-resetSession") {
                 storage.clear()
             }
             session = AppSession(storage: storage)
             login = LoginModel(auth: InMemoryAuthRepository(members: [.sample]), session: session)
-        } else {
-            session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
-            // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
-            let client = APIClient(session: session)
-            login = LoginModel(auth: LiveAuthRepository(client: client), session: session)
+            return
         }
+        #endif
+        session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
+        // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
+        let client = APIClient(session: session)
+        login = LoginModel(auth: LiveAuthRepository(client: client), session: session)
     }
 
     var body: some Scene {

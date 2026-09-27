@@ -16,6 +16,7 @@ final class LoginFlowUITests: XCTestCase {
         let app = launch(resettingSession: true)
         XCTAssertTrue(app.staticTexts["我的記帳本"].exists)
         XCTAssertTrue(app.staticTexts["家庭財務，輕鬆掌握"].exists)
+        XCTAssertTrue(app.staticTexts["登入帳號"].exists)
 
         signIn(app)
 

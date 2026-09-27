@@ -48,16 +48,18 @@ public struct APIClient: Sendable {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let (data, response) = try await urlSession.data(for: request)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         // 跟 web 一樣:/auth/* 的 401 是「Email 或密碼錯誤」,其餘的 401 代表 token 失效。
-        if (response as? HTTPURLResponse)?.statusCode == 401, !path.hasPrefix("/auth/") {
+        if statusCode == 401, !path.hasPrefix("/auth/") {
             await session.sessionDidExpire()
             throw RepositoryError.sessionExpired
         }
         guard let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data) else {
             throw RepositoryError.unreadableResponse
         }
-        if !status.success, let message = status.error {
-            throw RepositoryError.rejected(message)
+        // 照 web 的判斷:HTTP 狀態不是 2xx,或 `success` 不是 true,都算失敗。
+        guard (200..<300).contains(statusCode), status.success else {
+            throw RepositoryError.rejected(status.error ?? "請求失敗")
         }
         return data
     }

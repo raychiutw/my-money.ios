@@ -57,6 +57,8 @@ struct LoginView: View {
                     .accessibilityLabel(model.isPasswordVisible ? "隱藏密碼" : "顯示密碼")
                     .accessibilityIdentifier("login.togglePassword")
                 }
+            } header: {
+                Text("登入帳號")
             } footer: {
                 if let message = model.errorMessage {
                     Text(message)
