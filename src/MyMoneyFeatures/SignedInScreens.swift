@@ -18,13 +18,17 @@ public struct MainScreens {
 
     public let statistics: StatisticsModel
 
+    /// 規劃 → 現金流預測。
+    public let forecast: ForecastModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     public init(
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
         recurringRepository: any RecurringRepository,
         savingsGoalRepository: any SavingsGoalRepository,
-        statisticsRepository: any StatisticsRepository
+        statisticsRepository: any StatisticsRepository,
+        forecastRepository: any ForecastRepository
     ) {
         let dataVersion = DataVersion()
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
@@ -33,6 +37,7 @@ public struct MainScreens {
         recurring = RecurringModel(repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion)
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
+        forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
     }
 }
 

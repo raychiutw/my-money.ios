@@ -24,3 +24,8 @@ extension Money {
         .precision(.fractionLength(0))
         .rounded(rule: .toNearestOrAwayFromZero)
 }
+
+extension Money {
+    /// Swift Charts 只吃 `Double`;只用來畫圖，不拿來計算。
+    var chartValue: Double { NSDecimalNumber(decimal: amount).doubleValue }
+}

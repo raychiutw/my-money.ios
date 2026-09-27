@@ -64,7 +64,7 @@ private struct PlanningScreen: View {
                     SavingsGoalsScreen(model: screens.goals)
                 }
                 NavigationLink("現金流預測") {
-                    ComingSoonView(title: "現金流預測")
+                    ForecastScreen(model: screens.forecast)
                 }
             }
             .navigationTitle("規劃")

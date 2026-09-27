@@ -263,8 +263,3 @@ private struct BudgetRowView: View {
 
 /// 給 `.sheet(item:)` 用;class 的 `id` 預設是 `ObjectIdentifier`。
 extension BudgetEditorModel: Identifiable {}
-
-private extension Money {
-    /// Swift Charts 只吃 `Double`;只用來畫圖，不拿來計算。
-    var chartValue: Double { NSDecimalNumber(decimal: amount).doubleValue }
-}
