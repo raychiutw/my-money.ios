@@ -41,9 +41,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `auth-login-malformed-body.txt` | `POST /auth/login`,body 是 `not-json` | 500,`text/plain` | 回應不是 JSON 時顯示「伺服器無回應」 |
 | `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 非 `/auth/*` 的 401 是 session 過期 |
 | `bot-bindings-delete.json` | `DELETE /bot/bindings/fixture-nonexistent-binding` | 200 | 只有 `{success, message}` 的 envelope 視為成功(這個 id 不存在，不會刪到任何資料) |
+| `auth-register-email-taken.json` | `POST /auth/register`,用測試帳號已經註冊過的 email | 409 | 「此 Email 已被使用」原樣傳遞(不會建立任何資料) |
 
 ### 從缺:`auth-register-success.json`
 
 2026-09-28 用 `POST /auth/register` 註冊測試帳號時，當時的腳本沒有先建立 `Fixtures/` 目錄，後端回了成功(429 bytes),回應卻沒寫進檔案。註冊同一個 email 只能成功一次，之後只會回 409「此 Email 已被使用」。腳本已經修正成先確認寫得進檔案再打 API。
 
-要補錄註冊成功的回應，得再註冊一個專用 email,需要維護者同意。409 的回應留給註冊的票(#5)錄。
+要補錄註冊成功的回應，得再註冊一個專用 email,需要維護者同意。在那之前，註冊成功的解碼測試沿用 `auth-login-success.json`:後端 `/auth/register` 與 `/auth/login` 回傳的 `data` 形狀相同(`{token, user: {id, email, name}}`)。

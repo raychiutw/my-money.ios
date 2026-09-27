@@ -3,6 +3,7 @@ import SwiftUI
 /// 登入頁(parity.md「登入」)。錯誤訊息放在 Section footer(DESIGN.md「元件對照」)。
 struct LoginView: View {
     @Bindable var model: LoginModel
+    let register: RegisterModel
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -75,6 +76,20 @@ struct LoginView: View {
                 .disabled(!model.canSubmit)
                 .accessibilityIdentifier("login.submit")
             }
+
+            Section {
+                HStack(spacing: 4) {
+                    Text("還沒有帳號？")
+                        .foregroundStyle(.secondary)
+                    NavigationLink("立即註冊") {
+                        RegisterView(model: register)
+                    }
+                    .fixedSize()
+                    .accessibilityIdentifier("login.register")
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            }
         }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現在畫面下方，VoiceOver 使用者不一定會移過去，直接念出來。
@@ -99,14 +114,3 @@ struct LoginView: View {
     }
 }
 
-private extension View {
-    /// Email 欄位的鍵盤：email 鍵盤、不自動大寫。只有 iOS 有這些設定(`swift test` 會在 macOS 上編譯)。
-    func emailKeyboard() -> some View {
-        #if os(iOS)
-        keyboardType(.emailAddress)
-            .textInputAutocapitalization(.never)
-        #else
-        self
-        #endif
-    }
-}

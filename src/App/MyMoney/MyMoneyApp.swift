@@ -11,6 +11,7 @@ import MyMoneyTestSupport
 struct MyMoneyApp: App {
     private let session: AppSession
     private let login: LoginModel
+    private let register: RegisterModel
 
     init() {
         #if DEBUG
@@ -24,19 +25,23 @@ struct MyMoneyApp: App {
                 storage.clear()
             }
             session = AppSession(storage: storage)
-            login = LoginModel(auth: InMemoryAuthRepository(members: [.sample]), session: session)
+            let auth = InMemoryAuthRepository(members: [.sample])
+            login = LoginModel(auth: auth, session: session)
+            register = RegisterModel(auth: auth, session: session)
             return
         }
         #endif
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
-        login = LoginModel(auth: LiveAuthRepository(client: client), session: session)
+        let auth = LiveAuthRepository(client: client)
+        login = LoginModel(auth: auth, session: session)
+        register = RegisterModel(auth: auth, session: session)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(login: login)
+            RootView(login: login, register: register)
                 .environment(session)
         }
     }

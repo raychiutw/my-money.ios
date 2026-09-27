@@ -12,6 +12,20 @@ public struct LiveAuthRepository: AuthRepository {
         let dto: SessionDTO = try await client.send("POST", "/auth/login", body: LoginBody(email: email, password: password))
         return dto.session
     }
+
+    public func register(name: String, email: String, password: String) async throws -> Session {
+        let dto: SessionDTO = try await client.send(
+            "POST", "/auth/register",
+            body: RegisterBody(name: name, email: email, password: password)
+        )
+        return dto.session
+    }
+}
+
+private struct RegisterBody: Encodable {
+    let name: String
+    let email: String
+    let password: String
 }
 
 private struct LoginBody: Encodable {
