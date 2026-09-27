@@ -1,52 +1,38 @@
 import SwiftUI
 
+/// 登入後的 5 個 tab。
+enum AppTab: Hashable {
+    case overview
+    case transactions
+    case accounts
+    case statistics
+    case planning
+}
+
 /// 登入後的 tab 外殼(ADR-0003、DESIGN.md「導覽」)。iPad 用 sidebar,入口跟 iPhone 同一套。
 struct MainTabView: View {
     let screens: MainScreens
+    @State private var selection = AppTab.overview
 
     var body: some View {
-        TabView {
-            Tab("總覽", systemImage: "house") {
-                OverviewScreen()
+        TabView(selection: $selection) {
+            Tab("總覽", systemImage: "house", value: .overview) {
+                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry) { selection = $0 }
             }
-            Tab("交易", systemImage: "list.bullet.rectangle") {
+            Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
             }
-            Tab("帳戶", systemImage: "creditcard") {
+            Tab("帳戶", systemImage: "creditcard", value: .accounts) {
                 AccountsScreen(model: screens.accounts)
             }
-            Tab("統計", systemImage: "chart.bar") {
+            Tab("統計", systemImage: "chart.bar", value: .statistics) {
                 StatisticsScreen(model: screens.statistics)
             }
-            Tab("規劃", systemImage: "calendar") {
+            Tab("規劃", systemImage: "calendar", value: .planning) {
                 PlanningScreen(screens: screens)
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-    }
-}
-
-/// 總覽：toolbar 右上角的帳號按鈕打開帳號 sheet。
-private struct OverviewScreen: View {
-    @State private var isAccountSheetPresented = false
-
-    var body: some View {
-        NavigationStack {
-            ComingSoonView(title: "總覽")
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            isAccountSheetPresented = true
-                        } label: {
-                            Label("帳號", systemImage: "person.crop.circle")
-                        }
-                        .accessibilityIdentifier("overview.account")
-                    }
-                }
-                .sheet(isPresented: $isAccountSheetPresented) {
-                    AccountSheet()
-                }
-        }
     }
 }
 

@@ -41,6 +41,8 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     private let shares: [HouseholdShare]
     private var storedBudgets: [Budget]
     private var failure: RepositoryError?
+    /// 有設定時，收支趨勢改從這些交易紀錄算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
+    private let transactions: InMemoryTransactionRepository?
 
     public private(set) var categoryQueries: [CategoryQuery] = []
     public private(set) var monthlyQueries: [MonthlyQuery] = []
@@ -52,22 +54,26 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
         expensesByScope: [ViewScope: [CategoryExpense]],
         summaries: [MonthlySummary],
         shares: [HouseholdShare],
-        budgets: [Budget]
+        budgets: [Budget],
+        transactions: InMemoryTransactionRepository? = nil
     ) {
         self.expensesByScope = expensesByScope
         self.summaries = summaries
         self.shares = shares
         storedBudgets = budgets
+        self.transactions = transactions
     }
 
-    /// 以台灣時間的本月產生(給 `-uiTesting` 的 composition root 用)。
-    public static func sampleForToday() -> InMemoryStatisticsRepository {
-        sample(month: CalendarMonth(CalendarDay.today()))
+    /// 以台灣時間的本月產生(給 `-uiTesting` 的 composition root 用);收支趨勢從 `transactions` 算。
+    public static func sampleForToday(transactions: InMemoryTransactionRepository) -> InMemoryStatisticsRepository {
+        sample(month: CalendarMonth(CalendarDay.today()), transactions: transactions)
     }
 
     /// 我記的:購物 880、交通 250、餐飲 120;家庭視角只有餐飲 120。
     /// 分類預算：餐飲 100(超支)、購物 1000(接近上限)。公帳代墊款：小明 6000、小美 4000。
-    public static func sample(month: CalendarMonth, shares: [HouseholdShare]? = nil) -> InMemoryStatisticsRepository {
+    public static func sample(
+        month: CalendarMonth, shares: [HouseholdShare]? = nil, transactions: InMemoryTransactionRepository? = nil
+    ) -> InMemoryStatisticsRepository {
         let mine = [
             CategoryExpense(category: TransactionCategory("購物"), total: Money(880)),
             CategoryExpense(category: TransactionCategory("交通"), total: Money(250)),
@@ -83,7 +89,8 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
             budgets: [
                 Budget(category: .dining, amount: Money(100), spent: Money(120), isOver: true),
                 Budget(category: TransactionCategory("購物"), amount: Money(1000), spent: Money(880), isOver: false),
-            ]
+            ],
+            transactions: transactions
         )
     }
 
@@ -96,6 +103,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     public func monthlySummaries(year: Int, scope: ViewScope) async throws -> [MonthlySummary] {
         monthlyQueries.append(MonthlyQuery(year: year, scope: scope))
         if let failure { throw failure }
+        if let transactions { return await transactions.monthlySummaries(year: year) }
         return summaries.filter { $0.month.year == year }
     }
 

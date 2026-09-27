@@ -24,8 +24,12 @@ struct MyMoneyApp: App {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
             let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
+            // 總覽選過的視角也另外存，每個 UI 測試從預設值開始。
+            let defaultsSuite = "com.raychiu.mymoney.ui-testing"
+            let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
             if arguments.contains("-resetSession") {
                 storage.clear()
+                defaults.removePersistentDomain(forName: defaultsSuite)
             }
             session = AppSession(storage: storage)
             let auth = InMemoryAuthRepository(members: [.sample])
@@ -35,12 +39,13 @@ struct MyMoneyApp: App {
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday())
             let recurring = InMemoryRecurringRepository.sample()
             let goals = InMemorySavingsGoalRepository.sample()
-            let statistics = InMemoryStatisticsRepository.sampleForToday()
+            let statistics = InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
             let forecast = InMemoryForecastRepository.sampleForToday()
             signedIn = SignedInScreens {
                 MainScreens(
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
-                    savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast
+                    savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
+                    defaults: defaults
                 )
             }
             suggestsStrongPasswords = false

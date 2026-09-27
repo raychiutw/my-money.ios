@@ -10,11 +10,11 @@ public struct LiveTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay, to: CalendarDay, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
     ) async throws -> [Transaction] {
-        let dtos: [TransactionDTO] = try await client.get("/transactions", query: [
-            URLQueryItem(name: "from", value: from.iso),
-            URLQueryItem(name: "to", value: to.iso),
+        // 起日或迄日是 nil 時整個參數不送，後端就不限日期。
+        let dates = [("from", from), ("to", to)].compactMap { name, day in day.map { URLQueryItem(name: name, value: $0.iso) } }
+        let dtos: [TransactionDTO] = try await client.get("/transactions", query: dates + [
             URLQueryItem(name: "scope", value: scope.rawValue),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),

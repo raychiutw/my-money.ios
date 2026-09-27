@@ -6,8 +6,8 @@ import MyMoneyDomain
 /// 視角的篩選是後端的規則，這裡不模擬(ADR-0001:不在 client 端重算規則)。
 public actor InMemoryTransactionRepository: TransactionRepository {
     public struct Query: Equatable, Sendable {
-        public let from: CalendarDay
-        public let to: CalendarDay
+        public let from: CalendarDay?
+        public let to: CalendarDay?
         public let scope: ViewScope
         public let limit: Int
         public let offset: Int
@@ -40,13 +40,15 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay, to: CalendarDay, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
     ) async throws -> [Transaction] {
         queries.append(Query(from: from, to: to, scope: scope, limit: limit, offset: offset))
         if let failure { throw failure }
         // 跟後端一樣日期由新到舊;同一天後記的在前。
         let inPeriod = stored.enumerated()
-            .filter { from <= $0.element.date && $0.element.date <= to }
+            .filter { item in
+                (from.map { $0 <= item.element.date } ?? true) && (to.map { item.element.date <= $0 } ?? true)
+            }
             .sorted { ($0.element.date, $0.offset) > ($1.element.date, $1.offset) }
             .map(\.element)
         return Array(inPeriod.dropFirst(offset).prefix(limit))
@@ -99,6 +101,20 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         exportQueries.append(ExportQuery(from: from, to: to))
         if let failure { throw failure }
         return Self.sampleCSV
+    }
+
+    /// 每個月的收入與支出，不含「信用卡還款」,跟後端的收支趨勢一樣(給 UI 測試用的統計替身;不模擬視角)。
+    public func monthlySummaries(year: Int) -> [MonthlySummary] {
+        let byMonth = Dictionary(grouping: stored.filter { $0.date.year == year && !$0.isCreditCardRepayment }) {
+            CalendarMonth($0.date)
+        }
+        return byMonth.keys.sorted().map { month in
+            let items = byMonth[month] ?? []
+            func total(_ type: TransactionType) -> Money {
+                items.filter { $0.type == type }.reduce(.zero) { $0 + $1.amount }
+            }
+            return MonthlySummary(month: month, income: total(.income), expense: total(.expense))
+        }
     }
 
     /// 之後的請求都以這個錯誤失敗。

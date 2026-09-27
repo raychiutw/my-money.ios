@@ -15,6 +15,20 @@ struct TransactionsTranslationTests {
     private let september1 = CalendarDay(year: 2026, month: 9, day: 1)
     private let september30 = CalendarDay(year: 2026, month: 9, day: 30)
 
+    @Test("最近的交易紀錄不限日期：不送 from / to(跟 web 的總覽一樣)")
+    func recentOmitsDates() async throws {
+        try stub.reply(status: 200, fixture: "transactions-recent.json")
+
+        let recent = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 6, offset: 0)
+
+        let url = try #require(stub.requests.first?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") }) == [
+            "scope": "all", "limit": "6", "offset": "0",
+        ])
+        #expect(recent.map(\.category.name) == ["購物", "餐飲", "薪資"])
+    }
+
     @Test("查詢時帶上起迄日、視角與分頁參數")
     func listSendsQuery() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")

@@ -2,8 +2,8 @@ import Foundation
 
 /// 交易紀錄(`/transactions`)。
 public protocol TransactionRepository: Sendable {
-    /// 一頁交易紀錄，順序照後端(日期由新到舊)。
-    func transactions(from: CalendarDay, to: CalendarDay, scope: ViewScope, limit: Int, offset: Int) async throws -> [Transaction]
+    /// 一頁交易紀錄，順序照後端(日期由新到舊)。起日或迄日是 `nil` 時不限。
+    func transactions(from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int) async throws -> [Transaction]
 
     func create(_ draft: TransactionDraft) async throws
 

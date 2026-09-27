@@ -1,9 +1,11 @@
+import Foundation
 import MyMoneyDomain
 import Observation
 
 /// 登入後各個 tab 的畫面 model。由 composition root 建立。
 @MainActor
 public struct MainScreens {
+    public let overview: OverviewModel
     public let accounts: AccountsModel
     public let transactions: TransactionsModel
 
@@ -22,15 +24,21 @@ public struct MainScreens {
     public let forecast: ForecastModel
 
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
+    /// `defaults` 存總覽選過的視角。
     public init(
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
         recurringRepository: any RecurringRepository,
         savingsGoalRepository: any SavingsGoalRepository,
         statisticsRepository: any StatisticsRepository,
-        forecastRepository: any ForecastRepository
+        forecastRepository: any ForecastRepository,
+        defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
+        overview = OverviewModel(
+            accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
+            goals: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults
+        )
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
         transactions = TransactionsModel(repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
