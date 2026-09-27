@@ -81,6 +81,17 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `goals-update.json` | `PUT /goals/:id`,改暫時目標(改名、改 emoji、不送 `deadline`),錄完就刪掉 | 200 | 沒送 `deadline` 時後端清成 `null`;已存金額不變(後端的 PUT 不動 `saved_amount`) |
 | `goals-delete.json` | `DELETE /goals/:id`,刪除上面那個暫時目標 | 200 | `{success, data: null}` 視為成功 |
 | `goals-delete-not-found.json` | 再刪一次同一個 id | 404 | 「目標不存在」原樣傳遞 |
+| `stats-category.json` | `GET /transactions/summary/category?month=2026-09&scope=all` | 200 | 依金額由大到小(購物 880、餐飲 120),不含「信用卡還款」 |
+| `stats-category-personal.json` | 同上，`scope=personal` | 200 | 我記的支出(已花的來源之一) |
+| `stats-category-empty.json` | 同上，`month=2026-08` | 200 | 空清單 |
+| `stats-monthly.json` | `GET /transactions/summary/monthly?year=2026&scope=all` | 200 | 每個月的收入、支出各一列(`month`、`type`、`total`) |
+| `stats-household-shares-empty.json` | `GET /transactions/summary/household-shares?month=2026-09`,測試帳號沒有家庭群組時 | 200 | 空清單 |
+| `stats-household-shares.json` | 同上。先讓測試帳號自己建立一個只有自己的家庭群組「iOS 測試家庭」,錄完就離開(最後一位成員離開時，後端會刪掉整個家庭群組) | 200 | `user_id`、`user_name`、`total`;兩人的分攤建議用單元測試驗證 |
+| `budgets-list-empty.json` | `GET /budgets?month=2026-09`,還沒有任何分類預算時 | 200 | 空清單 |
+| `budgets-put-create.json` | `PUT /budgets`,餐飲 5000(新增) | 200 | 回傳設定後的資料列 |
+| `budgets-put-update.json` | `PUT /budgets`,餐飲改成 100(同分類同月份會調整原本那筆) | 200 | 同一個 `id` |
+| `budgets-put-missing-amount.json` | `PUT /budgets`,沒有 `amount` | 400 | 「請填寫所有欄位」原樣傳遞 |
+| `budgets-list.json` | `GET /budgets?month=2026-09`,餐飲 100、購物 1000 設定之後 | 200 | 後端算好的 `spent` 與 `over`(餐飲超支、購物 88%)。分類預算無法刪除，會留在測試帳號的 2026-09 |
 
 ### 從缺:`auth-register-success.json`
 

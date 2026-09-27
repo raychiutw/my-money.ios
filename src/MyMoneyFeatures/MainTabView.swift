@@ -16,9 +16,7 @@ struct MainTabView: View {
                 AccountsScreen(model: screens.accounts)
             }
             Tab("統計", systemImage: "chart.bar") {
-                NavigationStack {
-                    ComingSoonView(title: "統計")
-                }
+                StatisticsScreen(model: screens.statistics)
             }
             Tab("規劃", systemImage: "calendar") {
                 PlanningScreen(screens: screens)

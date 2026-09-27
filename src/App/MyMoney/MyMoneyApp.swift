@@ -35,10 +35,11 @@ struct MyMoneyApp: App {
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday())
             let recurring = InMemoryRecurringRepository.sample()
             let goals = InMemorySavingsGoalRepository.sample()
+            let statistics = InMemoryStatisticsRepository.sampleForToday()
             signedIn = SignedInScreens {
                 MainScreens(
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
-                    savingsGoalRepository: goals
+                    savingsGoalRepository: goals, statisticsRepository: statistics
                 )
             }
             suggestsStrongPasswords = false
@@ -55,12 +56,13 @@ struct MyMoneyApp: App {
         let transactions = LiveTransactionRepository(client: client)
         let recurring = LiveRecurringRepository(client: client)
         let goals = LiveSavingsGoalRepository(client: client)
+        let statistics = LiveStatisticsRepository(client: client)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
         signedIn = SignedInScreens {
             MainScreens(
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
-                savingsGoalRepository: goals
+                savingsGoalRepository: goals, statisticsRepository: statistics
             )
         }
         suggestsStrongPasswords = true

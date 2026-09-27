@@ -16,7 +16,8 @@ struct SignedInScreensTests {
                 accountRepository: InMemoryAccountRepository.sample(),
                 transactionRepository: InMemoryTransactionRepository(transactions: []),
                 recurringRepository: InMemoryRecurringRepository(items: []),
-                savingsGoalRepository: InMemorySavingsGoalRepository(goals: [])
+                savingsGoalRepository: InMemorySavingsGoalRepository(goals: []),
+                statisticsRepository: InMemoryStatisticsRepository.sample(month: CalendarMonth(year: 2026, month: 9))
             )
         }
     }

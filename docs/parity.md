@@ -147,14 +147,14 @@
 
 ## 統計與預算(W:pages/Analytics.tsx)
 
-- [ ] 月份選擇器預設本月;視角切換跟總覽相同。
-- [ ] 分攤建議：
+- [x] 月份選擇器預設本月;視角切換跟總覽相同。
+- [x] 分攤建議：
   - 條件是視角為家庭或全部，而且有公帳代墊款資料。資料來自 `GET /transactions/summary/household-shares?month`,不隨視角改變。
   - 顯示當月家庭公帳總額，每位家庭成員各一張卡：公帳代墊款金額、佔比(1 位小數)、進度。
   - 剛好兩人有公帳代墊款時，顯示每人應負擔多少，以及誰該轉多少給誰。
-- [ ] 支出分類甜甜圈圖：資料來自 `GET /transactions/summary/category?month&scope`,附圖例列出分類和金額。空狀態是「此視角本月尚無支出」。
-- [ ] 收支趨勢柱狀圖：資料來自 `GET /transactions/summary/monthly?year&scope`,收入和支出並列，每個月一組。
-- [ ] 預算：
+- [x] 支出分類甜甜圈圖：資料來自 `GET /transactions/summary/category?month&scope`,附圖例列出分類和金額。空狀態是「此視角本月尚無支出」。
+- [x] 收支趨勢柱狀圖：資料來自 `GET /transactions/summary/monthly?year&scope`,收入和支出並列，每個月一組。
+- [x] 預算：
   - 列出固定的 8 個支出分類。每列顯示已花和預算，或「(未設定預算)」;超支時顯示超支金額;達到 80% 以上時顯示接近上限。
   - 「設定」或「調整」打開 sheet:可以改分類，金額是正整數;已有預算時帶入原值，沒有時預設 5000。
   - 儲存呼叫 `PUT /budgets {category,amount,month}`。
@@ -240,6 +240,7 @@
 | 24 | 連不上伺服器(離線、逾時)時，顯示瀏覽器的英文錯誤，例如「Failed to fetch」(W:api/client.ts:10) | 顯示系統提供的錯誤說明(`URLError` 的 `localizedDescription`) | HIG 轉譯 |
 | 25 | 登入表單的欄位上方有標籤「電子郵件」「密碼」,placeholder 是 `your@email.com`、`••••••`(W:pages/Login.tsx:50-57) | `Form` 的欄位不另外顯示標籤:Email 欄位的 placeholder 是 `your@email.com`,密碼欄位的 placeholder 是「密碼」。「電子郵件」「密碼」仍是 VoiceOver 念出的欄位名稱 | HIG 轉譯 |
 | 26 | 交易頁的總支出把「信用卡還款」也算進去，刷卡和繳卡費會被重複計入(W:Transactions.tsx@79edd20:189-190);後端的三種統計都已經排除它 | 總支出排除「信用卡還款」,跟後端的統計一致 | bug 修正 |
+| 27 | 統計頁的四支 API 任一支失敗時當作空資料(`.catch(() => [])`),畫面顯示「此範疇本月尚無支出紀錄」這類空狀態，看不出是載入失敗(W:Analytics.tsx@79edd20:71-74) | 顯示「無法載入統計」與重試，不把失敗當成沒有資料 | bug 修正 |
 
 ## 後端造成、iOS 照舊保留的行為
 

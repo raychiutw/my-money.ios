@@ -16,12 +16,15 @@ public struct MainScreens {
     /// 規劃 → 儲蓄目標。
     public let goals: SavingsGoalsModel
 
+    public let statistics: StatisticsModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     public init(
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
         recurringRepository: any RecurringRepository,
-        savingsGoalRepository: any SavingsGoalRepository
+        savingsGoalRepository: any SavingsGoalRepository,
+        statisticsRepository: any StatisticsRepository
     ) {
         let dataVersion = DataVersion()
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
@@ -29,6 +32,7 @@ public struct MainScreens {
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion)
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
+        statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
     }
 }
 
