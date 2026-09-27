@@ -43,8 +43,10 @@ final class TransactionsUITests: XCTestCase {
         headphones.tap()
         let amount = app.textFields["quickEntry.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3))
-        amount.tap()
+        // 金額欄靠右對齊，點中間游標會停在原本的數字前面，所以點最右邊。
+        amount.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
         amount.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "990")
+        XCTAssertEqual(amount.value as? String, "990", "金額欄沒有改成 990")
         app.buttons["quickEntry.save"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "支出 990 元").waitForExistence(timeout: 5), "編輯後金額沒有更新")
 
