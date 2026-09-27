@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 extension EnvironmentValues {
     /// 新密碼欄位是否讓密碼管理工具建議高強度密碼(`textContentType(.newPassword)`,預設開啟)。
@@ -53,4 +58,15 @@ extension View {
         self
         #endif
     }
+}
+
+/// 複製到系統剪貼簿。
+@MainActor
+func copyToPasteboard(_ text: String) {
+    #if os(iOS)
+    UIPasteboard.general.string = text
+    #else
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
+    #endif
 }

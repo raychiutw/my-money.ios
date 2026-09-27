@@ -23,6 +23,9 @@ public struct MainScreens {
     /// 規劃 → 現金流預測。
     public let forecast: ForecastModel
 
+    /// 帳號 sheet → 家庭。
+    public let household: HouseholdModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     /// `defaults` 存總覽選過的視角。
     public init(
@@ -32,6 +35,7 @@ public struct MainScreens {
         savingsGoalRepository: any SavingsGoalRepository,
         statisticsRepository: any StatisticsRepository,
         forecastRepository: any ForecastRepository,
+        householdRepository: any HouseholdRepository,
         defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
@@ -46,6 +50,7 @@ public struct MainScreens {
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
+        household = HouseholdModel(repository: householdRepository, dataVersion: dataVersion)
     }
 }
 

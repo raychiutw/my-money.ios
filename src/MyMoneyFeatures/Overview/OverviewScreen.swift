@@ -6,6 +6,8 @@ import SwiftUI
 struct OverviewScreen: View {
     @Bindable var model: OverviewModel
     let quickEntry: QuickEntryModel
+    /// 帳號 sheet 裡的「家庭」。
+    let household: HouseholdModel
     /// 「管理帳戶」「查看全部」切到其他 tab。
     let show: (AppTab) -> Void
 
@@ -54,7 +56,7 @@ struct OverviewScreen: View {
                 TransactionFormView(model: quickEntry)
             }
             .sheet(isPresented: $isAccountSheetPresented) {
-                AccountSheet()
+                AccountSheet(household: household)
             }
         }
     }

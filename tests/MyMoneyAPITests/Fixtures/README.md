@@ -97,6 +97,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `forecast-purchase-safe.json` | `POST /forecast/purchase-check {amount: 1000}` | 200 | 放心購買;`affectedGoals` 列出所有有每月預留的儲蓄目標，不管評估結果是哪一種 |
 | `forecast-purchase-caution.json` | 同上 `{amount: 50000}`。錄之前先把「沖繩旅遊」的每月預留暫時改成 20000,錄完改回 5000 | 200 | 審慎評估(`affectsSavings: true`) |
 | `forecast-purchase-danger.json` | 同上 `{amount: 60000}` | 200 | 不建議購買，最低餘額 -6560 |
+| `households-current-none.json` | `GET /households/current`,測試帳號沒有家庭群組時 | 200 | `household: null`、`myRole: null` |
+| `households-join-invalid.json` | `POST /households/join {code: "FAM-0000"}`。0 不在後端的邀請碼字元表裡，這組不可能存在，不會誤加入別人的家庭 | 404 | 「邀請碼無效或已過期」原樣傳遞 |
+| `households-create-missing-name.json` | `POST /households {name: "  "}` | 400 | 「請輸入家庭名稱」原樣傳遞 |
+| `households-create.json` | `POST /households {name: "iOS 測試家庭"}`,測試帳號自己建立 | 201 | 我是管理員 |
+| `households-current.json` | `GET /households/current`,上面那個家庭群組 | 200 | 成員名冊：`user_id`、`role`、`joined_at`(UTC 的 `YYYY-MM-DD HH:MM:SS`)、`name`、`email` |
+| `households-invite.json` | `POST /households/invite` | 200 | `code` 是 `FAM-XXXX`,`expires_at` 是有毫秒的 ISO 8601 |
+| `households-join-already-member.json` | 已經在家庭群組裡時 `POST /households/join` | 400 | 「你已經加入家庭群組，無法重複加入」原樣傳遞 |
+| `households-remove-self.json` | 管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
+| `households-leave.json` | `DELETE /households/leave`。測試帳號是唯一的成員，離開後後端會刪掉整個家庭群組 | 200 | 只回 `{success, message}`,沒有 `data` |
+| `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 | `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
@@ -104,3 +114,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 2026-09-28 用 `POST /auth/register` 註冊測試帳號時，當時的腳本沒有先建立 `Fixtures/` 目錄，後端回了成功(429 bytes),回應卻沒寫進檔案。註冊同一個 email 只能成功一次，之後只會回 409「此 Email 已被使用」。腳本已經修正成先確認寫得進檔案再打 API。
 
 要補錄註冊成功的回應，得再註冊一個專用 email,需要維護者同意。在那之前，註冊成功的解碼測試沿用 `auth-login-success.json`:後端 `/auth/register` 與 `/auth/login` 回傳的 `data` 形狀相同(`{token, user: {id, email, name}}`)。
+
+### 從缺:加入家庭成功、移除成員成功
+
+兩者都需要第二個帳號:加入得有別人的邀請碼，移除得有另一位一般成員。測試帳號只能加入自己建立的測試家庭，註冊第二個帳號需要維護者同意，所以沒有錄。
+
+- `POST /households/join` 成功時，iOS 只看 `success`,不讀 `data`。
+- `DELETE /households/members/:userId` 成功時回 `{success, message}`,形狀跟 `households-leave.json` 一樣。

@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 帳號 sheet:名稱與 email、家庭、機器人記帳、登出(ADR-0003)。
 struct AccountSheet: View {
+    let household: HouseholdModel
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
@@ -23,7 +24,7 @@ struct AccountSheet: View {
 
                 Section {
                     NavigationLink("家庭") {
-                        ComingSoonView(title: "家庭")
+                        HouseholdScreen(model: household)
                     }
                     NavigationLink("機器人記帳") {
                         ComingSoonView(title: "機器人記帳")
