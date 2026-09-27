@@ -13,13 +13,13 @@ struct AccountEditorTests {
         AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion, randomColor: { "#95E1D3" })
     }
 
-    @Test("新增銀行存款帳戶的預設值：餘額 0、沒有信用卡欄位、隨機代表色")
+    @Test("新增銀行存款帳戶的預設值：餘額空白(存成 0)、沒有信用卡欄位、隨機代表色")
     func bankDefaults() {
         let editor = adding(.bank)
 
         #expect(editor.title == "新增銀行存款帳戶")
         #expect(editor.amountLabel == "餘額")
-        #expect(editor.amountText == "0")
+        #expect(editor.amountText == "")
         #expect(editor.creditLimitText == "")
         #expect(editor.statementDay == nil)
         #expect(editor.paymentDueDay == nil)
@@ -27,14 +27,14 @@ struct AccountEditorTests {
         #expect(editor.canChangeKind)
     }
 
-    @Test("新增信用卡的預設值：已出帳與未出帳 0、額度 100000、結帳日 15、繳款日 5")
+    @Test("新增信用卡的預設值：已出帳與未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
     func creditCardDefaults() {
         let editor = adding(.creditCard)
 
         #expect(editor.title == "新增信用卡")
         #expect(editor.amountLabel == "已出帳待繳金額")
-        #expect(editor.amountText == "0")
-        #expect(editor.unbilledText == "0")
+        #expect(editor.amountText == "")
+        #expect(editor.unbilledText == "")
         #expect(editor.creditLimitText == "100000")
         #expect(editor.statementDay == 15)
         #expect(editor.paymentDueDay == 5)
