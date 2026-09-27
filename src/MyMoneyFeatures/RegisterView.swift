@@ -4,6 +4,7 @@ import SwiftUI
 struct RegisterView: View {
     @Bindable var model: RegisterModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.suggestsStrongPasswords) private var suggestsStrongPasswords
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -48,14 +49,14 @@ struct RegisterView: View {
                     .accessibilityIdentifier("register.email")
 
                 SecureField("密碼", text: $model.password, prompt: Text("至少 6 個字元"))
-                    .textContentType(.newPassword)
+                    .textContentType(suggestsStrongPasswords ? .newPassword : nil)
                     .focused($focusedField, equals: .password)
                     .submitLabel(.next)
                     .onSubmit { focusedField = .confirmation }
                     .accessibilityIdentifier("register.password")
 
                 SecureField("確認密碼", text: $model.confirmation, prompt: Text("再輸入一次密碼"))
-                    .textContentType(.newPassword)
+                    .textContentType(suggestsStrongPasswords ? .newPassword : nil)
                     .focused($focusedField, equals: .confirmation)
                     .submitLabel(.go)
                     .onSubmit(submit)

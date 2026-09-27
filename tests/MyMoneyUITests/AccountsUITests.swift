@@ -26,10 +26,12 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "額度不足").exists, "小額卡沒有顯示剩餘額度不足的警示")
     }
 
+    @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
+    @MainActor
     private func signIn(_ app: XCUIApplication) {
         let email = app.textFields["login.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")

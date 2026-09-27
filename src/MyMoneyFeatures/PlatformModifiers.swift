@@ -1,5 +1,13 @@
 import SwiftUI
 
+extension EnvironmentValues {
+    /// 新密碼欄位是否讓密碼管理工具建議高強度密碼(`textContentType(.newPassword)`,預設開啟)。
+    ///
+    /// 只有 `-uiTesting` 的 composition root 會關掉：模擬器的自動填入會吃掉 `typeText` 輸入的字元
+    /// (CI 上實測，密碼欄位只收到 1 個字元)。
+    @Entry public var suggestsStrongPasswords = true
+}
+
 /// 只有 iOS 才有的 modifier。`swift test` 會在 macOS 上編譯 Features,所以集中在這裡用 `#if os(iOS)` 包起來。
 extension View {
     /// Email 欄位的鍵盤:email 鍵盤、不自動大寫。
