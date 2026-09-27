@@ -43,8 +43,10 @@ final class AccountsUITests: XCTestCase {
         name.tap()
         name.typeText("UI 測試帳戶")
         let amount = app.textFields["accountEditor.amount"]
-        amount.tap()
+        // 金額欄靠右對齊，點中間游標會停在預設的「0」前面(CI 上變成 12340),所以點最右邊。
+        amount.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
         amount.typeText(XCUIKeyboardKey.delete.rawValue + "1234")
+        XCTAssertEqual(amount.value as? String, "1234", "金額欄沒有改成 1234")
         app.buttons["accountEditor.save"].tap()
 
         let row = element(in: app, labelContaining: "UI 測試帳戶,餘額 1,234 元")

@@ -49,14 +49,14 @@ struct RegisterView: View {
                     .accessibilityIdentifier("register.email")
 
                 SecureField("密碼", text: $model.password, prompt: Text("至少 6 個字元"))
-                    .textContentType(suggestsStrongPasswords ? .newPassword : nil)
+                    .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
                     .focused($focusedField, equals: .password)
                     .submitLabel(.next)
                     .onSubmit { focusedField = .confirmation }
                     .accessibilityIdentifier("register.password")
 
                 SecureField("確認密碼", text: $model.confirmation, prompt: Text("再輸入一次密碼"))
-                    .textContentType(suggestsStrongPasswords ? .newPassword : nil)
+                    .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
                     .focused($focusedField, equals: .confirmation)
                     .submitLabel(.go)
                     .onSubmit(submit)
