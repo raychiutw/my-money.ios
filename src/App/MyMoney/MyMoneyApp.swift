@@ -12,6 +12,8 @@ struct MyMoneyApp: App {
     private let session: AppSession
     private let login: LoginModel
     private let register: RegisterModel
+    /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
+    private let suggestsStrongPasswords: Bool
 
     init() {
         #if DEBUG
@@ -28,6 +30,7 @@ struct MyMoneyApp: App {
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
+            suggestsStrongPasswords = false
             return
         }
         #endif
@@ -37,12 +40,14 @@ struct MyMoneyApp: App {
         let auth = LiveAuthRepository(client: client)
         login = LoginModel(auth: auth, session: session)
         register = RegisterModel(auth: auth, session: session)
+        suggestsStrongPasswords = true
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(login: login, register: register)
                 .environment(session)
+                .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
         }
     }
 }
