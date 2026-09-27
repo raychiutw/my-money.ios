@@ -98,6 +98,6 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 ## App icon
 
-- 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。
-- 系統會自動產生深色、clear、tinted 變體。
+- 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。素材、設計說明和授權聲明在 `design/app-icon/`。
+- 深色外觀另外指定顏色：書用 `#FF8A8A`,愛心用 `#FFB3B3`。clear 和 tinted 變體由系統自動產生。
 - SF Symbols 的授權不允許用在 app icon。
