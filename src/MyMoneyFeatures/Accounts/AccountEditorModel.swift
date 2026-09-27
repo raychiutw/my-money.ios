@@ -62,7 +62,6 @@ public final class AccountEditorModel {
         isJointFund = false
         self.repository = repository
         self.dataVersion = dataVersion
-        amountText = "0"
         applyDefaults(for: kind)
     }
 
@@ -136,9 +135,10 @@ public final class AccountEditorModel {
         }
     }
 
-    /// 新增時各類型的預設值(web 的 handleOpenAdd)。
+    /// 新增時各類型的預設值(web 的 handleOpenAdd)。web 預填的金額「0」在 iOS 是 placeholder,
+    /// 欄位留空，存的時候一樣是 0:預填的「0」會讓游標停在 0 前面，輸入的數字接在 0 前面。
     private func applyDefaults(for kind: AccountKind) {
-        unbilledText = "0"
+        unbilledText = ""
         switch kind {
         case .bank:
             creditLimitText = ""
