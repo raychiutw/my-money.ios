@@ -26,7 +26,10 @@ final class OverviewUITests: XCTestCase {
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "當月淨收支 43,750 元").waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
-        XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").exists, "記一筆後最近交易沒有更新")
+        // 最近交易在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let recent = element(in: app, labelContaining: "支出 250 元")
+        for _ in 0..<5 where !recent.exists { app.swipeUp() }
+        XCTAssertTrue(recent.exists, "記一筆後最近交易沒有更新")
 
         let showAll = app.buttons["查看全部"]
         for _ in 0..<5 where !showAll.isHittable { app.swipeUp() }

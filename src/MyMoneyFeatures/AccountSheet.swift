@@ -24,9 +24,11 @@ struct AccountSheet: View {
                 }
 
                 Section {
+                    // 總覽的視角切換也有「家庭」,UI 測試用 identifier 分辨。
                     NavigationLink("家庭") {
                         HouseholdScreen(model: household)
                     }
+                    .accessibilityIdentifier("account.household")
                     NavigationLink("機器人記帳") {
                         BotScreen(model: bot)
                     }
