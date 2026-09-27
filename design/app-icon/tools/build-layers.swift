@@ -35,7 +35,7 @@ let appIconDir = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()  // tools/
     .deletingLastPathComponent()  // app-icon/
 let upstreamSVG = appIconDir.appendingPathComponent("upstream/lucide-book-heart.svg")
-let assetsDir = appIconDir.appendingPathComponent("AppIcon.icon/Assets")
+let assetsDir = appIconDir.appendingPathComponent("../../src/App/MyMoney/AppIcon.icon/Assets").standardizedFileURL
 
 // MARK: - 讀取 lucide 的 path
 

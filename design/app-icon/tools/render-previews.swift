@@ -21,7 +21,7 @@ import UniformTypeIdentifiers
 let appIconDir = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()  // tools/
     .deletingLastPathComponent()  // app-icon/
-let iconDocument = appIconDir.appendingPathComponent("AppIcon.icon")
+let iconDocument = appIconDir.appendingPathComponent("../../src/App/MyMoney/AppIcon.icon").standardizedFileURL
 let previewDir = appIconDir.appendingPathComponent("preview")
 
 /// (ictool 的 rendition 名稱, 輸出檔名, 是否為深色外觀)

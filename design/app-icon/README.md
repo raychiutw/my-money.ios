@@ -2,7 +2,7 @@
 
 「我的記帳本」iOS 版的 app icon(#17)。以 web 版 sidebar 上的 lucide `BookHeart` 圖示和品牌粉 `#FF8A8A` 為基礎，做成 Icon Composer 的 Liquid Glass 分層 icon。規範見 `DESIGN.md`「App icon」一節。
 
-**狀態**:素材完成，**等使用者審核外觀**。還沒接到 app target,要等 #4 建好 Xcode 專案後再接，步驟見下方〈接到 app target〉。
+**狀態**:素材完成，已接到 app target,**等使用者審核外觀**。
 
 ## 預覽
 
@@ -70,13 +70,14 @@
 ## 檔案
 
 ```text
+src/App/MyMoney/AppIcon.icon/  # Icon Composer 文件(資料夾 bundle),放在 app 的 buildable folder
+├── icon.json                  # 背景、group、Liquid Glass 效果、各外觀的顏色
+└── Assets/
+    ├── 1-book.svg             # 由 tools/build-layers.swift 產生
+    └── 2-heart.svg            # 由 tools/build-layers.swift 產生
+
 design/app-icon/
 ├── README.md
-├── AppIcon.icon/              # Icon Composer 文件(資料夾 bundle),之後整包搬進 app target
-│   ├── icon.json              # 背景、group、Liquid Glass 效果、各外觀的顏色
-│   └── Assets/
-│       ├── 1-book.svg         # 由 tools/build-layers.swift 產生
-│       └── 2-heart.svg        # 由 tools/build-layers.swift 產生
 ├── upstream/
 │   └── lucide-book-heart.svg  # lucide 原檔，未修改
 ├── tools/
@@ -98,7 +99,7 @@ swift design/app-icon/tools/render-previews.swift
 
 # 3. 用 actool 編譯一次，確認 Xcode 讀得懂(會實際產出 Assets.car)
 mkdir -p /tmp/appicon-check
-xcrun actool design/app-icon/AppIcon.icon --compile /tmp/appicon-check \
+xcrun actool src/App/MyMoney/AppIcon.icon --compile /tmp/appicon-check \
   --platform iphoneos --minimum-deployment-target 26.0 --app-icon AppIcon \
   --target-device iphone --target-device ipad \
   --output-partial-info-plist /tmp/appicon-check/partial.plist \
@@ -109,19 +110,12 @@ xcrun actool design/app-icon/AppIcon.icon --compile /tmp/appicon-check \
 - `ictool` 只負責算圖，不做驗證:`image-name` 指向不存在的檔案時，它照樣回傳成功。**驗證要用第 3 步的 `actool`**。它遇到壞掉的 `icon.json` 會報錯，而且不產出任何檔案。
 - 要微調 Liquid Glass 效果時，可以用 Icon Composer 打開 `AppIcon.icon`。存檔後 `icon.json` 可能會被重新排版，這是正常的。之後重跑 `build-layers.swift` 只會覆寫 `Assets/` 裡的兩個 SVG,不會動到 `icon.json`。
 
-## 接到 app target(等 #4 合併後)
+## 接到 app target(已完成)
 
-1. 把 `.icon` 搬進 app 的 buildable folder。Xcode 會自動把它加進 target:
-
-   ```bash
-   git mv design/app-icon/AppIcon.icon src/App/MyMoney/AppIcon.icon
-   ```
-
-   接著把 `tools/build-layers.swift` 的 `assetsDir`、`tools/render-previews.swift` 的 `iconDocument` 改成新位置。
-2. 在 app target 的 General › App Icons and Launch Screen,確認 App Icon 欄位是 `AppIcon`(也就是 build setting `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`)。這個名稱必須和 `.icon` 的檔名(不含副檔名)一致。
-3. 如果 Xcode 範本在 `Assets.xcassets` 裡建立了空的 `AppIcon.appiconset`,把它刪掉。新版 Xcode 會優先使用 Icon Composer 文件，留著 appiconset 只會造成混淆。
-4. 用 `xcodebuild` 建置，確認零 warning。然後在 iPhone 17 模擬器的主畫面，檢查 default、dark、clear、tinted 四種外觀(長按主畫面 › 編輯 › 自訂)。
-5. 在 PR 附上模擬器主畫面的截圖。使用者同意後才關閉 #17。
+- `AppIcon.icon` 放在 app 的 buildable folder(`src/App/MyMoney/`),Xcode 會自動把它加進 target。兩支 script 的路徑已經指到這個位置。
+- app target 的 build setting 是 `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`,這個名稱必須和 `.icon` 的檔名(不含副檔名)一致。
+- `Assets.xcassets` 裡沒有 `AppIcon.appiconset`,不要再加。新版 Xcode 會優先使用 Icon Composer 文件，同時存在只會造成混淆。
+- 外觀要等使用者審核同意後，才關閉 #17。
 
 ## 授權
 
