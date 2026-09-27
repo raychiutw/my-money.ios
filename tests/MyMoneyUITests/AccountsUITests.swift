@@ -62,10 +62,12 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
+    @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
+    @MainActor
     private func signIn(_ app: XCUIApplication) {
         let email = app.textFields["login.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")

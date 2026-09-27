@@ -13,6 +13,8 @@ struct MyMoneyApp: App {
     private let login: LoginModel
     private let register: RegisterModel
     private let signedIn: SignedInScreens
+    /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
+    private let suggestsStrongPasswords: Bool
 
     init() {
         #if DEBUG
@@ -34,6 +36,7 @@ struct MyMoneyApp: App {
                 let dataVersion = DataVersion()
                 return MainScreens(accounts: AccountsModel(repository: accounts, dataVersion: dataVersion))
             }
+            suggestsStrongPasswords = false
             return
         }
         #endif
@@ -50,12 +53,14 @@ struct MyMoneyApp: App {
             let dataVersion = DataVersion()
             return MainScreens(accounts: AccountsModel(repository: accounts, dataVersion: dataVersion))
         }
+        suggestsStrongPasswords = true
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
+                .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
         }
     }
 }
