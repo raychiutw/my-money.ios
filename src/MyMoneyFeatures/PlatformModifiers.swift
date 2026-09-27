@@ -3,8 +3,10 @@ import SwiftUI
 extension EnvironmentValues {
     /// 新密碼欄位是否讓密碼管理工具建議高強度密碼(`textContentType(.newPassword)`,預設開啟)。
     ///
-    /// 只有 `-uiTesting` 的 composition root 會關掉：模擬器的自動填入會吃掉 `typeText` 輸入的字元
-    /// (CI 上實測，密碼欄位只收到 1 個字元)。
+    /// 只有 `-uiTesting` 的 composition root 會關掉。CI 的錄影顯示：點密碼欄位後出現的是系統的
+    /// 「Use Strong Password?」sheet,鍵盤不會出現，`typeText` 只送得進 1 個字元。
+    /// 只拿掉 `.newPassword` 不夠，因為系統還會用 heuristics 認出註冊表單;關掉時改標成
+    /// `.oneTimeCode`,讓系統不把它當成密碼欄位。
     @Entry public var suggestsStrongPasswords = true
 }
 
