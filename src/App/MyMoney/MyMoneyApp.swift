@@ -1,7 +1,10 @@
 import MyMoneyAPI
 import MyMoneyFeatures
-import MyMoneyTestSupport
 import SwiftUI
+#if DEBUG
+// 只有 Debug 的 `-uiTesting` 會用到 in-memory repository;Release(TestFlight)不引用。
+import MyMoneyTestSupport
+#endif
 
 /// 唯一的 composition root:依啟動參數組裝 live 依賴或 UI 測試用的 in-memory 依賴。
 @main
