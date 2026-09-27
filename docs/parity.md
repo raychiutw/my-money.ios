@@ -2,7 +2,7 @@
 
 **基準**:[`onion523/my-money@79edd20`](https://github.com/onion523/my-money/tree/79edd20)(2026-09-28)。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。沒特別註明版本的行號，指的是舊基準 `43a205d`。
 
-**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。舊基準的問題回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1);`79edd20` 之後仍存在的問題，另外再回報。
+**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。舊基準的問題回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1);`79edd20` 之後仍存在的問題和新發現，回報於 [onion523/my-money#2](https://github.com/onion523/my-money/issues/2)。
 
 **詞彙**:以 `CONTEXT.md` 為準(它跟隨 web 的 `CONTEXT.md`)。UI 文字一律用 `CONTEXT.md` 的詞，本檔引用的 web 畫面文字只用來說明 web 的現況。
 
