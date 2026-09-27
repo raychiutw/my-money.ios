@@ -51,6 +51,11 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資金帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
 | `accounts-delete.json` | `DELETE /accounts/:id`,刪除上面那個暫時帳戶 | 200 | `{success, data: null}` 視為成功 |
 | `accounts-delete-not-found.json` | 再刪一次同一個 id | 404 | 「帳戶不存在」原樣傳遞 |
+| `transactions-create-shared-expense.json` | `POST /transactions`,「iOS 測試存款」家庭公帳支出 餐飲 120「午餐」 | 201 | 記一筆成功 |
+| `transactions-create-private-expense.json` | `POST /transactions`,「iOS 測試信用卡」個人私帳支出 購物 880「耳機」 | 201 | 記一筆成功 |
+| `transactions-create-income.json` | `POST /transactions`,「iOS 測試存款」收入 薪資 45000 | 201 | 記一筆成功 |
+| `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
+| `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
 

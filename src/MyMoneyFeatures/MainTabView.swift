@@ -10,9 +10,7 @@ struct MainTabView: View {
                 OverviewScreen()
             }
             Tab("交易", systemImage: "list.bullet.rectangle") {
-                NavigationStack {
-                    ComingSoonView(title: "交易")
-                }
+                TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
             }
             Tab("帳戶", systemImage: "creditcard") {
                 AccountsScreen(model: screens.accounts)

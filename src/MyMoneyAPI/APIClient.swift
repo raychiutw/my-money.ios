@@ -31,8 +31,8 @@ public struct APIClient: Sendable {
     }
 
     /// 送出 GET,並取出 `{success, data}` 裡的 `data`。
-    package func get<Payload: Decodable>(_ path: String) async throws -> Payload {
-        let data = try await perform("GET", path, body: nil)
+    package func get<Payload: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Payload {
+        let data = try await perform("GET", path, query: query, body: nil)
         return try decodeData(data)
     }
 
@@ -54,8 +54,12 @@ public struct APIClient: Sendable {
     }
 
     /// 送出請求並檢查 envelope 的 `success`;回傳原始 body,讓呼叫端解自己的 `data`。
-    private func perform(_ method: String, _ path: String, body: Data?) async throws -> Data {
-        var request = URLRequest(url: baseURL.appending(path: path))
+    private func perform(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?) async throws -> Data {
+        var url = baseURL.appending(path: path)
+        if !query.isEmpty {
+            url.append(queryItems: query)
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body

@@ -30,9 +30,9 @@ struct MyMoneyApp: App {
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
             let accounts = InMemoryAccountRepository.sample()
+            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday())
             signedIn = SignedInScreens {
-                let dataVersion = DataVersion()
-                return MainScreens(accounts: AccountsModel(repository: accounts, dataVersion: dataVersion))
+                MainScreens(accountRepository: accounts, transactionRepository: transactions)
             }
             return
         }
@@ -44,11 +44,11 @@ struct MyMoneyApp: App {
         login = LoginModel(auth: auth, session: session)
         register = RegisterModel(auth: auth, session: session)
         let accounts = LiveAccountRepository(client: client)
-        // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`)。
+        let transactions = LiveTransactionRepository(client: client)
+        // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
         signedIn = SignedInScreens {
-            let dataVersion = DataVersion()
-            return MainScreens(accounts: AccountsModel(repository: accounts, dataVersion: dataVersion))
+            MainScreens(accountRepository: accounts, transactionRepository: transactions)
         }
     }
 

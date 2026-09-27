@@ -5,9 +5,28 @@ import Observation
 @MainActor
 public struct MainScreens {
     public let accounts: AccountsModel
+    public let transactions: TransactionsModel
 
-    public init(accounts: AccountsModel) {
+    /// 「記一筆」:每個 session 一份，讓下一筆沿用上一筆的選擇。
+    public let quickEntry: QuickEntryModel
+
+    public init(accounts: AccountsModel, transactions: TransactionsModel, quickEntry: QuickEntryModel) {
         self.accounts = accounts
+        self.transactions = transactions
+        self.quickEntry = quickEntry
+    }
+
+    /// 用同一份資料版本組出這個 session 的所有畫面 model。
+    public init(
+        accountRepository: any AccountRepository,
+        transactionRepository: any TransactionRepository
+    ) {
+        let dataVersion = DataVersion()
+        self.init(
+            accounts: AccountsModel(repository: accountRepository, dataVersion: dataVersion),
+            transactions: TransactionsModel(repository: transactionRepository, dataVersion: dataVersion),
+            quickEntry: QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
+        )
     }
 }
 
