@@ -14,7 +14,12 @@ struct TransactionsScreen: View {
         NavigationStack {
             content
                 .navigationTitle("交易")
+                // 搜尋欄一直顯示在標題下方。iOS 26 起在 TabView 裡用預設位置時，CI 的 UI 階層裡找不到搜尋欄。
+                #if os(iOS)
+                .searchable(text: $model.keyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋備註、分類、帳戶或記帳人")
+                #else
                 .searchable(text: $model.keyword, prompt: "搜尋備註、分類、帳戶或記帳人")
+                #endif
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -91,7 +96,9 @@ struct TransactionsScreen: View {
                 }
                 .pickerStyle(.segmented)
                 DatePicker("起日", selection: dayBinding(\.from), displayedComponents: .date)
+                    .calendarDayTimeZone()
                 DatePicker("迄日", selection: dayBinding(\.to), displayedComponents: .date)
+                    .calendarDayTimeZone()
                 Picker("類型", selection: $model.typeFilter) {
                     Text("全部類型").tag(TransactionsModel.TypeFilter.all)
                     Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
