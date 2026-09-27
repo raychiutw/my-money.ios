@@ -2,7 +2,7 @@
 
 **基準**:[`onion523/my-money@43a205d`](https://github.com/onion523/my-money/tree/43a205d4366337fbec9d672cfc49e27b4f2cf48c)(2026-09-27)。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。
 
-**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。
+**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。截至基準版本，已經彙整回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1)。
 
 ## 全域
 
