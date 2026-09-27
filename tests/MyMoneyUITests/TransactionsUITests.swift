@@ -29,7 +29,10 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
-    /// 點一筆交易紀錄編輯金額;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
+    /// 點一筆交易紀錄編輯歸屬;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
+    ///
+    /// 編輯改的是歸屬，不是金額：靠右對齊的 SwiftUI TextField 第一次點下去，游標一律停在原本的數字前面，
+    /// 用 typeText 取代原值不可靠(CI 錄影)。金額的編輯由 `TransactionEditorTests` 驗證。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
         let app = XCUIApplication()
@@ -40,15 +43,14 @@ final class TransactionsUITests: XCTestCase {
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         headphones.tap()
-        let amount = app.textFields["quickEntry.amount"]
-        XCTAssertTrue(amount.waitForExistence(timeout: 3))
-        // 金額欄靠右對齊，點中間游標會停在原本的數字前面，所以點最右邊。
-        amount.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
-        amount.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "990")
-        XCTAssertEqual(amount.value as? String, "990", "金額欄沒有改成 990")
+        let shared = app.buttons["家庭公帳"]
+        XCTAssertTrue(shared.waitForExistence(timeout: 3))
+        shared.tap()
         app.buttons["quickEntry.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "支出 990 元").waitForExistence(timeout: 5), "編輯後金額沒有更新")
+        // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
+        XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
         let lunch = element(in: app, labelContaining: "支出 120 元")
         lunch.swipeLeft()
@@ -64,7 +66,7 @@ final class TransactionsUITests: XCTestCase {
         search.tap()
         search.typeText("薪資")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").waitForExistence(timeout: 3))
-        XCTAssertFalse(element(in: app, labelContaining: "支出 990 元").exists, "搜尋後還看得到不符合的紀錄")
+        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "搜尋後還看得到不符合的紀錄")
     }
 
     @MainActor
