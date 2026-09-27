@@ -48,6 +48,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-credit-card-low-limit.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試小額卡」(已出帳 8000、未出帳 5000、額度 20000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-list.json` | `GET /accounts`,上面三個資金帳戶建立之後 | 200 | snake_case;`balance` 依類型拆成餘額或已出帳待繳金額;含 `is_joint`、`shared_debt`、`personal_debt` |
 | `accounts-balance.json` | `GET /accounts/balance`,同上 | 200 | camelCase 的資金指標(淨可用資產 21500) |
+| `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資金帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
+| `accounts-delete.json` | `DELETE /accounts/:id`,刪除上面那個暫時帳戶 | 200 | `{success, data: null}` 視為成功 |
+| `accounts-delete-not-found.json` | 再刪一次同一個 id | 404 | 「帳戶不存在」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
 

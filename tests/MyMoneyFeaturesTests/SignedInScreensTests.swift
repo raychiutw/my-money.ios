@@ -11,7 +11,7 @@ struct SignedInScreensTests {
     }
 
     private func makeScreens() -> SignedInScreens {
-        SignedInScreens { MainScreens(accounts: AccountsModel(repository: InMemoryAccountRepository.sample())) }
+        SignedInScreens { MainScreens(accounts: AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())) }
     }
 
     @Test("同一個人的 session 更新時，沿用同一份畫面(不重抓資料)")

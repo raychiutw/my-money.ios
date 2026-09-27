@@ -48,6 +48,11 @@ public struct APIClient: Sendable {
         _ = try await perform(method, path, body: nil)
     }
 
+    /// 送出帶 body、但不需要回傳內容的請求(例如新增後由資料版本機制重抓，不讀回應)。
+    package func send(_ method: String, _ path: String, body: some Encodable) async throws {
+        _ = try await perform(method, path, body: try JSONEncoder().encode(body))
+    }
+
     /// 送出請求並檢查 envelope 的 `success`;回傳原始 body,讓呼叫端解自己的 `data`。
     private func perform(_ method: String, _ path: String, body: Data?) async throws -> Data {
         var request = URLRequest(url: baseURL.appending(path: path))

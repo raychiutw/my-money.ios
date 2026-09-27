@@ -18,6 +18,67 @@ public struct LiveAccountRepository: AccountRepository {
         let dto: BalanceSummaryDTO = try await client.get("/accounts/balance")
         return dto.summary
     }
+
+    public func create(_ draft: AccountDraft) async throws {
+        try await client.send("POST", "/accounts", body: AccountBody(draft))
+    }
+
+    public func update(_ id: AccountID, with draft: AccountDraft) async throws {
+        try await client.send("PUT", "/accounts/\(id.rawValue)", body: AccountBody(draft))
+    }
+
+    public func delete(_ id: AccountID) async throws {
+        try await client.send("DELETE", "/accounts/\(id.rawValue)")
+    }
+}
+
+/// `POST` 與 `PUT /accounts` 的 body。
+///
+/// 銀行存款帳戶不送信用額度與日期(`nil` 不會被編碼);`is_joint` 一定要送，
+/// 因為後端的 PUT 沒收到時會寫成 0,把家庭共同基金的標記清掉。
+private struct AccountBody: Encodable {
+    let type: String
+    let name: String
+    let balance: Decimal
+    let unbilled: Decimal
+    let creditLimit: Decimal?
+    let statementDay: Int?
+    let paymentDueDay: Int?
+    let color: String
+    let isJoint: Int
+
+    enum CodingKeys: String, CodingKey {
+        case type, name, balance, unbilled, color
+        case creditLimit = "credit_limit"
+        case statementDay = "statement_day"
+        case paymentDueDay = "payment_due_day"
+        case isJoint = "is_joint"
+    }
+
+    init(_ draft: AccountDraft) {
+        switch draft {
+        case .bank(let bank):
+            type = "bank"
+            name = bank.name
+            balance = bank.balance.amount
+            unbilled = 0
+            creditLimit = nil
+            statementDay = nil
+            paymentDueDay = nil
+            color = bank.colorHex
+            isJoint = bank.isJointFund ? 1 : 0
+        case .creditCard(let card):
+            type = "credit_card"
+            name = card.name
+            balance = card.billedDebt.amount
+            unbilled = card.unbilledDebt.amount
+            creditLimit = card.creditLimit?.amount
+            statementDay = card.statementDay
+            paymentDueDay = card.paymentDueDay
+            color = card.colorHex
+            isJoint = 0
+        }
+    }
 }
 
 /// `GET /accounts` 的一筆:資料表欄位，所以是 snake_case。

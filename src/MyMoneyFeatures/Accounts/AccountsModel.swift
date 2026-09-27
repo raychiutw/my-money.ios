@@ -18,10 +18,46 @@ public final class AccountsModel {
     public private(set) var creditCards: [CreditCard] = []
     private var summary: BalanceSummary?
 
-    @ObservationIgnored private let repository: any AccountRepository
+    /// 刪除失敗時顯示的訊息(alert)。
+    public var alertMessage: String?
 
-    public init(repository: any AccountRepository) {
+    @ObservationIgnored private let repository: any AccountRepository
+    @ObservationIgnored public let dataVersion: DataVersion
+
+    public init(repository: any AccountRepository, dataVersion: DataVersion) {
         self.repository = repository
+        self.dataVersion = dataVersion
+    }
+
+    /// 上一次載入時的資料版本;跟目前的版本不同時就要重抓。
+    @ObservationIgnored private var loadedVersion: Int?
+
+    public func deleteConfirmation(for account: Account) -> String {
+        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
+    }
+
+    /// 刪除資金帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
+    public func delete(_ account: Account) async {
+        do {
+            try await repository.delete(account.id)
+            dataVersion.bump()
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    /// 資料版本在上一次載入之後改變過，才重新載入。
+    public func refreshIfStale() async {
+        guard loadedVersion != dataVersion.value else { return }
+        await load()
+    }
+
+    public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
+        AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion)
+    }
+
+    public func makeEditor(editing account: Account) -> AccountEditorModel {
+        AccountEditorModel(editing: account, repository: repository, dataVersion: dataVersion)
     }
 
     /// 銀行存款帳戶的餘額合計;還沒載入時是 `nil`。
@@ -40,6 +76,7 @@ public final class AccountsModel {
 
     /// 載入資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
+        let version = dataVersion.value
         do {
             async let accounts = repository.accounts()
             async let summary = repository.balanceSummary()
@@ -47,6 +84,7 @@ public final class AccountsModel {
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
+            loadedVersion = version
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)

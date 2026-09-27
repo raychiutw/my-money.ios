@@ -7,6 +7,18 @@ public actor InMemoryAccountRepository: AccountRepository {
     private var failure: RepositoryError?
     private let gate: Gate?
 
+    /// 新增過的內容，依送出順序。
+    public private(set) var createdDrafts: [AccountDraft] = []
+
+    /// 最後一次編輯的內容，依資金帳戶。
+    public private(set) var updatedDrafts: [AccountID: AccountDraft] = [:]
+
+    /// 刪除過的資金帳戶，依刪除順序。
+    public private(set) var deletedIDs: [AccountID] = []
+
+    /// `accounts()` 被呼叫的次數，用來確認有沒有重抓。
+    public private(set) var fetchCount = 0
+
     public init(accounts: [Account], summary: BalanceSummary, gate: Gate? = nil) {
         storedAccounts = accounts
         self.summary = summary
@@ -15,6 +27,7 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     public func accounts() async throws -> [Account] {
         await gate?.pass()
+        fetchCount += 1
         if let failure { throw failure }
         return storedAccounts
     }
@@ -23,6 +36,45 @@ public actor InMemoryAccountRepository: AccountRepository {
         await gate?.pass()
         if let failure { throw failure }
         return summary
+    }
+
+    public func create(_ draft: AccountDraft) async throws {
+        if let failure { throw failure }
+        createdDrafts.append(draft)
+        storedAccounts.append(Self.account(AccountID("in-memory-account-\(createdDrafts.count)"), from: draft))
+    }
+
+    public func update(_ id: AccountID, with draft: AccountDraft) async throws {
+        if let failure { throw failure }
+        updatedDrafts[id] = draft
+        storedAccounts = storedAccounts.map { $0.id == id ? Self.account(id, from: draft) : $0 }
+    }
+
+    public func delete(_ id: AccountID) async throws {
+        if let failure { throw failure }
+        deletedIDs.append(id)
+        storedAccounts.removeAll { $0.id == id }
+    }
+
+    /// 後端建立或更新後的資金帳戶(不重算資金指標)。
+    private static func account(_ id: AccountID, from draft: AccountDraft) -> Account {
+        switch draft {
+        case .bank(let bank):
+            .bank(BankAccount(
+                id: id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance, isJointFund: bank.isJointFund
+            ))
+        case .creditCard(let card):
+            .creditCard(CreditCard(
+                id: id,
+                name: card.name,
+                colorHex: card.colorHex,
+                billedDebt: card.billedDebt,
+                unbilledDebt: card.unbilledDebt,
+                creditLimit: card.creditLimit,
+                statementDay: card.statementDay,
+                paymentDueDay: card.paymentDueDay
+            ))
+        }
     }
 
     /// 之後的請求都以這個錯誤失敗。
