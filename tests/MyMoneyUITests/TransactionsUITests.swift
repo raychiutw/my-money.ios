@@ -18,6 +18,11 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易紀錄")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
+        // 迄日是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
+        XCTAssertTrue(
+            app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
+            "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
+        )
 
         app.buttons["transactions.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -27,6 +32,14 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
+    }
+
+    /// 台灣時間的今天，格式跟 DatePicker 的值一樣，例如「2026年9月28日」。
+    private static func taipeiToday() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let day = calendar.dateComponents([.year, .month, .day], from: .now)
+        return "\(day.year!)年\(day.month!)月\(day.day!)日"
     }
 
     @MainActor

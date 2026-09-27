@@ -49,7 +49,9 @@ struct TransactionsScreen: View {
                 }
                 .pickerStyle(.segmented)
                 DatePicker("起日", selection: dayBinding(\.from), displayedComponents: .date)
+                    .calendarDayTimeZone()
                 DatePicker("迄日", selection: dayBinding(\.to), displayedComponents: .date)
+                    .calendarDayTimeZone()
             }
 
             switch model.phase {

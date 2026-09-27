@@ -48,6 +48,7 @@ struct QuickEntryView: View {
                         selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
                         displayedComponents: .date
                     )
+                    .calendarDayTimeZone()
                     TextField("備註(選填)", text: $model.note)
                         .accessibilityIdentifier("quickEntry.note")
                 }
