@@ -52,9 +52,12 @@ public struct CalendarDay: Hashable, Comparable, Sendable {
         CalendarDay(date: now)
     }
 
+    /// 台灣時間。畫面上的 DatePicker 也要用它，不然裝置在別的時區時，`startOfDay` 會顯示成前一天。
+    public static let timeZone = TimeZone(identifier: "Asia/Taipei")!
+
     private static let taipeiCalendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        calendar.timeZone = timeZone
         return calendar
     }()
 
