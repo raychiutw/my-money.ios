@@ -15,7 +15,7 @@ final class HouseholdUITests: XCTestCase {
         signIn(app)
 
         app.buttons["overview.account"].tap()
-        app.buttons["家庭"].tap()
+        app.buttons["account.household"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5), "沒有看到建立家庭")
         XCTAssertFalse(app.buttons["household.create"].isEnabled, "名稱還沒填就能建立")
