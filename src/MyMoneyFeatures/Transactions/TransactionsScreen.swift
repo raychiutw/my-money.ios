@@ -91,7 +91,9 @@ struct TransactionsScreen: View {
                 }
                 .pickerStyle(.segmented)
                 DatePicker("起日", selection: dayBinding(\.from), displayedComponents: .date)
+                    .calendarDayTimeZone()
                 DatePicker("迄日", selection: dayBinding(\.to), displayedComponents: .date)
+                    .calendarDayTimeZone()
                 Picker("類型", selection: $model.typeFilter) {
                     Text("全部類型").tag(TransactionsModel.TypeFilter.all)
                     Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
