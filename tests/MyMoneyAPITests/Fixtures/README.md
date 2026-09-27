@@ -70,6 +70,17 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-delete.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` 視為成功 |
 | `recurring-delete-not-found.json` | 再刪一次同一個 id | 404 | 「項目不存在」原樣傳遞 |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
+| `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
+| `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |
+| `goals-create-emergency.json` | `POST /goals`,🏥「緊急備用金」100000,沒有每月預留與截止日 | 201 | `deadline` 是 `null` |
+| `goals-create-missing-name.json` | `POST /goals`,沒有 `name` | 400 | 「請填寫目標名稱和金額」原樣傳遞 |
+| `goals-deposit.json` | `POST /goals/:id/deposit {amount: 3000}`,存入「沖繩旅遊」 | 200 | 回傳更新後的目標(已存 3000) |
+| `goals-deposit-capped.json` | 用暫時建立的 🎒「iOS 小目標」(目標 1000)存入 5000 | 200 | 後端把已存金額卡在目標金額 1000 |
+| `goals-deposit-invalid.json` | `POST /goals/:id/deposit {amount: 0}` | 400 | 「金額必須大於 0」原樣傳遞 |
+| `goals-list.json` | `GET /goals`,上面三個目標建立並存入之後 | 200 | snake_case;`deadline` 可以是 `null`;含已達成的目標 |
+| `goals-update.json` | `PUT /goals/:id`,改暫時目標(改名、改 emoji、不送 `deadline`),錄完就刪掉 | 200 | 沒送 `deadline` 時後端清成 `null`;已存金額不變(後端的 PUT 不動 `saved_amount`) |
+| `goals-delete.json` | `DELETE /goals/:id`,刪除上面那個暫時目標 | 200 | `{success, data: null}` 視為成功 |
+| `goals-delete-not-found.json` | 再刪一次同一個 id | 404 | 「目標不存在」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
 

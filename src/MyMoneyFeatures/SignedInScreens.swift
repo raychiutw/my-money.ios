@@ -13,17 +13,22 @@ public struct MainScreens {
     /// 規劃 → 固定收支。
     public let recurring: RecurringModel
 
+    /// 規劃 → 儲蓄目標。
+    public let goals: SavingsGoalsModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     public init(
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
-        recurringRepository: any RecurringRepository
+        recurringRepository: any RecurringRepository,
+        savingsGoalRepository: any SavingsGoalRepository
     ) {
         let dataVersion = DataVersion()
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
         transactions = TransactionsModel(repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion)
+        goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
     }
 }
 
