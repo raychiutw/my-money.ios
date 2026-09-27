@@ -41,6 +41,9 @@ struct TransactionPagingTests {
         }
 
         func create(_ draft: TransactionDraft) async throws {}
+        func update(_ id: TransactionID, with draft: TransactionDraft) async throws {}
+        func delete(_ id: TransactionID) async throws {}
+        func exportCSV(from: CalendarDay, to: CalendarDay) async throws -> Data { Data() }
     }
 
     private let september = (CalendarDay(year: 2026, month: 9, day: 1), CalendarDay(year: 2026, month: 9, day: 30))

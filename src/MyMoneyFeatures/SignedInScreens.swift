@@ -24,7 +24,7 @@ public struct MainScreens {
         let dataVersion = DataVersion()
         self.init(
             accounts: AccountsModel(repository: accountRepository, dataVersion: dataVersion),
-            transactions: TransactionsModel(repository: transactionRepository, dataVersion: dataVersion),
+            transactions: TransactionsModel(repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion),
             quickEntry: QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         )
     }

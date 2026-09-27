@@ -56,6 +56,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `transactions-create-income.json` | `POST /transactions`,「iOS 測試存款」收入 薪資 45000 | 201 | 記一筆成功 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
 | `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |
+| `transactions-update.json` | `PUT /transactions/:id`,用暫時記的一筆(改成 75 元、個人私帳),錄完就刪掉 | 200 | 編輯成功 |
+| `transactions-delete.json` | `DELETE /transactions/:id`,刪除上面那筆 | 200 | `{success, data: null}` 視為成功 |
+| `transactions-delete-not-found.json` | 再刪一次同一個 id | 404 | 「紀錄不存在」原樣傳遞 |
+| `export-transactions.csv` | `GET /export/csv?from=2026-09-01&to=2026-09-30` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳(不是 JSON envelope) |
 
 ### 從缺:`auth-register-success.json`
 

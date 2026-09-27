@@ -1,9 +1,20 @@
+import Foundation
+
 /// 交易紀錄(`/transactions`)。
 public protocol TransactionRepository: Sendable {
     /// 一頁交易紀錄，順序照後端(日期由新到舊)。
     func transactions(from: CalendarDay, to: CalendarDay, scope: ViewScope, limit: Int, offset: Int) async throws -> [Transaction]
 
     func create(_ draft: TransactionDraft) async throws
+
+    /// 家人記的也能編輯。「信用卡還款」的紀錄後端會拒絕(400)。
+    func update(_ id: TransactionID, with draft: TransactionDraft) async throws
+
+    /// 「信用卡還款」的紀錄後端會拒絕(400)。
+    func delete(_ id: TransactionID) async throws
+
+    /// 起迄日內我記的交易紀錄的 CSV(`GET /export/csv`,UTF-8 加 BOM),原樣回傳。
+    func exportCSV(from: CalendarDay, to: CalendarDay) async throws -> Data
 }
 
 extension TransactionRepository {

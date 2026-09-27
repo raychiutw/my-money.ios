@@ -2,85 +2,86 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 「記一筆」sheet(parity.md「總覽」的記一筆)。每個 session 一份，讓下一筆沿用上一筆的選擇。
+/// 編輯一筆交易紀錄的 sheet(parity.md「交易」)。家人記的也能編輯;「信用卡還款」不能編輯(不會建立這個 model)。
 @MainActor
 @Observable
-public final class QuickEntryModel {
+public final class TransactionEditorModel {
     public private(set) var accounts: [Account] = []
+    public var isShared: Bool
 
-    public let title = "記一筆"
-
-    /// 家庭公帳(預設)或個人私帳。
-    public var isShared = true
-
-    /// 切到支出時分類重設為「餐飲」,切到收入時重設為「薪資」(跟 web 一樣)。
-    public var type: TransactionType = .expense {
+    /// 切換收支時重設分類，跟記一筆一樣。
+    public var type: TransactionType {
         didSet {
             guard type != oldValue else { return }
             category = type == .expense ? .dining : .salary
         }
     }
 
-    public var category: TransactionCategory = .dining
-    public var amountText = ""
-    public var note = ""
+    public var category: TransactionCategory
+    public var amountText: String
+    public var note: String
     public var date: CalendarDay
     public var accountID: AccountID?
 
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
 
+    public let title = "編輯交易紀錄"
+
     public var categories: [TransactionCategory] {
-        type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories
+        let fixed = type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories
+        // 機器人記帳可能寫入清單以外的分類;編輯時保留原本的分類可選。
+        return fixed.contains(category) ? fixed : fixed + [category]
     }
 
+    @ObservationIgnored private let id: TransactionID
     @ObservationIgnored private let transactions: any TransactionRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
-    @ObservationIgnored private let today: () -> CalendarDay
 
     public init(
+        editing transaction: Transaction,
         transactions: any TransactionRepository,
         accounts: any AccountRepository,
-        dataVersion: DataVersion,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+        dataVersion: DataVersion
     ) {
+        id = transaction.id
+        isShared = transaction.isShared
+        type = transaction.type
+        category = transaction.category
+        amountText = "\(transaction.amount.amount)"
+        note = transaction.note
+        date = transaction.date
+        accountID = transaction.accountID
         self.transactions = transactions
         accountRepository = accounts
         self.dataVersion = dataVersion
-        self.today = today
-        date = today()
     }
 
-    /// 打開 sheet 時呼叫：載入資金帳戶;還沒選過、或選的帳戶已經不在時，預設第一個。
+    /// 打開 sheet 時呼叫：載入資金帳戶(家人的資金帳戶也在裡面)。
     public func prepare() async {
-        errorMessage = nil
         do {
             accounts = try await accountRepository.accounts()
         } catch {
             errorMessage = error.localizedDescription
-            return
-        }
-        if accountID == nil || !accounts.contains(where: { $0.id == accountID }) {
-            accountID = accounts.first?.id
         }
     }
 
-    /// 送出;成功時回傳 `true`(sheet 關閉)。只清空金額、備註和日期，其他選擇保留給下一筆。
+    /// 儲存;成功時回傳 `true`(sheet 關閉)並遞增資料版本。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let accountID, !accounts.isEmpty else {
-            errorMessage = "請先至「帳戶」建立至少一個帳戶"
+        guard let accountID else {
+            errorMessage = "請先建立並選擇帳戶"
             return false
         }
         guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
-            errorMessage = "請輸入正確的金額"
+            errorMessage = "請輸入有效金額"
             return false
         }
         isSaving = true
         defer { isSaving = false }
         do {
-            try await transactions.create(TransactionDraft(
+            try await transactions.update(id, with: TransactionDraft(
                 accountID: accountID,
                 type: type,
                 category: category,
@@ -91,13 +92,10 @@ public final class QuickEntryModel {
             ))
         } catch {
             let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "記帳失敗" : message
+            errorMessage = message.isEmpty ? "操作失敗" : message
             return false
         }
         dataVersion.bump()
-        amountText = ""
-        note = ""
-        date = today()
         return true
     }
 }

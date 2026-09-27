@@ -16,8 +16,24 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     private var stored: [Transaction]
     private var failure: RepositoryError?
 
+    public struct ExportQuery: Equatable, Sendable {
+        public let from: CalendarDay
+        public let to: CalendarDay
+
+        public init(from: CalendarDay, to: CalendarDay) {
+            self.from = from
+            self.to = to
+        }
+    }
+
     public private(set) var queries: [Query] = []
     public private(set) var createdDrafts: [TransactionDraft] = []
+    public private(set) var updatedDrafts: [TransactionID: TransactionDraft] = [:]
+    public private(set) var deletedIDs: [TransactionID] = []
+    public private(set) var exportQueries: [ExportQuery] = []
+
+    /// `exportCSV` 回傳的內容(UTF-8 加 BOM,跟後端一樣)。
+    public static let sampleCSV = Data("\u{FEFF}日期,類型,分類,金額,備註,帳戶\n".utf8)
 
     public init(transactions: [Transaction]) {
         stored = transactions
@@ -51,6 +67,38 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             isShared: draft.isShared,
             recorderName: InMemoryAuthRepository.Member.sample.user.name
         ))
+    }
+
+    public func update(_ id: TransactionID, with draft: TransactionDraft) async throws {
+        if let failure { throw failure }
+        updatedDrafts[id] = draft
+        stored = stored.map { transaction in
+            guard transaction.id == id else { return transaction }
+            return Transaction(
+                id: id,
+                accountID: draft.accountID,
+                accountName: transaction.accountName,
+                type: draft.type,
+                category: draft.category,
+                amount: draft.amount,
+                note: draft.note,
+                date: draft.date,
+                isShared: draft.isShared,
+                recorderName: transaction.recorderName
+            )
+        }
+    }
+
+    public func delete(_ id: TransactionID) async throws {
+        if let failure { throw failure }
+        deletedIDs.append(id)
+        stored.removeAll { $0.id == id }
+    }
+
+    public func exportCSV(from: CalendarDay, to: CalendarDay) async throws -> Data {
+        exportQueries.append(ExportQuery(from: from, to: to))
+        if let failure { throw failure }
+        return Self.sampleCSV
     }
 
     /// 之後的請求都以這個錯誤失敗。

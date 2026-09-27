@@ -25,6 +25,22 @@ public struct LiveTransactionRepository: TransactionRepository {
     public func create(_ draft: TransactionDraft) async throws {
         try await client.send("POST", "/transactions", body: TransactionBody(draft))
     }
+
+    public func update(_ id: TransactionID, with draft: TransactionDraft) async throws {
+        try await client.send("PUT", "/transactions/\(id.rawValue)", body: TransactionBody(draft))
+    }
+
+    public func delete(_ id: TransactionID) async throws {
+        try await client.send("DELETE", "/transactions/\(id.rawValue)")
+    }
+
+    /// token 放在 Authorization header(web 放在 URL query,會留在瀏覽紀錄與伺服器 log)。
+    public func exportCSV(from: CalendarDay, to: CalendarDay) async throws -> Data {
+        try await client.getRaw("/export/csv", query: [
+            URLQueryItem(name: "from", value: from.iso),
+            URLQueryItem(name: "to", value: to.iso),
+        ])
+    }
 }
 
 /// `GET /transactions` 的一筆:資料表欄位加上 JOIN 的 `account_name`、`user_name`。

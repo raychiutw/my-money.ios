@@ -36,6 +36,12 @@ public struct APIClient: Sendable {
         return try decodeData(data)
     }
 
+    /// 送出 GET,原樣回傳 body(例如 `/export/csv` 回的是 `text/csv`,不是 JSON envelope)。
+    /// 401 的處理跟其他請求一樣;非 2xx 時，body 若是 `{success: false, error}` 就原樣傳遞訊息。
+    package func getRaw(_ path: String, query: [URLQueryItem] = []) async throws -> Data {
+        try await perform("GET", path, query: query, body: nil, expectsEnvelope: false)
+    }
+
     private func decodeData<Payload: Decodable>(_ data: Data) throws -> Payload {
         guard let envelope = try? JSONDecoder().decode(DataEnvelope<Payload>.self, from: data) else {
             throw RepositoryError.unreadableResponse
@@ -54,7 +60,13 @@ public struct APIClient: Sendable {
     }
 
     /// 送出請求並檢查 envelope 的 `success`;回傳原始 body,讓呼叫端解自己的 `data`。
-    private func perform(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?) async throws -> Data {
+    private func perform(
+        _ method: String,
+        _ path: String,
+        query: [URLQueryItem] = [],
+        body: Data?,
+        expectsEnvelope: Bool = true
+    ) async throws -> Data {
         var url = baseURL.appending(path: path)
         if !query.isEmpty {
             url.append(queryItems: query)
@@ -72,6 +84,13 @@ public struct APIClient: Sendable {
         if statusCode == 401, !path.hasPrefix("/auth/") {
             await session.sessionDidExpire()
             throw RepositoryError.sessionExpired
+        }
+        if !expectsEnvelope {
+            guard (200..<300).contains(statusCode) else {
+                let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)
+                throw status?.error.map(RepositoryError.rejected) ?? RepositoryError.unreadableResponse
+            }
+            return data
         }
         guard let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data) else {
             throw RepositoryError.unreadableResponse
