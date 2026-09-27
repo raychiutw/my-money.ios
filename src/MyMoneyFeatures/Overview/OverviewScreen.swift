@@ -8,6 +8,8 @@ struct OverviewScreen: View {
     let quickEntry: QuickEntryModel
     /// 帳號 sheet 裡的「家庭」。
     let household: HouseholdModel
+    /// 帳號 sheet 裡的「機器人記帳」。
+    let bot: BotModel
     /// 「管理帳戶」「查看全部」切到其他 tab。
     let show: (AppTab) -> Void
 
@@ -56,7 +58,7 @@ struct OverviewScreen: View {
                 TransactionFormView(model: quickEntry)
             }
             .sheet(isPresented: $isAccountSheetPresented) {
-                AccountSheet(household: household)
+                AccountSheet(household: household, bot: bot)
             }
         }
     }

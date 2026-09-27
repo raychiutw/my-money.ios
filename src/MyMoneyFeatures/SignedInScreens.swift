@@ -26,6 +26,9 @@ public struct MainScreens {
     /// 帳號 sheet → 家庭。
     public let household: HouseholdModel
 
+    /// 帳號 sheet → 機器人記帳。
+    public let bot: BotModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     /// `defaults` 存總覽選過的視角。
     public init(
@@ -36,6 +39,7 @@ public struct MainScreens {
         statisticsRepository: any StatisticsRepository,
         forecastRepository: any ForecastRepository,
         householdRepository: any HouseholdRepository,
+        botRepository: any BotRepository,
         defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
@@ -51,6 +55,7 @@ public struct MainScreens {
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
         household = HouseholdModel(repository: householdRepository, dataVersion: dataVersion)
+        bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }
 }
 

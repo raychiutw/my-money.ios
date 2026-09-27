@@ -17,7 +17,7 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("總覽", systemImage: "house", value: .overview) {
-                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry, household: screens.household) { selection = $0 }
+                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry, household: screens.household, bot: screens.bot) { selection = $0 }
             }
             Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)

@@ -191,16 +191,16 @@
 
 ## 機器人記帳(W:pages/BotIntegration.tsx,在帳號 sheet 裡)
 
-- [ ] 配對：
+- [x] 配對：
   - 呼叫 `POST /bot/pairing-code` 取得綁定驗證碼。
   - 用 `expires_in_seconds` 每秒倒數「M 分 S 秒」,歸零後把綁定驗證碼隱藏。
   - 「複製指令」複製的內容是 `綁定 {綁定驗證碼}`。
-- [ ] 已綁定列表：資料來自 `GET /bot/bindings`,每筆顯示平台、名稱，以及「解除」。解除前確認，確認後呼叫 `DELETE /bot/bindings/:id`。
-- [ ] 模擬對話：
+- [x] 已綁定列表：資料來自 `GET /bot/bindings`,每筆顯示平台、名稱，以及「解除」。解除前確認，確認後呼叫 `DELETE /bot/bindings/:id`。
+- [x] 模擬對話：
   - 開頭是歡迎訊息，提供 4 個快捷範例。
   - 呼叫 `POST /bot/test-simulate {text, platform:'line'}`,每則訊息附時間，等待回覆時顯示「思考中」。
   - **寫入的是真的交易**。
-- [ ] Webhook 設定說明:LINE 和 Telegram 的設定步驟。
+- [x] Webhook 設定說明:LINE 和 Telegram 的設定步驟。
 
 ## 前端常數
 
