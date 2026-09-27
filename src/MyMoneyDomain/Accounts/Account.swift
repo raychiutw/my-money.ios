@@ -71,6 +71,12 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 繳款日(每月幾號);沒有設定時是 `nil`。
     public let paymentDueDay: Int?
 
+    /// 欠款公私拆解：待繳卡費總額裡估算屬於家庭公帳的部分(後端用這張卡最近 50 筆支出估算)。
+    public let sharedDebt: Money
+
+    /// 欠款公私拆解：待繳卡費總額裡估算屬於個人私帳的部分。
+    public let personalDebt: Money
+
     public init(
         id: AccountID,
         name: String,
@@ -79,7 +85,9 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         unbilledDebt: Money,
         creditLimit: Money?,
         statementDay: Int?,
-        paymentDueDay: Int?
+        paymentDueDay: Int?,
+        sharedDebt: Money = .zero,
+        personalDebt: Money = .zero
     ) {
         self.id = id
         self.name = name
@@ -89,6 +97,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         self.creditLimit = creditLimit
         self.statementDay = statementDay
         self.paymentDueDay = paymentDueDay
+        self.sharedDebt = sharedDebt
+        self.personalDebt = personalDebt
+    }
+
+    /// 結帳日出帳結轉的提醒：有結帳日、有未出帳金額，而且今天(台灣時間)已經到了結帳日。
+    public func isStatementDue(today: CalendarDay) -> Bool {
+        guard let statementDay, unbilledDebt > .zero else { return false }
+        return today.day >= statementDay
     }
 
     /// 待繳卡費總額：已出帳待繳金額加上未出帳金額。

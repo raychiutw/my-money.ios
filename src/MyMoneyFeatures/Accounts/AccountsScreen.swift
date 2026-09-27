@@ -7,6 +7,8 @@ struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: Account?
+    @State private var pendingRollover: CreditCard?
+    @State private var payment: CardPaymentModel?
 
     var body: some View {
         NavigationStack {
@@ -47,13 +49,37 @@ struct AccountsScreen: View {
                 } message: { account in
                     Text(model.deleteConfirmation(for: account))
                 }
+                .sheet(item: $payment) { payment in
+                    CardPaymentView(model: payment)
+                }
+                .confirmationDialog(
+                    "結帳日出帳結轉",
+                    isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
+                    titleVisibility: .visible,
+                    presenting: pendingRollover
+                ) { card in
+                    Button("結轉") {
+                        Task { await model.rollOver(card) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: { card in
+                    Text(model.rolloverConfirmation(for: card))
+                }
                 .alert(
-                    "無法刪除",
+                    "無法完成",
                     isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
                 ) {
                     Button("好") {}
                 } message: {
                     Text(model.alertMessage ?? "")
+                }
+                .alert(
+                    "完成",
+                    isPresented: Binding(get: { model.noticeMessage != nil }, set: { if !$0 { model.noticeMessage = nil } })
+                ) {
+                    Button("好") {}
+                } message: {
+                    Text(model.noticeMessage ?? "")
                 }
         }
     }
@@ -158,7 +184,62 @@ struct AccountsScreen: View {
             }
             ForEach(model.creditCards) { card in
                 accountRow(.creditCard(card)) { CreditCardRow(card: card) }
+                // 卡片本身點一下是編輯，所以欠款公私拆解、結帳日提醒與還款放在下一列，不把按鈕塞進按鈕裡。
+                CardSettlementRow(
+                    card: card,
+                    showsRollover: model.showsRollover(card),
+                    reminder: model.rolloverReminder(for: card),
+                    rollOver: { pendingRollover = card },
+                    pay: { payment = model.makePayment(for: card) }
+                )
             }
+        }
+    }
+}
+
+/// 給 `.sheet(item:)` 用;class 的 `id` 預設是 `ObjectIdentifier`。
+extension CardPaymentModel: Identifiable {}
+
+/// 信用卡帳戶的欠款公私拆解、結帳日出帳結轉的提醒與「信用卡還款沖銷」。
+private struct CardSettlementRow: View {
+    let card: CreditCard
+    let showsRollover: Bool
+    let reminder: String
+    let rollOver: () -> Void
+    let pay: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if card.totalDue > .zero {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("欠款公私拆解：家庭公帳 \(card.sharedDebtPercentText)")
+                        .font(.footnote.bold())
+                    Text("家庭公帳 \(card.sharedDebt.formatted()) · 個人私帳 \(card.personalDebt.formatted())")
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    "欠款公私拆解，家庭公帳佔 \(card.sharedDebtPercentText),家庭公帳 \(card.sharedDebt.spokenText),個人私帳 \(card.personalDebt.spokenText)"
+                )
+            }
+            if showsRollover {
+                HStack {
+                    Label(reminder, systemImage: "calendar.badge.exclamationmark")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button("一鍵出帳", action: rollOver)
+                        .buttonStyle(.borderless)
+                        .font(.footnote.bold())
+                        .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
+                }
+            }
+            Button("信用卡還款沖銷", systemImage: "arrow.left.arrow.right", action: pay)
+                .buttonStyle(.borderless)
+                .disabled(card.totalDue <= .zero)
+                .accessibilityIdentifier("accounts.pay.\(card.id.rawValue)")
         }
     }
 }
@@ -169,14 +250,21 @@ private struct BankAccountRow: View {
     var body: some View {
         HStack(spacing: 12) {
             AccountColorMark(hex: account.colorHex)
-            Text(account.name)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.name)
+                if account.isJointFund {
+                    Label("家庭共同基金", systemImage: "house.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             Text(account.balance.formatted())
                 .monospacedDigit()
                 .foregroundStyle(account.balance < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(account.name),餘額 \(account.balance.spokenText)")
+        .accessibilityLabel("\(account.name)\(account.isJointFund ? ",家庭共同基金" : ""),餘額 \(account.balance.spokenText)")
     }
 }
 

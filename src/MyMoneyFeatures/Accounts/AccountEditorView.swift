@@ -33,6 +33,15 @@ struct AccountEditorView: View {
                     amountField(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
                 }
 
+                if model.kind == .bank {
+                    Section {
+                        Toggle("設為家庭共同基金帳戶", isOn: $model.isJointFund)
+                            .accessibilityIdentifier("accountEditor.jointFund")
+                    } footer: {
+                        Text("供家庭公帳的採買扣款，以及撥付代墊請款報銷。")
+                    }
+                }
+
                 if model.kind == .creditCard {
                     Section("信用卡") {
                         amountField("未出帳金額", text: $model.unbilledText, field: .unbilled, identifier: "accountEditor.unbilled")

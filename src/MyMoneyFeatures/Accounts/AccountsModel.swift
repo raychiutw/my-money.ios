@@ -21,12 +21,50 @@ public final class AccountsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
+    /// 操作成功時顯示的訊息(例如結帳日出帳結轉的結果)。
+    public var noticeMessage: String?
+
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let today: () -> CalendarDay
 
-    public init(repository: any AccountRepository, dataVersion: DataVersion) {
+    public init(
+        repository: any AccountRepository,
+        dataVersion: DataVersion,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.today = today
+    }
+
+    /// 今天(台灣時間)已經到了結帳日，而且有未出帳金額時，提醒結帳日出帳結轉。
+    public func showsRollover(_ card: CreditCard) -> Bool {
+        card.isStatementDue(today: today())
+    }
+
+    /// 例如「每月 15 號結帳日已過，有未出帳金額待結轉」。
+    public func rolloverReminder(for card: CreditCard) -> String {
+        "每月 \(card.statementDay ?? 0) 號結帳日已過，有未出帳金額待結轉"
+    }
+
+    public func rolloverConfirmation(for card: CreditCard) -> String {
+        "確定要將「\(card.name)」的未出帳金額 \(card.unbilledDebt.formatted()) 結轉為本期已出帳待繳嗎？"
+    }
+
+    /// 結帳日出帳結轉;成功後顯示後端的訊息，並遞增資料版本。
+    public func rollOver(_ card: CreditCard) async {
+        do {
+            noticeMessage = try await repository.rollOverStatement(card.id)
+            dataVersion.bump()
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    /// 信用卡還款沖銷的 sheet:扣款帳戶只列出銀行存款帳戶。
+    public func makePayment(for card: CreditCard) -> CardPaymentModel {
+        CardPaymentModel(card: card, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today)
     }
 
     /// 上一次載入時的資料版本;跟目前的版本不同時就要重抓。

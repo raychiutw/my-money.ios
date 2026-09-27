@@ -117,6 +117,20 @@ struct AccountEditorTests {
         ))])
     }
 
+    @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")
+    func addingJointFund() async {
+        let editor = adding(.bank)
+        #expect(!editor.isJointFund)
+        editor.name = "家庭共同基金"
+        editor.isJointFund = true
+
+        #expect(await editor.save())
+
+        #expect(await repository.createdDrafts == [.bank(BankAccountDraft(
+            name: "家庭共同基金", colorHex: "#95E1D3", balance: .zero, isJointFund: true
+        ))])
+    }
+
     @Test("編輯家庭共同基金帳戶時，保留原本的標記")
     func editingKeepsJointFundFlag() async {
         let joint = BankAccount(

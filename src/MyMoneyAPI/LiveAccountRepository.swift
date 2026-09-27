@@ -30,6 +30,47 @@ public struct LiveAccountRepository: AccountRepository {
     public func delete(_ id: AccountID) async throws {
         try await client.send("DELETE", "/accounts/\(id.rawValue)")
     }
+
+    public func payCreditCard(_ payment: CardPayment) async throws {
+        try await client.send("POST", "/accounts/pay-credit-card", body: PaymentBody(payment))
+    }
+
+    public func rollOverStatement(_ id: AccountID) async throws -> String {
+        let dto: RolloverDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement", body: EmptyBody())
+        return dto.message
+    }
+}
+
+private struct EmptyBody: Encodable {}
+
+/// 結帳日出帳結轉的結果：訊息在 `data.message`。
+private struct RolloverDTO: Decodable {
+    let message: String
+}
+
+private struct PaymentBody: Encodable {
+    let bankAccountID: String
+    let creditCardID: String
+    let amount: Decimal
+    let date: String
+    let note: String
+    let isShared: Int
+
+    enum CodingKeys: String, CodingKey {
+        case amount, date, note
+        case bankAccountID = "bank_account_id"
+        case creditCardID = "credit_card_id"
+        case isShared = "is_shared"
+    }
+
+    init(_ payment: CardPayment) {
+        bankAccountID = payment.bankAccountID.rawValue
+        creditCardID = payment.creditCardID.rawValue
+        amount = payment.amount.amount
+        date = payment.date.iso
+        note = payment.note
+        isShared = payment.isShared ? 1 : 0
+    }
 }
 
 /// `POST` 與 `PUT /accounts` 的 body。
@@ -96,9 +137,14 @@ private struct AccountDTO: Decodable {
     let color: String
     /// 0/1;`79edd20` 以前的資料可能沒有這個欄位。
     let isJoint: Int?
+    /// 欠款公私拆解，只有信用卡帳戶有。
+    let sharedDebt: Decimal?
+    let personalDebt: Decimal?
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, balance, unbilled, color
+        case sharedDebt = "shared_debt"
+        case personalDebt = "personal_debt"
         case creditLimit = "credit_limit"
         case statementDay = "statement_day"
         case paymentDueDay = "payment_due_day"
@@ -124,7 +170,9 @@ private struct AccountDTO: Decodable {
                 unbilledDebt: Money(unbilled ?? 0),
                 creditLimit: creditLimit.map(Money.init),
                 statementDay: statementDay,
-                paymentDueDay: paymentDueDay
+                paymentDueDay: paymentDueDay,
+                sharedDebt: Money(sharedDebt ?? 0),
+                personalDebt: Money(personalDebt ?? 0)
             ))
         default:
             throw RepositoryError.unreadableResponse

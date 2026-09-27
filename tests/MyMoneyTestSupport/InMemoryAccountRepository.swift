@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 
 /// 不連網路的資金帳戶:資料由測試決定，也可以指定失敗。
@@ -77,6 +78,54 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
+    /// 信用卡還款沖銷送出過的內容，依送出順序。
+    public private(set) var payments: [CardPayment] = []
+
+    /// 結帳日出帳結轉過的信用卡帳戶，依順序。
+    public private(set) var rolledOverIDs: [AccountID] = []
+
+    /// 跟後端一樣：從銀行存款帳戶扣款，先沖已出帳待繳金額，不足的部分再沖未出帳金額(不重算資金指標與欠款公私拆解)。
+    public func payCreditCard(_ payment: CardPayment) async throws {
+        if let failure { throw failure }
+        payments.append(payment)
+        storedAccounts = storedAccounts.map { account in
+            switch account {
+            case .bank(let bank) where bank.id == payment.bankAccountID:
+                return .bank(BankAccount(
+                    id: bank.id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance - payment.amount,
+                    isJointFund: bank.isJointFund
+                ))
+            case .creditCard(let card) where card.id == payment.creditCardID:
+                let billed = max(card.billedDebt - payment.amount, .zero)
+                let rest = payment.amount - (card.billedDebt - billed)
+                return .creditCard(Self.card(card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero)))
+            default:
+                return account
+            }
+        }
+    }
+
+    /// 跟後端一樣把未出帳金額移到已出帳待繳金額;沒有未出帳金額時拒絕。
+    public func rollOverStatement(_ id: AccountID) async throws -> String {
+        if let failure { throw failure }
+        guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }), card.unbilledDebt > .zero else {
+            throw RepositoryError.rejected("目前無未出帳金額需結轉")
+        }
+        rolledOverIDs.append(id)
+        storedAccounts = storedAccounts.map {
+            $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
+        }
+        return "已將未出帳 \(card.unbilledDebt.amount.formatted(.currency(code: "TWD").precision(.fractionLength(0)).locale(Locale(identifier: "zh_Hant_TW")))) 成功結轉為已出帳待繳！"
+    }
+
+    private static func card(_ card: CreditCard, billed: Money, unbilled: Money) -> CreditCard {
+        CreditCard(
+            id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
+            creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
+            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt
+        )
+    }
+
     /// 之後的請求都以這個錯誤失敗。
     public func fail(with error: RepositoryError) {
         failure = error
@@ -114,7 +163,9 @@ public enum SampleAccounts {
         unbilledDebt: Money(3500),
         creditLimit: Money(100_000),
         statementDay: 15,
-        paymentDueDay: 5
+        paymentDueDay: 5,
+        sharedDebt: Money(3000),
+        personalDebt: Money(12500)
     )
 
     /// 剩餘額度 7,000,低於 10,000 的警示門檻。

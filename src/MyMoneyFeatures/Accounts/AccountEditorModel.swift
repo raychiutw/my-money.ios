@@ -45,8 +45,10 @@ public final class AccountEditorModel {
     public var canChangeKind: Bool { editingID == nil }
 
     @ObservationIgnored private let editingID: AccountID?
-    /// 編輯時保留原本的家庭共同基金標記(這張票還沒有切換它的 UI)。
-    @ObservationIgnored private let isJointFund: Bool
+
+    /// 設為家庭共同基金帳戶(只有銀行存款帳戶有這個選項)。編輯時帶入原本的標記：
+    /// 後端的 PUT 沒收到 `is_joint` 會寫成 0。
+    public var isJointFund: Bool
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 

@@ -13,4 +13,10 @@ public protocol AccountRepository: Sendable {
 
     /// 刪除資金帳戶。這個帳戶的交易紀錄會被後端一併刪除。
     func delete(_ id: AccountID) async throws
+
+    /// 信用卡還款沖銷。
+    func payCreditCard(_ payment: CardPayment) async throws
+
+    /// 結帳日出帳結轉：把未出帳金額一次移到已出帳待繳金額。回傳後端的訊息。
+    func rollOverStatement(_ id: AccountID) async throws -> String
 }

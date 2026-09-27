@@ -17,6 +17,31 @@ struct CreditCardTests {
         )
     }
 
+    @Test("結帳日出帳結轉：有結帳日、有未出帳金額，而且今天(台灣時間)已經到了結帳日", arguments: [
+        (15, Decimal(3500), 15, true),
+        (15, Decimal(3500), 28, true),
+        (15, Decimal(3500), 14, false),
+        (15, Decimal(0), 28, false),
+    ])
+    func statementDue(statementDay: Int, unbilled: Decimal, today: Int, expected: Bool) {
+        let card = CreditCard(
+            id: AccountID("card"), name: "測試卡", colorHex: "#FFD4A0", billedDebt: Money(12000), unbilledDebt: Money(unbilled),
+            creditLimit: nil, statementDay: statementDay, paymentDueDay: 5
+        )
+
+        #expect(card.isStatementDue(today: CalendarDay(year: 2026, month: 9, day: today)) == expected)
+    }
+
+    @Test("沒有結帳日時不提醒結轉")
+    func noStatementDay() {
+        let card = CreditCard(
+            id: AccountID("card"), name: "測試卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: Money(100),
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+
+        #expect(!card.isStatementDue(today: CalendarDay(year: 2026, month: 9, day: 28)))
+    }
+
     @Test("待繳卡費總額是已出帳待繳金額加上未出帳金額")
     func totalDueIsBilledPlusUnbilled() {
         #expect(card(billed: 12000, unbilled: 3500, limit: 100_000).totalDue == Money(15500))
