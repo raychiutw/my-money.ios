@@ -1,0 +1,16 @@
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+.derivedData/
+xcuserdata/
+*.xcuserstate
+*.xcresult
+
+# macOS
+.DS_Store
+
+# TDD 紅綠燈的本機紀錄(摘要寫在 PR)
+.tdd-logs/
