@@ -50,6 +50,7 @@ final class RegisterFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 3))
     }
 
+    @MainActor
     private func launchResettingSession() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
@@ -57,6 +58,7 @@ final class RegisterFlowUITests: XCTestCase {
         return app
     }
 
+    @MainActor
     private func type(_ text: String, into field: XCUIElement) {
         XCTAssertTrue(field.waitForExistence(timeout: 3), "找不到欄位 \(field)")
         field.tap()
