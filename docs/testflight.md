@@ -27,7 +27,7 @@ workflow 會依序做這幾件事:
 內部測試者必須是 App Store Connect 使用者，最多 100 人。
 
 1. 在「使用者與存取權限」邀請家人，Apple Account email 由使用者提供。角色選權限最小的，App 存取只勾「我的記帳本」。如果在 TestFlight 內部群組找不到這個人，依 Apple 文件改他的角色。
-2. 在 App 的 TestFlight 頁建立內部測試群組，把家人加進去，並打開自動發佈新 build。
+2. 在 App 的 TestFlight 頁，把家人加進內部測試群組「家人」。這個群組已經開啟自動分發，新 build 上傳後會自動發給群組裡的人。
 3. 家人用 TestFlight app 接受邀請後安裝。
 
 **每個 build 只能安裝 90 天**,到期前要再發一版。
@@ -39,7 +39,7 @@ workflow 會依序做這幾件事:
 - **App ID**:`com.raychiu.mymoney`。自動簽章第一次 archive 時會註冊。App Store Connect「新增 App」表單只能選已註冊的 App ID,所以要先註冊：在 Certificates, Identifiers & Profiles 手動註冊，或先 archive 一次。
 - **App Store Connect app 紀錄**:
   - 名稱「我的記帳本」,主要語言繁體中文。
-  - bundle ID `com.raychiu.mymoney`,SKU `mymoney-ios`。
+  - bundle ID `com.raychiu.mymoney`,SKU `mymoney-ios-20260928`(建立後不能改)。
 - **簽章**:
   - 自動簽章，Distribution 憑證由 Apple 雲端管理。
   - 建立雲端管理的 Distribution 憑證只有 Account Holder 或 Admin 能做，所以 API key 要用 **Admin** 角色的 team key。
