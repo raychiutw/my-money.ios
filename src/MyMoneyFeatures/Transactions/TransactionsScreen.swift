@@ -174,8 +174,8 @@ struct TransactionsScreen: View {
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 TransactionRow(transaction: transaction)
-                Label("系統內部平帳的還款紀錄受保護，金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
-                    .font(.caption)
+                Label("「\(transaction.category.name)」是系統內部平帳或轉帳的紀錄，受保護;金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -248,7 +248,7 @@ struct TransactionRow: View {
                 Text(title)
                 LedgerBadge(isShared: transaction.isShared)
                 Text(detail)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()

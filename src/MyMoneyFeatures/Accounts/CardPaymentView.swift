@@ -29,19 +29,6 @@ struct CardPaymentView: View {
                 }
                 .monospacedDigit()
 
-                if model.sharedQuickFillTitle != nil || model.personalQuickFillTitle != nil {
-                    Section {
-                        if let title = model.sharedQuickFillTitle {
-                            Button(title, systemImage: "house.fill") { model.fillShared() }
-                                .accessibilityIdentifier("cardPayment.fillShared")
-                        }
-                        if let title = model.personalQuickFillTitle {
-                            Button(title, systemImage: "person.fill") { model.fillPersonal() }
-                                .accessibilityIdentifier("cardPayment.fillPersonal")
-                        }
-                    }
-                }
-
                 Section {
                     Picker("扣款帳戶", selection: $model.bankAccountID) {
                         Text("請選擇扣款帳戶").tag(AccountID?.none)

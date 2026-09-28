@@ -1,6 +1,7 @@
 import MyMoneyAPI
 import MyMoneyFeatures
 import SwiftUI
+import UIKit
 #if DEBUG
 // 只有 Debug 的 `-uiTesting` 會用到 in-memory repository;Release(TestFlight)不引用。
 import MyMoneyTestSupport
@@ -20,6 +21,7 @@ struct MyMoneyApp: App {
     /// 不要在 `init()` 建立 `EnvironmentValues()` 來取預設值：這麼早建立會讓整個 app 的
     /// accent 色變回系統藍(TestFlight 1.0 (36381212551) 的標題、按鈕都是藍的)。
     private let copiedFeedbackOverride: Duration?
+    @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     init() {
         #if DEBUG
@@ -46,10 +48,12 @@ struct MyMoneyApp: App {
             let goals = InMemorySavingsGoalRepository.sample()
             let statistics = InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
             let forecast = InMemoryForecastRepository.sampleForToday()
-            let household = InMemoryHouseholdRepository(household: nil)
+            // 建立家庭群組之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250(撥款報銷的 UI 測試)。
+            let household = InMemoryHouseholdRepository(household: nil, advances: [InMemoryHouseholdRepository.myPendingAdvance])
             let bot = InMemoryBotRepository.sample()
-            signedIn = SignedInScreens {
+            signedIn = SignedInScreens { userID in
                 MainScreens(
+                    currentUserID: userID,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                     householdRepository: household, botRepository: bot, defaults: defaults
@@ -76,8 +80,9 @@ struct MyMoneyApp: App {
         let bot = LiveBotRepository(client: client)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
-        signedIn = SignedInScreens {
+        signedIn = SignedInScreens { userID in
             MainScreens(
+                currentUserID: userID,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                 householdRepository: household, botRepository: bot
@@ -96,5 +101,24 @@ struct MyMoneyApp: App {
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
                 }
         }
+    }
+}
+
+/// 設定 UIKit appearance。要等 app 啟動完才設：在 `App.init()` 碰 UIKit,accent 色會變回系統藍
+/// (`BrandColorUITests` 會失敗),跟 `EnvironmentValues()` 同一個雷。
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        // 分段控制的字預設是 13pt(footnote 的大小),跟其他小字一樣往上一級到 subheadline(#43)。
+        // ponytail: 啟動時取一次 Dynamic Type 的大小，執行中改字級要重開 app 才會跟著變。
+        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .normal)
+        UISegmentedControl.appearance().setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)],
+            for: .selected
+        )
+        return true
     }
 }

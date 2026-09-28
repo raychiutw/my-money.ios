@@ -94,7 +94,7 @@ struct TransactionFilterTests {
     func repaymentIsLocked() async {
         let dataVersion = DataVersion()
         let (list, repository) = await loadedList(dataVersion: dataVersion)
-        let repayment = list.days.flatMap(\.transactions).first { $0.isCreditCardRepayment }!
+        let repayment = list.days.flatMap(\.transactions).first { $0.category == .creditCardRepayment }!
 
         #expect(!list.canModify(repayment))
         #expect(list.makeEditor(for: repayment) == nil)

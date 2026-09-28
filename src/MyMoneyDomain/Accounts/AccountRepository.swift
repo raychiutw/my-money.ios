@@ -1,10 +1,18 @@
-/// 資金帳戶(`/accounts`)。範圍是整個家庭群組：包含家庭成員的資金帳戶。
-public protocol AccountRepository: Sendable {
-    /// 所有資金帳戶，順序照後端(建立時間由舊到新)。
-    func accounts() async throws -> [Account]
+/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員的家庭公用」,家庭公用是全體成員的家庭公用帳戶，
+/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易紀錄的視角(`ViewScope`)是兩件事。
+public enum AccountScope: String, Sendable, CaseIterable {
+    case all
+    case household
+    case personal
+}
 
-    /// 家庭群組的資金指標。
-    func balanceSummary() async throws -> BalanceSummary
+/// 資金帳戶(`/accounts`)。
+public protocol AccountRepository: Sendable {
+    /// 這個範圍的資金帳戶，順序照後端(建立時間由舊到新)。
+    func accounts(scope: AccountScope) async throws -> [Account]
+
+    /// 這個範圍的資金指標。
+    func balanceSummary(scope: AccountScope) async throws -> BalanceSummary
 
     func create(_ draft: AccountDraft) async throws
 
@@ -19,4 +27,18 @@ public protocol AccountRepository: Sendable {
 
     /// 結帳日出帳結轉：把未出帳金額一次移到已出帳待繳金額。回傳後端的訊息。
     func rollOverStatement(_ id: AccountID) async throws -> String
+
+    /// ATM 提款／帳戶互轉。回傳後端的訊息。
+    func transfer(_ transfer: AccountTransfer) async throws -> String
+}
+
+extension AccountRepository {
+    /// 全部範圍(本人全部 + 家庭公用),給只需要選帳戶的畫面用，例如記一筆、固定收支。
+    public func accounts() async throws -> [Account] {
+        try await accounts(scope: .all)
+    }
+
+    public func balanceSummary() async throws -> BalanceSummary {
+        try await balanceSummary(scope: .all)
+    }
 }

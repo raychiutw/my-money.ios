@@ -41,6 +41,126 @@ public struct LiveHouseholdRepository: HouseholdRepository {
     public func removeMember(_ userID: UserID) async throws {
         try await client.send("DELETE", "/households/members/\(userID.rawValue)")
     }
+
+    public func advances() async throws -> [HouseholdAdvance] {
+        let dtos: [AdvanceDTO] = try await client.get("/households/advances")
+        return try dtos.map { try $0.advance() }
+    }
+
+    public func reimburse(_ reimbursement: Reimbursement) async throws -> String {
+        let dto: MessageDTO = try await client.send("POST", "/households/reimburse", body: ReimburseBody(reimbursement))
+        return dto.message
+    }
+}
+
+/// `GET /households/advances` 的一筆(snake_case)。
+private struct AdvanceDTO: Decodable {
+    struct ItemDTO: Decodable {
+        let id: String
+        let date: String
+        let category: String
+        let note: String?
+        let amount: Decimal
+        let accountName: String
+        let accountType: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, date, category, note, amount
+            case accountName = "account_name"
+            case accountType = "account_type"
+        }
+    }
+
+    struct ReimbursementDTO: Decodable {
+        let id: String
+        let date: String
+        let amount: Decimal
+        let note: String?
+        let accountName: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, date, amount, note
+            case accountName = "account_name"
+        }
+    }
+
+    let userID: String
+    let userName: String
+    let totalAdvanced: Decimal
+    let totalReimbursed: Decimal
+    let pendingReimburse: Decimal
+    let advanceItems: [ItemDTO]?
+    let reimbursementItems: [ReimbursementDTO]?
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case userName = "user_name"
+        case totalAdvanced = "total_advanced"
+        case totalReimbursed = "total_reimbursed"
+        case pendingReimburse = "pending_reimburse"
+        case advanceItems = "advance_items"
+        case reimbursementItems = "reimbursement_items"
+    }
+
+    func advance() throws -> HouseholdAdvance {
+        HouseholdAdvance(
+            memberID: UserID(userID),
+            memberName: userName,
+            totalAdvanced: Money(totalAdvanced),
+            totalReimbursed: Money(totalReimbursed),
+            pendingReimbursement: Money(pendingReimburse),
+            advanceItems: try (advanceItems ?? []).map { item in
+                guard let date = CalendarDay(iso: item.date) else { throw RepositoryError.unreadableResponse }
+                return AdvanceItem(
+                    id: TransactionID(item.id), date: date, category: TransactionCategory(item.category),
+                    note: item.note ?? "", amount: Money(item.amount), accountName: item.accountName,
+                    accountKind: Self.kind(item.accountType)
+                )
+            },
+            reimbursementItems: try (reimbursementItems ?? []).map { item in
+                guard let date = CalendarDay(iso: item.date) else { throw RepositoryError.unreadableResponse }
+                return ReimbursementItem(
+                    id: TransactionID(item.id), date: date, amount: Money(item.amount), note: item.note ?? "",
+                    accountName: item.accountName
+                )
+            }
+        )
+    }
+
+    /// 帳戶已刪除時後端回 `other`。
+    private static func kind(_ type: String) -> AccountKind? {
+        switch type {
+        case "cash": .cash
+        case "bank": .bank
+        case "credit_card": .creditCard
+        default: nil
+        }
+    }
+}
+
+private struct ReimburseBody: Encodable {
+    let targetUserID: String
+    let fromAccountID: String
+    let toAccountID: String
+    let amount: Decimal
+    let date: String
+    let note: String
+
+    enum CodingKeys: String, CodingKey {
+        case amount, date, note
+        case targetUserID = "target_user_id"
+        case fromAccountID = "from_account_id"
+        case toAccountID = "to_account_id"
+    }
+
+    init(_ reimbursement: Reimbursement) {
+        targetUserID = reimbursement.memberID.rawValue
+        fromAccountID = reimbursement.fromAccountID.rawValue
+        toAccountID = reimbursement.toAccountID.rawValue
+        amount = reimbursement.amount.amount
+        date = reimbursement.date.iso
+        note = reimbursement.note
+    }
 }
 
 private struct CurrentDTO: Decodable {

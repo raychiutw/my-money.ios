@@ -55,16 +55,24 @@ final class TransactionsUITests: XCTestCase {
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
+        // 上面有篩選和加總列，列表在畫面下方。iOS 26 的 tab bar 浮在內容上，被它蓋住的列 isHittable 仍然是 true,
+        // 左滑卻會滑在 tab bar 上:先捲到畫面上方 3/4 以內，左滑才滑得出「刪除」。
         let lunch = element(in: app, labelContaining: "支出 120 元")
+        let screenBottom = app.windows.firstMatch.frame.maxY
+        for _ in 0..<5 where !(lunch.exists && lunch.frame.maxY < screenBottom * 0.75) { app.swipeUp() }
         lunch.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["確定要刪除這筆交易紀錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        XCTAssertTrue(element(in: app, labelContaining: "受保護").exists, "信用卡還款沒有顯示受保護的說明")
+        let locked = element(in: app, labelContaining: "受保護")
+        for _ in 0..<5 where !locked.exists { app.swipeUp() }
+        XCTAssertTrue(locked.exists, "信用卡還款沒有顯示受保護的說明")
 
+        // 搜尋欄在最上面，捲回去才點得到。
         let search = app.searchFields.firstMatch
+        for _ in 0..<5 where !(search.exists && search.isHittable) { app.swipeDown() }
         XCTAssertTrue(search.waitForExistence(timeout: 3))
         search.tap()
         search.typeText("薪資")

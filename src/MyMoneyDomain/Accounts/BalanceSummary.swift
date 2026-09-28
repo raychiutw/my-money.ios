@@ -1,5 +1,8 @@
 /// 家庭群組的資金指標(`GET /accounts/balance`),全部由後端算好。
 public struct BalanceSummary: Hashable, Sendable {
+    /// 所有現金錢包的餘額合計。
+    public let cashTotal: Money
+
     /// 所有銀行存款帳戶的餘額合計。
     public let bankBalanceTotal: Money
 
@@ -9,7 +12,7 @@ public struct BalanceSummary: Hashable, Sendable {
     /// 所有信用卡帳戶的未出帳金額合計。
     public let unbilledDebtTotal: Money
 
-    /// 淨可用資產(Available Balance)。
+    /// 淨可用資產(Available Balance):現金 + 銀行存款 − 信用卡待繳，後端算好。
     public let availableBalance: Money
 
     /// 固定支出的週期攤提(每月)。
@@ -22,6 +25,7 @@ public struct BalanceSummary: Hashable, Sendable {
     public let disposableCash: Money
 
     public init(
+        cashTotal: Money = .zero,
         bankBalanceTotal: Money,
         billedDebtTotal: Money,
         unbilledDebtTotal: Money,
@@ -30,6 +34,7 @@ public struct BalanceSummary: Hashable, Sendable {
         monthlySavingsReserve: Money,
         disposableCash: Money
     ) {
+        self.cashTotal = cashTotal
         self.bankBalanceTotal = bankBalanceTotal
         self.billedDebtTotal = billedDebtTotal
         self.unbilledDebtTotal = unbilledDebtTotal

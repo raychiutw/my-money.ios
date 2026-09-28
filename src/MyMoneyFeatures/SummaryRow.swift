@@ -18,7 +18,7 @@ struct SummaryRow: View {
                 .monospacedDigit()
                 .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
             Text(detail)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)

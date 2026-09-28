@@ -26,15 +26,36 @@ public actor InMemoryAccountRepository: AccountRepository {
         self.gate = gate
     }
 
-    public func accounts() async throws -> [Account] {
-        await gate?.pass()
-        fetchCount += 1
-        if let failure { throw failure }
-        return storedAccounts
+    /// 停在 gate 的查詢放行後，跟 URLSession 一樣：工作已經被取消時丟出 `CancellationError`。
+    private func checkCancellationIfGated() throws {
+        if gate != nil { try Task.checkCancellation() }
     }
 
-    public func balanceSummary() async throws -> BalanceSummary {
+    /// 每次查詢帶的帳戶檢視範圍，依順序。
+    public private(set) var requestedScopes: [AccountScope] = []
+
+    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭公用只留家庭公用，個人私帳只留個人私帳。
+    public func accounts(scope: AccountScope) async throws -> [Account] {
         await gate?.pass()
+        try checkCancellationIfGated()
+        fetchCount += 1
+        requestedScopes.append(scope)
+        if let failure { throw failure }
+        return switch scope {
+        case .all: storedAccounts
+        case .household: storedAccounts.filter(\.isJointFund)
+        case .personal: storedAccounts.filter { !$0.isJointFund }
+        }
+    }
+
+    /// 每次查詢資金指標帶的帳戶檢視範圍，依順序。
+    public private(set) var requestedSummaryScopes: [AccountScope] = []
+
+    /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
+    public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
+        await gate?.pass()
+        try checkCancellationIfGated()
+        requestedSummaryScopes.append(scope)
         if let failure { throw failure }
         return summary
     }
@@ -60,6 +81,10 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 後端建立或更新後的資金帳戶(不重算資金指標)。
     private static func account(_ id: AccountID, from draft: AccountDraft) -> Account {
         switch draft {
+        case .cash(let wallet):
+            .cash(CashWallet(
+                id: id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance, isJointFund: wallet.isJointFund
+            ))
         case .bank(let bank):
             .bank(BankAccount(
                 id: id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance, isJointFund: bank.isJointFund
@@ -73,7 +98,8 @@ public actor InMemoryAccountRepository: AccountRepository {
                 unbilledDebt: card.unbilledDebt,
                 creditLimit: card.creditLimit,
                 statementDay: card.statementDay,
-                paymentDueDay: card.paymentDueDay
+                paymentDueDay: card.paymentDueDay,
+                isJointFund: card.isJointFund
             ))
         }
     }
@@ -122,8 +148,65 @@ public actor InMemoryAccountRepository: AccountRepository {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
-            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt
+            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt, isJointFund: card.isJointFund
         )
+    }
+
+    /// ATM 提款／帳戶互轉送出過的內容，依送出順序。
+    public private(set) var transfers: [AccountTransfer] = []
+
+    /// 跟後端一樣：同一個帳戶、轉出的現金錢包或銀行存款帳戶餘額不足時拒絕;成功時兩邊的餘額都更新。
+    public func transfer(_ transfer: AccountTransfer) async throws -> String {
+        await gate?.pass()
+        if let failure { throw failure }
+        guard transfer.fromAccountID != transfer.toAccountID else {
+            throw RepositoryError.rejected("轉出與轉入帳戶不能相同")
+        }
+        guard
+            let from = storedAccounts.first(where: { $0.id == transfer.fromAccountID }),
+            let to = storedAccounts.first(where: { $0.id == transfer.toAccountID })
+        else {
+            throw RepositoryError.rejected("找不到轉出帳戶或無權限操作")
+        }
+        if let balance = Self.balance(of: from), balance < transfer.amount {
+            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.amount)）")
+        }
+        transfers.append(transfer)
+        storedAccounts = storedAccounts.map { account in
+            if account.id == from.id { return Self.adding(.zero - transfer.amount, to: account) }
+            if account.id == to.id { return Self.adding(transfer.amount, to: account) }
+            return account
+        }
+        let isATM: Bool
+        if case .bank = from, case .cash = to { isATM = true } else { isATM = false }
+        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.amount) (\(from.name) ➡️ \(to.name))"
+    }
+
+    /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
+    private static func balance(of account: Account) -> Money? {
+        switch account {
+        case .cash(let wallet): wallet.balance
+        case .bank(let bank): bank.balance
+        case .creditCard: nil
+        }
+    }
+
+    /// 跟後端一樣直接加減 `balance`(信用卡的 `balance` 是已出帳待繳金額)。
+    private static func adding(_ amount: Money, to account: Account) -> Account {
+        switch account {
+        case .cash(let wallet):
+            .cash(CashWallet(
+                id: wallet.id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance + amount,
+                isJointFund: wallet.isJointFund
+            ))
+        case .bank(let bank):
+            .bank(BankAccount(
+                id: bank.id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance + amount,
+                isJointFund: bank.isJointFund
+            ))
+        case .creditCard(let card):
+            .creditCard(Self.card(card, billed: card.billedDebt + amount, unbilled: card.unbilledDebt))
+        }
     }
 
     /// 之後的請求都以這個錯誤失敗。
@@ -142,6 +225,13 @@ extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個銀行存款帳戶、兩張信用卡帳戶。
     public static func sample(gate: Gate? = nil) -> InMemoryAccountRepository {
         InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate)
+    }
+
+    /// 同上，再加一個現金錢包「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。
+    public static func sampleWithCash(gate: Gate? = nil) -> InMemoryAccountRepository {
+        InMemoryAccountRepository(
+            accounts: [.cash(SampleAccounts.wallet)] + SampleAccounts.all, summary: SampleAccounts.summaryWithCash, gate: gate
+        )
     }
 }
 
@@ -181,6 +271,23 @@ public enum SampleAccounts {
     )
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
+
+    /// 個人私帳的現金錢包。
+    public static let wallet = CashWallet(
+        id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
+    )
+
+    /// 含現金錢包的資金指標：淨可用資產 = 1,500 + 50,000 − 28,500(後端算好的值)。
+    public static let summaryWithCash = BalanceSummary(
+        cashTotal: Money(1500),
+        bankBalanceTotal: Money(50000),
+        billedDebtTotal: Money(20000),
+        unbilledDebtTotal: Money(8500),
+        availableBalance: Money(23000),
+        monthlyAmortization: .zero,
+        monthlySavingsReserve: .zero,
+        disposableCash: Money(23000)
+    )
 
     public static let summary = BalanceSummary(
         bankBalanceTotal: Money(50000),

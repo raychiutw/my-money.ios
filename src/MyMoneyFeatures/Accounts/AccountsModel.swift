@@ -14,6 +14,12 @@ public final class AccountsModel {
     }
 
     public private(set) var phase: Phase = .loading
+
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 畫面在範圍改變時重新載入(`.task(id:)`)。
+    public var scope: AccountScope = .all
+
+    public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
     private var summary: BalanceSummary?
@@ -38,14 +44,14 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 今天(台灣時間)已經到了結帳日，而且有未出帳金額時，提醒結帳日出帳結轉。
+    /// 有未出帳金額就能結帳日出帳結轉，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.isStatementDue(today: today())
+        card.unbilledDebt > .zero
     }
 
-    /// 例如「每月 15 號結帳日已過，有未出帳金額待結轉」。
+    /// 例如「未出帳 $3,500,可結轉為本期已出帳待繳」。
     public func rolloverReminder(for card: CreditCard) -> String {
-        "每月 \(card.statementDay ?? 0) 號結帳日已過，有未出帳金額待結轉"
+        "未出帳 \(card.unbilledDebt.formatted()),可結轉為本期已出帳待繳"
     }
 
     public func rolloverConfirmation(for card: CreditCard) -> String {
@@ -62,13 +68,16 @@ public final class AccountsModel {
         }
     }
 
-    /// 信用卡還款沖銷的 sheet:扣款帳戶只列出銀行存款帳戶。
-    public func makePayment(for card: CreditCard) -> CardPaymentModel {
-        CardPaymentModel(card: card, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today)
+    /// 信用卡還款沖銷的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
+    public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
+        CardPaymentModel(
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+        )
     }
 
-    /// 上一次載入時的資料版本;跟目前的版本不同時就要重抓。
+    /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: AccountScope?
 
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
@@ -84,10 +93,15 @@ public final class AccountsModel {
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
+    }
+
+    /// ATM 提款／帳戶互轉的 sheet。從某個帳戶的按鈕打開時，預先選好轉出或轉入。
+    public func makeTransfer(from: AccountID? = nil, to: AccountID? = nil) -> TransferModel {
+        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredFrom: from, preferredTo: to)
     }
 
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
@@ -97,6 +111,11 @@ public final class AccountsModel {
     public func makeEditor(editing account: Account) -> AccountEditorModel {
         AccountEditorModel(editing: account, repository: repository, dataVersion: dataVersion)
     }
+
+    /// 現金錢包的餘額合計;還沒載入時是 `nil`。
+    public var cashTotal: Money? { summary?.cashTotal }
+
+    public var cashWalletCountText: String { "\(cashWallets.count) 個現金錢包" }
 
     /// 銀行存款帳戶的餘額合計;還沒載入時是 `nil`。
     public var bankBalanceTotal: Money? { summary?.bankBalanceTotal }
@@ -109,23 +128,50 @@ public final class AccountsModel {
     public var billedDebtTotal: Money? { summary?.billedDebtTotal }
     public var unbilledDebtTotal: Money? { summary?.unbilledDebtTotal }
 
-    /// 淨可用資產(後端以整個家庭群組計算)。
+    /// 淨可用資產(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
 
-    /// 載入資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
+    /// 載入這個範圍的資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
         let version = dataVersion.value
+        let scope = scope
         do {
-            async let accounts = repository.accounts()
-            async let summary = repository.balanceSummary()
+            async let accounts = repository.accounts(scope: scope)
+            async let summary = repository.balanceSummary(scope: scope)
             let (loadedAccounts, loadedSummary) = try await (accounts, summary)
+            // 被取消(換了範圍)或已經過期的結果不套用。
+            guard !Task.isCancelled, scope == self.scope else { return }
+            cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
+            // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
+        }
+    }
+}
+
+extension Account {
+    /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
+    public var menuTitle: String {
+        switch self {
+        case .cash(let wallet): "\(wallet.name)(現金錢包)"
+        case .bank(let bank): "\(bank.name)(銀行存款帳戶)"
+        case .creditCard(let card): "\(card.name)(信用卡)"
+        }
+    }
+
+    /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。
+    public var menuTitleWithBalance: String {
+        switch self {
+        case .cash(let wallet): "\(wallet.name)(現金錢包，餘額 \(wallet.balance.formatted()))"
+        case .bank(let bank): "\(bank.name)(銀行存款帳戶，餘額 \(bank.balance.formatted()))"
+        case .creditCard: menuTitle
         }
     }
 }

@@ -23,7 +23,7 @@ public final class AccountEditorModel {
     public var name = ""
     public var colorHex: String
 
-    /// 銀行存款帳戶是餘額，信用卡帳戶是已出帳待繳金額。
+    /// 現金錢包和銀行存款帳戶的餘額。信用卡不輸入已出帳待繳金額(web 在 `82d9124` 拿掉了)。
     public var amountText = ""
     public var unbilledText = ""
     public var creditLimitText = ""
@@ -35,18 +35,32 @@ public final class AccountEditorModel {
 
     public var title: String {
         let action = editingID == nil ? "新增" : "編輯"
-        return action + (kind == .bank ? "銀行存款帳戶" : "信用卡")
+        let noun = switch kind {
+        case .cash: "現金錢包"
+        case .bank: "銀行存款帳戶"
+        case .creditCard: "信用卡"
+        }
+        return action + noun
     }
 
+    /// 信用卡沒有餘額欄：新增時已出帳待繳金額送 0,編輯時照原值送回。
+    public var showsAmountField: Bool { kind != .creditCard }
+
     public var amountLabel: String {
-        kind == .bank ? "餘額" : "已出帳待繳金額"
+        kind == .cash ? "目前現金餘額" : "餘額"
     }
 
     public var canChangeKind: Bool { editingID == nil }
 
     @ObservationIgnored private let editingID: AccountID?
 
-    /// 設為家庭共同基金帳戶(只有銀行存款帳戶有這個選項)。編輯時帶入原本的標記：
+    /// 編輯信用卡時原本的已出帳待繳金額(表單不能改，照原值送回);新增時是 0。
+    @ObservationIgnored private var originalBilledDebt: Money = .zero
+
+    /// 新增時隨機挑的代表色;現金錢包改用固定的綠色(見 `applyDefaults`)。
+    @ObservationIgnored private var randomDefaultColor = ""
+
+    /// 家庭公用(家庭共同基金、家庭卡)或個人私帳，所有類型都能設。編輯時帶入原本的標記：
     /// 後端的 PUT 沒收到 `is_joint` 會寫成 0。
     public var isJointFund: Bool
     @ObservationIgnored private let repository: any AccountRepository
@@ -59,7 +73,8 @@ public final class AccountEditorModel {
         randomColor: () -> String = AccountColors.random
     ) {
         storedKind = kind
-        colorHex = randomColor()
+        randomDefaultColor = randomColor()
+        colorHex = randomDefaultColor
         editingID = nil
         isJointFund = false
         self.repository = repository
@@ -72,6 +87,12 @@ public final class AccountEditorModel {
         self.repository = repository
         self.dataVersion = dataVersion
         switch account {
+        case .cash(let wallet):
+            storedKind = .cash
+            name = wallet.name
+            colorHex = wallet.colorHex
+            amountText = Self.text(wallet.balance)
+            isJointFund = wallet.isJointFund
         case .bank(let bank):
             storedKind = .bank
             name = bank.name
@@ -83,12 +104,12 @@ public final class AccountEditorModel {
             storedKind = .creditCard
             name = card.name
             colorHex = card.colorHex
-            amountText = Self.text(card.billedDebt)
+            originalBilledDebt = card.billedDebt
             unbilledText = Self.text(card.unbilledDebt)
             creditLimitText = card.creditLimit.map(Self.text) ?? ""
             statementDay = card.statementDay
             paymentDueDay = card.paymentDueDay
-            isJointFund = false
+            isJointFund = card.isJointFund
         }
     }
 
@@ -120,6 +141,10 @@ public final class AccountEditorModel {
 
     private func draft(named name: String) -> AccountDraft {
         switch kind {
+        case .cash:
+            .cash(CashWalletDraft(
+                name: name, colorHex: colorHex, balance: Self.money(amountText), isJointFund: isJointFund
+            ))
         case .bank:
             .bank(BankAccountDraft(
                 name: name, colorHex: colorHex, balance: Self.money(amountText), isJointFund: isJointFund
@@ -128,11 +153,12 @@ public final class AccountEditorModel {
             .creditCard(CreditCardDraft(
                 name: name,
                 colorHex: colorHex,
-                billedDebt: Self.money(amountText),
+                billedDebt: originalBilledDebt,
                 unbilledDebt: Self.money(unbilledText),
                 creditLimit: Self.optionalMoney(creditLimitText),
                 statementDay: statementDay,
-                paymentDueDay: paymentDueDay
+                paymentDueDay: paymentDueDay,
+                isJointFund: isJointFund
             ))
         }
     }
@@ -141,8 +167,9 @@ public final class AccountEditorModel {
     /// 欄位留空，存的時候一樣是 0:預填的「0」會讓游標停在 0 前面，輸入的數字接在 0 前面。
     private func applyDefaults(for kind: AccountKind) {
         unbilledText = ""
+        colorHex = kind == .cash ? AccountColors.cashWallet : randomDefaultColor
         switch kind {
-        case .bank:
+        case .cash, .bank:
             creditLimitText = ""
             statementDay = nil
             paymentDueDay = nil
@@ -180,6 +207,9 @@ public enum AccountColors {
         ("#EAFFD0", "淺綠"),
         ("#C9D6FF", "薰衣草"),
     ]
+
+    /// 新增現金錢包的預設色(web 的 `openAdd`),不在 8 色裡。
+    public static let cashWallet = "#10B981"
 
     public static func random() -> String {
         all.randomElement()!.hex

@@ -152,10 +152,10 @@ private struct RecurringRow: View {
                 Text(item.name)
                     .font(.headline)
                 Text(item.scheduleText)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(details)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -165,7 +165,7 @@ private struct RecurringRow: View {
                     .monospacedDigit()
                     .foregroundStyle(item.type == .income ? .green : .red)
                 Text("\(item.cycle.label)\(item.type == .income ? "收" : "繳")")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }

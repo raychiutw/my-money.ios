@@ -6,6 +6,7 @@ struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
     @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
+    @State private var reimbursement: ReimbursementModel?
 
     var body: some View {
         content
@@ -47,6 +48,20 @@ struct HouseholdScreen: View {
                 Button("好") {}
             } message: {
                 Text(model.alertMessage ?? "")
+            }
+            .alert(
+                "完成",
+                isPresented: Binding(get: { model.noticeMessage != nil }, set: { if !$0 { model.noticeMessage = nil } })
+            ) {
+                Button("好") {}
+            } message: {
+                Text(model.noticeMessage ?? "")
+            }
+            .sheet(item: $reimbursement) { reimbursement in
+                ReimbursementView(model: reimbursement) { message in
+                    model.noticeMessage = message
+                    Task { await model.load() }
+                }
             }
     }
 
@@ -126,6 +141,8 @@ struct HouseholdScreen: View {
                 .accessibilityIdentifier("household.invite")
             }
 
+            advancesSection
+
             Section("家庭成員名冊") {
                 ForEach(household.members) { member in
                     MemberRow(member: member)
@@ -156,6 +173,141 @@ struct HouseholdScreen: View {
     }
 }
 
+extension HouseholdScreen {
+    /// 家庭公帳代墊與報銷(web 的「家庭公帳代墊與報銷中心」):每位成員一列，明細就地展開，可以同時展開多位。
+    private var advancesSection: some View {
+        Section {
+            if model.advances.isEmpty {
+                Text("暫無公帳代墊款紀錄")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(model.advances) { advance in
+                AdvanceSummaryRow(advance: advance)
+                Button(
+                    model.isShowingDetails(of: advance.memberID)
+                        ? "收起明細" : "查看代墊明細(\(advance.advanceItems.count + advance.reimbursementItems.count) 筆)",
+                    systemImage: model.isShowingDetails(of: advance.memberID) ? "chevron.up" : "chevron.down"
+                ) {
+                    model.toggleDetails(of: advance.memberID)
+                }
+                .accessibilityIdentifier("household.advanceDetails")
+                if model.isShowingDetails(of: advance.memberID) {
+                    AdvanceDetails(advance: advance)
+                }
+                if model.canReimburse(advance) {
+                    Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
+                        reimbursement = model.makeReimbursement(for: advance)
+                    }
+                    .accessibilityIdentifier("household.reimburse")
+                } else if let note = model.reimbursementNote(for: advance) {
+                    Text(note)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("家庭公帳代墊與報銷")
+        } footer: {
+            Text("只有用個人帳戶(個人私帳、私卡或個人現金錢包)付的家庭公帳支出才算代墊;由家庭共同基金直接付的不算。")
+        }
+    }
+}
+
+/// 一位成員的代墊摘要：名稱、結清狀態、累計代墊與已報銷、待報銷金額。
+private struct AdvanceSummaryRow: View {
+    let advance: HouseholdAdvance
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(advance.memberName)
+                        .font(.headline)
+                    Label(advance.isSettled ? "已全數結清" : "有待請款代墊", systemImage: advance.isSettled ? "checkmark.circle" : "clock")
+                        .font(.footnote)
+                        .foregroundStyle(advance.isSettled ? .green : .orange)
+                }
+                Text("累計公帳墊付 \(advance.totalAdvanced.formatted()) · 已獲撥款報銷 \(advance.totalReimbursed.formatted())")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("待報銷")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text(advance.pendingReimbursement.formatted())
+                    .font(.headline)
+                    .monospacedDigit()
+                    .foregroundStyle(advance.isSettled ? .green : .red)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(advance.memberName),\(advance.isSettled ? "已全數結清" : "有待請款代墊"),"
+                + "累計公帳墊付 \(advance.totalAdvanced.spokenText),已獲撥款報銷 \(advance.totalReimbursed.spokenText),"
+                + "待報銷 \(advance.pendingReimbursement.spokenText)"
+        )
+    }
+}
+
+/// 就地展開的兩份明細：個人代墊消費明細、共同基金撥款沖帳紀錄。
+private struct AdvanceDetails: View {
+    let advance: HouseholdAdvance
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("個人代墊消費明細(\(advance.advanceItems.count) 筆)")
+                .font(.subheadline.bold())
+            if advance.advanceItems.isEmpty {
+                Text("尚未有任何個人代墊公帳消費紀錄。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(advance.advanceItems) { item in
+                detailRow(
+                    date: item.date, title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
+                    account: item.accountName, amount: item.amount, isIncome: false
+                )
+            }
+            Text("共同基金撥款沖帳紀錄(\(advance.reimbursementItems.count) 筆)")
+                .font(.subheadline.bold())
+                .padding(.top, 4)
+            if advance.reimbursementItems.isEmpty {
+                Text("尚未有自共同基金撥款報銷之歷史沖帳紀錄。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(advance.reimbursementItems) { item in
+                detailRow(
+                    date: item.date, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
+                    account: item.accountName, amount: item.amount, isIncome: true
+                )
+            }
+        }
+    }
+
+    /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
+    private func detailRow(date: CalendarDay, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text("\(date.slashText) · \(account)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("\(isIncome ? "+" : "-")\(amount.formatted())")
+                .monospacedDigit()
+                .foregroundStyle(isIncome ? .green : .red)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(date.slashText),\(account)")
+    }
+}
+
+extension ReimbursementModel: Identifiable {}
+
 /// 名冊的一個人：名稱開頭字、名稱、角色、email、加入日期。
 private struct MemberRow: View {
     let member: HouseholdMember
@@ -171,14 +323,14 @@ private struct MemberRow: View {
                 HStack(spacing: 6) {
                     Text(member.name)
                     Text(member.role.title)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Text(member.email)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text("加入日期 \(member.joinedDateText())")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }

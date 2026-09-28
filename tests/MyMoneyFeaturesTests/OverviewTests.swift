@@ -36,6 +36,54 @@ struct OverviewTests {
         return model
     }
 
+    @Test("帳戶一覽列出現金錢包;淨可用資產的組成是現金加銀行存款減待繳卡費(web 的 Dashboard 寫成「現金 + 活存 - 卡債」)")
+    func availableBreakdownIncludesCash() async {
+        let model = OverviewModel(
+            accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
+            goals: goals, dataVersion: DataVersion(), defaults: defaults, today: { today }
+        )
+
+        await model.load()
+
+        #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
+        #expect(model.availableBreakdown == "現金 $1,500 + 銀行存款 $50,000 - 待繳卡費 $28,500")
+    }
+
+    @Test("帳戶一覽的信用卡：待繳卡費總額(已出帳加未出帳),下面是代墊／私帳拆解與未出帳、繳款日;結清時說明已結清")
+    func creditCardLines() {
+        #expect(SampleAccounts.card.totalDue == Money(15500))
+        #expect(OverviewModel.cardDetailLines(SampleAccounts.card) == ["代墊 $3,000 · 私帳 $12,500", "未出帳 $3,500 · 每月 5 日繳款"])
+
+        let settled = CreditCard(
+            id: AccountID("settled"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
+            creditLimit: nil, statementDay: 15, paymentDueDay: nil
+        )
+        #expect(OverviewModel.cardDetailLines(settled) == ["卡費已全數結清", "未出帳 $0"])
+    }
+
+    @Test("視角也套用在資金指標和帳戶一覽(web 的 Dashboard 在 82d9124 起帶同一個 scope)", arguments: [
+        (ViewScope.all, AccountScope.all), (.household, .household), (.personal, .personal),
+    ])
+    func scopeAppliesToBalanceAndAccounts(scope: ViewScope, accountScope: AccountScope) async {
+        let model = model()
+        model.scope = scope
+
+        await model.load()
+
+        #expect(await accounts.requestedScopes.last == accountScope)
+        #expect(await accounts.requestedSummaryScopes.last == accountScope)
+    }
+
+    @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
+        (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (.household, "目前無家庭公用帳戶", "至帳戶管理將帳戶屬性設為「家庭公用」即可在此呈現"),
+        (.personal, "目前無個人私帳", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+    ])
+    func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
+        #expect(scope.emptyAccountsTitle == title)
+        #expect(scope.emptyAccountsHint == hint)
+    }
+
     @Test("視角預設全部;選過的視角記在 UserDefaults,下次打開沿用")
     func scopeIsRemembered() {
         let first = model()

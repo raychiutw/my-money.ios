@@ -27,13 +27,23 @@ struct AccountEditorTests {
         #expect(editor.canChangeKind)
     }
 
-    @Test("新增信用卡的預設值：已出帳與未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
+    @Test("新增現金錢包的代表色預設是綠色 #10B981(web 的 openAdd);切到其他類型改回隨機挑的顏色")
+    func cashWalletDefaultColor() {
+        let editor = adding(.cash)
+        #expect(editor.colorHex == "#10B981")
+
+        editor.kind = .bank
+        #expect(editor.colorHex == "#95E1D3")
+        editor.kind = .cash
+        #expect(editor.colorHex == "#10B981")
+    }
+
+    @Test("新增信用卡的預設值：不輸入已出帳待繳金額(web 拿掉了)、未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
     func creditCardDefaults() {
         let editor = adding(.creditCard)
 
         #expect(editor.title == "新增信用卡")
-        #expect(editor.amountLabel == "已出帳待繳金額")
-        #expect(editor.amountText == "")
+        #expect(!editor.showsAmountField)
         #expect(editor.unbilledText == "")
         #expect(editor.creditLimitText == "100000")
         #expect(editor.statementDay == 15)
@@ -71,7 +81,7 @@ struct AccountEditorTests {
 
         #expect(editor.title == "編輯信用卡")
         #expect(editor.name == "iOS 測試信用卡")
-        #expect(editor.amountText == "12000")
+        #expect(!editor.showsAmountField)
         #expect(editor.unbilledText == "3500")
         #expect(editor.creditLimitText == "100000")
         #expect(editor.statementDay == 15)
@@ -99,7 +109,6 @@ struct AccountEditorTests {
     func creatingBumpsDataVersion() async {
         let editor = adding(.creditCard)
         editor.name = "  旅遊卡  "
-        editor.amountText = "1200"
         editor.unbilledText = "300"
         editor.creditLimitText = ""
 
@@ -109,12 +118,76 @@ struct AccountEditorTests {
         #expect(await repository.createdDrafts == [.creditCard(CreditCardDraft(
             name: "旅遊卡",
             colorHex: "#95E1D3",
-            billedDebt: Money(1200),
+            billedDebt: .zero,
             unbilledDebt: Money(300),
             creditLimit: nil,
             statementDay: 15,
             paymentDueDay: 5
         ))])
+    }
+
+    @Test("新增現金錢包：標題、金額欄是「目前現金餘額」,預設個人私帳，送出現金錢包")
+    func addingCashWallet() async {
+        let editor = adding(.cash)
+        #expect(editor.title == "新增現金錢包")
+        #expect(editor.showsAmountField)
+        #expect(editor.amountLabel == "目前現金餘額")
+        #expect(!editor.isJointFund)
+        editor.name = "我的皮夾"
+        editor.amountText = "800"
+
+        #expect(await editor.save())
+
+        #expect(await repository.createdDrafts == [.cash(CashWalletDraft(
+            name: "我的皮夾", colorHex: "#10B981", balance: Money(800), isJointFund: false
+        ))])
+    }
+
+    @Test("編輯家庭公用的現金錢包：帶入原值、不能改類型，送出現金錢包並保留家庭公用")
+    func editingCashWallet() async {
+        let jar = CashWallet(id: AccountID("jar"), name: "客廳零用金盒", colorHex: "#10B981", balance: Money(2000), isJointFund: true)
+        let editor = AccountEditorModel(editing: .cash(jar), repository: repository, dataVersion: dataVersion)
+        #expect(editor.title == "編輯現金錢包")
+        #expect(editor.amountText == "2000")
+        #expect(editor.isJointFund)
+        #expect(!editor.canChangeKind)
+        editor.amountText = "1800"
+
+        #expect(await editor.save())
+
+        #expect(await repository.updatedDrafts == [AccountID("jar"): .cash(CashWalletDraft(
+            name: "客廳零用金盒", colorHex: "#10B981", balance: Money(1800), isJointFund: true
+        ))])
+    }
+
+    @Test("信用卡也能設成家庭卡(所有類型都能設歸屬)")
+    func creditCardCanBeHouseholdCard() async {
+        let editor = adding(.creditCard)
+        editor.name = "家庭卡"
+        editor.isJointFund = true
+
+        #expect(await editor.save())
+
+        guard case .creditCard(let card)? = await repository.createdDrafts.first else {
+            Issue.record("沒有送出信用卡")
+            return
+        }
+        #expect(card.isJointFund)
+    }
+
+    @Test("編輯信用卡時照原值送回已出帳待繳金額(表單不能改)")
+    func editingCardKeepsBilledDebt() async {
+        let editor = AccountEditorModel(editing: .creditCard(SampleAccounts.card), repository: repository, dataVersion: dataVersion)
+        editor.unbilledText = "4000"
+
+        #expect(await editor.save())
+
+        guard case .creditCard(let card)? = await repository.updatedDrafts[SampleAccounts.card.id] else {
+            Issue.record("沒有送出信用卡")
+            return
+        }
+        #expect(card.billedDebt == Money(12000))
+        #expect(card.unbilledDebt == Money(4000))
     }
 
     @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")

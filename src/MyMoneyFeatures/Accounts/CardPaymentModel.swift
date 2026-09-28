@@ -31,10 +31,21 @@ public final class CardPaymentModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);
-    /// 金額在已出帳待繳金額大於 0 時用它，否則用未出帳金額;今天;「繳納【卡名】卡費」;公帳部分較多時是家庭公帳。
+    /// 從卡片的哪個按鈕打開(web 的 `handleOpenPay`)。
+    public enum Preset: Sendable {
+        /// 「繳家庭代墊」:欠款裡家庭公帳的部分，家庭公帳。
+        case shared
+        /// 「繳個人私帳」:欠款裡個人私帳的部分，個人私帳。
+        case personal
+        /// 「全額結清」:待繳卡費總額，家庭公帳。
+        case full
+    }
+
+    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的按鈕;
+    /// 今天;「繳納 {卡名} 卡費 (家庭代墊 / 個人私帳 / 全額)」。
     public init(
         card: CreditCard,
+        preset: Preset,
         bankAccounts: [BankAccount],
         repository: any AccountRepository,
         dataVersion: DataVersion,
@@ -45,35 +56,15 @@ public final class CardPaymentModel {
         self.repository = repository
         self.dataVersion = dataVersion
         bankAccountID = (bankAccounts.first { $0.balance > .zero } ?? bankAccounts.first)?.id
-        let amount = card.billedDebt > .zero ? card.billedDebt : card.unbilledDebt
+        let (amount, isShared, kind): (Money, Bool, String) = switch preset {
+        case .shared: (card.sharedDebt, true, "家庭代墊")
+        case .personal: (card.personalDebt, false, "個人私帳")
+        case .full: (card.totalDue, true, "全額")
+        }
         amountText = amount > .zero ? "\(amount.amount)" : ""
         date = today()
-        note = "繳納【\(card.name)】卡費"
-        isShared = card.sharedDebt >= card.personalDebt
-    }
-
-    /// 「繳家庭代墊 X」;公帳部分是 0 時不顯示(`nil`)。
-    public var sharedQuickFillTitle: String? {
-        card.sharedDebt > .zero ? "繳家庭代墊 \(card.sharedDebt.formatted())" : nil
-    }
-
-    /// 「繳個人私帳 X」;私帳部分是 0 時不顯示(`nil`)。
-    public var personalQuickFillTitle: String? {
-        card.personalDebt > .zero ? "繳個人私帳 \(card.personalDebt.formatted())" : nil
-    }
-
-    /// 帶入公帳金額，並優先選家庭共同基金。
-    public func fillShared() {
-        amountText = "\(card.sharedDebt.amount)"
-        isShared = true
-        if let joint = bankAccounts.first(where: \.isJointFund) { bankAccountID = joint.id }
-    }
-
-    /// 帶入私帳金額，並優先選非共同基金的帳戶。
-    public func fillPersonal() {
-        amountText = "\(card.personalDebt.amount)"
-        isShared = false
-        if let own = bankAccounts.first(where: { !$0.isJointFund }) { bankAccountID = own.id }
+        note = "繳納 \(card.name) 卡費 (\(kind))"
+        self.isShared = isShared
     }
 
     /// 送出。扣款帳戶的餘額小於繳款金額時先回 `.needsConfirmation`,確認後帶 `confirmedLowBalance: true` 再送一次。
@@ -110,14 +101,5 @@ public final class CardPaymentModel {
         }
         dataVersion.bump()
         return .paid
-    }
-}
-
-extension CreditCard {
-    /// 欠款公私拆解裡家庭公帳的佔比，取整數，例如「15%」(跟 web 的 `Math.round` 一樣)。
-    public var sharedDebtPercentText: String {
-        guard totalDue > .zero else { return "0%" }
-        let percent = sharedDebt.amount / totalDue.amount * 100
-        return percent.percentText(fractionDigits: 0)
     }
 }

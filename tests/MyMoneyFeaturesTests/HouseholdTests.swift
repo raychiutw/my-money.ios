@@ -9,8 +9,15 @@ import Testing
 struct HouseholdTests {
     private let dataVersion = DataVersion()
 
-    private func loaded(_ repository: InMemoryHouseholdRepository) async -> HouseholdModel {
-        let model = HouseholdModel(repository: repository, dataVersion: dataVersion)
+    private let me = InMemoryAuthRepository.Member.sample.user.id
+    private let today = CalendarDay(year: 2026, month: 9, day: 28)
+
+    private func loaded(
+        _ repository: InMemoryHouseholdRepository, accounts: InMemoryAccountRepository = .sample()
+    ) async -> HouseholdModel {
+        let model = HouseholdModel(
+            repository: repository, accounts: accounts, dataVersion: dataVersion, currentUserID: me, today: { today }
+        )
         await model.load()
         return model
     }
@@ -20,6 +27,99 @@ struct HouseholdTests {
             userID: UserID(name), name: name, email: "\(name)@example.com", role: role,
             joinedAt: try! Date("2026-09-27T21:20:20Z", strategy: .iso8601)
         )
+    }
+
+    /// 小美替家裡墊了 600,還沒報銷。
+    private let meiAdvance = HouseholdAdvance(
+        memberID: UserID("sample-mei"), memberName: "小美", totalAdvanced: Money(600), totalReimbursed: .zero,
+        pendingReimbursement: Money(600), advanceItems: [], reimbursementItems: []
+    )
+
+    @Test("有家庭群組時一起載入代墊統計;沒有家庭群組時是空的")
+    func loadsAdvances() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
+        #expect(model.advances.map(\.memberName) == ["小明", "小美"])
+
+        let without = await loaded(InMemoryHouseholdRepository(household: nil, advances: [meiAdvance]))
+        #expect(without.advances.isEmpty)
+    }
+
+    @Test("代墊明細就地展開，可以同時展開多位成員")
+    func detailsExpandIndependently() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
+
+        model.toggleDetails(of: me)
+        model.toggleDetails(of: UserID("sample-mei"))
+        #expect(model.isShowingDetails(of: me) && model.isShowingDetails(of: UserID("sample-mei")))
+
+        model.toggleDetails(of: me)
+        #expect(!model.isShowingDetails(of: me))
+        #expect(model.isShowingDetails(of: UserID("sample-mei")))
+    }
+
+    @Test("只能從共同基金報銷自己的代墊款;其他成員顯示原因，已結清的不能報銷")
+    func onlyMyPendingAdvanceCanBeReimbursed() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
+
+        #expect(model.canReimburse(InMemoryHouseholdRepository.myPendingAdvance))
+        #expect(model.reimbursementNote(for: InMemoryHouseholdRepository.myPendingAdvance) == nil)
+        #expect(!model.canReimburse(meiAdvance))
+        #expect(model.reimbursementNote(for: meiAdvance) == "後端目前不提供其他成員的收款帳戶，請由小美本人撥款報銷。")
+
+        let settled = HouseholdAdvance(
+            memberID: me, memberName: "小明", totalAdvanced: Money(250), totalReimbursed: Money(250),
+            pendingReimbursement: .zero, advanceItems: [], reimbursementItems: []
+        )
+        #expect(!model.canReimburse(settled))
+    }
+
+    /// 家庭共同基金兩個(餘額 100 不夠付 250、8,000)、我的個人私帳一個銀行存款帳戶和一個現金錢包，還有一張個人信用卡。
+    private func accountsForReimbursement() -> InMemoryAccountRepository {
+        InMemoryAccountRepository(accounts: [
+            .bank(BankAccount(id: AccountID("small-fund"), name: "零用公基金", colorHex: "#A8D8EA", balance: Money(100), isJointFund: true)),
+            .bank(BankAccount(id: AccountID("fund"), name: "家庭共同基金", colorHex: "#A8D8EA", balance: Money(8000), isJointFund: true)),
+            .bank(SampleAccounts.savings),
+            .cash(SampleAccounts.wallet),
+            .creditCard(SampleAccounts.card),
+        ], summary: .zero)
+    }
+
+    @Test("撥款報銷的預設值：金額是待報銷總額、撥款帳戶是第一個餘額夠的共同基金、收款帳戶是我的個人帳戶")
+    func reimbursementDefaults() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance]), accounts: accountsForReimbursement())
+        let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
+
+        await reimbursement.load()
+
+        #expect(reimbursement.fundAccounts.map(\.name) == ["零用公基金", "家庭共同基金"])
+        #expect(reimbursement.receivingAccounts.map(\.name) == ["iOS 測試存款", "iOS 測試皮夾"])
+        #expect(reimbursement.fromAccountID == AccountID("fund"))
+        #expect(reimbursement.toAccountID == SampleAccounts.savings.id)
+        #expect(reimbursement.amountText == "250")
+        #expect(reimbursement.note == "家庭基金撥款報銷 小明 代墊公帳")
+        #expect(reimbursement.date == today)
+    }
+
+    @Test("撥款報銷：送出後回傳後端的訊息、資料版本遞增;金額不是正整數時不送出")
+    func submitsReimbursement() async {
+        let repository = InMemoryHouseholdRepository.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance])
+        let model = await loaded(repository, accounts: accountsForReimbursement())
+        let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
+        await reimbursement.load()
+
+        reimbursement.amountText = "0"
+        #expect(await reimbursement.submit() == nil)
+        #expect(reimbursement.errorMessage == "請選擇撥款公帳、收款帳戶並輸入大於 0 的金額")
+
+        reimbursement.amountText = "250"
+        let message = await reimbursement.submit()
+
+        #expect(message == "成功從共同基金撥款報銷 NT$ 250 給 小明！")
+        #expect(await repository.reimbursements == [Reimbursement(
+            memberID: me, fromAccountID: AccountID("fund"), toAccountID: SampleAccounts.savings.id, amount: Money(250),
+            date: today, note: "家庭基金撥款報銷 小明 代墊公帳"
+        )])
+        #expect(dataVersion.value == 1)
     }
 
     @Test("還沒加入家庭群組")
@@ -61,7 +161,9 @@ struct HouseholdTests {
     func joinFailure() async {
         let repository = InMemoryHouseholdRepository(household: nil)
         await repository.fail(with: .rejected("邀請碼無效或已過期"))
-        let model = HouseholdModel(repository: repository, dataVersion: dataVersion)
+        let model = HouseholdModel(
+            repository: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion, currentUserID: me
+        )
         model.joinCode = "FAM-0000"
 
         await model.join()

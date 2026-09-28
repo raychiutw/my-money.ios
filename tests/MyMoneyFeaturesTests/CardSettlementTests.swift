@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("結帳日出帳結轉與欠款公私拆解")
+@Suite("結帳日出帳結轉")
 struct StatementRolloverTests {
     private let dataVersion = DataVersion()
 
@@ -18,13 +18,16 @@ struct StatementRolloverTests {
         return (model, repository)
     }
 
-    @Test("今天(台灣時間)到了結帳日才提醒")
-    func showsRolloverFromStatementDay() async {
-        let (before, _) = await loaded(today: 14)
-        #expect(before.creditCards.map(before.showsRollover) == [false, true])
+    @Test("有未出帳金額就能結轉，不看結帳日(web 在 82d9124 拿掉了結帳日的條件);沒有未出帳金額時不能結轉")
+    func showsRolloverWheneverUnbilled() async {
+        let (model, _) = await loaded(today: 1)
+        #expect(model.creditCards.map(model.showsRollover) == [true, true])
 
-        let (after, _) = await loaded(today: 15)
-        #expect(after.creditCards.map(after.showsRollover) == [true, true])
+        let settled = CreditCard(
+            id: AccountID("settled"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(5000), unbilledDebt: .zero,
+            creditLimit: nil, statementDay: 15, paymentDueDay: 5
+        )
+        #expect(!model.showsRollover(settled))
     }
 
     @Test("確認後結轉，顯示後端的訊息，資料版本遞增")
@@ -33,23 +36,12 @@ struct StatementRolloverTests {
         let card = try #require(model.creditCards.first)
 
         #expect(model.rolloverConfirmation(for: card) == "確定要將「iOS 測試信用卡」的未出帳金額 $3,500 結轉為本期已出帳待繳嗎？")
-        #expect(model.rolloverReminder(for: card) == "每月 15 號結帳日已過，有未出帳金額待結轉")
+        #expect(model.rolloverReminder(for: card) == "未出帳 $3,500,可結轉為本期已出帳待繳")
         await model.rollOver(card)
 
         #expect(await repository.rolledOverIDs == [card.id])
         #expect(model.noticeMessage == "已將未出帳 $3,500 成功結轉為已出帳待繳！")
         #expect(dataVersion.value == 1)
-    }
-
-    @Test("欠款公私拆解：家庭公帳的佔比取整數")
-    func debtSplit() {
-        let card = CreditCard(
-            id: AccountID("card"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(12000), unbilledDebt: Money(7380),
-            creditLimit: nil, statementDay: 15, paymentDueDay: 5, sharedDebt: Money(3000), personalDebt: Money(16380)
-        )
-
-        // 3000 / 19380 = 15.48%。
-        #expect(card.sharedDebtPercentText == "15%")
     }
 }
 
@@ -73,67 +65,40 @@ struct CardPaymentTests {
 
     private func payment(
         _ card: CreditCard,
+        preset: CardPaymentModel.Preset = .full,
         banks: [BankAccount]? = nil,
         repository: InMemoryAccountRepository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
     ) -> CardPaymentModel {
         CardPaymentModel(
-            card: card, bankAccounts: banks ?? [empty, salary, joint], repository: repository, dataVersion: dataVersion,
-            today: { today }
+            card: card, preset: preset, bankAccounts: banks ?? [empty, salary, joint], repository: repository,
+            dataVersion: dataVersion, today: { today }
         )
     }
 
-    @Test("預設值：第一個餘額大於 0 的銀行存款帳戶、已出帳待繳金額、今天、備註、依公私佔比決定歸屬")
-    func defaults() {
-        let model = payment(card())
+    @Test("從卡片的三個按鈕打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay)", arguments: [
+        (CardPaymentModel.Preset.shared, "3000", true, "繳納 iOS 測試信用卡 卡費 (家庭代墊)"),
+        (CardPaymentModel.Preset.personal, "16380", false, "繳納 iOS 測試信用卡 卡費 (個人私帳)"),
+        (CardPaymentModel.Preset.full, "19380", true, "繳納 iOS 測試信用卡 卡費 (全額)"),
+    ])
+    func presets(preset: CardPaymentModel.Preset, amount: String, isShared: Bool, note: String) {
+        let model = payment(card(), preset: preset)
 
-        #expect(model.bankAccountID == salary.id)
-        #expect(model.amountText == "12000")
+        #expect(model.amountText == amount)
+        #expect(model.isShared == isShared)
+        #expect(model.note == note)
         #expect(model.date == today)
-        #expect(model.note == "繳納【iOS 測試信用卡】卡費")
-        #expect(!model.isShared)
+        // 扣款帳戶一律是第一個餘額大於 0 的銀行存款帳戶(web 不再自動改選家庭共同基金)。
+        #expect(model.bankAccountID == salary.id)
     }
 
-    @Test("沒有已出帳待繳金額時，預設金額是未出帳金額;公帳部分較多時預設家庭公帳")
-    func defaultsWithoutBilledDebt() {
-        let model = payment(card(billed: 0, unbilled: 7380, shared: 5000, personal: 2380))
-
-        #expect(model.amountText == "7380")
-        #expect(model.isShared)
-    }
-
-    @Test("公帳部分和私帳部分一樣多時，預設家庭公帳(跟 web 的 >= 一樣)")
-    func equalSplitDefaultsToShared() {
-        #expect(payment(card(shared: 5000, personal: 5000)).isShared)
+    @Test("預設金額是 0 時留空")
+    func zeroPresetAmountIsEmpty() {
+        #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
     @Test("沒有任何餘額大於 0 的銀行存款帳戶時，預設第一個")
     func defaultsToFirstBank() {
         #expect(payment(card(), banks: [empty]).bankAccountID == empty.id)
-    }
-
-    @Test("「繳家庭代墊」帶入公帳金額並優先選家庭共同基金;「繳個人私帳」帶入私帳金額並優先選非共同基金的帳戶")
-    func quickFills() {
-        let model = payment(card())
-
-        #expect(model.sharedQuickFillTitle == "繳家庭代墊 $3,000")
-        model.fillShared()
-        #expect(model.amountText == "3000")
-        #expect(model.bankAccountID == joint.id)
-        #expect(model.isShared)
-
-        #expect(model.personalQuickFillTitle == "繳個人私帳 $16,380")
-        model.fillPersonal()
-        #expect(model.amountText == "16380")
-        #expect(model.bankAccountID == empty.id)
-        #expect(!model.isShared)
-    }
-
-    @Test("金額是 0 的快捷按鈕不顯示")
-    func quickFillsHiddenWhenZero() {
-        let model = payment(card(shared: 0, personal: 19380))
-
-        #expect(model.sharedQuickFillTitle == nil)
-        #expect(model.personalQuickFillTitle != nil)
     }
 
     @Test("驗證：沒選扣款帳戶、金額無效、超過待繳卡費總額", arguments: [
@@ -174,14 +139,14 @@ struct CardPaymentTests {
     @Test("成功後送出所選的內容，資料版本遞增;扣款帳戶只列出銀行存款帳戶")
     func pay() async {
         let repository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
-        let model = payment(card(), repository: repository)
-        model.fillShared()
+        let model = payment(card(), preset: .shared, repository: repository)
+        model.bankAccountID = joint.id
 
         #expect(await model.submit() == .paid)
 
         #expect(await repository.payments == [CardPayment(
             bankAccountID: joint.id, creditCardID: AccountID("card"), amount: Money(3000), date: today,
-            note: "繳納【iOS 測試信用卡】卡費", isShared: true
+            note: "繳納 iOS 測試信用卡 卡費 (家庭代墊)", isShared: true
         )])
         #expect(dataVersion.value == 1)
         #expect(model.bankAccounts.map(\.id) == [empty.id, salary.id, joint.id])

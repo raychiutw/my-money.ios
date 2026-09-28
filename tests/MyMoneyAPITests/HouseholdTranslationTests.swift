@@ -19,6 +19,76 @@ struct HouseholdTranslationTests {
         return try #require(json as? [String: Any])
     }
 
+    @Test("代墊統計:GET /households/advances 解讀成每位成員的累計代墊、已報銷、待報銷與兩份明細")
+    func advancesDecodeSummaryAndItems() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
+
+        let advances = try await repository.advances()
+
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "households/advances"))
+        let mine = try #require(advances.first)
+        #expect(advances.count == 1)
+        #expect(mine.memberID == me)
+        #expect(mine.memberName == "iOS 測試帳號")
+        #expect(mine.totalAdvanced == Money(250))
+        #expect(mine.totalReimbursed == Money(100))
+        #expect(mine.pendingReimbursement == Money(150))
+        #expect(!mine.isSettled)
+        #expect(mine.advanceItems == [AdvanceItem(
+            id: TransactionID("0c25bc66-98b6-4c63-861d-b26d795421f2"), date: CalendarDay(year: 2026, month: 9, day: 28),
+            category: .dining, note: "全家晚餐", amount: Money(250), accountName: "iOS 測試皮夾", accountKind: .cash
+        )])
+        #expect(mine.reimbursementItems == [ReimbursementItem(
+            id: TransactionID("ff606182-d7d5-4f33-962d-f55429b681a6"), date: CalendarDay(year: 2026, month: 9, day: 28),
+            amount: Money(100), note: "iOS 測試報銷 (來自家庭基金 iOS 家庭共同基金)", accountName: "iOS 測試存款"
+        )])
+    }
+
+    @Test("代墊統計：沒有家庭群組時是空的")
+    func advancesWithoutHousehold() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-no-household.json")
+
+        #expect(try await repository.advances().isEmpty)
+    }
+
+    @Test("撥款報銷:POST /households/reimburse 送收款成員、撥款的共同基金、收款帳戶、金額、台灣日期與備註")
+    func reimburseSendsBodyAndReturnsMessage() async throws {
+        try stub.reply(status: 200, fixture: "households-reimburse.json")
+
+        let message = try await repository.reimburse(Reimbursement(
+            memberID: me,
+            fromAccountID: AccountID("c70d655c-0238-4bd7-ba83-92e165437e87"),
+            toAccountID: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"),
+            amount: Money(100),
+            date: CalendarDay(year: 2026, month: 9, day: 28),
+            note: "iOS 測試報銷"
+        ))
+
+        #expect(message == "成功從共同基金撥款報銷 NT$ 100 給 iOS 測試帳號！")
+        let request = try #require(stub.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url == stub.baseURL.appending(path: "households/reimburse"))
+        let json = try body(request)
+        #expect(json["target_user_id"] as? String == me.rawValue)
+        #expect(json["from_account_id"] as? String == "c70d655c-0238-4bd7-ba83-92e165437e87")
+        #expect(json["to_account_id"] as? String == "f4d3074a-4df6-4c98-bd90-bc6f2af91a37")
+        #expect(json["amount"] as? Int == 100)
+        #expect(json["date"] as? String == "2026-09-28")
+        #expect(json["note"] as? String == "iOS 測試報銷")
+    }
+
+    @Test("撥款報銷的錯誤原樣傳遞")
+    func reimburseRejected() async throws {
+        try stub.reply(status: 400, fixture: "households-reimburse-not-joint.json")
+
+        await #expect(throws: RepositoryError.rejected("撥款帳戶必須為家庭共同基金公帳 (公用帳戶)")) {
+            try await repository.reimburse(Reimbursement(
+                memberID: me, fromAccountID: AccountID("a"), toAccountID: AccountID("b"), amount: Money(1),
+                date: CalendarDay(year: 2026, month: 9, day: 28), note: ""
+            ))
+        }
+    }
+
     @Test("還沒加入家庭群組時是 nil")
     func currentWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-current-none.json")

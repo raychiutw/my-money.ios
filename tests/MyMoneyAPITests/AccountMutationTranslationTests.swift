@@ -41,6 +41,37 @@ struct AccountMutationTranslationTests {
         #expect(json["payment_due_day"] == nil)
     }
 
+    @Test("新增現金錢包:type 是 cash,送餘額、代表色與歸屬，不送信用額度與日期")
+    func createCashWalletSendsWalletFields() async throws {
+        try stub.reply(status: 201, fixture: "accounts-create-cash.json")
+
+        try await repository.create(.cash(CashWalletDraft(
+            name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
+        )))
+
+        let json = try body(of: try #require(stub.requests.first))
+        #expect(json["type"] as? String == "cash")
+        #expect(json["name"] as? String == "iOS 測試皮夾")
+        #expect(json["balance"] as? Int == 1500)
+        #expect(json["color"] as? String == "#10B981")
+        #expect(json["is_joint"] as? Int == 0)
+        #expect(json["credit_limit"] == nil)
+        #expect(json["statement_day"] == nil)
+    }
+
+    @Test("信用卡的家庭卡標記送成 is_joint 1(所有類型都能設歸屬)")
+    func householdCardSendsIsJoint() async throws {
+        try stub.reply(status: 201, fixture: "accounts-create-credit-card.json")
+
+        try await repository.create(.creditCard(CreditCardDraft(
+            name: "家庭卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
+            creditLimit: nil, statementDay: 15, paymentDueDay: 5, isJointFund: true
+        )))
+
+        let json = try body(of: try #require(stub.requests.first))
+        #expect(json["is_joint"] as? Int == 1)
+    }
+
     @Test("新增信用卡帳戶：已出帳待繳金額送成 balance,另有未出帳金額、額度與日期")
     func createCreditCardSendsCardFields() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-credit-card.json")

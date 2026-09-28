@@ -68,6 +68,32 @@ struct TransactionsListTests {
         #expect(list.net == Money(44000))
     }
 
+    /// 轉帳、ATM 提款和報銷都各產生一筆支出和一筆收入(或其中一邊),只是資金調度;算進合計會重複(web 仍然算進去，#43)。
+    @Test("加總列不含 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷),收入和支出都不算")
+    func totalsExcludeAllSystemCategories() async {
+        let systemRecords = [
+            systemRecord("atm-out", .expense, .atmWithdrawal, Money(500)),
+            systemRecord("atm-in", .income, .atmWithdrawal, Money(500)),
+            systemRecord("transfer-out", .expense, .internalTransfer, Money(2000)),
+            systemRecord("reimbursement-in", .income, .advanceReimbursement, Money(300)),
+        ]
+        let list = model(InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today) + systemRecords))
+
+        await list.load()
+
+        #expect(list.totalIncome == Money(45000))
+        #expect(list.totalExpense == Money(1000))
+        #expect(systemRecords.allSatisfy { !list.canModify($0) })
+    }
+
+    private func systemRecord(_ id: String, _ type: TransactionType, _ category: TransactionCategory, _ amount: Money) -> Transaction {
+        Transaction(
+            id: TransactionID(id), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+            type: type, category: category, amount: amount, note: "", date: today, isShared: false,
+            recorderName: "小明"
+        )
+    }
+
     @Test("沒有符合條件的交易紀錄時是空的")
     func emptyPeriod() async {
         let list = model(InMemoryTransactionRepository(transactions: []))

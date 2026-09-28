@@ -6,6 +6,15 @@ import Testing
 @MainActor
 @Suite("帳戶頁(瀏覽)")
 struct AccountsTests {
+    @Test("帳戶選單標示正確的類型(web 的固定收支把現金錢包標成「信用卡」);轉帳和撥款報銷的選單另外帶餘額")
+    func menuTitlesShowAccountKind() {
+        #expect(Account.cash(SampleAccounts.wallet).menuTitle == "iOS 測試皮夾(現金錢包)")
+        #expect(Account.bank(SampleAccounts.savings).menuTitle == "iOS 測試存款(銀行存款帳戶)")
+        #expect(Account.creditCard(SampleAccounts.card).menuTitle == "iOS 測試信用卡(信用卡)")
+        #expect(Account.cash(SampleAccounts.wallet).menuTitleWithBalance == "iOS 測試皮夾(現金錢包，餘額 $1,500)")
+        #expect(Account.bank(SampleAccounts.savings).menuTitleWithBalance == "iOS 測試存款(銀行存款帳戶，餘額 $50,000)")
+    }
+
     @Test("載入後依類型分成銀行存款帳戶與信用卡帳戶兩區，順序跟後端一樣")
     func splitsAccountsByKind() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
@@ -28,6 +37,48 @@ struct AccountsTests {
         #expect(model.billedDebtTotal == Money(20000))
         #expect(model.unbilledDebtTotal == Money(8500))
         #expect(model.availableBalance == Money(21500))
+    }
+
+    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用資產照後端(含現金)")
+    func cashWalletsAreTheirOwnSection() async {
+        let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
+
+        await model.load()
+
+        #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
+        #expect(model.bankAccounts.map(\.name) == ["iOS 測試存款"])
+        #expect(model.cashTotal == Money(1500))
+        #expect(model.cashWalletCountText == "1 個現金錢包")
+        #expect(model.availableBalance == Money(23000))
+    }
+
+    @Test("檢視範圍預設全部;切到家庭公用時，帳戶和資金指標都照這個範圍重新取得")
+    func scopeAppliesToAccountsAndSummary() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        #expect(model.scope == .all)
+        await model.load()
+
+        model.scope = .household
+        await model.load()
+
+        #expect(await repository.requestedScopes == [.all, .household])
+        #expect(await repository.requestedSummaryScopes == [.all, .household])
+        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
+    }
+
+    @Test("換了檢視範圍之後，就算資料版本沒變也要重抓(畫面用範圍和資料版本當 task 的 key)")
+    func changingScopeMakesDataStale() async {
+        let repository = InMemoryAccountRepository.sample()
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        await model.refreshIfStale()
+        await model.refreshIfStale()
+        #expect(await repository.requestedScopes == [.all])
+
+        model.scope = .personal
+        await model.refreshIfStale()
+
+        #expect(await repository.requestedScopes == [.all, .personal])
     }
 
     @Test("資料回來之前是載入中，不顯示任何金額", .timeLimit(.minutes(1)))

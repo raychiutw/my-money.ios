@@ -7,13 +7,15 @@ public struct AccountID: Hashable, Sendable {
     }
 }
 
-/// 資金帳戶(Account):銀行存款帳戶或信用卡帳戶。兩種的欄位不同，所以分成兩個型別。
+/// 資金帳戶(Account):現金錢包、銀行存款帳戶或信用卡帳戶。欄位不同，所以各自一個型別。
 public enum Account: Hashable, Sendable, Identifiable {
+    case cash(CashWallet)
     case bank(BankAccount)
     case creditCard(CreditCard)
 
     public var id: AccountID {
         switch self {
+        case .cash(let wallet): wallet.id
         case .bank(let account): account.id
         case .creditCard(let card): card.id
         }
@@ -21,13 +23,46 @@ public enum Account: Hashable, Sendable, Identifiable {
 
     public var name: String {
         switch self {
+        case .cash(let wallet): wallet.name
         case .bank(let account): account.name
         case .creditCard(let card): card.name
         }
     }
+
+    /// 家庭公用(家庭共同基金、家庭卡)或個人私帳。
+    public var isJointFund: Bool {
+        switch self {
+        case .cash(let wallet): wallet.isJointFund
+        case .bank(let account): account.isJointFund
+        case .creditCard(let card): card.isJointFund
+        }
+    }
 }
 
-/// 銀行存款帳戶(Bank Account):現金、活存或數位帳戶。
+/// 現金錢包(Cash Wallet):存放實體現鈔的正資產，例如皮夾、客廳零用金盒。
+public struct CashWallet: Hashable, Sendable, Identifiable {
+    public let id: AccountID
+    public let name: String
+
+    /// 使用者選的代表色，例如 `#10B981`。
+    public let colorHex: String
+
+    /// 目前的現金餘額。
+    public let balance: Money
+
+    /// 是否標記為家庭公用(例如客廳零用金盒)。預設是個人私帳。
+    public let isJointFund: Bool
+
+    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool) {
+        self.id = id
+        self.name = name
+        self.colorHex = colorHex
+        self.balance = balance
+        self.isJointFund = isJointFund
+    }
+}
+
+/// 銀行存款帳戶(Bank Account):個人或共同持有的活期存款正資產帳戶。
 public struct BankAccount: Hashable, Sendable, Identifiable {
     public let id: AccountID
     public let name: String
@@ -77,6 +112,9 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 欠款公私拆解：待繳卡費總額裡估算屬於個人私帳的部分。
     public let personalDebt: Money
 
+    /// 是否標記為家庭卡(所有帳戶類型都能設歸屬)。
+    public let isJointFund: Bool
+
     public init(
         id: AccountID,
         name: String,
@@ -87,8 +125,10 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         statementDay: Int?,
         paymentDueDay: Int?,
         sharedDebt: Money = .zero,
-        personalDebt: Money = .zero
+        personalDebt: Money = .zero,
+        isJointFund: Bool = false
     ) {
+        self.isJointFund = isJointFund
         self.id = id
         self.name = name
         self.colorHex = colorHex
@@ -101,28 +141,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         self.personalDebt = personalDebt
     }
 
-    /// 結帳日出帳結轉的提醒：有結帳日、有未出帳金額，而且今天(台灣時間)已經到了結帳日。
-    /// 結帳日是 29 到 31 號時，較短的月份以月底當結帳日(web 在這些月份永遠不會提醒，parity 刻意偏離第 32 項)。
-    public func isStatementDue(today: CalendarDay) -> Bool {
-        guard let statementDay, unbilledDebt > .zero else { return false }
-        return today.day >= min(statementDay, today.daysInMonth)
-    }
-
     /// 待繳卡費總額：已出帳待繳金額加上未出帳金額。
     public var totalDue: Money {
         billedDebt + unbilledDebt
     }
 
-    /// 剩餘額度：信用額度扣掉待繳卡費總額;沒有信用額度時是 `nil`。
+    /// 剩餘額度：信用額度扣掉待繳卡費總額，最小是 0;沒有信用額度(或額度是 0)時是 `nil`(web 在 `82d9124` 起的規則)。
     public var remainingCredit: Money? {
-        creditLimit.map { $0 - totalDue }
+        guard let creditLimit, creditLimit > .zero else { return nil }
+        return max(creditLimit - totalDue, .zero)
     }
-
-    /// 剩餘額度低於 10,000 時要警示(web 的門檻，見 parity.md「帳戶」)。
-    public var isLowOnCredit: Bool {
-        guard let remainingCredit else { return false }
-        return remainingCredit < Self.lowCreditThreshold
-    }
-
-    private static let lowCreditThreshold = Money(10000)
 }

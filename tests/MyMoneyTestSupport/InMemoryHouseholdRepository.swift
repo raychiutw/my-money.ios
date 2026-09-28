@@ -13,13 +13,67 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     public private(set) var inviteCount = 0
     public private(set) var leaveCount = 0
 
-    public init(household: Household?, gate: Gate? = nil) {
+    /// 有家庭群組時回傳的代墊統計(後端一律每位成員一筆)。
+    private var storedAdvances: [HouseholdAdvance]
+
+    /// 撥款報銷送出過的內容，依送出順序。
+    public private(set) var reimbursements: [Reimbursement] = []
+
+    public init(household: Household?, advances: [HouseholdAdvance] = [], gate: Gate? = nil) {
         stored = household
+        storedAdvances = advances
         self.gate = gate
     }
 
+    /// 登入的範例帳號用個人現金錢包替家裡墊付了晚餐 250,還沒報銷。
+    public static let myPendingAdvance = HouseholdAdvance(
+        memberID: InMemoryAuthRepository.Member.sample.user.id,
+        memberName: InMemoryAuthRepository.Member.sample.user.name,
+        totalAdvanced: Money(250),
+        totalReimbursed: .zero,
+        pendingReimbursement: Money(250),
+        advanceItems: [AdvanceItem(
+            id: TransactionID("sample-advance"), date: CalendarDay(year: 2026, month: 9, day: 28), category: .dining,
+            note: "全家晚餐", amount: Money(250), accountName: "iOS 測試皮夾", accountKind: .cash
+        )],
+        reimbursementItems: []
+    )
+
+    public func advances() async throws -> [HouseholdAdvance] {
+        if let failure { throw failure }
+        return stored == nil ? [] : storedAdvances
+    }
+
+    /// 跟後端一樣記下已報銷，待報銷減少(最小 0),並多一筆報銷明細。
+    public func reimburse(_ reimbursement: Reimbursement) async throws -> String {
+        await gate?.pass()
+        if let failure { throw failure }
+        reimbursements.append(reimbursement)
+        var name = "成員"
+        storedAdvances = storedAdvances.map { advance in
+            guard advance.memberID == reimbursement.memberID else { return advance }
+            name = advance.memberName
+            let reimbursed = advance.totalReimbursed + reimbursement.amount
+            return HouseholdAdvance(
+                memberID: advance.memberID,
+                memberName: advance.memberName,
+                totalAdvanced: advance.totalAdvanced,
+                totalReimbursed: reimbursed,
+                pendingReimbursement: max(advance.totalAdvanced - reimbursed, .zero),
+                advanceItems: advance.advanceItems,
+                reimbursementItems: [ReimbursementItem(
+                    id: TransactionID("in-memory-reimbursement-\(reimbursements.count)"), date: reimbursement.date,
+                    amount: reimbursement.amount, note: reimbursement.note, accountName: "收款帳戶"
+                )] + advance.reimbursementItems
+            )
+        }
+        return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.amount) 給 \(name)！"
+    }
+
     /// 「我們家」:小明(管理員，就是登入的範例帳號)和小美(一般成員)。
-    public static func sample(myRole: HouseholdRole = .admin, gate: Gate? = nil) -> InMemoryHouseholdRepository {
+    public static func sample(
+        myRole: HouseholdRole = .admin, advances: [HouseholdAdvance] = [], gate: Gate? = nil
+    ) -> InMemoryHouseholdRepository {
         let joined = Date(timeIntervalSince1970: 1_790_000_000)
         return InMemoryHouseholdRepository(household: Household(name: "我們家", myRole: myRole, members: [
             me(role: .admin, joinedAt: joined),
@@ -27,7 +81,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 userID: UserID("sample-mei"), name: "小美", email: "mei@example.com", role: .member,
                 joinedAt: joined.addingTimeInterval(86_400)
             ),
-        ]), gate: gate)
+        ]), advances: advances, gate: gate)
     }
 
     public func current() async throws -> Household? {

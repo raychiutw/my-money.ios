@@ -149,9 +149,9 @@ public final class TransactionsModel {
         await load()
     }
 
-    /// 「信用卡還款」是系統內部平帳的紀錄，不能編輯也不能刪除(後端也會拒絕)。
+    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕)。
     public func canModify(_ transaction: Transaction) -> Bool {
-        !transaction.isCreditCardRepayment
+        !transaction.isSystemRecord
     }
 
     public func makeEditor(for transaction: Transaction) -> TransactionEditorModel? {
@@ -181,12 +181,13 @@ public final class TransactionsModel {
         }
     }
 
+    /// 收入合計，不含系統分類(ATM 提款、轉帳、報銷的收入那一筆也只是資金調度)。
     private static func income(of transactions: [Transaction]) -> Money {
-        transactions.filter { $0.type == .income }.reduce(.zero) { $0 + $1.amount }
+        transactions.filter { $0.type == .income && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }
 
-    /// 支出合計，不含「信用卡還款」:繳卡費只是把錢從銀行存款帳戶移到信用卡帳戶，算進來會跟刷卡重複。
+    /// 支出合計，不含系統分類：繳卡費、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
     private static func expense(of transactions: [Transaction]) -> Money {
-        transactions.filter { $0.type == .expense && !$0.isCreditCardRepayment }.reduce(.zero) { $0 + $1.amount }
+        transactions.filter { $0.type == .expense && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }
 }

@@ -59,11 +59,11 @@ struct BotScreen: View {
                             .textSelection(.enabled)
                             .accessibilityIdentifier("bot.pairingCode")
                         Text("剩下 \(model.countdownText)")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                         Text("在 LINE 或 Telegram 的聊天室傳送：\(model.pairingCommand)")
-                            .font(.footnote)
+                            .font(.subheadline)
                         Button(isCopied ? "已複製指令" : "複製指令", systemImage: isCopied ? "checkmark" : "doc.on.doc") {
                             copyToPasteboard(model.pairingCommand)
                             isCopied = true
@@ -124,13 +124,13 @@ struct BotScreen: View {
                 Text("1. 在 LINE Developers Console 建立 Messaging API Channel。")
                 Text("2. 在 Messaging API 設定填入 Webhook URL:")
                 Text(BotModel.lineWebhook)
-                    .font(.footnote.monospaced())
+                    .font(.subheadline.monospaced())
                     .textSelection(.enabled)
                 Text("3. 打開「Use Webhook」。")
                 Text("4. 在 Workers 設定 LINE_CHANNEL_SECRET 與 LINE_CHANNEL_ACCESS_TOKEN。")
                 Text("5. 加機器人好友，傳送「綁定 綁定驗證碼」。")
             }
-            .font(.footnote)
+            .font(.subheadline)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Telegram Bot")
                     .font(.subheadline.bold())
@@ -138,11 +138,11 @@ struct BotScreen: View {
                 Text("2. 在 Workers 設定 TELEGRAM_BOT_TOKEN。")
                 Text("3. 呼叫 Telegram 的 setWebhook,網址是:")
                 Text(BotModel.telegramWebhook)
-                    .font(.footnote.monospaced())
+                    .font(.subheadline.monospaced())
                     .textSelection(.enabled)
                 Text("4. 私訊機器人，傳送「綁定 綁定驗證碼」。")
             }
-            .font(.footnote)
+            .font(.subheadline)
         } header: {
             Text("Webhook 設定說明")
         }
@@ -156,7 +156,7 @@ struct BotChatScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             Label("這裡送出的訊息會寫入真的交易紀錄。", systemImage: "exclamationmark.triangle.fill")
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.orange)
                 .frame(maxWidth: .infinity)
                 .padding(8)
@@ -172,7 +172,7 @@ struct BotChatScreen: View {
                             HStack(spacing: 8) {
                                 ProgressView()
                                 Text("思考中…")
-                                    .font(.footnote)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -231,7 +231,7 @@ private struct MessageBubble: View {
                         .fill(background)
                 )
             Text(message.time.formatted(date: .omitted, time: .shortened))
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: message.sender == .user ? .trailing : .leading)

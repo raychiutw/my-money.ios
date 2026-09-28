@@ -6,8 +6,8 @@ final class CardSettlementUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 小額卡的結帳日是 1 號，任何一天都已經過了：一鍵出帳(先確認)後顯示後端的訊息。
-    /// 信用卡還款沖銷：繳家庭代墊 3,000,已出帳待繳金額從 12,000 變成 9,000。
+    /// 有未出帳金額就能出帳結轉(先確認)，結轉後顯示後端的訊息。
+    /// 信用卡還款沖銷：從卡片上的「繳家庭代墊」打開(帶入 3,000),已出帳待繳金額從 12,000 變成 9,000。
     @MainActor
     func testRolloverAndPayment() throws {
         let app = XCUIApplication()
@@ -24,15 +24,16 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "成功結轉為已出帳待繳").waitForExistence(timeout: 5), "沒有顯示結轉的結果")
         app.buttons["好"].tap()
 
-        let pay = app.buttons["accounts.pay.sample-card"]
-        for _ in 0..<5 where !pay.isHittable { app.swipeUp() }
-        pay.tap()
-        let fillShared = app.buttons["cardPayment.fillShared"]
-        XCTAssertTrue(fillShared.waitForExistence(timeout: 3), "沒有「繳家庭代墊」")
-        // 先點金額欄(全選預填的待繳總額),再填入比較短的 3000:選取範圍還是舊字串的，不能因此出錯(#32)。
-        app.textFields["cardPayment.amount"].tap()
-        fillShared.tap()
-        XCTAssertEqual(app.textFields["cardPayment.amount"].value as? String, "3000")
+        let payShared = app.buttons["accounts.payShared.sample-card"]
+        for _ in 0..<5 where !payShared.isHittable { app.swipeUp() }
+        payShared.tap()
+        let amount = app.textFields["cardPayment.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡還款沖銷")
+        XCTAssertEqual(amount.value as? String, "3000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
+        // 點金額欄全選後重打一次，直接取代原值(#32)。
+        amount.tap()
+        amount.typeText("3000")
+        XCTAssertEqual(amount.value as? String, "3000")
         app.buttons["cardPayment.submit"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "已出帳待繳金額、$9,000").waitForExistence(timeout: 5), "還款後已出帳待繳金額沒有更新")

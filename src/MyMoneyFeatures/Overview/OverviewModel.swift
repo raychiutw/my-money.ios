@@ -19,8 +19,27 @@ public final class OverviewModel {
 
     public private(set) var phase: Phase = .loading
     public private(set) var summary: BalanceSummary?
+    public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
+
+    /// 帳戶一覽裡信用卡的兩行說明(web 的 Dashboard):代墊／私帳拆解(沒有待繳時是「卡費已全數結清」),
+    /// 以及未出帳與繳款日。
+    public static func cardDetailLines(_ card: CreditCard) -> [String] {
+        let debt = card.totalDue > .zero
+            ? "代墊 \(card.sharedDebt.formatted()) · 私帳 \(card.personalDebt.formatted())"
+            : "卡費已全數結清"
+        let unbilled = "未出帳 \(card.unbilledDebt.formatted())"
+        return [debt, card.paymentDueDay.map { "\(unbilled) · 每月 \($0) 日繳款" } ?? unbilled]
+    }
+
+    /// 淨可用資產的組成(web 的 Dashboard 寫成「現金 + 活存 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 待繳卡費(已出帳加未出帳)。數字都是後端算好的。
+    public var availableBreakdown: String? {
+        summary.map {
+            "現金 \($0.cashTotal.formatted()) + 銀行存款 \($0.bankBalanceTotal.formatted()) - 待繳卡費 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
+        }
+    }
+
     public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
@@ -95,8 +114,8 @@ public final class OverviewModel {
         let scope = scope
         let month = CalendarMonth(today())
         do {
-            async let summary = accountRepository.balanceSummary()
-            async let accounts = accountRepository.accounts()
+            async let summary = accountRepository.balanceSummary(scope: scope.accountScope)
+            async let accounts = accountRepository.accounts(scope: scope.accountScope)
             async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 6, offset: 0)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)
@@ -106,6 +125,7 @@ public final class OverviewModel {
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
+            cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             recentTransactions = loadedRecent
@@ -127,5 +147,36 @@ public final class OverviewModel {
     public func refreshIfStale() async {
         guard loadedVersion != dataVersion.value else { return }
         await load()
+    }
+}
+
+extension ViewScope {
+    /// 視角套用到淨可用資產和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
+    /// 所以「個人」視角(我記的全部交易紀錄)看的是我的個人私帳帳戶。
+    var accountScope: AccountScope {
+        switch self {
+        case .all: .all
+        case .household: .household
+        case .personal: .personal
+        }
+    }
+}
+
+extension AccountScope {
+    /// 帳戶一覽在這個範圍一個帳戶都沒有時的標題(web 的 Dashboard 依範圍顯示不同的空狀態)。
+    public var emptyAccountsTitle: String {
+        switch self {
+        case .all: "尚未建立帳戶"
+        case .household: "目前無家庭公用帳戶"
+        case .personal: "目前無個人私帳"
+        }
+    }
+
+    /// 空狀態的說明，附「前往帳戶管理」。
+    public var emptyAccountsHint: String {
+        switch self {
+        case .household: "至帳戶管理將帳戶屬性設為「家庭公用」即可在此呈現"
+        case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
+        }
     }
 }

@@ -30,8 +30,9 @@ public struct MainScreens {
     public let bot: BotModel
 
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
-    /// `defaults` 存總覽選過的視角。
+    /// `currentUserID` 是登入的人(家庭頁判斷能不能撥款報銷);`defaults` 存總覽選過的視角。
     public init(
+        currentUserID: UserID,
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
         recurringRepository: any RecurringRepository,
@@ -54,7 +55,9 @@ public struct MainScreens {
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
-        household = HouseholdModel(repository: householdRepository, dataVersion: dataVersion)
+        household = HouseholdModel(
+            repository: householdRepository, accounts: accountRepository, dataVersion: dataVersion, currentUserID: currentUserID
+        )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }
 }
@@ -65,10 +68,11 @@ public struct MainScreens {
 public final class SignedInScreens {
     public private(set) var current: MainScreens?
 
-    @ObservationIgnored private let make: @MainActor () -> MainScreens
+    @ObservationIgnored private let make: @MainActor (UserID) -> MainScreens
     @ObservationIgnored private var userID: UserID?
 
-    public init(make: @escaping @MainActor () -> MainScreens) {
+    /// `make` 收到登入的人，每次換人時重建一份。
+    public init(make: @escaping @MainActor (UserID) -> MainScreens) {
         self.make = make
     }
 
@@ -76,6 +80,6 @@ public final class SignedInScreens {
     public func update(for session: Session?) {
         guard session?.user.id != userID else { return }
         userID = session?.user.id
-        current = session == nil ? nil : make()
+        current = session.map { make($0.user.id) }
     }
 }
