@@ -141,28 +141,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         self.personalDebt = personalDebt
     }
 
-    /// 結帳日出帳結轉的提醒：有結帳日、有未出帳金額，而且今天(台灣時間)已經到了結帳日。
-    /// 結帳日是 29 到 31 號時，較短的月份以月底當結帳日(web 在這些月份永遠不會提醒，parity 刻意偏離第 32 項)。
-    public func isStatementDue(today: CalendarDay) -> Bool {
-        guard let statementDay, unbilledDebt > .zero else { return false }
-        return today.day >= min(statementDay, today.daysInMonth)
-    }
-
     /// 待繳卡費總額：已出帳待繳金額加上未出帳金額。
     public var totalDue: Money {
         billedDebt + unbilledDebt
     }
 
-    /// 剩餘額度：信用額度扣掉待繳卡費總額;沒有信用額度時是 `nil`。
+    /// 剩餘額度：信用額度扣掉待繳卡費總額，最小是 0;沒有信用額度(或額度是 0)時是 `nil`(web 在 `82d9124` 起的規則)。
     public var remainingCredit: Money? {
-        creditLimit.map { $0 - totalDue }
+        guard let creditLimit, creditLimit > .zero else { return nil }
+        return max(creditLimit - totalDue, .zero)
     }
-
-    /// 剩餘額度低於 10,000 時要警示(web 的門檻，見 parity.md「帳戶」)。
-    public var isLowOnCredit: Bool {
-        guard let remainingCredit else { return false }
-        return remainingCredit < Self.lowCreditThreshold
-    }
-
-    private static let lowCreditThreshold = Money(10000)
 }

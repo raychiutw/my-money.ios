@@ -264,7 +264,7 @@ struct AccountsScreen: View {
                     showsRollover: model.showsRollover(card),
                     reminder: model.rolloverReminder(for: card),
                     rollOver: { pendingRollover = card },
-                    pay: { payment = model.makePayment(for: card) }
+                    pay: { preset in payment = model.makePayment(for: card, preset: preset) }
                 )
             }
         }
@@ -275,47 +275,62 @@ struct AccountsScreen: View {
 extension CardPaymentModel: Identifiable {}
 extension TransferModel: Identifiable {}
 
-/// 信用卡帳戶的欠款公私拆解、結帳日出帳結轉的提醒與「信用卡還款沖銷」。
+/// 信用卡帳戶的負債性質拆解、結帳日出帳結轉與還款(web 在 `82d9124` 把三個還款按鈕移到卡片上)。
 private struct CardSettlementRow: View {
     let card: CreditCard
     let showsRollover: Bool
     let reminder: String
     let rollOver: () -> Void
-    let pay: () -> Void
+    let pay: (CardPaymentModel.Preset) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if card.totalDue > .zero {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("欠款公私拆解：家庭公帳 \(card.sharedDebtPercentText)")
-                        .font(.footnote.bold())
-                    Text("家庭公帳 \(card.sharedDebt.formatted()) · 個人私帳 \(card.personalDebt.formatted())")
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .ignore)
+            Text("負債性質拆解：家庭代墊公帳 \(card.sharedDebt.formatted()) · 個人私帳消費 \(card.personalDebt.formatted())")
+                .font(.footnote)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
                 .accessibilityLabel(
-                    "欠款公私拆解，家庭公帳佔 \(card.sharedDebtPercentText),家庭公帳 \(card.sharedDebt.spokenText),個人私帳 \(card.personalDebt.spokenText)"
+                    "負債性質拆解，家庭代墊公帳 \(card.sharedDebt.spokenText),個人私帳消費 \(card.personalDebt.spokenText)"
                 )
-            }
             if showsRollover {
-                // 上下排，大字級時提醒文字才不會被按鈕擠掉(Dynamic Type)。
+                // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
                 VStack(alignment: .leading, spacing: 4) {
-                    Label(reminder, systemImage: "calendar.badge.exclamationmark")
+                    Text(reminder)
                         .font(.footnote)
-                        .foregroundStyle(.orange)
-                    Button("一鍵出帳", action: rollOver)
+                        .foregroundStyle(.secondary)
+                    Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
                         .buttonStyle(.borderless)
                         .font(.footnote.bold())
                         .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
                 }
             }
-            Button("信用卡還款沖銷", systemImage: "arrow.left.arrow.right", action: pay)
-                .buttonStyle(.borderless)
-                .disabled(card.totalDue <= .zero)
-                .accessibilityIdentifier("accounts.pay.\(card.id.rawValue)")
+            if card.totalDue > .zero {
+                // List 的一列裡有好幾個按鈕：每個都要 borderless,不然點一個會全部觸發。大字級時改成直排。
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 16) { paymentButtons }
+                    VStack(alignment: .leading, spacing: 8) { paymentButtons }
+                }
+            } else {
+                Label("卡費已全數結清，無待繳款項", systemImage: "checkmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+            }
         }
+    }
+
+    @ViewBuilder
+    private var paymentButtons: some View {
+        Button("繳家庭代墊", systemImage: "house.fill") { pay(.shared) }
+            .buttonStyle(.borderless)
+            .disabled(card.sharedDebt <= .zero)
+            .accessibilityIdentifier("accounts.payShared.\(card.id.rawValue)")
+        Button("繳個人私帳", systemImage: "person.fill") { pay(.personal) }
+            .buttonStyle(.borderless)
+            .disabled(card.personalDebt <= .zero)
+            .accessibilityIdentifier("accounts.payPersonal.\(card.id.rawValue)")
+        Button("全額結清", systemImage: "checkmark.seal") { pay(.full) }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("accounts.payFull.\(card.id.rawValue)")
     }
 }
 
@@ -392,17 +407,12 @@ private struct CreditCardRow: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            // 有信用額度時才顯示，最小是 0(web 在 82d9124 拿掉了「額度不足」的警示)。
             if let remaining = card.remainingCredit {
-                HStack(spacing: 4) {
-                    if card.isLowOnCredit {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .accessibilityHidden(true)
-                    }
-                    Text("剩餘額度 \(remaining.formatted())\(card.isLowOnCredit ? "(額度不足)" : "")")
-                        .monospacedDigit()
-                }
-                .font(.footnote)
-                .foregroundStyle(card.isLowOnCredit ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                Text("剩餘額度 \(remaining.formatted())")
+                    .monospacedDigit()
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)

@@ -44,14 +44,14 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 今天(台灣時間)已經到了結帳日，而且有未出帳金額時，提醒結帳日出帳結轉。
+    /// 有未出帳金額就能結帳日出帳結轉，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.isStatementDue(today: today())
+        card.unbilledDebt > .zero
     }
 
-    /// 例如「每月 15 號結帳日已過，有未出帳金額待結轉」。
+    /// 例如「未出帳 $3,500,可結轉為本期已出帳待繳」。
     public func rolloverReminder(for card: CreditCard) -> String {
-        "每月 \(card.statementDay ?? 0) 號結帳日已過，有未出帳金額待結轉"
+        "未出帳 \(card.unbilledDebt.formatted()),可結轉為本期已出帳待繳"
     }
 
     public func rolloverConfirmation(for card: CreditCard) -> String {
@@ -68,9 +68,11 @@ public final class AccountsModel {
         }
     }
 
-    /// 信用卡還款沖銷的 sheet:扣款帳戶只列出銀行存款帳戶。
-    public func makePayment(for card: CreditCard) -> CardPaymentModel {
-        CardPaymentModel(card: card, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today)
+    /// 信用卡還款沖銷的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
+    public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
+        CardPaymentModel(
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+        )
     }
 
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。

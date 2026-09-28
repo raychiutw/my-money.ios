@@ -23,6 +23,16 @@ public final class OverviewModel {
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
 
+    /// 帳戶一覽裡信用卡的兩行說明(web 的 Dashboard):代墊／私帳拆解(沒有待繳時是「卡費已全數結清」),
+    /// 以及未出帳與繳款日。
+    public static func cardDetailLines(_ card: CreditCard) -> [String] {
+        let debt = card.totalDue > .zero
+            ? "代墊 \(card.sharedDebt.formatted()) · 私帳 \(card.personalDebt.formatted())"
+            : "卡費已全數結清"
+        let unbilled = "未出帳 \(card.unbilledDebt.formatted())"
+        return [debt, card.paymentDueDay.map { "\(unbilled) · 每月 \($0) 日繳款" } ?? unbilled]
+    }
+
     /// 淨可用餘額的組成(web 的 Dashboard):現金 + 活存 - 卡債(已出帳加未出帳)。數字都是後端算好的。
     public var availableBreakdown: String? {
         summary.map {

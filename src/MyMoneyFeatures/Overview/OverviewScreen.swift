@@ -181,12 +181,16 @@ struct OverviewScreen: View {
             }
             ForEach(model.creditCards) { card in
                 LabeledContent {
+                    // 待繳總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(card.billedDebt.formatted())
+                        Text(card.totalDue.formatted())
                             .monospacedDigit()
-                        Text(cardDetail(card))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                        ForEach(OverviewModel.cardDetailLines(card), id: \.self) { line in
+                            Text(line)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 } label: {
                     accountLabel(card.name, kind: "信用卡", symbol: "creditcard", colorHex: card.colorHex)
@@ -206,13 +210,6 @@ struct OverviewScreen: View {
                 .foregroundStyle(Color(hex: colorHex) ?? .gray)
                 .accessibilityLabel(kind)
         }
-    }
-
-    /// 例如「未出帳金額 $3,500 · 繳款日每月 5 號」。
-    private func cardDetail(_ card: CreditCard) -> String {
-        let unbilled = "未出帳金額 \(card.unbilledDebt.formatted())"
-        guard let day = card.paymentDueDay else { return unbilled }
-        return "\(unbilled) · 繳款日每月 \(day) 號"
     }
 
     private var recentSection: some View {

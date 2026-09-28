@@ -8,7 +8,7 @@ final class AccountsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 顯示三張統計卡、銀行存款帳戶與信用卡帳戶兩區，以及剩餘額度不足的警示。
+    /// 顯示統計卡、現金錢包、銀行存款帳戶與信用卡帳戶三區，以及信用卡的剩餘額度。
     @MainActor
     func testAccountsTabShowsSummaryAndBothSections() throws {
         let app = XCUIApplication()
@@ -26,10 +26,11 @@ final class AccountsUITests: XCTestCase {
         let card = element(in: app, labelContaining: "iOS 測試信用卡")
         for _ in 0..<5 where !card.exists { app.swipeUp() }
         XCTAssertTrue(card.exists)
-        // 小額卡在畫面下方(每張信用卡下面還有欠款公私拆解那一列);List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        let lowCredit = element(in: app, labelContaining: "額度不足")
-        for _ in 0..<5 where !lowCredit.exists { app.swipeUp() }
-        XCTAssertTrue(lowCredit.exists, "小額卡沒有顯示剩餘額度不足的警示")
+        // 小額卡在畫面下方(每張信用卡下面還有負債性質拆解與還款那一列);List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        // 剩餘額度 = 20,000 − 待繳 13,000(web 在 82d9124 拿掉了「額度不足」的警示)。
+        let remaining = element(in: app, labelContaining: "剩餘額度 $7,000")
+        for _ in 0..<5 where !remaining.exists { app.swipeUp() }
+        XCTAssertTrue(remaining.exists, "小額卡沒有顯示剩餘額度")
     }
 
     /// 從「+」新增現金錢包(#43):出現在現金錢包區塊，現金錢包總額也更新。
