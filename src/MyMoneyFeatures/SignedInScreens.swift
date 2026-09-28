@@ -70,7 +70,7 @@ public final class SignedInScreens {
     @ObservationIgnored private let make: @MainActor () -> MainScreens
     @ObservationIgnored private var userID: UserID?
 
-    /// `make` 收到登入的人，每次換人時重建一份。
+    /// `make` 建立一份畫面;每次換人登入時重建，不沿用上一個人的狀態。
     public init(make: @escaping @MainActor () -> MainScreens) {
         self.make = make
     }

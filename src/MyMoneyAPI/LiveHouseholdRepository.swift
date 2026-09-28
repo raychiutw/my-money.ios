@@ -133,9 +133,10 @@ private struct AdvanceDTO: Decodable {
                     accountName: item.accountName
                 )
             },
-            // 後端只回銀行存款帳戶和現金錢包;不認得的類型略過那一筆。
+            // 可收款帳戶只有銀行存款帳戶和現金錢包;其他類型(信用卡或不認得的)略過那一筆。
             receivingAccounts: (receivingAccounts ?? []).compactMap { account in
-                Self.kind(account.type).map { ReceivingAccount(id: AccountID(account.id), name: account.name, kind: $0) }
+                guard let kind = Self.kind(account.type), kind != .creditCard else { return nil }
+                return ReceivingAccount(id: AccountID(account.id), name: account.name, kind: kind)
             }
         )
     }

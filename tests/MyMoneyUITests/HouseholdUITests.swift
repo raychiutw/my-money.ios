@@ -43,7 +43,6 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開後沒有回到建立的畫面")
     }
 
-    /// 替自己撥款報銷(#43):從家庭共同基金報銷自己的代墊款後，顯示後端的訊息，變成「已全數結清」。
     /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭群組後，小明和小美都有待報銷
     /// (InMemoryHouseholdRepository.myPendingAdvance、meiPendingAdvance),從共同基金撥給小美的可收款帳戶。
     @MainActor

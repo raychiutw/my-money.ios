@@ -29,6 +29,14 @@ public enum Account: Hashable, Sendable, Identifiable {
         }
     }
 
+    public var kind: AccountKind {
+        switch self {
+        case .cash: .cash
+        case .bank: .bank
+        case .creditCard: .creditCard
+        }
+    }
+
     /// 家庭公用(家庭共同基金、家庭卡)或個人私帳。
     public var isJointFund: Bool {
         switch self {

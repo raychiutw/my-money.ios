@@ -60,6 +60,18 @@ struct HouseholdTranslationTests {
         #expect(try #require(try await repository.advances().first).receivingAccounts.isEmpty)
     }
 
+    @Test("可收款帳戶只收銀行存款帳戶和現金錢包：其他類型(信用卡或 iOS 還不認得的)只略過那一筆")
+    func receivingAccountsSkipOtherKinds() async throws {
+        let recorded = try String(decoding: Fixture.data("households-advances-with-receiving.json"), as: UTF8.self)
+        let other = recorded.replacingOccurrences(of: #""type":"cash""#, with: #""type":"credit_card""#)
+        try #require(other != recorded)
+        stub.reply(status: 200, json: Data(other.utf8))
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.receivingAccounts.map(\.name) == ["iOS 測試存款"])
+    }
+
     @Test("代墊統計：沒有家庭群組時是空的")
     func advancesWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-advances-no-household.json")

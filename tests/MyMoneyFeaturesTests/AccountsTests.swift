@@ -13,6 +13,7 @@ struct AccountsTests {
         #expect(Account.creditCard(SampleAccounts.card).menuTitle == "iOS 測試信用卡(信用卡)")
         #expect(Account.cash(SampleAccounts.wallet).menuTitleWithBalance == "iOS 測試皮夾(現金錢包，餘額 $1,500)")
         #expect(Account.bank(SampleAccounts.savings).menuTitleWithBalance == "iOS 測試存款(銀行存款帳戶，餘額 $50,000)")
+        #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuTitle == "小美薪轉(銀行存款帳戶)")
     }
 
     @Test("載入後依類型分成銀行存款帳戶與信用卡帳戶兩區，順序跟後端一樣")

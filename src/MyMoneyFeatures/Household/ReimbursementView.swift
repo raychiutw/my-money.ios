@@ -20,7 +20,7 @@ struct ReimbursementView: View {
                     // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
                     Picker("收款帳戶(\(model.advance.memberName)的個人帳戶)", selection: $model.toAccountID) {
                         ForEach(model.receivingAccounts) { account in
-                            Text("\(account.name)(\(account.kind.title))").tag(Optional(account.id))
+                            Text(account.menuTitle).tag(Optional(account.id))
                         }
                     }
                     .disabled(model.receivingAccounts.isEmpty)

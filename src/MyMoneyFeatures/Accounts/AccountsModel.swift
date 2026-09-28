@@ -196,20 +196,22 @@ extension AccountKind {
 extension Account {
     /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
     public var menuTitle: String {
-        let kind: AccountKind = switch self {
-        case .cash: .cash
-        case .bank: .bank
-        case .creditCard: .creditCard
-        }
-        return "\(name)(\(kind.title))"
+        "\(name)(\(kind.title))"
     }
 
     /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。
     public var menuTitleWithBalance: String {
         switch self {
-        case .cash(let wallet): "\(wallet.name)(現金錢包，餘額 \(wallet.balance.formatted()))"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶，餘額 \(bank.balance.formatted()))"
+        case .cash(let wallet): "\(name)(\(kind.title)，餘額 \(wallet.balance.formatted()))"
+        case .bank(let bank): "\(name)(\(kind.title)，餘額 \(bank.balance.formatted()))"
         case .creditCard: menuTitle
         }
+    }
+}
+
+extension ReceivingAccount {
+    /// 撥款報銷收款帳戶選單的文字：名稱加類型，不含餘額(其他成員個人私帳的餘額不公開)。
+    public var menuTitle: String {
+        "\(name)(\(kind.title))"
     }
 }

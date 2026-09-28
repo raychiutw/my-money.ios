@@ -52,8 +52,26 @@ struct BotTests {
     func bindingsBeforeLoading() async {
         let model = model()
         #expect(model.bindings == nil)
+        #expect(model.isLoadingBindings)
 
         await model.load()
+        #expect(model.bindings?.count == 1)
+        #expect(!model.isLoadingBindings)
+    }
+
+    @Test("已綁定的帳號載入失敗時不再停在骨架屏，顯示失敗原因;重試成功後清掉")
+    func bindingsLoadFailure() async {
+        let repository = InMemoryBotRepository.sample()
+        await repository.fail(with: .rejected("伺服器無回應"))
+        let model = model(repository)
+
+        await model.load()
+        #expect(!model.isLoadingBindings)
+        #expect(model.bindingsErrorMessage == "伺服器無回應")
+
+        await repository.fail(with: nil)
+        await model.load()
+        #expect(model.bindingsErrorMessage == nil)
         #expect(model.bindings?.count == 1)
     }
 

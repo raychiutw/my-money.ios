@@ -116,8 +116,8 @@ struct TransactionsScreen: View {
             switch model.phase {
             case .loading:
                 SkeletonSection(count: 1, announces: true) { SkeletonItemRow() }
-                SkeletonSection(title: "日期", count: 3) { TransactionRow(transaction: Skeleton.transaction) }
-                SkeletonSection(title: "日期", count: 2) { TransactionRow(transaction: Skeleton.transaction) }
+                SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
+                SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
             case .failed(let message):
                 Section {
                     Label(message, systemImage: "exclamationmark.triangle")

@@ -50,8 +50,8 @@ public actor InMemoryBotRepository: BotRepository {
         return "記帳成功：\(text)"
     }
 
-    /// 之後的請求都以這個錯誤失敗。
-    public func fail(with error: RepositoryError) {
+    /// 之後的請求都以這個錯誤失敗;傳 nil 恢復正常。
+    public func fail(with error: RepositoryError?) {
         failure = error
     }
 }
