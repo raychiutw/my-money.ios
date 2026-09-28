@@ -32,6 +32,11 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 ## 字型與數字
 
 - 只用系統 text style,支援 Dynamic Type 到最大的無障礙字級。
+- **輔助文字最小用 `subheadline`**(#43:家人反映字太小)。說明、次要資訊用 `subheadline`,
+  更次要的註記才用 `footnote`;`caption` 只留給聊天泡泡下的時間這類附屬標記，不用 `caption2`。
+  `body` 以上的字級不動。
+- 分段控制的字也是 `subheadline`(預設是 13pt,在 composition root 用 appearance 設定);
+  記一筆最上面的「帳本分類」和「支出／收入」再用 `.controlSize(.large)` 加高。
 - 金額加上 `.monospacedDigit()`。
 - 新台幣的顯示跟 web 一致：例如 `$1,234` 和 `-$1,500`,0 位小數，捨入規則是 away from zero。
 
@@ -50,6 +55,9 @@ Tab bar(iPad 用 .sidebarAdaptable)
 ```
 
 - 視角(全部、家庭、個人)放在總覽、交易、統計頁頂端，用 segmented `Picker`。
+- 帳戶頁頂端是帳戶檢視範圍(全部、家庭公用、個人私帳)的 segmented `Picker`,下面依序是統計卡、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態。
+- 「ATM 提款／轉帳」是 sheet:入口在帳戶頁 toolbar(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
+- 信用卡的三個還款入口(繳家庭代墊、繳個人私帳、全額結清)是 borderless 按鈕，跟 web 一樣排成一排、只放文字;大字級放不下時改成帶 icon 的直排(`ViewThatFits`)。
 - 登入和註冊是全螢幕流程，不放在 tab 裡。
 
 ## 元件對照(web → iOS)

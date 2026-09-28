@@ -143,7 +143,7 @@ private struct ColorChoices: View {
                         .overlay {
                             if selection == color.hex {
                                 Image(systemName: "checkmark")
-                                    .font(.caption.bold())
+                                    .font(.footnote.bold())
                                     .foregroundStyle(.black.opacity(0.7))
                             }
                         }

@@ -55,16 +55,22 @@ final class TransactionsUITests: XCTestCase {
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
+        // 上面有篩選和加總列，列表在畫面下方:List 還沒捲到的列不在 UI 階層裡，先捲到點得到，左滑才滑得出「刪除」。
         let lunch = element(in: app, labelContaining: "支出 120 元")
+        for _ in 0..<5 where !(lunch.exists && lunch.isHittable) { app.swipeUp() }
         lunch.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["確定要刪除這筆交易紀錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        XCTAssertTrue(element(in: app, labelContaining: "受保護").exists, "信用卡還款沒有顯示受保護的說明")
+        let locked = element(in: app, labelContaining: "受保護")
+        for _ in 0..<5 where !locked.exists { app.swipeUp() }
+        XCTAssertTrue(locked.exists, "信用卡還款沒有顯示受保護的說明")
 
+        // 搜尋欄在最上面，捲回去才點得到。
         let search = app.searchFields.firstMatch
+        for _ in 0..<5 where !(search.exists && search.isHittable) { app.swipeDown() }
         XCTAssertTrue(search.waitForExistence(timeout: 3))
         search.tap()
         search.typeText("薪資")

@@ -14,12 +14,12 @@ struct ReimbursementView: View {
                 Section {
                     Picker("撥款公帳(家庭共同基金)", selection: $model.fromAccountID) {
                         ForEach(model.fundAccounts) { account in
-                            Text(model.title(for: account)).tag(Optional(account.id))
+                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
                     Picker("收款帳戶(我的個人帳戶)", selection: $model.toAccountID) {
                         ForEach(model.receivingAccounts) { account in
-                            Text(model.title(for: account)).tag(Optional(account.id))
+                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
                 } footer: {

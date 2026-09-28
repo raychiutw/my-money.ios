@@ -286,7 +286,7 @@ private struct CardSettlementRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("負債性質拆解：家庭代墊公帳 \(card.sharedDebt.formatted()) · 個人私帳消費 \(card.personalDebt.formatted())")
-                .font(.footnote)
+                .font(.subheadline)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .accessibilityLabel(
@@ -296,23 +296,25 @@ private struct CardSettlementRow: View {
                 // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
                 VStack(alignment: .leading, spacing: 4) {
                     Text(reminder)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
                         .buttonStyle(.borderless)
-                        .font(.footnote.bold())
+                        .font(.subheadline.bold())
                         .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
                 }
             }
             if card.totalDue > .zero {
                 // List 的一列裡有好幾個按鈕：每個都要 borderless,不然點一個會全部觸發。大字級時改成直排。
+                // 跟 web 一樣三個按鈕一排(只放文字才放得下);大字級放不下時改成帶 icon 的直排。
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 16) { paymentButtons }
+                        .labelStyle(.titleOnly)
                     VStack(alignment: .leading, spacing: 8) { paymentButtons }
                 }
             } else {
                 Label("卡費已全數結清，無待繳款項", systemImage: "checkmark.circle")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.green)
             }
         }
@@ -344,7 +346,7 @@ private struct CashWalletRow: View {
                 Text(wallet.name)
                 if wallet.isJointFund {
                     Label("家庭公用", systemImage: "house.fill")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -367,7 +369,7 @@ private struct BankAccountRow: View {
                 Text(account.name)
                 if account.isJointFund {
                     Label("家庭共同基金", systemImage: "house.fill")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -393,7 +395,7 @@ private struct CreditCardRow: View {
                 Spacer()
                 if let limit = card.creditLimit {
                     Text("額度 \(limit.formatted())")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -404,14 +406,14 @@ private struct CreditCardRow: View {
                 .monospacedDigit()
             if let dates = billingDates {
                 Text(dates)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             // 有信用額度時才顯示，最小是 0(web 在 82d9124 拿掉了「額度不足」的警示)。
             if let remaining = card.remainingCredit {
                 Text("剩餘額度 \(remaining.formatted())")
                     .monospacedDigit()
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }

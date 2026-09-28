@@ -154,7 +154,7 @@ private struct SavingsGoalRow: View {
                         .font(.headline)
                     if let deadline = goal.deadline {
                         Text("截止日 \(deadline.slashText)")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -165,7 +165,7 @@ private struct SavingsGoalRow: View {
                     .monospacedDigit()
                 Spacer()
                 Text("目標 \(goal.targetAmount.formatted())(\(goal.percentText))")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
@@ -174,12 +174,12 @@ private struct SavingsGoalRow: View {
                 .accessibilityHidden(true)
             HStack {
                 Text(goal.monthlyReserve > .zero ? "每月預留 \(goal.monthlyReserve.formatted())" : "未設定每月預留")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if goal.isAchieved {
                     Label("已達成目標", systemImage: "checkmark.seal.fill")
-                        .font(.footnote.bold())
+                        .font(.subheadline.bold())
                         .foregroundStyle(.green)
                 } else {
                     Button("存入", systemImage: "plus.circle.fill", action: deposit)

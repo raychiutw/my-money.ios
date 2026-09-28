@@ -103,7 +103,7 @@ struct OverviewScreen: View {
             goalsSection
             Section("家庭財務錦囊") {
                 Label(model.tipText, systemImage: "lightbulb")
-                    .font(.footnote)
+                    .font(.subheadline)
             }
         }
     }
@@ -142,7 +142,7 @@ struct OverviewScreen: View {
                     .foregroundStyle(.red)
                 ForEach(model.overBudgets, id: \.category) { budget in
                     Text("\(budget.category.name):已花 \(budget.spent.formatted()) / 預算 \(budget.amount.formatted())(超支 \((budget.spent - budget.amount).formatted()))")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .monospacedDigit()
                 }
             }
@@ -157,7 +157,7 @@ struct OverviewScreen: View {
                     Text(model.scope.emptyAccountsMessage)
                         .font(.headline)
                     Text("先新增現金錢包、銀行存款帳戶或信用卡，才能開始記帳。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Button("立即新增") { show(.accounts) }
                         .buttonStyle(.borderless)
@@ -182,18 +182,11 @@ struct OverviewScreen: View {
             ForEach(model.creditCards) { card in
                 LabeledContent {
                     // 待繳總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(card.totalDue.formatted())
-                            .monospacedDigit()
-                            .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                        ForEach(OverviewModel.cardDetailLines(card), id: \.self) { line in
-                            Text(line)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    Text(card.totalDue.formatted())
+                        .monospacedDigit()
+                        .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
                 } label: {
-                    accountLabel(card.name, kind: "信用卡", symbol: "creditcard", colorHex: card.colorHex)
+                    accountLabel(card.name, kind: "信用卡", symbol: "creditcard", colorHex: card.colorHex, details: OverviewModel.cardDetailLines(card))
                 }
             }
         } header: {
@@ -201,10 +194,17 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。
-    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String) -> some View {
+    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。`details` 是名稱下面的說明。
+    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String, details: [String] = []) -> some View {
         Label {
-            Text(name)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                ForEach(details, id: \.self) { line in
+                    Text(line)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         } icon: {
             Image(systemName: symbol)
                 .foregroundStyle(Color(hex: colorHex) ?? .gray)
@@ -243,7 +243,7 @@ struct OverviewScreen: View {
                         Text("\(goal.emoji) \(goal.name)")
                         Spacer()
                         Text("\(goal.savedAmount.formatted()) / \(goal.targetAmount.formatted())")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
@@ -266,7 +266,7 @@ struct OverviewScreen: View {
             Text(title)
             Spacer()
             Button(action, action: perform)
-                .font(.footnote)
+                .font(.subheadline)
                 .textCase(nil)
         }
     }

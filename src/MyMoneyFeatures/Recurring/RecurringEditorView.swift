@@ -52,7 +52,7 @@ struct RecurringEditorView: View {
                     Picker("關聯帳戶", selection: $model.accountID) {
                         Text("無特定帳戶").tag(AccountID?.none)
                         ForEach(model.accounts) { account in
-                            Text(account.name).tag(AccountID?.some(account.id))
+                            Text(account.menuTitle).tag(AccountID?.some(account.id))
                         }
                     }
                 }

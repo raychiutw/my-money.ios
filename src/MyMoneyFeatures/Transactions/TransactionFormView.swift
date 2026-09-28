@@ -44,6 +44,8 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                     .pickerStyle(.segmented)
                 }
+                // 記一筆最先要選的兩件事，用大尺寸的分段控制(#43)。
+                .controlSize(.large)
                 .listRowBackground(Color.clear)
 
                 Section {
@@ -60,7 +62,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                     Picker("帳戶", selection: $model.accountID) {
                         ForEach(model.accounts) { account in
-                            Text(accountTitle(account)).tag(Optional(account.id))
+                            Text(account.menuTitle).tag(Optional(account.id))
                         }
                     }
                     DatePicker(
@@ -107,14 +109,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     AccessibilityNotification.Announcement(message).post()
                 }
             }
-        }
-    }
-
-    private func accountTitle(_ account: Account) -> String {
-        switch account {
-        case .cash(let wallet): "\(wallet.name)(現金錢包)"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶)"
-        case .creditCard(let card): "\(card.name)(信用卡)"
         }
     }
 }

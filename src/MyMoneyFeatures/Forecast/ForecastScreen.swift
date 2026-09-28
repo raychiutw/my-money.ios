@@ -57,7 +57,7 @@ struct ForecastScreen: View {
                     Text(forecast.riskTitle)
                         .font(.headline)
                     Text(forecast.willOverdraft ? "預計餘額會跌破 0,請及早調整" : "排定的收支都發生後，餘額仍然大於 0")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             } icon: {
@@ -95,7 +95,7 @@ struct ForecastScreen: View {
         } header: {
             Text("未來 30 天逐日餘額")
         } footer: {
-            Text("起始餘額是自己的資金帳戶的淨可用資產：銀行存款帳戶餘額合計，扣掉信用卡的待繳卡費總額，不含其他家庭成員的資金帳戶。")
+            Text("起始餘額是自己的銀行存款帳戶餘額合計，扣掉自己信用卡的待繳卡費總額;不含現金錢包，也不含其他家庭成員的資金帳戶。")
         }
     }
 
@@ -110,7 +110,7 @@ struct ForecastScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.name)
                         Text(event.date.slashText)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
@@ -151,7 +151,7 @@ struct ForecastScreen: View {
                         Text(check.title)
                             .font(.headline)
                         Text(check.message)
-                            .font(.footnote)
+                            .font(.subheadline)
                     }
                 } icon: {
                     Image(systemName: symbol(check.verdict))

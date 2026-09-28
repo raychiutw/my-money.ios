@@ -18,11 +18,13 @@ final class AccountsUITests: XCTestCase {
 
         app.tabBars.buttons["帳戶"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").exists)
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").waitForExistence(timeout: 5))
         XCTAssertTrue(element(in: app, labelContaining: "待繳卡費總額 28,500 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "淨可用資產 21,500 元").exists)
-        // 統計卡和現金錢包區塊在上面，信用卡要捲下去才在 UI 階層裡。
+        // 統計卡和現金錢包區塊在上面，銀行存款帳戶和信用卡要捲下去才在 UI 階層裡。
+        let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
+        for _ in 0..<5 where !bank.exists { app.swipeUp() }
+        XCTAssertTrue(bank.exists)
         let card = element(in: app, labelContaining: "iOS 測試信用卡")
         for _ in 0..<5 where !card.exists { app.swipeUp() }
         XCTAssertTrue(card.exists)
@@ -65,7 +67,7 @@ final class AccountsUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").waitForExistence(timeout: 5))
         app.buttons["accounts.add"].tap()
         app.buttons["新增現金錢包"].tap()
         let name = app.textFields["accountEditor.name"]
@@ -103,7 +105,7 @@ final class AccountsUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "iOS 測試存款").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
 
         app.buttons["accounts.add"].tap()
         app.buttons["新增銀行存款帳戶"].tap()

@@ -23,12 +23,12 @@ struct TransferView: View {
                 Section {
                     Picker("轉出帳戶", selection: $model.fromAccountID) {
                         ForEach(model.candidates) { account in
-                            Text(model.title(for: account)).tag(Optional(account.id))
+                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
                     Picker("轉入帳戶", selection: $model.toAccountID) {
                         ForEach(model.toCandidates) { account in
-                            Text(model.title(for: account)).tag(Optional(account.id))
+                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
                 } footer: {

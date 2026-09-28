@@ -114,14 +114,6 @@ public final class TransferModel {
     }
 
     /// 選單上的帳戶文字：名稱、類型與目前的餘額。
-    public func title(for account: Account) -> String {
-        switch account {
-        case .cash(let wallet): "\(wallet.name)(現金錢包，餘額 \(wallet.balance.formatted()))"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶，餘額 \(bank.balance.formatted()))"
-        case .creditCard(let card): card.name
-        }
-    }
-
     private var firstBank: Account? {
         candidates.first { if case .bank = $0 { true } else { false } }
     }

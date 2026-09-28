@@ -86,7 +86,7 @@ struct StatisticsScreen: View {
                     }
                     ProgressView(value: fraction(share.total, of: model.householdTotal))
                     Text("佔 \(model.ratioText(share))")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .ignore)
@@ -97,7 +97,7 @@ struct StatisticsScreen: View {
                     Label("分攤建議", systemImage: "lightbulb")
                         .font(.subheadline.bold())
                     Text(settlementText(settlement, spoken: false))
-                        .font(.footnote)
+                        .font(.subheadline)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("分攤建議,\(settlementText(settlement, spoken: true))")
@@ -223,7 +223,7 @@ private struct BudgetRowView: View {
                     .accessibilityIdentifier("budgets.edit.\(row.category.name)")
             }
             Text(amountText)
-                .font(.footnote)
+                .font(.subheadline)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
             if let budget = row.budget {
@@ -232,7 +232,7 @@ private struct BudgetRowView: View {
             }
             if let statusText {
                 Label(statusText, systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote.bold())
+                    .font(.subheadline.bold())
                     .foregroundStyle(tint)
             }
         }

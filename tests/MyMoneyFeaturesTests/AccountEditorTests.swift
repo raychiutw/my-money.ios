@@ -27,6 +27,17 @@ struct AccountEditorTests {
         #expect(editor.canChangeKind)
     }
 
+    @Test("新增現金錢包的代表色預設是綠色 #10B981(web 的 openAdd);切到其他類型改回隨機挑的顏色")
+    func cashWalletDefaultColor() {
+        let editor = adding(.cash)
+        #expect(editor.colorHex == "#10B981")
+
+        editor.kind = .bank
+        #expect(editor.colorHex == "#95E1D3")
+        editor.kind = .cash
+        #expect(editor.colorHex == "#10B981")
+    }
+
     @Test("新增信用卡的預設值：不輸入已出帳待繳款(web 拿掉了)、未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
     func creditCardDefaults() {
         let editor = adding(.creditCard)
@@ -128,7 +139,7 @@ struct AccountEditorTests {
         #expect(await editor.save())
 
         #expect(await repository.createdDrafts == [.cash(CashWalletDraft(
-            name: "我的皮夾", colorHex: "#95E1D3", balance: Money(800), isJointFund: false
+            name: "我的皮夾", colorHex: "#10B981", balance: Money(800), isJointFund: false
         ))])
     }
 

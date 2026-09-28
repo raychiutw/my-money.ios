@@ -201,7 +201,7 @@ extension HouseholdScreen {
                     .accessibilityIdentifier("household.reimburse")
                 } else if let note = model.reimbursementNote(for: advance) {
                     Text(note)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -224,17 +224,17 @@ private struct AdvanceSummaryRow: View {
                     Text(advance.memberName)
                         .font(.headline)
                     Label(advance.isSettled ? "已全數結清" : "有待請款代墊", systemImage: advance.isSettled ? "checkmark.circle" : "clock")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(advance.isSettled ? .green : .orange)
                 }
                 Text("累計公帳墊付 \(advance.totalAdvanced.formatted()) · 已獲撥款報銷 \(advance.totalReimbursed.formatted())")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("待報銷")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                 Text(advance.pendingReimbursement.formatted())
                     .font(.headline)
@@ -261,7 +261,7 @@ private struct AdvanceDetails: View {
                 .font(.subheadline.bold())
             if advance.advanceItems.isEmpty {
                 Text("尚未有任何個人代墊公帳消費紀錄。")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             ForEach(advance.advanceItems) { item in
@@ -275,7 +275,7 @@ private struct AdvanceDetails: View {
                 .padding(.top, 4)
             if advance.reimbursementItems.isEmpty {
                 Text("尚未有自共同基金撥款報銷之歷史沖帳紀錄。")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             ForEach(advance.reimbursementItems) { item in
@@ -292,7 +292,7 @@ private struct AdvanceDetails: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text("\(date.slashText) · \(account)")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -321,14 +321,14 @@ private struct MemberRow: View {
                 HStack(spacing: 6) {
                     Text(member.name)
                     Text(member.role.title)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Text(member.email)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text("加入日期 \(member.joinedDateText())")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }

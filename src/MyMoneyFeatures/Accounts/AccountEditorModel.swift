@@ -57,6 +57,9 @@ public final class AccountEditorModel {
     /// 編輯信用卡時原本的已出帳待繳款(表單不能改，照原值送回);新增時是 0。
     @ObservationIgnored private var originalBilledDebt: Money = .zero
 
+    /// 新增時隨機挑的代表色;現金錢包改用固定的綠色(見 `applyDefaults`)。
+    @ObservationIgnored private var randomDefaultColor = ""
+
     /// 家庭公用(家庭共同基金、家庭卡)或個人私帳，所有類型都能設。編輯時帶入原本的標記：
     /// 後端的 PUT 沒收到 `is_joint` 會寫成 0。
     public var isJointFund: Bool
@@ -70,7 +73,8 @@ public final class AccountEditorModel {
         randomColor: () -> String = AccountColors.random
     ) {
         storedKind = kind
-        colorHex = randomColor()
+        randomDefaultColor = randomColor()
+        colorHex = randomDefaultColor
         editingID = nil
         isJointFund = false
         self.repository = repository
@@ -163,6 +167,7 @@ public final class AccountEditorModel {
     /// 欄位留空，存的時候一樣是 0:預填的「0」會讓游標停在 0 前面，輸入的數字接在 0 前面。
     private func applyDefaults(for kind: AccountKind) {
         unbilledText = ""
+        colorHex = kind == .cash ? AccountColors.cashWallet : randomDefaultColor
         switch kind {
         case .cash, .bank:
             creditLimitText = ""
@@ -202,6 +207,9 @@ public enum AccountColors {
         ("#EAFFD0", "淺綠"),
         ("#C9D6FF", "薰衣草"),
     ]
+
+    /// 新增現金錢包的預設色(web 的 `openAdd`),不在 8 色裡。
+    public static let cashWallet = "#10B981"
 
     public static func random() -> String {
         all.randomElement()!.hex
