@@ -15,8 +15,11 @@ struct MyMoneyApp: App {
     private let signedIn: SignedInScreens
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
     private let suggestsStrongPasswords: Bool
-    /// UI 測試拉長「已複製」的顯示時間(見 `copiedFeedbackDuration`)。
-    private let copiedFeedbackDuration: Duration
+    /// UI 測試拉長「已複製」的顯示時間(見 `copiedFeedbackDuration`);`nil` 是沿用預設值。
+    ///
+    /// 不要在 `init()` 建立 `EnvironmentValues()` 來取預設值：這麼早建立會讓整個 app 的
+    /// accent 色變回系統藍(TestFlight 1.0 (36381212551) 的標題、按鈕都是藍的)。
+    private let copiedFeedbackOverride: Duration?
 
     init() {
         #if DEBUG
@@ -53,7 +56,7 @@ struct MyMoneyApp: App {
                 )
             }
             suggestsStrongPasswords = false
-            copiedFeedbackDuration = .seconds(30)
+            copiedFeedbackOverride = .seconds(30)
             return
         }
         #endif
@@ -81,7 +84,7 @@ struct MyMoneyApp: App {
             )
         }
         suggestsStrongPasswords = true
-        copiedFeedbackDuration = EnvironmentValues().copiedFeedbackDuration
+        copiedFeedbackOverride = nil
     }
 
     var body: some Scene {
@@ -89,7 +92,9 @@ struct MyMoneyApp: App {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
-                .environment(\.copiedFeedbackDuration, copiedFeedbackDuration)
+                .transformEnvironment(\.copiedFeedbackDuration) { duration in
+                    if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
+                }
         }
     }
 }
