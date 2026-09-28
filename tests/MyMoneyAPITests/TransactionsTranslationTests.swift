@@ -68,6 +68,20 @@ struct TransactionsTranslationTests {
         #expect(transactions[2].category == .salary)
     }
 
+    @Test("ATM 提款產生的兩筆交易紀錄是系統分類(受保護、不算進合計)")
+    func atmWithdrawalRecordsAreSystemRecords() async throws {
+        try stub.reply(status: 200, fixture: "transactions-list-with-transfer.json")
+
+        let page = try await repository.transactions(
+            from: CalendarDay(year: 2026, month: 9, day: 28), to: CalendarDay(year: 2026, month: 9, day: 28),
+            scope: .all, limit: 200, offset: 0
+        )
+
+        #expect(page.map(\.category) == [.atmWithdrawal, .atmWithdrawal])
+        #expect(page.map(\.type) == [.expense, .income])
+        #expect(page.allSatisfy { $0.isSystemRecord })
+    }
+
     @Test("記一筆時 POST /transactions,家庭公帳送成 is_shared: 1")
     func createSendsBody() async throws {
         try stub.reply(status: 201, fixture: "transactions-create-shared-expense.json")

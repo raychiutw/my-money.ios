@@ -9,12 +9,21 @@ struct AccountsScreen: View {
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
     @State private var payment: CardPaymentModel?
+    @State private var transfer: TransferModel?
 
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("帳戶")
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            transfer = model.makeTransfer()
+                        } label: {
+                            Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
+                        }
+                        .accessibilityIdentifier("accounts.transfer")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button("新增現金錢包", systemImage: "wallet.bifold") {
@@ -51,6 +60,9 @@ struct AccountsScreen: View {
                     Button("取消", role: .cancel) {}
                 } message: { account in
                     Text(model.deleteConfirmation(for: account))
+                }
+                .sheet(item: $transfer) { transfer in
+                    TransferView(model: transfer) { message in model.noticeMessage = message }
                 }
                 .sheet(item: $payment) { payment in
                     CardPaymentView(model: payment)
@@ -103,7 +115,13 @@ struct AccountsScreen: View {
     }
 
     /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認：後端刪除無法復原)。
-    private func accountRow(_ account: Account, @ViewBuilder label: () -> some View) -> some View {
+    /// `transferTitle` 有值時，往右滑和長按多一個轉帳動作(現金錢包是「ATM 提款」,銀行存款帳戶是「轉帳／提款」)。
+    private func accountRow(
+        _ account: Account,
+        transferTitle: String? = nil,
+        openTransfer: @escaping () -> TransferModel? = { nil },
+        @ViewBuilder label: () -> some View
+    ) -> some View {
         Button {
             editor = EditorSheet(model.makeEditor(editing: account))
         } label: {
@@ -115,9 +133,18 @@ struct AccountsScreen: View {
                 pendingDeletion = account
             }
         }
+        .swipeActions(edge: .leading) {
+            if let transferTitle {
+                Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
+                    .tint(.accentColor)
+            }
+        }
         .contextMenu {
             Button("編輯", systemImage: "pencil") {
                 editor = EditorSheet(model.makeEditor(editing: account))
+            }
+            if let transferTitle {
+                Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
             }
             Button("刪除", systemImage: "trash", role: .destructive) {
                 pendingDeletion = account
@@ -202,7 +229,9 @@ struct AccountsScreen: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(model.cashWallets) { wallet in
-                accountRow(.cash(wallet)) { CashWalletRow(wallet: wallet) }
+                accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
+                    CashWalletRow(wallet: wallet)
+                }
             }
         }
     }
@@ -214,7 +243,9 @@ struct AccountsScreen: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(model.bankAccounts) { account in
-                accountRow(.bank(account)) { BankAccountRow(account: account) }
+                accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
+                    BankAccountRow(account: account)
+                }
             }
         }
     }
@@ -242,6 +273,7 @@ struct AccountsScreen: View {
 
 /// 給 `.sheet(item:)` 用;class 的 `id` 預設是 `ObjectIdentifier`。
 extension CardPaymentModel: Identifiable {}
+extension TransferModel: Identifiable {}
 
 /// 信用卡帳戶的欠款公私拆解、結帳日出帳結轉的提醒與「信用卡還款沖銷」。
 private struct CardSettlementRow: View {

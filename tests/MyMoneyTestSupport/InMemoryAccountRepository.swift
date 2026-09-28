@@ -145,6 +145,63 @@ public actor InMemoryAccountRepository: AccountRepository {
         )
     }
 
+    /// ATM 提款／帳戶互轉送出過的內容，依送出順序。
+    public private(set) var transfers: [AccountTransfer] = []
+
+    /// 跟後端一樣：同一個帳戶、轉出的現金錢包或銀行存款帳戶餘額不足時拒絕;成功時兩邊的餘額都更新。
+    public func transfer(_ transfer: AccountTransfer) async throws -> String {
+        await gate?.pass()
+        if let failure { throw failure }
+        guard transfer.fromAccountID != transfer.toAccountID else {
+            throw RepositoryError.rejected("轉出與轉入帳戶不能相同")
+        }
+        guard
+            let from = storedAccounts.first(where: { $0.id == transfer.fromAccountID }),
+            let to = storedAccounts.first(where: { $0.id == transfer.toAccountID })
+        else {
+            throw RepositoryError.rejected("找不到轉出帳戶或無權限操作")
+        }
+        if let balance = Self.balance(of: from), balance < transfer.amount {
+            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.amount)）")
+        }
+        transfers.append(transfer)
+        storedAccounts = storedAccounts.map { account in
+            if account.id == from.id { return Self.adding(.zero - transfer.amount, to: account) }
+            if account.id == to.id { return Self.adding(transfer.amount, to: account) }
+            return account
+        }
+        let isATM: Bool
+        if case .bank = from, case .cash = to { isATM = true } else { isATM = false }
+        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.amount) (\(from.name) ➡️ \(to.name))"
+    }
+
+    /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
+    private static func balance(of account: Account) -> Money? {
+        switch account {
+        case .cash(let wallet): wallet.balance
+        case .bank(let bank): bank.balance
+        case .creditCard: nil
+        }
+    }
+
+    /// 跟後端一樣直接加減 `balance`(信用卡的 `balance` 是已出帳待繳金額)。
+    private static func adding(_ amount: Money, to account: Account) -> Account {
+        switch account {
+        case .cash(let wallet):
+            .cash(CashWallet(
+                id: wallet.id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance + amount,
+                isJointFund: wallet.isJointFund
+            ))
+        case .bank(let bank):
+            .bank(BankAccount(
+                id: bank.id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance + amount,
+                isJointFund: bank.isJointFund
+            ))
+        case .creditCard(let card):
+            .creditCard(Self.card(card, billed: card.billedDebt + amount, unbilled: card.unbilledDebt))
+        }
+    }
+
     /// 之後的請求都以這個錯誤失敗。
     public func fail(with error: RepositoryError) {
         failure = error

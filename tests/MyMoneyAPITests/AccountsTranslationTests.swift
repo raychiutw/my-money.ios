@@ -177,6 +177,46 @@ struct AccountsTranslationTests {
         #expect(json["is_shared"] as? Int == 0)
     }
 
+    @Test("ATM 提款：POST /accounts/transfer 送轉出、轉入、金額、台灣日期與備註，回傳後端的訊息")
+    func transferSendsBodyAndReturnsMessage() async throws {
+        try stub.reply(status: 200, fixture: "accounts-transfer-atm.json")
+
+        let message = try await repository.transfer(AccountTransfer(
+            fromAccountID: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"),
+            toAccountID: AccountID("0fa1efa6-9789-4040-9fe7-22ef3be11b3c"),
+            amount: Money(500),
+            date: CalendarDay(year: 2026, month: 9, day: 28),
+            note: "ATM 提款"
+        ))
+
+        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 ➡️ iOS 測試皮夾)")
+        let request = try #require(stub.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url == stub.baseURL.appending(path: "accounts/transfer"))
+        let body = try #require(request.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["from_account_id"] as? String == "f4d3074a-4df6-4c98-bd90-bc6f2af91a37")
+        #expect(json["to_account_id"] as? String == "0fa1efa6-9789-4040-9fe7-22ef3be11b3c")
+        #expect(json["amount"] as? Int == 500)
+        #expect(json["date"] as? String == "2026-09-28")
+        #expect(json["note"] as? String == "ATM 提款")
+    }
+
+    @Test("轉帳的錯誤原樣傳遞", arguments: [
+        ("accounts-transfer-same-account.json", "轉出與轉入帳戶不能相同"),
+        ("accounts-transfer-insufficient.json", "轉出帳戶餘額不足（目前餘額：NT$ 2,000）"),
+    ])
+    func transferRejected(fixture: String, message: String) async throws {
+        try stub.reply(status: 400, fixture: fixture)
+
+        await #expect(throws: RepositoryError.rejected(message)) {
+            try await repository.transfer(AccountTransfer(
+                fromAccountID: AccountID("a"), toAccountID: AccountID("b"), amount: Money(1),
+                date: CalendarDay(year: 2026, month: 9, day: 28), note: ""
+            ))
+        }
+    }
+
     @Test("結帳日出帳結轉：回傳後端的訊息;沒有未出帳金額時原樣傳遞錯誤")
     func rollOverStatement() async throws {
         let card = AccountID("70b75089-3652-40a3-8c47-c23d04aab28c")

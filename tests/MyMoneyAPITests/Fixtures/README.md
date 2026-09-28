@@ -133,6 +133,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
 | `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳家庭公用(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
 | `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含家庭公用帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
+| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易紀錄 |
+| `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
+| `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |
+| `transactions-list-with-transfer.json` | `GET /transactions?from=2026-09-28&to=2026-09-28&scope=all&limit=200&offset=0`,上面的 ATM 提款之後 | 200 | 兩筆分類「ATM提款」(一筆支出、一筆收入)是系統分類 |
+| `transactions-create-cash-advance.json` | `POST /transactions`,「iOS 測試皮夾」家庭公帳支出 餐飲 250「全家晚餐」 | 201 | 用個人現金錢包付公帳支出(個人現金公帳代墊) |
+| `households-advances.json` | `GET /households/advances`。先讓測試帳號自己建立一個只有自己的家庭群組「iOS 測試家庭」,錄完下面三份就離開 | 200 | snake_case;累計代墊 250、已報銷 0、待報銷 250;代墊明細帶扣款帳戶名稱與類型 |
+| `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」交易紀錄 |
+| `households-reimburse-not-joint.json` | 同上，撥款帳戶用個人的「iOS 測試存款」 | 400 | 「撥款帳戶必須為家庭共同基金公帳 (公用帳戶)」原樣傳遞 |
+| `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
+| `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |
 | `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 | `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 

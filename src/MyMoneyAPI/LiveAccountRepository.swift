@@ -42,13 +42,41 @@ public struct LiveAccountRepository: AccountRepository {
     }
 
     public func rollOverStatement(_ id: AccountID) async throws -> String {
-        let dto: RolloverDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement")
+        let dto: MessageDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement")
+        return dto.message
+    }
+
+    public func transfer(_ transfer: AccountTransfer) async throws -> String {
+        let dto: MessageDTO = try await client.send("POST", "/accounts/transfer", body: TransferBody(transfer))
         return dto.message
     }
 }
 
-/// 結帳日出帳結轉的結果：訊息在 `data.message`。
-private struct RolloverDTO: Decodable {
+/// `POST /accounts/transfer` 的 body。回應的 `data` 是 `{message, from_balance, to_balance}`,只用 `message`。
+private struct TransferBody: Encodable {
+    let fromAccountID: String
+    let toAccountID: String
+    let amount: Decimal
+    let date: String
+    let note: String
+
+    enum CodingKeys: String, CodingKey {
+        case amount, date, note
+        case fromAccountID = "from_account_id"
+        case toAccountID = "to_account_id"
+    }
+
+    init(_ transfer: AccountTransfer) {
+        fromAccountID = transfer.fromAccountID.rawValue
+        toAccountID = transfer.toAccountID.rawValue
+        amount = transfer.amount.amount
+        date = transfer.date.iso
+        note = transfer.note
+    }
+}
+
+/// 只用到 `data.message` 的回應(結帳日出帳結轉、轉帳)。
+private struct MessageDTO: Decodable {
     let message: String
 }
 

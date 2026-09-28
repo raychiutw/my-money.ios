@@ -22,6 +22,9 @@ public protocol AccountRepository: Sendable {
 
     /// 結帳日出帳結轉：把未出帳金額一次移到已出帳待繳金額。回傳後端的訊息。
     func rollOverStatement(_ id: AccountID) async throws -> String
+
+    /// ATM 提款／帳戶互轉。回傳後端的訊息。
+    func transfer(_ transfer: AccountTransfer) async throws -> String
 }
 
 extension AccountRepository {

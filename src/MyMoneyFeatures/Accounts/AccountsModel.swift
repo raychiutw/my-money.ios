@@ -97,6 +97,11 @@ public final class AccountsModel {
         await load()
     }
 
+    /// ATM 提款／帳戶互轉的 sheet。從某個帳戶的按鈕打開時，預先選好轉出或轉入。
+    public func makeTransfer(from: AccountID? = nil, to: AccountID? = nil) -> TransferModel {
+        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredFrom: from, preferredTo: to)
+    }
+
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
         AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion)
     }

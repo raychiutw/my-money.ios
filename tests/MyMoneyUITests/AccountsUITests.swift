@@ -56,6 +56,44 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 800 元").waitForExistence(timeout: 5), "新增後沒有出現在現金錢包區塊")
     }
 
+    /// ATM 提款(#43):銀行存款帳戶轉到現金錢包，顯示後端的訊息，兩邊的餘額都更新。
+    @MainActor
+    func testATMWithdrawalMovesMoneyIntoWallet() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元").waitForExistence(timeout: 5))
+        app.buttons["accounts.add"].tap()
+        app.buttons["新增現金錢包"].tap()
+        let name = app.textFields["accountEditor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        name.typeText("UI 測試皮夾")
+        let walletAmount = app.textFields["accountEditor.amount"]
+        walletAmount.tap()
+        walletAmount.typeText("800")
+        app.buttons["accountEditor.save"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 800 元").waitForExistence(timeout: 5))
+
+        // 預設轉出是第一個銀行存款帳戶、轉入是第一個現金錢包。
+        app.buttons["accounts.transfer"].tap()
+        let amount = app.textFields["transfer.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開轉帳")
+        amount.tap()
+        amount.typeText("500")
+        app.buttons["transfer.submit"].tap()
+
+        XCTAssertTrue(element(in: app, labelContaining: "ATM 提款成功 NT$ 500").waitForExistence(timeout: 5), "沒有顯示轉帳的結果")
+        app.buttons["好"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 1,300 元").waitForExistence(timeout: 5), "現金錢包的餘額沒有增加")
+        // 銀行存款帳戶區塊在現金錢包區塊下面，捲下去才在 UI 階層裡。
+        let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 49,500 元")
+        for _ in 0..<5 where !bank.exists { app.swipeUp() }
+        XCTAssertTrue(bank.exists, "銀行存款帳戶的餘額沒有減少")
+    }
+
     /// 從「+」新增銀行存款帳戶後出現在列表上;往左滑刪除、確認後消失。
     @MainActor
     func testAddThenDeleteBankAccount() throws {

@@ -1,0 +1,116 @@
+import MyMoneyDomain
+import MyMoneyFeatures
+import MyMoneyTestSupport
+import Testing
+
+@MainActor
+@Suite("ATM 提款／帳戶互轉")
+struct TransferTests {
+    private let today = CalendarDay(year: 2026, month: 9, day: 28)
+    private let dataVersion = DataVersion()
+
+    private func loaded(
+        _ repository: InMemoryAccountRepository = .sampleWithCash(),
+        from: AccountID? = nil,
+        to: AccountID? = nil
+    ) async -> TransferModel {
+        let model = TransferModel(
+            repository: repository, dataVersion: dataVersion, today: { today }, preferredFrom: from, preferredTo: to
+        )
+        await model.load()
+        return model
+    }
+
+    @Test("預設轉出是第一個銀行存款帳戶、轉入是第一個現金錢包;信用卡不在可選的帳戶裡")
+    func defaults() async {
+        let model = await loaded()
+
+        #expect(model.fromAccountID == SampleAccounts.savings.id)
+        #expect(model.toAccountID == SampleAccounts.wallet.id)
+        #expect(model.candidates.map(\.name) == ["iOS 測試皮夾", "iOS 測試存款"])
+        #expect(model.date == today)
+        #expect(model.amountText == "")
+    }
+
+    @Test("從現金錢包的「ATM 提款」打開：轉入是這個皮夾;從銀行存款帳戶的「轉帳／提款」打開：轉出是這個帳戶")
+    func openedFromAnAccount() async {
+        let fromWallet = await loaded(to: SampleAccounts.wallet.id)
+        #expect(fromWallet.toAccountID == SampleAccounts.wallet.id)
+        #expect(fromWallet.fromAccountID == SampleAccounts.savings.id)
+
+        let fromBank = await loaded(from: SampleAccounts.savings.id)
+        #expect(fromBank.fromAccountID == SampleAccounts.savings.id)
+        #expect(fromBank.toAccountID == SampleAccounts.wallet.id)
+    }
+
+    @Test("轉入的選項不含已選的轉出帳戶")
+    func toCandidatesExcludeFrom() async {
+        let model = await loaded()
+
+        #expect(model.toCandidates.map(\.name) == ["iOS 測試皮夾"])
+    }
+
+    @Test("快捷情境:ATM 提款至皮夾、存款至銀行，帶入帳戶與備註")
+    func quickScenarios() async {
+        let model = await loaded()
+
+        model.applyDepositScenario()
+        #expect(model.fromAccountID == SampleAccounts.wallet.id)
+        #expect(model.toAccountID == SampleAccounts.savings.id)
+        #expect(model.note == "存入現金至銀行")
+
+        model.applyATMScenario()
+        #expect(model.fromAccountID == SampleAccounts.savings.id)
+        #expect(model.toAccountID == SampleAccounts.wallet.id)
+        #expect(model.note == "ATM 提領現鈔至皮夾")
+        #expect(model.hasQuickScenarios)
+    }
+
+    @Test("沒有現金錢包時沒有快捷情境")
+    func noScenariosWithoutWallet() async {
+        let model = await loaded(.sample())
+
+        #expect(!model.hasQuickScenarios)
+    }
+
+    @Test("金額要大於 0 的整數，否則提示且不送出")
+    func amountIsRequired() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        let model = await loaded(repository)
+        model.amountText = "0"
+
+        #expect(await model.submit() == nil)
+
+        #expect(model.errorMessage == "請選擇轉出、轉入帳戶，並輸入大於 0 的金額")
+        #expect(await repository.transfers.isEmpty)
+    }
+
+    @Test("成功：送出轉出、轉入、金額、台灣時間的今天與備註，回傳後端的訊息，資料版本遞增")
+    func submits() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        let model = await loaded(repository)
+        model.amountText = "500"
+        model.note = "ATM 提款"
+
+        let message = await model.submit()
+
+        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 ➡️ iOS 測試皮夾)")
+        #expect(await repository.transfers == [AccountTransfer(
+            fromAccountID: SampleAccounts.savings.id, toAccountID: SampleAccounts.wallet.id,
+            amount: Money(500), date: today, note: "ATM 提款"
+        )])
+        #expect(dataVersion.value == 1)
+    }
+
+    @Test("失敗時顯示後端的訊息，資料版本不變")
+    func showsRejection() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        let model = await loaded(repository)
+        model.amountText = "999999"
+
+        #expect(await model.submit() == nil)
+
+        #expect(model.errorMessage == "轉出帳戶餘額不足（目前餘額：NT$ 50000）")
+        #expect(dataVersion.value == 0)
+    }
+}

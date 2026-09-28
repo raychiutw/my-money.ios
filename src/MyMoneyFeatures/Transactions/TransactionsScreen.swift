@@ -174,7 +174,7 @@ struct TransactionsScreen: View {
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 TransactionRow(transaction: transaction)
-                Label("系統內部平帳的還款紀錄受保護，金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
+                Label("「\(transaction.category.name)」是系統內部平帳或轉帳的紀錄，受保護;金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

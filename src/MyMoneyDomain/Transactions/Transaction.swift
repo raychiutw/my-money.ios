@@ -28,6 +28,20 @@ public struct TransactionCategory: Hashable, Sendable {
     /// 信用卡還款沖銷產生的交易紀錄;不能編輯或刪除，也不算進生活消費支出。
     public static let creditCardRepayment = TransactionCategory("信用卡還款")
 
+    /// 帳戶互轉(ATM 提款以外)產生的交易紀錄，一筆支出一筆收入(`POST /accounts/transfer`)。
+    public static let internalTransfer = TransactionCategory("內部轉帳")
+
+    /// 從銀行存款帳戶轉到現金錢包的 ATM 提款。
+    public static let atmWithdrawal = TransactionCategory("ATM提款")
+
+    /// 從家庭共同基金撥款報銷代墊款(`POST /households/reimburse`)。
+    public static let advanceReimbursement = TransactionCategory("公帳代墊報銷")
+
+    /// 系統分類：後端受保護(PUT、DELETE 回 400),統計也都排除(`bd0507b`)。
+    public static let systemCategories: Set<TransactionCategory> = [
+        creditCardRepayment, internalTransfer, atmWithdrawal, advanceReimbursement,
+    ]
+
     public static let expenseCategories = ["餐飲", "交通", "娛樂", "購物", "生活", "醫療", "教育", "其他"].map(TransactionCategory.init)
     public static let incomeCategories = ["薪資", "獎金", "投資", "兼職", "其他"].map(TransactionCategory.init)
 }
@@ -83,9 +97,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         self.recorderName = recorderName
     }
 
-    /// 信用卡還款沖銷產生的紀錄。
-    public var isCreditCardRepayment: Bool {
-        category == .creditCardRepayment
+    /// 系統內部平帳或轉帳的紀錄(4 種系統分類):後端禁止編輯和刪除，統計也都排除。
+    public var isSystemRecord: Bool {
+        TransactionCategory.systemCategories.contains(category)
     }
 }
 
