@@ -35,9 +35,7 @@ final class TransactionsUITests: XCTestCase {
     }
 
     /// 點一筆交易紀錄編輯歸屬;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
-    ///
-    /// 編輯改的是歸屬，不是金額：靠右對齊的 SwiftUI TextField 第一次點下去，游標一律停在原本的數字前面，
-    /// 用 typeText 取代原值不可靠(CI 錄影)。金額的編輯由 `TransactionEditorTests` 驗證。
+    /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
         let app = XCUIApplication()
@@ -72,6 +70,35 @@ final class TransactionsUITests: XCTestCase {
         search.typeText("薪資")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").waitForExistence(timeout: 3))
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "搜尋後還看得到不符合的紀錄")
+    }
+
+    /// 已經有值的金額欄，直接輸入就取代原值(#32):耳機 880 → 990 → 770。
+    ///
+    /// 兩條路徑都要走：表單一打開金額欄就自動取得焦點(`.task`),直接輸入;把焦點移到備註後再點金額欄。
+    @MainActor
+    func testEditingAmountReplacesOriginalValue() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let headphones = element(in: app, labelContaining: "支出 880 元")
+        XCTAssertTrue(headphones.waitForExistence(timeout: 5))
+        headphones.tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "表單打開時金額欄沒有取得焦點")
+        app.typeText("990")
+        XCTAssertEqual(amount.value as? String, "990", "自動取得焦點時，輸入的數字沒有取代原值")
+
+        app.textFields["quickEntry.note"].tap()
+        amount.tap()
+        amount.typeText("770")
+        XCTAssertEqual(amount.value as? String, "770", "點選金額欄時，輸入的數字沒有取代原值")
+
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "支出 770 元").waitForExistence(timeout: 5), "編輯後金額沒有更新")
     }
 
     /// 台灣時間的今天，格式跟 DatePicker 的值一樣，例如「2026年9月28日」。

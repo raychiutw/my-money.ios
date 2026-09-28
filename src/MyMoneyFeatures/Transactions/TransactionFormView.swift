@@ -48,12 +48,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
 
                 Section {
                     LabeledContent("金額") {
-                        TextField("金額", text: $model.amountText, prompt: Text(verbatim: "0"))
-                            .multilineTextAlignment(.trailing)
-                            .numberKeyboard()
-                            .monospacedDigit()
-                            .focused($isAmountFocused)
-                            .accessibilityIdentifier("quickEntry.amount")
+                        AmountField(
+                            "金額", text: $model.amountText, prompt: Text(verbatim: "0"),
+                            focus: $isAmountFocused, equals: true, identifier: "quickEntry.amount"
+                        )
                     }
                     Picker("分類", selection: $model.category) {
                         ForEach(model.categories, id: \.self) { category in

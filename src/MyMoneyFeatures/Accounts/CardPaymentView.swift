@@ -50,12 +50,10 @@ struct CardPaymentView: View {
                         }
                     }
                     LabeledContent("繳款金額") {
-                        TextField("繳款金額", text: $model.amountText, prompt: Text(verbatim: "0"))
-                            .multilineTextAlignment(.trailing)
-                            .numberKeyboard()
-                            .monospacedDigit()
-                            .focused($focusedField, equals: .amount)
-                            .accessibilityIdentifier("cardPayment.amount")
+                        AmountField(
+                            "繳款金額", text: $model.amountText, prompt: Text(verbatim: "0"),
+                            focus: $focusedField, equals: .amount, identifier: "cardPayment.amount"
+                        )
                     }
                     DatePicker(
                         "日期",

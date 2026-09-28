@@ -29,6 +29,8 @@ final class CardSettlementUITests: XCTestCase {
         pay.tap()
         let fillShared = app.buttons["cardPayment.fillShared"]
         XCTAssertTrue(fillShared.waitForExistence(timeout: 3), "沒有「繳家庭代墊」")
+        // 先點金額欄(全選預填的待繳總額),再填入比較短的 3000:選取範圍還是舊字串的，不能因此出錯(#32)。
+        app.textFields["cardPayment.amount"].tap()
         fillShared.tap()
         XCTAssertEqual(app.textFields["cardPayment.amount"].value as? String, "3000")
         app.buttons["cardPayment.submit"].tap()

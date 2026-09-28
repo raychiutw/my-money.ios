@@ -67,7 +67,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 家庭公帳／個人私帳、支出／收入的切換鈕 | segmented `Picker` |
 | `<input type=date>` | `DatePicker(.compact)` |
 | `<input type=month>` | 月份 `Picker`(年、月) |
-| 金額輸入 | `TextField` 綁定 `Decimal`,鍵盤用 `.numberPad`,鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵) |
+| 金額輸入 | 共用的 `AmountField`:靠右對齊、`.numberPad`、等寬數字，取得焦點時全選(直接輸入就取代原值)。綁定文字，儲存時用 `Money(wholeNumber:)` 解析;鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵) |
 | 色點選擇器(帳戶顏色) | 8 色的圓形按鈕列，每個都有 accessibility label |
 | emoji 選擇器(目標) | 12 個 emoji 的格狀按鈕 |
 | 空狀態 | `ContentUnavailableView`,文字沿用 web |

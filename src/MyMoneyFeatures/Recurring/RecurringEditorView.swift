@@ -31,12 +31,10 @@ struct RecurringEditorView: View {
                     .focused($focusedField, equals: .name)
                     .accessibilityIdentifier("recurringEditor.name")
                     LabeledContent("每期金額") {
-                        TextField("每期金額", text: $model.amountText, prompt: Text("例如：15000"))
-                            .multilineTextAlignment(.trailing)
-                            .numberKeyboard()
-                            .monospacedDigit()
-                            .focused($focusedField, equals: .amount)
-                            .accessibilityIdentifier("recurringEditor.amount")
+                        AmountField(
+                            "每期金額", text: $model.amountText, prompt: Text("例如：15000"),
+                            focus: $focusedField, equals: .amount, identifier: "recurringEditor.amount"
+                        )
                     }
                 }
 

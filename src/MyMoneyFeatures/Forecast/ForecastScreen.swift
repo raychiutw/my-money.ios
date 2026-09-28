@@ -130,12 +130,10 @@ struct ForecastScreen: View {
     private var purchaseSection: some View {
         Section {
             LabeledContent("購買金額") {
-                TextField("購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"))
-                    .multilineTextAlignment(.trailing)
-                    .numberKeyboard()
-                    .monospacedDigit()
-                    .focused($isAmountFocused)
-                    .accessibilityIdentifier("forecast.purchaseAmount")
+                AmountField(
+                    "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
+                    focus: $isAmountFocused, equals: true, identifier: "forecast.purchaseAmount"
+                )
             }
             Button("進行購買力試算") {
                 isAmountFocused = false
