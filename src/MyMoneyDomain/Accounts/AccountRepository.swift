@@ -1,13 +1,18 @@
+/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員的家庭公用」,家庭公用是全體成員的家庭公用帳戶，
+/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易紀錄的視角(`ViewScope`)是兩件事。
+public enum AccountScope: String, Sendable, CaseIterable {
+    case all
+    case household
+    case personal
+}
+
 /// 資金帳戶(`/accounts`)。
-///
-/// 帳戶檢視範圍用 `ViewScope`:全部是「本人全部 + 其他成員的家庭公用」,家庭公用是全體成員的家庭公用帳戶，
-/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。
 public protocol AccountRepository: Sendable {
     /// 這個範圍的資金帳戶，順序照後端(建立時間由舊到新)。
-    func accounts(scope: ViewScope) async throws -> [Account]
+    func accounts(scope: AccountScope) async throws -> [Account]
 
     /// 這個範圍的資金指標。
-    func balanceSummary(scope: ViewScope) async throws -> BalanceSummary
+    func balanceSummary(scope: AccountScope) async throws -> BalanceSummary
 
     func create(_ draft: AccountDraft) async throws
 

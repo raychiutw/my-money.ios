@@ -100,7 +100,7 @@ struct AccountsScreen: View {
     }
 
     private struct QueryKey: Equatable {
-        let scope: ViewScope
+        let scope: AccountScope
         let version: Int
     }
 
@@ -172,9 +172,9 @@ struct AccountsScreen: View {
             List {
                 Section {
                     Picker("檢視範圍", selection: $model.scope) {
-                        Text("全部").tag(ViewScope.all)
-                        Text("家庭公用").tag(ViewScope.household)
-                        Text("個人私帳").tag(ViewScope.personal)
+                        Text("全部").tag(AccountScope.all)
+                        Text("家庭公用").tag(AccountScope.household)
+                        Text("個人私帳").tag(AccountScope.personal)
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("accounts.scope")
@@ -182,12 +182,6 @@ struct AccountsScreen: View {
                     Text("其他成員的個人私帳和現金錢包一律不顯示。")
                 }
                 summarySection
-                if let message = model.emptyScopeMessage {
-                    Section {
-                        Text(message)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 cashSection
                 bankSection
                 creditCardSection
@@ -225,8 +219,11 @@ struct AccountsScreen: View {
     private var cashSection: some View {
         Section("現金錢包(\(model.cashWallets.count))") {
             if model.cashWallets.isEmpty {
-                Text("尚未新增現金錢包")
-                    .foregroundStyle(.secondary)
+                SectionEmptyState(
+                    title: "目前此範圍無現金錢包",
+                    message: "建立你的個人隨身皮夾或客廳公用零用金盒，掌握實體現鈔流向！",
+                    actionTitle: "立即新增現金錢包", identifier: "accounts.emptyAdd.cash"
+                ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
             ForEach(model.cashWallets) { wallet in
                 accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
@@ -239,8 +236,11 @@ struct AccountsScreen: View {
     private var bankSection: some View {
         Section("銀行存款帳戶(\(model.bankAccounts.count))") {
             if model.bankAccounts.isEmpty {
-                Text("尚未新增銀行存款帳戶")
-                    .foregroundStyle(.secondary)
+                SectionEmptyState(
+                    title: "目前此範圍無銀行存款帳戶",
+                    message: "新增個人薪轉或家庭共同基金帳戶，輕鬆追蹤儲蓄與扣款。",
+                    actionTitle: "立即新增銀行存款帳戶", identifier: "accounts.emptyAdd.bank"
+                ) { editor = EditorSheet(model.makeEditor(adding: .bank)) }
             }
             ForEach(model.bankAccounts) { account in
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
@@ -253,8 +253,11 @@ struct AccountsScreen: View {
     private var creditCardSection: some View {
         Section("信用卡(\(model.creditCards.count))") {
             if model.creditCards.isEmpty {
-                Text("尚未新增信用卡")
-                    .foregroundStyle(.secondary)
+                SectionEmptyState(
+                    title: "目前此範圍無信用卡",
+                    message: "新增信用卡可掌握家庭公帳代墊與個人私帳刷卡分流，避免突襲式卡費！",
+                    actionTitle: "立即新增信用卡", identifier: "accounts.emptyAdd.creditCard"
+                ) { editor = EditorSheet(model.makeEditor(adding: .creditCard)) }
             }
             ForEach(model.creditCards) { card in
                 accountRow(.creditCard(card)) { CreditCardRow(card: card) }
@@ -390,8 +393,14 @@ private struct CreditCardRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 AccountColorMark(hex: card.colorHex)
-                Text(card.name)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(card.name)
+                        .font(.headline)
+                    // web 的 bd0507b 一律標示家庭卡或個人卡。
+                    Label(card.isJointFund ? "家庭卡" : "個人卡", systemImage: card.isJointFund ? "house.fill" : "person.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if let limit = card.creditLimit {
                     Text("額度 \(limit.formatted())")
@@ -428,6 +437,28 @@ private struct CreditCardRow: View {
             card.paymentDueDay.map { "繳款日：每月 \($0) 號" },
         ].compactMap(\.self)
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」),附新增的入口。
+private struct SectionEmptyState: View {
+    let title: String
+    let message: String
+    let actionTitle: String
+    let identifier: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button(actionTitle, action: action)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier(identifier)
+        }
     }
 }
 

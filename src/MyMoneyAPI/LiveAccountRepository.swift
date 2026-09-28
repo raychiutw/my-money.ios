@@ -10,18 +10,18 @@ public struct LiveAccountRepository: AccountRepository {
     }
 
     /// 不認得的帳戶類型(後端將來新增的)只略過那一個，不讓整份清單失敗(parity 刻意偏離)。
-    public func accounts(scope: ViewScope) async throws -> [Account] {
+    public func accounts(scope: AccountScope) async throws -> [Account] {
         let dtos: [AccountDTO] = try await client.get("/accounts", query: Self.query(scope))
         return dtos.compactMap { $0.account() }
     }
 
-    public func balanceSummary(scope: ViewScope) async throws -> BalanceSummary {
+    public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
         let dto: BalanceSummaryDTO = try await client.get("/accounts/balance", query: Self.query(scope))
         return dto.summary
     }
 
     /// 一律明確帶 `scope`,`all` 也帶，不依賴後端的預設範圍。
-    private static func query(_ scope: ViewScope) -> [URLQueryItem] {
+    private static func query(_ scope: AccountScope) -> [URLQueryItem] {
         [URLQueryItem(name: "scope", value: scope.rawValue)]
     }
 
@@ -75,8 +75,8 @@ private struct TransferBody: Encodable {
     }
 }
 
-/// 只用到 `data.message` 的回應(結帳日出帳結轉、轉帳)。
-private struct MessageDTO: Decodable {
+/// 只用到 `data.message` 的回應(結帳日出帳結轉、轉帳、撥款報銷)。
+struct MessageDTO: Decodable {
     let message: String
 }
 

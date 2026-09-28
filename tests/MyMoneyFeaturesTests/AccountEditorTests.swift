@@ -38,7 +38,7 @@ struct AccountEditorTests {
         #expect(editor.colorHex == "#10B981")
     }
 
-    @Test("新增信用卡的預設值：不輸入已出帳待繳款(web 拿掉了)、未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
+    @Test("新增信用卡的預設值：不輸入已出帳待繳金額(web 拿掉了)、未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
     func creditCardDefaults() {
         let editor = adding(.creditCard)
 
@@ -175,7 +175,7 @@ struct AccountEditorTests {
         #expect(card.isJointFund)
     }
 
-    @Test("編輯信用卡時照原值送回已出帳待繳款(表單不能改)")
+    @Test("編輯信用卡時照原值送回已出帳待繳金額(表單不能改)")
     func editingCardKeepsBilledDebt() async {
         let editor = AccountEditorModel(editing: .creditCard(SampleAccounts.card), repository: repository, dataVersion: dataVersion)
         editor.unbilledText = "4000"

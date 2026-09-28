@@ -78,7 +78,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 金額輸入 | 共用的 `AmountField`:靠右對齊、`.numberPad`、等寬數字，取得焦點時全選(直接輸入就取代原值)。綁定文字，儲存時用 `Money(wholeNumber:)` 解析;鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵) |
 | 色點選擇器(帳戶顏色) | 8 色的圓形按鈕列，每個都有 accessibility label |
 | emoji 選擇器(目標) | 12 個 emoji 的格狀按鈕 |
-| 空狀態 | `ContentUnavailableView`,文字沿用 web |
+| 空狀態 | 整頁用 `ContentUnavailableView`;List 區塊裡用標題(`headline`)、說明(`subheadline`)加 borderless 按鈕。文字沿用 web |
 | loading | `ProgressView`。資料回來之前不顯示 `$0` 或「安全」這類預設值 |
 | Recharts 圓餅、柱狀、面積圖 | Swift Charts 的 `SectorMark`、`BarMark`、`AreaMark` |
 | ProgressBar | `ProgressView(value:)` 或 `Gauge`,顏色依語意色 |

@@ -82,7 +82,6 @@ public final class ReimbursementModel {
         }
     }
 
-    /// 選單上的帳戶文字：名稱、類型與目前的餘額。
     private static func holdsMoney(_ account: Account) -> Bool {
         balance(of: account) != nil
     }

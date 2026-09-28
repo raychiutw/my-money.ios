@@ -260,7 +260,7 @@ struct AccountsTranslationTests {
         ))
     }
 
-    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用餘額由後端算好(含現金)")
+    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用資產由後端算好(含現金)")
     func balanceSummaryIncludesCashTotal() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-with-cash.json")
 

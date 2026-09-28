@@ -17,7 +17,7 @@ public final class AccountsModel {
 
     /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
-    public var scope: ViewScope = .all
+    public var scope: AccountScope = .all
 
     public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
@@ -77,7 +77,7 @@ public final class AccountsModel {
 
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
     @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: ViewScope?
+    @ObservationIgnored private var loadedScope: AccountScope?
 
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
@@ -128,14 +128,8 @@ public final class AccountsModel {
     public var billedDebtTotal: Money? { summary?.billedDebtTotal }
     public var unbilledDebtTotal: Money? { summary?.unbilledDebtTotal }
 
-    /// 淨可用資產(後端以整個家庭群組計算)。
+    /// 淨可用資產(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
-
-    /// 這個範圍一個帳戶都沒有時的說明(web 依範圍顯示不同的空狀態);有帳戶時是 `nil`。
-    public var emptyScopeMessage: String? {
-        guard phase == .loaded, cashWallets.isEmpty, bankAccounts.isEmpty, creditCards.isEmpty else { return nil }
-        return scope.emptyAccountsMessage
-    }
 
     /// 載入這個範圍的資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
@@ -155,18 +149,9 @@ public final class AccountsModel {
             loadedScope = scope
             phase = .loaded
         } catch {
+            // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
-        }
-    }
-}
-
-extension ViewScope {
-    /// 這個範圍一個帳戶都沒有時的說明(web 的帳戶頁與總覽依範圍顯示不同的空狀態)。
-    public var emptyAccountsMessage: String {
-        switch self {
-        case .all: "尚未建立帳戶"
-        case .household: "目前無家庭公用帳戶"
-        case .personal: "目前無個人私帳"
         }
     }
 }

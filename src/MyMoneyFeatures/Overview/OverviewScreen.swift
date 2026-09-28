@@ -154,12 +154,12 @@ struct OverviewScreen: View {
         Section {
             if model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(model.scope.emptyAccountsMessage)
+                    Text(model.scope.accountScope.emptyAccountsTitle)
                         .font(.headline)
-                    Text("先新增現金錢包、銀行存款帳戶或信用卡，才能開始記帳。")
+                    Text(model.scope.accountScope.emptyAccountsHint)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Button("立即新增") { show(.accounts) }
+                    Button("前往帳戶管理") { show(.accounts) }
                         .buttonStyle(.borderless)
                 }
             }
@@ -181,7 +181,7 @@ struct OverviewScreen: View {
             }
             ForEach(model.creditCards) { card in
                 LabeledContent {
-                    // 待繳總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
+                    // 待繳卡費總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
                     Text(card.totalDue.formatted())
                         .monospacedDigit()
                         .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))

@@ -39,7 +39,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(21500))
     }
 
-    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用餘額照後端(含現金)")
+    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用資產照後端(含現金)")
     func cashWalletsAreTheirOwnSection() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
 
@@ -65,7 +65,6 @@ struct AccountsTests {
         #expect(await repository.requestedScopes == [.all, .household])
         #expect(await repository.requestedSummaryScopes == [.all, .household])
         #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
-        #expect(model.emptyScopeMessage == "目前無家庭公用帳戶")
     }
 
     @Test("換了檢視範圍之後，就算資料版本沒變也要重抓(畫面用範圍和資料版本當 task 的 key)")
@@ -80,20 +79,6 @@ struct AccountsTests {
         await model.refreshIfStale()
 
         #expect(await repository.requestedScopes == [.all, .personal])
-    }
-
-    @Test("個人私帳範圍沒有帳戶時的空狀態;有帳戶時沒有空狀態")
-    func emptyScopeMessages() async {
-        let model = AccountsModel(
-            repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion()
-        )
-        model.scope = .personal
-        await model.load()
-        #expect(model.emptyScopeMessage == "目前無個人私帳")
-
-        let withAccounts = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
-        await withAccounts.load()
-        #expect(withAccounts.emptyScopeMessage == nil)
     }
 
     @Test("資料回來之前是載入中，不顯示任何金額", .timeLimit(.minutes(1)))

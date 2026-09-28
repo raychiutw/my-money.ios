@@ -101,10 +101,11 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `budgets-put-update.json` | `PUT /budgets`,餐飲改成 100(同分類同月份會調整原本那筆) | 200 | 同一個 `id` |
 | `budgets-put-missing-amount.json` | `PUT /budgets`,沒有 `amount` | 400 | 「請填寫所有欄位」原樣傳遞 |
 | `budgets-list.json` | `GET /budgets?month=2026-09`,餐飲 100、購物 1000 設定之後 | 200 | 後端算好的 `spent` 與 `over`(餐飲超支、購物 88%)。分類預算無法刪除，會留在測試帳號的 2026-09 |
-| `forecast.json` | `GET /forecast`,台灣時間 2026-09-28 早上錄的 | 200 | camelCase;30 天逐日餘額、`minBalance`、`minDate`、`willOverdraft`、預定收支(房租、薪水)。第一天是 2026-09-27,因為後端用 UTC 的今天(後端造成的第 14 項) |
+| `forecast.json` | `GET /forecast`,台灣時間 2026-09-28 早上錄的 | 200 | camelCase;30 天逐日餘額、`minBalance`、`minDate`、`willOverdraft`、預定收支(房租、薪水)。第一天是 2026-09-27,因為當時後端用 UTC 的今天(`bd0507b` 已改用台灣時間) |
 | `forecast-purchase-safe.json` | `POST /forecast/purchase-check {amount: 1000}` | 200 | 放心購買;`affectedGoals` 列出所有有每月預留的儲蓄目標，不管評估結果是哪一種 |
 | `forecast-purchase-caution.json` | 同上 `{amount: 50000}`。錄之前先把「沖繩旅遊」的每月預留暫時改成 20000,錄完改回 5000 | 200 | 審慎評估(`affectsSavings: true`) |
 | `forecast-purchase-danger.json` | 同上 `{amount: 60000}` | 200 | 不建議購買，最低餘額 -6560 |
+| `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 | `bot-bindings-empty.json` | `GET /bot/bindings`,測試帳號還沒有機器人綁定時 | 200 | 空清單 |
 | `bot-pairing-code.json` | `POST /bot/pairing-code` | 200 | 6 碼大寫英數的綁定驗證碼、`expires_in_seconds: 600` |
 | `bot-simulate-missing-text.json` | `POST /bot/test-simulate {text: "", platform: "line"}` | 400 | 「請輸入測試訊息」原樣傳遞 |
@@ -121,6 +122,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-join-already-member.json` | 已經在家庭群組裡時 `POST /households/join` | 400 | 「你已經加入家庭群組，無法重複加入」原樣傳遞 |
 | `households-remove-self.json` | 管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
 | `households-leave.json` | `DELETE /households/leave`。測試帳號是唯一的成員，離開後後端會刪掉整個家庭群組 | 200 | 只回 `{success, message}`,沒有 `data` |
+| `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 
 ### 對齊上游 `bd0507b`(#43)
 
@@ -132,7 +134,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-list-with-cash.json` | `GET /accounts?scope=all`,上面那個現金錢包建立之後 | 200 | `type: "cash"` 解讀成現金錢包;把它改成不認得的類型時只略過那一個 |
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
 | `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳家庭公用(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
-| `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含家庭公用帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
+| `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含家庭公用帳戶：銀行存款 94700(少了共同基金 7000)、淨可用資產 66820 |
 | `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易紀錄 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
 | `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |
@@ -143,8 +145,6 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-reimburse-not-joint.json` | 同上，撥款帳戶用個人的「iOS 測試存款」 | 400 | 「撥款帳戶必須為家庭共同基金公帳 (公用帳戶)」原樣傳遞 |
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |
-| `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
-| `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
 

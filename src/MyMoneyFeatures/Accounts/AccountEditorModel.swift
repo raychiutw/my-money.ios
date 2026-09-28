@@ -23,7 +23,7 @@ public final class AccountEditorModel {
     public var name = ""
     public var colorHex: String
 
-    /// 現金錢包和銀行存款帳戶的餘額。信用卡不輸入已出帳待繳款(web 在 `82d9124` 拿掉了)。
+    /// 現金錢包和銀行存款帳戶的餘額。信用卡不輸入已出帳待繳金額(web 在 `82d9124` 拿掉了)。
     public var amountText = ""
     public var unbilledText = ""
     public var creditLimitText = ""
@@ -43,7 +43,7 @@ public final class AccountEditorModel {
         return action + noun
     }
 
-    /// 信用卡沒有餘額欄：新增時已出帳待繳款送 0,編輯時照原值送回。
+    /// 信用卡沒有餘額欄：新增時已出帳待繳金額送 0,編輯時照原值送回。
     public var showsAmountField: Bool { kind != .creditCard }
 
     public var amountLabel: String {
@@ -54,7 +54,7 @@ public final class AccountEditorModel {
 
     @ObservationIgnored private let editingID: AccountID?
 
-    /// 編輯信用卡時原本的已出帳待繳款(表單不能改，照原值送回);新增時是 0。
+    /// 編輯信用卡時原本的已出帳待繳金額(表單不能改，照原值送回);新增時是 0。
     @ObservationIgnored private var originalBilledDebt: Money = .zero
 
     /// 新增時隨機挑的代表色;現金錢包改用固定的綠色(見 `applyDefaults`)。

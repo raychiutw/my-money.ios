@@ -62,7 +62,7 @@ public struct CashWallet: Hashable, Sendable, Identifiable {
     }
 }
 
-/// 銀行存款帳戶(Bank Account):現金、活存或數位帳戶。
+/// 銀行存款帳戶(Bank Account):個人或共同持有的活期存款正資產帳戶。
 public struct BankAccount: Hashable, Sendable, Identifiable {
     public let id: AccountID
     public let name: String

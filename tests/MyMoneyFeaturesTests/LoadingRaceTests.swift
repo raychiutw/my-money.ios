@@ -98,4 +98,18 @@ struct LoadingRaceTests {
         #expect(model.phase == .loading)
         #expect(model.summary == nil)
     }
+
+    @Test("帳戶頁：換了帳戶檢視範圍而被取消的載入，不顯示成載入失敗", .timeLimit(.minutes(1)))
+    func cancelledAccountsLoad() async {
+        let gate = Gate()
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion())
+
+        let loading = Task { await model.load() }
+        await gate.waitUntilReached()
+        loading.cancel()
+        await gate.open()
+        await loading.value
+
+        #expect(model.phase == .loading)
+    }
 }

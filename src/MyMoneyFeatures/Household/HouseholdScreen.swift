@@ -267,7 +267,7 @@ private struct AdvanceDetails: View {
             ForEach(advance.advanceItems) { item in
                 detailRow(
                     date: item.date, title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
-                    account: item.accountName, amount: "-\(item.amount.formatted())", color: .red
+                    account: item.accountName, amount: item.amount, isIncome: false
                 )
             }
             Text("共同基金撥款沖帳紀錄(\(advance.reimbursementItems.count) 筆)")
@@ -281,13 +281,14 @@ private struct AdvanceDetails: View {
             ForEach(advance.reimbursementItems) { item in
                 detailRow(
                     date: item.date, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
-                    account: item.accountName, amount: "+\(item.amount.formatted())", color: .green
+                    account: item.accountName, amount: item.amount, isIncome: true
                 )
             }
         }
     }
 
-    private func detailRow(date: CalendarDay, title: String, account: String, amount: String, color: Color) -> some View {
+    /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
+    private func detailRow(date: CalendarDay, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -296,11 +297,12 @@ private struct AdvanceDetails: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(amount)
+            Text("\(isIncome ? "+" : "-")\(amount.formatted())")
                 .monospacedDigit()
-                .foregroundStyle(color)
+                .foregroundStyle(isIncome ? .green : .red)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(date.slashText),\(account)")
     }
 }
 

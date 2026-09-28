@@ -26,12 +26,18 @@ public actor InMemoryAccountRepository: AccountRepository {
         self.gate = gate
     }
 
+    /// 停在 gate 的查詢放行後，跟 URLSession 一樣：工作已經被取消時丟出 `CancellationError`。
+    private func checkCancellationIfGated() throws {
+        if gate != nil { try Task.checkCancellation() }
+    }
+
     /// 每次查詢帶的帳戶檢視範圍，依順序。
-    public private(set) var requestedScopes: [ViewScope] = []
+    public private(set) var requestedScopes: [AccountScope] = []
 
     /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭公用只留家庭公用，個人私帳只留個人私帳。
-    public func accounts(scope: ViewScope) async throws -> [Account] {
+    public func accounts(scope: AccountScope) async throws -> [Account] {
         await gate?.pass()
+        try checkCancellationIfGated()
         fetchCount += 1
         requestedScopes.append(scope)
         if let failure { throw failure }
@@ -43,11 +49,12 @@ public actor InMemoryAccountRepository: AccountRepository {
     }
 
     /// 每次查詢資金指標帶的帳戶檢視範圍，依順序。
-    public private(set) var requestedSummaryScopes: [ViewScope] = []
+    public private(set) var requestedSummaryScopes: [AccountScope] = []
 
     /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
-    public func balanceSummary(scope: ViewScope) async throws -> BalanceSummary {
+    public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
         await gate?.pass()
+        try checkCancellationIfGated()
         requestedSummaryScopes.append(scope)
         if let failure { throw failure }
         return summary
@@ -270,7 +277,7 @@ public enum SampleAccounts {
         id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
     )
 
-    /// 含現金錢包的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
+    /// 含現金錢包的資金指標：淨可用資產 = 1,500 + 50,000 − 28,500(後端算好的值)。
     public static let summaryWithCash = BalanceSummary(
         cashTotal: Money(1500),
         bankBalanceTotal: Money(50000),

@@ -48,7 +48,7 @@ public struct LiveHouseholdRepository: HouseholdRepository {
     }
 
     public func reimburse(_ reimbursement: Reimbursement) async throws -> String {
-        let dto: ReimburseDTO = try await client.send("POST", "/households/reimburse", body: ReimburseBody(reimbursement))
+        let dto: MessageDTO = try await client.send("POST", "/households/reimburse", body: ReimburseBody(reimbursement))
         return dto.message
     }
 }
@@ -136,11 +136,6 @@ private struct AdvanceDTO: Decodable {
         default: nil
         }
     }
-}
-
-/// 撥款報銷的結果：訊息在 `data.message`。
-private struct ReimburseDTO: Decodable {
-    let message: String
 }
 
 private struct ReimburseBody: Encodable {

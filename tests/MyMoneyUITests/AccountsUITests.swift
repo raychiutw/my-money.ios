@@ -25,9 +25,10 @@ final class AccountsUITests: XCTestCase {
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists)
-        let card = element(in: app, labelContaining: "iOS 測試信用卡")
+        // 信用卡標示家庭卡或個人卡(web 的 bd0507b)。
+        let card = element(in: app, labelContaining: "iOS 測試信用卡、個人卡")
         for _ in 0..<5 where !card.exists { app.swipeUp() }
-        XCTAssertTrue(card.exists)
+        XCTAssertTrue(card.exists, "信用卡沒有標示個人卡")
         // 小額卡在畫面下方(每張信用卡下面還有負債性質拆解與還款那一列);List 還沒捲到的列不在 UI 階層裡，先捲下去。
         // 剩餘額度 = 20,000 − 待繳 13,000(web 在 82d9124 拿掉了「額度不足」的警示)。
         let remaining = element(in: app, labelContaining: "剩餘額度 $7,000")
@@ -35,7 +36,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(remaining.exists, "小額卡沒有顯示剩餘額度")
     }
 
-    /// 從「+」新增現金錢包(#43):出現在現金錢包區塊，現金錢包總額也更新。
+    /// 從現金錢包區塊的空狀態新增現金錢包(#43,web 的「目前此範圍無現金錢包」):新增後出現在現金錢包區塊。
     @MainActor
     func testAddCashWallet() throws {
         let app = XCUIApplication()
@@ -43,10 +44,9 @@ final class AccountsUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "尚未新增現金錢包").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "目前此範圍無現金錢包").waitForExistence(timeout: 5))
 
-        app.buttons["accounts.add"].tap()
-        app.buttons["新增現金錢包"].tap()
+        app.buttons["accounts.emptyAdd.cash"].tap()
         let name = app.textFields["accountEditor.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 3))
         name.tap()

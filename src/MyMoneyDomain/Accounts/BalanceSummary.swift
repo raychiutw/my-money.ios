@@ -12,7 +12,7 @@ public struct BalanceSummary: Hashable, Sendable {
     /// 所有信用卡帳戶的未出帳金額合計。
     public let unbilledDebtTotal: Money
 
-    /// 淨可用餘額(Available Balance):現金 + 銀行存款 − 信用卡待繳，後端算好。
+    /// 淨可用資產(Available Balance):現金 + 銀行存款 − 信用卡待繳，後端算好。
     public let availableBalance: Money
 
     /// 固定支出的週期攤提(每月)。

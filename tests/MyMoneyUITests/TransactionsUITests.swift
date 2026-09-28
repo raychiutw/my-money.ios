@@ -55,9 +55,11 @@ final class TransactionsUITests: XCTestCase {
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
-        // 上面有篩選和加總列，列表在畫面下方:List 還沒捲到的列不在 UI 階層裡，先捲到點得到，左滑才滑得出「刪除」。
+        // 上面有篩選和加總列，列表在畫面下方。iOS 26 的 tab bar 浮在內容上，被它蓋住的列 isHittable 仍然是 true,
+        // 左滑卻會滑在 tab bar 上:先捲到畫面上方 3/4 以內，左滑才滑得出「刪除」。
         let lunch = element(in: app, labelContaining: "支出 120 元")
-        for _ in 0..<5 where !(lunch.exists && lunch.isHittable) { app.swipeUp() }
+        let screenBottom = app.windows.firstMatch.frame.maxY
+        for _ in 0..<5 where !(lunch.exists && lunch.frame.maxY < screenBottom * 0.75) { app.swipeUp() }
         lunch.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["確定要刪除這筆交易紀錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
