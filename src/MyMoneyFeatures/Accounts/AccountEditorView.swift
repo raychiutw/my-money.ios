@@ -30,7 +30,7 @@ struct AccountEditorView: View {
                     TextField("名稱", text: $model.name, prompt: Text(model.kind == .bank ? "例如：薪轉戶、零用金" : "例如：旅遊卡"))
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("accountEditor.name")
-                    amountField(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
+                    amountRow(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
                 }
 
                 if model.kind == .bank {
@@ -44,8 +44,8 @@ struct AccountEditorView: View {
 
                 if model.kind == .creditCard {
                     Section("信用卡") {
-                        amountField("未出帳金額", text: $model.unbilledText, field: .unbilled, identifier: "accountEditor.unbilled")
-                        amountField("信用額度(選填)", text: $model.creditLimitText, field: .creditLimit, identifier: "accountEditor.creditLimit", prompt: nil)
+                        amountRow("未出帳金額", text: $model.unbilledText, field: .unbilled, identifier: "accountEditor.unbilled")
+                        amountRow("信用額度(選填)", text: $model.creditLimitText, field: .creditLimit, identifier: "accountEditor.creditLimit", prompt: nil)
                         dayPicker("結帳日", selection: $model.statementDay)
                         dayPicker("繳款日", selection: $model.paymentDueDay)
                     }
@@ -89,16 +89,14 @@ struct AccountEditorView: View {
     }
 
     /// `prompt` 是留空時代表的值(存成 0 的欄位才顯示「0」)。
-    private func amountField(
+    private func amountRow(
         _ label: String, text: Binding<String>, field: Field, identifier: String, prompt: String? = "0"
     ) -> some View {
         LabeledContent(label) {
-            TextField(label, text: text, prompt: prompt.map { Text(verbatim: $0) })
-                .multilineTextAlignment(.trailing)
-                .numberKeyboard()
-                .monospacedDigit()
-                .focused($focusedField, equals: field)
-                .accessibilityIdentifier(identifier)
+            AmountField(
+                label, text: text, prompt: prompt.map { Text(verbatim: $0) },
+                focus: $focusedField, equals: field, identifier: identifier
+            )
         }
     }
 

@@ -24,8 +24,8 @@ struct SavingsGoalEditorView: View {
                     TextField("名稱", text: $model.name, prompt: Text("例如：日本沖繩旅遊、緊急備用金"))
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("goalEditor.name")
-                    amountField("目標金額", text: $model.targetAmountText, field: .target, identifier: "goalEditor.target")
-                    amountField("每月預留(選填)", text: $model.monthlyReserveText, field: .reserve, identifier: "goalEditor.reserve")
+                    amountRow("目標金額", text: $model.targetAmountText, field: .target, identifier: "goalEditor.target")
+                    amountRow("每月預留(選填)", text: $model.monthlyReserveText, field: .reserve, identifier: "goalEditor.reserve")
                 }
 
                 Section {
@@ -73,14 +73,9 @@ struct SavingsGoalEditorView: View {
         }
     }
 
-    private func amountField(_ label: String, text: Binding<String>, field: Field, identifier: String) -> some View {
+    private func amountRow(_ label: String, text: Binding<String>, field: Field, identifier: String) -> some View {
         LabeledContent(label) {
-            TextField(label, text: text)
-                .multilineTextAlignment(.trailing)
-                .numberKeyboard()
-                .monospacedDigit()
-                .focused($focusedField, equals: field)
-                .accessibilityIdentifier(identifier)
+            AmountField(label, text: text, focus: $focusedField, equals: field, identifier: identifier)
         }
     }
 }

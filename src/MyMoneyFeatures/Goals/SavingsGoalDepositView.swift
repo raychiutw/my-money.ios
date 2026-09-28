@@ -13,12 +13,10 @@ struct SavingsGoalDepositView: View {
                     Text(model.summary)
                         .monospacedDigit()
                     LabeledContent("本次存入金額") {
-                        TextField("本次存入金額", text: $model.amountText, prompt: Text("例如：3000"))
-                            .multilineTextAlignment(.trailing)
-                            .numberKeyboard()
-                            .monospacedDigit()
-                            .focused($isAmountFocused)
-                            .accessibilityIdentifier("goalDeposit.amount")
+                        AmountField(
+                            "本次存入金額", text: $model.amountText, prompt: Text("例如：3000"),
+                            focus: $isAmountFocused, equals: true, identifier: "goalDeposit.amount"
+                        )
                     }
                 } footer: {
                     Text("存入只記在儲蓄目標上，不會動到任何資金帳戶。")

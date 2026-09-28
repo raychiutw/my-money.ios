@@ -17,12 +17,10 @@ struct BudgetEditorView: View {
                         }
                     }
                     LabeledContent("\(String(model.month.year)) 年 \(model.month.month) 月的預算") {
-                        TextField("預算", text: $model.amountText, prompt: Text("例如：8000"))
-                            .multilineTextAlignment(.trailing)
-                            .numberKeyboard()
-                            .monospacedDigit()
-                            .focused($isAmountFocused)
-                            .accessibilityIdentifier("budgetEditor.amount")
+                        AmountField(
+                            "預算", text: $model.amountText, prompt: Text("例如：8000"),
+                            focus: $isAmountFocused, equals: true, identifier: "budgetEditor.amount"
+                        )
                     }
                 } footer: {
                     Text("分類預算每個月各自一份，設定後無法刪除。")
