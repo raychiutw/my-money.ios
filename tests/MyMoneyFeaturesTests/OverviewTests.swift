@@ -84,6 +84,27 @@ struct OverviewTests {
         #expect(scope.emptyAccountsHint == hint)
     }
 
+    @Test("重新載入(切換視角、資料版本改變)期間維持已載入的內容，不回到骨架屏(web 的二度篩選過渡)", .timeLimit(.minutes(1)))
+    func reloadKeepsLoadedContent() async {
+        let gate = Gate()
+        let model = OverviewModel(
+            accounts: InMemoryAccountRepository.sampleWithCash(gate: gate), transactions: transactions, statistics: statistics,
+            goals: goals, dataVersion: DataVersion(), defaults: defaults, today: { today }
+        )
+        await gate.open()
+        await model.load()
+        #expect(model.phase == .loaded)
+
+        await gate.close()
+        model.scope = .household
+        let reloading = Task { await model.load() }
+        await gate.waitUntilReached()
+        #expect(model.phase == .loaded)
+        #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
+        await gate.open()
+        await reloading.value
+    }
+
     @Test("視角預設全部;選過的視角記在 UserDefaults,下次打開沿用")
     func scopeIsRemembered() {
         let first = model()

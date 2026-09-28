@@ -92,9 +92,11 @@ struct BotScreen: View {
     private var bindingsSection: some View {
         Section("已綁定的帳號") {
             if model.bindings == nil {
-                // 資料回來之前不顯示「尚未綁定」(DESIGN.md「載入」)。
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                // 資料回來之前不顯示「尚未綁定」,改顯示兩列骨架(DESIGN.md「載入狀態」)。
+                SkeletonItemRow()
+                    .skeletonAnnouncement()
+                SkeletonItemRow()
+                    .skeletonRow()
             }
             if model.bindings?.isEmpty == true {
                 Text("尚未綁定任何 LINE 或 Telegram 帳號")

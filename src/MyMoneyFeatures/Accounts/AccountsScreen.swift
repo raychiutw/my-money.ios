@@ -15,6 +15,7 @@ struct AccountsScreen: View {
     var body: some View {
         NavigationStack {
             content
+                .skeletonTransition(value: model.phase)
                 .navigationTitle("帳戶")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
@@ -170,8 +171,26 @@ struct AccountsScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                SkeletonSection(count: 1, announces: true) {
+                    Picker("檢視範圍", selection: .constant(0)) {
+                        Text("全部").tag(0)
+                        Text("家庭公用").tag(1)
+                        Text("個人私帳").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                SkeletonSection(count: 4) { SkeletonSummaryRow() }
+                SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
+                SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
+                SkeletonSection(title: "信用卡", count: 1) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonAccountRow()
+                        SkeletonItemRow()
+                        SkeletonItemRow()
+                    }
+                }
+            }
         case .failed(let message):
             ContentUnavailableView {
                 Label("無法載入帳戶", systemImage: "exclamationmark.triangle")

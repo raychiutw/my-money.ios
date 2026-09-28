@@ -10,6 +10,7 @@ struct SavingsGoalsScreen: View {
 
     var body: some View {
         content
+            .skeletonTransition(value: model.phase)
             .navigationTitle("儲蓄目標")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -70,8 +71,15 @@ struct SavingsGoalsScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
+                SkeletonSection(title: "儲蓄目標", count: 2) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonItemRow()
+                        ProgressView(value: 0.4)
+                    }
+                }
+            }
         case .failed(let message):
             ContentUnavailableView {
                 Label("無法載入儲蓄目標", systemImage: "exclamationmark.triangle")

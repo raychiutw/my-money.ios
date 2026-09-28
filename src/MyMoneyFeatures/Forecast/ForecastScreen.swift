@@ -10,6 +10,7 @@ struct ForecastScreen: View {
 
     var body: some View {
         content
+            .skeletonTransition(value: model.phase)
             .navigationTitle("現金流預測")
             .task(id: model.dataVersion.value) {
                 await model.refreshIfStale()
@@ -44,9 +45,12 @@ struct ForecastScreen: View {
             }
             .refreshable { await model.load() }
         case (_, .none):
-            // 資料回來之前不顯示「安全」或 $0(parity 刻意偏離第 7 項)。
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 資料回來之前不顯示「安全」或 $0,改顯示骨架屏(parity 刻意偏離第 7 項)。
+            List {
+                SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
+                SkeletonSection(title: "30 天逐日餘額", count: 1) { SkeletonChart() }
+                SkeletonSection(title: "預定收支", count: 3) { SkeletonItemRow() }
+            }
         }
     }
 

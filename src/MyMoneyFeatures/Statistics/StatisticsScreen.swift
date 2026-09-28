@@ -22,6 +22,7 @@ struct StatisticsScreen: View {
                 }
                 content
             }
+            .skeletonTransition(value: model.phase)
             .navigationTitle("統計")
             .refreshable { await model.load() }
             // 月份、視角或資料版本任一改變就重抓。
@@ -44,10 +45,9 @@ struct StatisticsScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            Section {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            }
+            SkeletonSection(title: "支出分類", count: 1, announces: true) { SkeletonChart() }
+            SkeletonSection(title: "收支趨勢", count: 1) { SkeletonChart(height: 160) }
+            SkeletonSection(title: "預算", count: 4) { SkeletonItemRow() }
         case .failed(let message):
             Section {
                 ContentUnavailableView {
