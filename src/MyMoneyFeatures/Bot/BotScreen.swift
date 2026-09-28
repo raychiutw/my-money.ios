@@ -6,6 +6,7 @@ import SwiftUI
 struct BotScreen: View {
     @Bindable var model: BotModel
     @State private var pendingUnbind: BotBinding?
+    @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
     @State private var isCopied = false
 
     var body: some View {
@@ -67,7 +68,7 @@ struct BotScreen: View {
                             copyToPasteboard(model.pairingCommand)
                             isCopied = true
                             Task {
-                                try? await Task.sleep(for: .seconds(2))
+                                try? await Task.sleep(for: copiedFeedbackDuration)
                                 isCopied = false
                             }
                         }

@@ -190,6 +190,7 @@ private struct MemberRow: View {
 private struct InvitationSheet: View {
     let invitation: HouseholdInvitation
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
     @State private var isCopied = false
 
     var body: some View {
@@ -205,7 +206,7 @@ private struct InvitationSheet: View {
                         copyToPasteboard(invitation.code)
                         isCopied = true
                         Task {
-                            try? await Task.sleep(for: .seconds(2))
+                            try? await Task.sleep(for: copiedFeedbackDuration)
                             isCopied = false
                         }
                     }

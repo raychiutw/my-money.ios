@@ -13,6 +13,12 @@ extension EnvironmentValues {
     /// 只拿掉 `.newPassword` 不夠，因為系統還會用 heuristics 認出註冊表單;關掉時改標成
     /// `.oneTimeCode`,讓系統不把它當成密碼欄位。
     @Entry public var suggestsStrongPasswords = true
+
+    /// 按下「複製」後，按鈕顯示「已複製」多久才改回來。預設 2 秒，跟 web 的 `setTimeout(..., 2000)` 一樣。
+    ///
+    /// 只有 `-uiTesting` 的 composition root 會拉長。CI 的 runner 從點擊到第一次查詢要 2 秒以上，
+    /// 查到的時候已經改回「複製」了(run 36371483722:點擊在 44.80s,第一次查詢在 47.22s)。
+    @Entry public var copiedFeedbackDuration: Duration = .seconds(2)
 }
 
 /// 只有 iOS 才有的 modifier。`swift test` 會在 macOS 上編譯 Features,所以集中在這裡用 `#if os(iOS)` 包起來。
