@@ -146,6 +146,13 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |
 
+### 對齊上游 `b5cbe09`(#45)
+
+以下是 2026-09-29 對 `b5cbe09` 的後端錄的。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+
 ### 從缺:`auth-register-success.json`
 
 2026-09-28 用 `POST /auth/register` 註冊測試帳號時，當時的腳本沒有先建立 `Fixtures/` 目錄，後端回了成功(429 bytes),回應卻沒寫進檔案。註冊同一個 email 只能成功一次，之後只會回 409「此 Email 已被使用」。腳本已經修正成先確認寫得進檔案再打 API。
