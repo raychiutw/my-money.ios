@@ -15,10 +15,17 @@
 swift test --explicit-target-dependency-import-check error     # package 全部測試，並檢查依賴方向
 swift test --filter MyMoneyAPITests                             # 單一 test target
 xcodebuild test -project src/App/MyMoney.xcodeproj -scheme MyMoney \
-  -destination 'platform=iOS Simulator,name=iPhone 17'          # app + UI 測試
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -derivedDataPath .derivedData -parallel-testing-enabled NO    # app + UI 測試(不平行，避免複製模擬器)
+xcodebuild build -scheme MyMoney-Package -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath .derivedData/package SWIFT_TREAT_WARNINGS_AS_ERRORS=YES  # 以 iOS 編譯 package
+scripts/record-fixture.sh <檔名> <METHOD> <path> [body]         # 從 prod 錄 fixture,見 Fixtures/README.md
+gh workflow run testflight.yml --ref master                     # 上傳 TestFlight,見 docs/testflight.md
 ```
 
-開發時直接連 prod API,**一律用專用測試帳號**(`mymoney-ios-test@example.com`,密碼只放在本機環境變數，不進 repo),而且這個帳號不加入任何家庭。
+warning 當 error 有三道：`Package.swift` 的 `treatAllWarnings`(只對 macOS,也就是 `swift test`)、app 專案的 `SWIFT_TREAT_WARNINGS_AS_ERRORS`,以及上面第四行的 package iOS 編譯。Xcode 建置 app 時會把 package 的 warning 壓掉，所以第四行不能省。
+
+開發時直接連 prod API,**一律用專用測試帳號**(`mymoney-ios-test@example.com`),而且這個帳號不加入任何家庭。密碼不進 repo:存在本機 Keychain(service `my-money-ios-test`),或放在環境變數 `MYMONEY_TEST_PASSWORD`。
 
 ## 開發流程(強制)
 
@@ -49,21 +56,23 @@ tests/MyMoneyUITests/          # XCUITest
 
 ### 規則
 
-- **不在 client 端重算業務規則**。可用餘額、預測、購買力評估、超支判斷都用後端回傳的值。後端的錯我們也照舊顯示，只有 `docs/parity.md` 列出的偏離例外。
+- **不在 client 端重算業務規則**。淨可用資產、預測、購買力試算、超支判斷都用後端回傳的值。後端的錯我們也照舊顯示，只有 `docs/parity.md` 列出的偏離例外。
 - **wire format 只在 `MyMoneyAPI` 裡處理**,不設全域 `keyDecodingStrategy`。資料表欄位是 snake_case,計算型 endpoint(`/accounts/balance`、`/forecast`)是 camelCase,而且 camelCase 物件裡還包著 snake_case;資料庫旗標是 0/1(`is_shared`),計算出來的旗標是 true/false(`over`、`willOverdraft`)。回應 envelope 是 `{success, data}` 或 `{success:false, error}`,部分 DELETE 只回 `{success, message}`,沒有 `data`。
-- **`balance` 一詞兩義**:銀行帳戶的 `balance` 是「餘額」,信用卡的 `balance` 是「已出帳金額」。翻譯層要把它拆成兩個不同的 domain 概念。
+- **「信用卡還款」是系統分類**:信用卡還款沖銷(`POST /accounts/pay-credit-card`)產生的交易紀錄。後端禁止編輯和刪除(回 400),統計也都排除它;iOS 的列表不顯示編輯和刪除，交易頁本機算的總支出也要排除它。
+- **`balance` 一詞兩義**:銀行存款帳戶的 `balance` 是「餘額」,信用卡的 `balance` 是「已出帳待繳金額」。翻譯層要把它拆成兩個不同的 domain 概念。
 - **金額用 `Decimal`**。顯示新台幣時設 0 位小數，並加上 `.rounded(rule: .toNearestOrAwayFromZero)`,才會跟 web 的 `Intl` 一樣(2.5 → `$3`)。
 - **日期**:「今天」和「本月」一律用台灣時間算。呼叫 API 時明確帶上月份，不依賴後端用 UTC 算的預設值。wire 上的日期維持 `YYYY-MM-DD` 字串。
 - **DI**:只用 initializer 注入;app 層級的物件用 `Environment` 往下傳;`App` 是唯一的 composition root。畫面 model 由父層或路由建立後傳入，不在 view 裡用 `@State` 直接建立。
 - **Concurrency**:Domain 型別是 `Sendable` 的 value type;API 層維持 nonisolated;畫面 model 放在 main actor。
-- **認證**:JWT 存在 Keychain(Security framework),效期 30 天，沒有 refresh。任何非 `/auth/*` 的 401 都清掉 token、回到登入頁。
+- **認證**:JWT 存在 Keychain(Security framework),效期 30 天，沒有 refresh。任何非 `/auth/*` 的 401 都清掉 token、回到登入頁。這件事只在 `APIClient` 一個地方判斷：它透過 Domain 的 `SessionProvider` 通知 `AppSession`,所以新的 repository 只要經過 `APIClient` 就自動套用，畫面 model 不必自己處理。
 - **套件政策**:優先用 Apple 第一方。第一方真的做不到時，才用最活躍的免費第三方套件，並在 PR 說明第一方為什麼做不到。
 
 ## 測試慣例
 
 - 單元測試和 integration 測試用 Swift Testing;少數 UI 流程用 XCTest/XCUITest。兩者分開 target。
-- `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫。網路用 `URLProtocol` stub。
-- UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository。
+- `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫，用 `scripts/record-fixture.sh` 錄(token 會換成假值)。流程和清單見 `tests/MyMoneyAPITests/Fixtures/README.md`。網路用 `URLProtocol` stub(`HTTPStub`,每個測試一個 host,可以平行跑)。
+- UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository(登入帳密是 `InMemoryAuthRepository.Member.sample`)。session 仍存在模擬器的 Keychain(UI 測試專用的 service),再加 `-resetSession` 會在啟動時清掉。
+- 畫面 model 測試要觀察「送出期間」的狀態時，用 `MyMoneyTestSupport` 的 `Gate` 讓 in-memory repository 停住，不用 `sleep`。
 - 測試名稱使用 `CONTEXT.md` 的詞彙。
 
 ## Agent skills

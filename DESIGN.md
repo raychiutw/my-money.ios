@@ -26,7 +26,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
   - 收入用 `systemGreen`,支出用 `systemRed`。
   - 接近上限用 `systemOrange`,超支用 `systemRed`。
   - 目標達成用 `systemGreen`。
-- **資訊不能只靠顏色傳達**:金額一律帶 `+` 或 `−` 號;公帳和私帳用 symbol 加文字標示。
+- **資訊不能只靠顏色傳達**:金額一律帶 `+` 或 `−` 號;家庭公帳和個人私帳用 symbol 加文字標示。
 - **帳戶顏色**是使用者選的資料，只用在帳戶列前緣的色塊，不當成唯一的辨識依據。
 
 ## 字型與數字
@@ -64,7 +64,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
 | `<select>` | `Picker` |
-| 公帳／私帳、支出／收入的切換鈕 | segmented `Picker` |
+| 家庭公帳／個人私帳、支出／收入的切換鈕 | segmented `Picker` |
 | `<input type=date>` | `DatePicker(.compact)` |
 | `<input type=month>` | 月份 `Picker`(年、月) |
 | 金額輸入 | `TextField` 綁定 `Decimal`,鍵盤用 `.numberPad`,鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵) |
@@ -87,7 +87,9 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 醫療 | `cross.case` | 不在清單中的分類 | `tag` |
 | 教育 | `book` | | |
 
-機器人記帳可能寫入不在清單中的分類(例如「副業」),所以需要 fallback 圖示。
+機器人記帳可能寫入不在清單中的分類(例如舊版寫入的「副業」),所以需要 fallback 圖示。
+
+系統專用的分類「信用卡還款」(信用卡還款沖銷產生的交易紀錄)用 `creditcard.and.123`。這類紀錄不能編輯或刪除，列表上的鎖定標記用 `lock.fill`,加上文字說明。家庭共同基金的標記用 `house.fill` 加上文字「家庭共同基金」。
 
 ## 無障礙
 
@@ -98,6 +100,6 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 ## App icon
 
-- 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。
-- 系統會自動產生深色、clear、tinted 變體。
+- 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。素材、設計說明和授權聲明在 `design/app-icon/`。
+- 深色外觀另外指定顏色：書用 `#FF8A8A`,愛心用 `#FFB3B3`。clear 和 tinted 變體由系統自動產生。
 - SF Symbols 的授權不允許用在 app icon。
