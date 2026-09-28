@@ -1,8 +1,10 @@
 # TestFlight 發佈
 
-「我的記帳本」只透過 TestFlight 內部測試發給家人，不上 App Store(ADR-0001)。上傳由 GitHub Actions 的 `TestFlight` workflow(`.github/workflows/testflight.yml`)手動觸發，做法參照 raychiutw/vocaby。
+「我的記帳本」只透過 TestFlight 內部測試發給家人，不上 App Store(ADR-0001)。上傳由 GitHub Actions 的 `TestFlight` workflow(`.github/workflows/testflight.yml`)負責，做法參照 raychiutw/vocaby。
 
 ## 發一版
+
+**PR 合併進 `master` 就會自動上傳**。只改 `docs/` 或 `.md` 的合併不會上傳。要手動重發(例如 build 快到 90 天期限):
 
 ```bash
 gh workflow run testflight.yml --ref master
@@ -11,11 +13,22 @@ gh run watch "$(gh run list --workflow testflight.yml --limit 1 --json databaseI
 
 workflow 會依序做這幾件事:
 
-1. 重跑整套 CI(`ci.yml`)。
+1. 檢查這個 commit 是不是 PR 的 merge commit,而且那個 PR 的 CI 成功過(`check` job,跑在 ubuntu,幾秒鐘)。
+   是的話跳過測試，同一份程式碼不測兩次;不是的話(直接 push、手動觸發在沒跑過 CI 的 commit 上)先跑整套 CI(`ci.yml`)。
 2. 在 `xcode-27` runner 上 archive,並以自動簽章 export 後上傳。
 3. 輪詢 App Store Connect,等 build 可供內部測試才結束(`scripts/wait-for-testflight.rb`,最多 30 分鐘)。
 
-只有 `master` 會上傳：其他分支觸發時只跑測試。`testflight` environment 也只允許 `master` 部署。
+合併之後大約 6～8 分鐘就能在 TestFlight 安裝。以前要手動觸發，而且 master 的 CI 和 TestFlight 會各自把 PR 已經測過的測試再跑一次，要 60 分鐘以上。
+
+只有 `master` 會上傳，`testflight` environment 也只允許 `master` 部署。
+
+已知限制：沒有比對 PR 測試當時的 `master`。兩個 PR 接連合併時，後合併的那個沒測過合併後的組合;要嚴格就改成要求 PR 合併前先更新到最新的 `master`。
+
+## CI
+
+- 只在 PR 上跑(`ci.yml`),`master` 不另外跑。
+- UI 測試的 runner 偶爾在開始跑測試之前就當掉(`never finished bootstrapping`),跟程式碼無關。
+  遇到這種情況，CI 不重新編譯，用 `test-without-building` 自動重跑一次;其他失敗照常算失敗。
 
 ## 版本號與 build 號
 
