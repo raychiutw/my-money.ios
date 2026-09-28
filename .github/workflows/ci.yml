@@ -4,9 +4,16 @@ on:
   pull_request:
   push:
     branches: [master]
+  # TestFlight 上傳前先跑同一套測試(testflight.yml)。
+  workflow_call:
 
+permissions:
+  contents: read
+
+# 群組名稱帶 workflow 名稱：被 TestFlight 呼叫時 github.workflow 是「TestFlight」,
+# 不會跟 master 的 push CI 搶同一個群組而被取消。
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 # 兩個 job 都跑在 xcode-27:GitHub 的 preview 映像(底層 macOS 27,預設 Xcode 27 / iOS 27 SDK)。
@@ -18,7 +25,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: 工具鏈版本
         run: |
@@ -45,7 +52,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: 工具鏈版本
         run: xcodebuild -version
@@ -95,7 +102,7 @@ jobs:
 
       - name: 上傳測試結果
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: MyMoney.xcresult
           path: .derivedData/MyMoney.xcresult

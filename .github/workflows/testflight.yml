@@ -1,0 +1,80 @@
+name: TestFlight
+
+# 手動觸發(gh workflow run testflight.yml),只從 master 上傳。流程與設定見 docs/testflight.md。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: xcode-27
+    timeout-minutes: 60
+    environment: testflight
+    env:
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: 工具鏈版本
+        run: xcodebuild -version
+
+      # 自動簽章：xcodebuild 用 App Store Connect team API key 註冊 App ID、建立描述檔，
+      # Distribution 憑證由 Apple 雲端管理。版本號沿用專案的 MARKETING_VERSION,build 號用 GITHUB_RUN_ID。
+      - name: Archive 並上傳到 TestFlight
+        run: |
+          set -euo pipefail
+          : "${APPLE_TEAM_ID:?testflight environment 缺少變數 APPLE_TEAM_ID}"
+          : "${ASC_KEY_ID:?testflight environment 缺少 secret ASC_KEY_ID}"
+          : "${ASC_ISSUER_ID:?testflight environment 缺少 secret ASC_ISSUER_ID}"
+          : "${ASC_PRIVATE_KEY:?testflight environment 缺少 secret ASC_PRIVATE_KEY}"
+
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          archive_path="$RUNNER_TEMP/MyMoney.xcarchive"
+          trap 'rm -f "$key_path"' EXIT
+          umask 077
+          printf '%s\n' "$ASC_PRIVATE_KEY" > "$key_path"
+
+          xcodebuild archive \
+            -project src/App/MyMoney.xcodeproj \
+            -scheme MyMoney \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$archive_path" \
+            -derivedDataPath "$RUNNER_TEMP/ArchiveDerivedData" \
+            -hideShellScriptEnvironment \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_ID"
+
+          xcodebuild -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath "$RUNNER_TEMP/TestFlightExport" \
+            -exportOptionsPlist .github/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+          version="$(plutil -extract ApplicationProperties.CFBundleShortVersionString raw -o - "$archive_path/Info.plist")"
+          ASC_KEY_PATH="$key_path" ruby scripts/wait-for-testflight.rb \
+            --version "$version" \
+            --build-number "$GITHUB_RUN_ID" \
+            --timeout 1800 \
+            --interval 30
