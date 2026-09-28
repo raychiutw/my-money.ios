@@ -153,6 +153,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `households-advances-with-receiving.json` | `GET /households/advances`。先讓測試帳號自己建立只有自己的家庭群組「iOS 測試家庭」,錄完就離開 | 200 | 每位成員多 `receiving_accounts`(`id`、`name`、`type`,只有 `bank`、`cash`,不含餘額);測試帳號的「iOS 測試存款」「iOS 測試皮夾」 |
+| `accounts-reconcile.json` | `POST /accounts/:id/reconcile`,「iOS 測試信用卡」(結帳日 15 號;9/15 之後沒有消費，未出帳本來就是 0) | 200 | 訊息在 `data.message`,另外有 `unbilled`、`shared_debt`、`personal_debt` |
+| `accounts-reconcile-not-card.json` | 同上，帶「iOS 測試存款」的 id | 404 | 「信用卡不存在或無權限」原樣傳遞 |
 
 ### 從缺:`auth-register-success.json`
 

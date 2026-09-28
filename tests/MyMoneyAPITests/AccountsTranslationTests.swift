@@ -233,6 +233,21 @@ struct AccountsTranslationTests {
         }
     }
 
+    @Test("校準未出帳:POST /accounts/:id/reconcile 沒有 body,回傳後端的訊息;不是信用卡時傳遞後端的錯誤")
+    func reconcileUnbilled() async throws {
+        try stub.reply(status: 200, fixture: "accounts-reconcile.json")
+        let message = try await repository.reconcileUnbilled(AccountID("70b75089-3652-40a3-8c47-c23d04aab28c"))
+        #expect(message == "已自動校準「iOS 測試信用卡」未出帳金額為 NT$ 0")
+        #expect(stub.requests.last?.httpMethod == "POST")
+        #expect(stub.requests.last?.url?.path() == "/accounts/70b75089-3652-40a3-8c47-c23d04aab28c/reconcile")
+        #expect(stub.requests.last?.httpBody == nil)
+
+        try stub.reply(status: 404, fixture: "accounts-reconcile-not-card.json")
+        await #expect(throws: RepositoryError.rejected("信用卡不存在或無權限")) {
+            try await repository.reconcileUnbilled(AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"))
+        }
+    }
+
     @Test("沒有任何資金帳戶時是空清單")
     func emptyList() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-empty.json")

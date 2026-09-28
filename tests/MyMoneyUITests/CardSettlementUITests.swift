@@ -39,6 +39,30 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "已出帳待繳金額、$9,000").waitForExistence(timeout: 5), "還款後已出帳待繳金額沒有更新")
     }
 
+    /// 校準未出帳(#48):先確認(說明重算的期間和後果),完成後顯示後端的訊息。
+    @MainActor
+    func testReconcileUnbilled() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+
+        let reconcile = app.buttons["accounts.reconcile.sample-card"]
+        for _ in 0..<5 where !(reconcile.exists && reconcile.isHittable) { app.swipeUp() }
+        reconcile.tap()
+        XCTAssertTrue(
+            element(in: app, labelContaining: "已經結轉或繳過的消費也會算回未出帳").waitForExistence(timeout: 3),
+            "確認時沒有說明後果"
+        )
+        app.buttons["校準"].firstMatch.tap()
+
+        XCTAssertTrue(
+            element(in: app, labelContaining: "已自動校準「iOS 測試信用卡」未出帳金額為 NT$ 3,500").waitForExistence(timeout: 5),
+            "沒有顯示校準的結果"
+        )
+    }
+
     @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
