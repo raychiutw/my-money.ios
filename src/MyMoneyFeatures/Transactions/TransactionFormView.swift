@@ -112,6 +112,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
 
     private func accountTitle(_ account: Account) -> String {
         switch account {
+        case .cash(let wallet): "\(wallet.name)(現金錢包)"
         case .bank(let bank): "\(bank.name)(銀行存款帳戶)"
         case .creditCard(let card): "\(card.name)(信用卡)"
         }

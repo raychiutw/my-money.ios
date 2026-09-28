@@ -9,15 +9,19 @@ public struct LiveAccountRepository: AccountRepository {
         self.client = client
     }
 
+    /// 不認得的帳戶類型(後端將來新增的)只略過那一個，不讓整份清單失敗(parity 刻意偏離)。
     public func accounts() async throws -> [Account] {
-        let dtos: [AccountDTO] = try await client.get("/accounts")
-        return try dtos.map { try $0.account() }
+        let dtos: [AccountDTO] = try await client.get("/accounts", query: Self.allScope)
+        return dtos.compactMap { $0.account() }
     }
 
     public func balanceSummary() async throws -> BalanceSummary {
-        let dto: BalanceSummaryDTO = try await client.get("/accounts/balance")
+        let dto: BalanceSummaryDTO = try await client.get("/accounts/balance", query: Self.allScope)
         return dto.summary
     }
+
+    /// 明確帶 `scope=all`(本人全部 + 家庭公用),不依賴後端的預設範圍。
+    private static let allScope = [URLQueryItem(name: "scope", value: "all")]
 
     public func create(_ draft: AccountDraft) async throws {
         try await client.send("POST", "/accounts", body: AccountBody(draft))
@@ -73,7 +77,7 @@ private struct PaymentBody: Encodable {
 
 /// `POST` 與 `PUT /accounts` 的 body。
 ///
-/// 銀行存款帳戶不送信用額度與日期(`nil` 不會被編碼);`is_joint` 一定要送，
+/// 現金錢包和銀行存款帳戶不送信用額度與日期(`nil` 不會被編碼);`is_joint` 一定要送，
 /// 因為後端的 PUT 沒收到時會寫成 0,把家庭共同基金的標記清掉。
 private struct AccountBody: Encodable {
     let type: String
@@ -96,6 +100,16 @@ private struct AccountBody: Encodable {
 
     init(_ draft: AccountDraft) {
         switch draft {
+        case .cash(let wallet):
+            type = "cash"
+            name = wallet.name
+            balance = wallet.balance.amount
+            unbilled = 0
+            creditLimit = nil
+            statementDay = nil
+            paymentDueDay = nil
+            color = wallet.colorHex
+            isJoint = wallet.isJointFund ? 1 : 0
         case .bank(let bank):
             type = "bank"
             name = bank.name
@@ -115,14 +129,14 @@ private struct AccountBody: Encodable {
             statementDay = card.statementDay
             paymentDueDay = card.paymentDueDay
             color = card.colorHex
-            isJoint = 0
+            isJoint = card.isJointFund ? 1 : 0
         }
     }
 }
 
 /// `GET /accounts` 的一筆:資料表欄位，所以是 snake_case。
 ///
-/// `balance` 一詞兩義：銀行存款帳戶是餘額，信用卡帳戶是已出帳待繳金額(CLAUDE.md「規則」)。
+/// `balance` 一詞兩義：現金錢包和銀行存款帳戶是餘額，信用卡帳戶是已出帳待繳金額(CLAUDE.md「規則」)。
 private struct AccountDTO: Decodable {
     let id: String
     let name: String
@@ -149,8 +163,13 @@ private struct AccountDTO: Decodable {
         case isJoint = "is_joint"
     }
 
-    func account() throws -> Account {
+    /// 不認得的類型是 `nil`,由呼叫端略過。
+    func account() -> Account? {
         switch type {
+        case "cash":
+            return .cash(CashWallet(
+                id: AccountID(id), name: name, colorHex: color, balance: Money(balance), isJointFund: isJoint == 1
+            ))
         case "bank":
             return .bank(BankAccount(
                 id: AccountID(id),
@@ -170,16 +189,19 @@ private struct AccountDTO: Decodable {
                 statementDay: statementDay,
                 paymentDueDay: paymentDueDay,
                 sharedDebt: Money(sharedDebt ?? 0),
-                personalDebt: Money(personalDebt ?? 0)
+                personalDebt: Money(personalDebt ?? 0),
+                isJointFund: isJoint == 1
             ))
         default:
-            throw RepositoryError.unreadableResponse
+            return nil
         }
     }
 }
 
 /// `GET /accounts/balance`:計算出來的指標，所以是 camelCase。
 private struct BalanceSummaryDTO: Decodable {
+    /// `bd0507b` 才有;以前的後端沒有這個欄位，也就沒有現金錢包。
+    let cashTotal: Decimal?
     let bankTotal: Decimal
     let ccBilled: Decimal
     let ccUnbilled: Decimal
@@ -190,6 +212,7 @@ private struct BalanceSummaryDTO: Decodable {
 
     var summary: BalanceSummary {
         BalanceSummary(
+            cashTotal: Money(cashTotal ?? 0),
             bankBalanceTotal: Money(bankTotal),
             billedDebtTotal: Money(ccBilled),
             unbilledDebtTotal: Money(ccUnbilled),

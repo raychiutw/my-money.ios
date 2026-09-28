@@ -12,7 +12,7 @@ struct AccountsTranslationTests {
         LiveAccountRepository(client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session))
     }
 
-    @Test("GET /accounts 帶上 Bearer token")
+    @Test("GET /accounts 帶上 Bearer token,並明確帶 scope=all(不依賴後端的預設範圍)")
     func listRequestsAccounts() async throws {
         try stub.reply(status: 200, fixture: "accounts-list.json")
 
@@ -20,8 +20,38 @@ struct AccountsTranslationTests {
 
         let request = try #require(stub.requests.first)
         #expect(request.httpMethod == "GET")
-        #expect(request.url == stub.baseURL.appending(path: "accounts"))
+        #expect(request.url == stub.baseURL.appending(path: "accounts").appending(queryItems: [
+            URLQueryItem(name: "scope", value: "all"),
+        ]))
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
+    }
+
+    @Test("現金錢包的 balance 解讀成餘額")
+    func cashWalletBalanceIsBalance() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list-with-cash.json")
+
+        let accounts = try await repository.accounts()
+
+        try #require(accounts.count == 5)
+        #expect(accounts[4] == .cash(CashWallet(
+            id: AccountID("0fa1efa6-9789-4040-9fe7-22ef3be11b3c"),
+            name: "iOS 測試皮夾",
+            colorHex: "#10B981",
+            balance: Money(1500),
+            isJointFund: false
+        )))
+    }
+
+    @Test("後端將來新增、iOS 還不認得的帳戶類型只略過那一個帳戶，其餘照常顯示")
+    func unknownAccountTypeIsSkipped() async throws {
+        let recorded = try String(decoding: Fixture.data("accounts-list-with-cash.json"), as: UTF8.self)
+        let future = recorded.replacingOccurrences(of: #""type":"cash""#, with: #""type":"crypto""#)
+        try #require(future != recorded)
+        stub.reply(status: 200, json: Data(future.utf8))
+
+        let accounts = try await repository.accounts()
+
+        #expect(accounts.map(\.name) == ["iOS 測試存款", "iOS 測試信用卡", "iOS 測試小額卡", "iOS 家庭共同基金"])
     }
 
     @Test("銀行存款帳戶的 balance 解讀成餘額")
@@ -151,7 +181,9 @@ struct AccountsTranslationTests {
 
         let summary = try await repository.balanceSummary()
 
-        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "accounts/balance"))
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "accounts/balance").appending(queryItems: [
+            URLQueryItem(name: "scope", value: "all"),
+        ]))
         #expect(summary == BalanceSummary(
             bankBalanceTotal: Money(50000),
             billedDebtTotal: Money(20000),
@@ -161,6 +193,17 @@ struct AccountsTranslationTests {
             monthlySavingsReserve: Money(0),
             disposableCash: Money(21500)
         ))
+    }
+
+    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用餘額由後端算好(含現金)")
+    func balanceSummaryIncludesCashTotal() async throws {
+        try stub.reply(status: 200, fixture: "accounts-balance-with-cash.json")
+
+        let summary = try await repository.balanceSummary()
+
+        #expect(summary.cashTotal == Money(1500))
+        #expect(summary.bankBalanceTotal == Money(101_700))
+        #expect(summary.availableBalance == Money(73820))
     }
 
     @Test("token 失效時是 session 過期")

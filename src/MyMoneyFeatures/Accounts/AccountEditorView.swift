@@ -19,6 +19,7 @@ struct AccountEditorView: View {
             Form {
                 if model.canChangeKind {
                     Picker("類型", selection: $model.kind) {
+                        Text("現金錢包").tag(AccountKind.cash)
                         Text("銀行存款帳戶").tag(AccountKind.bank)
                         Text("信用卡").tag(AccountKind.creditCard)
                     }
@@ -27,19 +28,20 @@ struct AccountEditorView: View {
                 }
 
                 Section {
-                    TextField("名稱", text: $model.name, prompt: Text(model.kind == .bank ? "例如：薪轉戶、零用金" : "例如：旅遊卡"))
+                    TextField("名稱", text: $model.name, prompt: Text(namePrompt))
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("accountEditor.name")
-                    amountRow(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
+                    if model.showsAmountField {
+                        amountRow(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
+                    }
                 }
 
-                if model.kind == .bank {
-                    Section {
-                        Toggle("設為家庭共同基金帳戶", isOn: $model.isJointFund)
-                            .accessibilityIdentifier("accountEditor.jointFund")
-                    } footer: {
-                        Text("供家庭公帳的採買扣款，以及撥付代墊請款報銷。")
-                    }
+                // 所有類型都能設歸屬(web 的「帳戶屬性歸屬」);預設個人私帳。
+                Section {
+                    Toggle(jointFundLabel, isOn: $model.isJointFund)
+                        .accessibilityIdentifier("accountEditor.jointFund")
+                } footer: {
+                    Text(model.isJointFund ? "家庭公用帳戶將對家庭群組全體成員公開。" : "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。")
                 }
 
                 if model.kind == .creditCard {
@@ -85,6 +87,22 @@ struct AccountEditorView: View {
                     AccessibilityNotification.Announcement(message).post()
                 }
             }
+        }
+    }
+
+    private var namePrompt: String {
+        switch model.kind {
+        case .cash: "例如：我的皮夾、客廳零用金盒"
+        case .bank: "例如：薪轉戶"
+        case .creditCard: "例如：旅遊卡"
+        }
+    }
+
+    private var jointFundLabel: String {
+        switch model.kind {
+        case .cash: "設為家庭公用"
+        case .bank: "設為家庭共同基金帳戶"
+        case .creditCard: "設為家庭卡"
         }
     }
 

@@ -30,6 +30,19 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(21500))
     }
 
+    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用餘額照後端(含現金)")
+    func cashWalletsAreTheirOwnSection() async {
+        let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
+
+        await model.load()
+
+        #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
+        #expect(model.bankAccounts.map(\.name) == ["iOS 測試存款"])
+        #expect(model.cashTotal == Money(1500))
+        #expect(model.cashWalletCountText == "1 個現金錢包")
+        #expect(model.availableBalance == Money(23000))
+    }
+
     @Test("資料回來之前是載入中，不顯示任何金額", .timeLimit(.minutes(1)))
     func showsLoadingBeforeDataArrives() async {
         let gate = Gate()

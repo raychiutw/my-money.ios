@@ -115,7 +115,7 @@ struct OverviewScreen: View {
                 SummaryRow(
                     title: "淨可用資產",
                     amount: summary.availableBalance,
-                    detail: "銀行存款 \(summary.bankBalanceTotal.formatted()) - 已出帳待繳 \(summary.billedDebtTotal.formatted()) - 未出帳 \(summary.unbilledDebtTotal.formatted())",
+                    detail: model.availableBreakdown ?? "",
                     warnsWhenNegative: true
                 )
                 SummaryRow(
@@ -152,15 +152,23 @@ struct OverviewScreen: View {
 
     private var accountsSection: some View {
         Section {
-            if model.bankAccounts.isEmpty && model.creditCards.isEmpty {
+            if model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("尚未建立帳戶")
                         .font(.headline)
-                    Text("先新增銀行存款帳戶或信用卡，才能開始記帳。")
+                    Text("先新增現金錢包、銀行存款帳戶或信用卡，才能開始記帳。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button("立即新增") { show(.accounts) }
                         .buttonStyle(.borderless)
+                }
+            }
+            ForEach(model.cashWallets) { wallet in
+                LabeledContent {
+                    Text(wallet.balance.formatted())
+                        .monospacedDigit()
+                } label: {
+                    accountLabel(wallet.name, kind: "現金錢包", symbol: "wallet.bifold", colorHex: wallet.colorHex)
                 }
             }
             ForEach(model.bankAccounts) { account in

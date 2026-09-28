@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「帳戶」tab:三張統計卡、銀行存款帳戶與信用卡帳戶兩區(parity.md「帳戶」)。
+/// 「帳戶」tab:四張統計卡，現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     @State private var editor: EditorSheet?
@@ -17,6 +17,9 @@ struct AccountsScreen: View {
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
+                            Button("新增現金錢包", systemImage: "wallet.bifold") {
+                                editor = EditorSheet(model.makeEditor(adding: .cash))
+                            }
                             Button("新增銀行存款帳戶", systemImage: "building.columns") {
                                 editor = EditorSheet(model.makeEditor(adding: .bank))
                             }
@@ -136,6 +139,7 @@ struct AccountsScreen: View {
         case .loaded:
             List {
                 summarySection
+                cashSection
                 bankSection
                 creditCardSection
             }
@@ -145,6 +149,11 @@ struct AccountsScreen: View {
 
     private var summarySection: some View {
         Section {
+            SummaryRow(
+                title: "現金錢包總額",
+                amount: model.cashTotal ?? .zero,
+                detail: model.cashWalletCountText
+            )
             SummaryRow(
                 title: "銀行存款帳戶餘額合計",
                 amount: model.bankBalanceTotal ?? .zero,
@@ -158,9 +167,21 @@ struct AccountsScreen: View {
             SummaryRow(
                 title: "淨可用資產",
                 amount: model.availableBalance ?? .zero,
-                detail: "銀行存款扣掉所有信用卡的待繳卡費總額",
+                detail: "現金加銀行存款，扣掉所有信用卡的待繳卡費總額",
                 warnsWhenNegative: true
             )
+        }
+    }
+
+    private var cashSection: some View {
+        Section("現金錢包(\(model.cashWallets.count))") {
+            if model.cashWallets.isEmpty {
+                Text("尚未新增現金錢包")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(model.cashWallets) { wallet in
+                accountRow(.cash(wallet)) { CashWalletRow(wallet: wallet) }
+            }
         }
     }
 
@@ -241,6 +262,29 @@ private struct CardSettlementRow: View {
                 .disabled(card.totalDue <= .zero)
                 .accessibilityIdentifier("accounts.pay.\(card.id.rawValue)")
         }
+    }
+}
+
+private struct CashWalletRow: View {
+    let wallet: CashWallet
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AccountColorMark(hex: wallet.colorHex)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(wallet.name)
+                if wallet.isJointFund {
+                    Label("家庭公用", systemImage: "house.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text(wallet.balance.formatted())
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(wallet.name)\(wallet.isJointFund ? ",家庭公用" : ""),現金餘額 \(wallet.balance.spokenText)")
     }
 }
 

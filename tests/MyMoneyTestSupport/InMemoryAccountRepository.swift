@@ -60,6 +60,10 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 後端建立或更新後的資金帳戶(不重算資金指標)。
     private static func account(_ id: AccountID, from draft: AccountDraft) -> Account {
         switch draft {
+        case .cash(let wallet):
+            .cash(CashWallet(
+                id: id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance, isJointFund: wallet.isJointFund
+            ))
         case .bank(let bank):
             .bank(BankAccount(
                 id: id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance, isJointFund: bank.isJointFund
@@ -73,7 +77,8 @@ public actor InMemoryAccountRepository: AccountRepository {
                 unbilledDebt: card.unbilledDebt,
                 creditLimit: card.creditLimit,
                 statementDay: card.statementDay,
-                paymentDueDay: card.paymentDueDay
+                paymentDueDay: card.paymentDueDay,
+                isJointFund: card.isJointFund
             ))
         }
     }
@@ -122,7 +127,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
-            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt
+            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt, isJointFund: card.isJointFund
         )
     }
 
@@ -142,6 +147,13 @@ extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個銀行存款帳戶、兩張信用卡帳戶。
     public static func sample(gate: Gate? = nil) -> InMemoryAccountRepository {
         InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate)
+    }
+
+    /// 同上，再加一個現金錢包「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。
+    public static func sampleWithCash(gate: Gate? = nil) -> InMemoryAccountRepository {
+        InMemoryAccountRepository(
+            accounts: [.cash(SampleAccounts.wallet)] + SampleAccounts.all, summary: SampleAccounts.summaryWithCash, gate: gate
+        )
     }
 }
 
@@ -181,6 +193,23 @@ public enum SampleAccounts {
     )
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
+
+    /// 個人私帳的現金錢包。
+    public static let wallet = CashWallet(
+        id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
+    )
+
+    /// 含現金錢包的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
+    public static let summaryWithCash = BalanceSummary(
+        cashTotal: Money(1500),
+        bankBalanceTotal: Money(50000),
+        billedDebtTotal: Money(20000),
+        unbilledDebtTotal: Money(8500),
+        availableBalance: Money(23000),
+        monthlyAmortization: .zero,
+        monthlySavingsReserve: .zero,
+        disposableCash: Money(23000)
+    )
 
     public static let summary = BalanceSummary(
         bankBalanceTotal: Money(50000),

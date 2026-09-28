@@ -7,13 +7,15 @@ public struct AccountID: Hashable, Sendable {
     }
 }
 
-/// 資金帳戶(Account):銀行存款帳戶或信用卡帳戶。兩種的欄位不同，所以分成兩個型別。
+/// 資金帳戶(Account):現金錢包、銀行存款帳戶或信用卡帳戶。欄位不同，所以各自一個型別。
 public enum Account: Hashable, Sendable, Identifiable {
+    case cash(CashWallet)
     case bank(BankAccount)
     case creditCard(CreditCard)
 
     public var id: AccountID {
         switch self {
+        case .cash(let wallet): wallet.id
         case .bank(let account): account.id
         case .creditCard(let card): card.id
         }
@@ -21,9 +23,33 @@ public enum Account: Hashable, Sendable, Identifiable {
 
     public var name: String {
         switch self {
+        case .cash(let wallet): wallet.name
         case .bank(let account): account.name
         case .creditCard(let card): card.name
         }
+    }
+}
+
+/// 現金錢包(Cash Wallet):存放實體現鈔的正資產，例如皮夾、客廳零用金盒。
+public struct CashWallet: Hashable, Sendable, Identifiable {
+    public let id: AccountID
+    public let name: String
+
+    /// 使用者選的代表色，例如 `#10B981`。
+    public let colorHex: String
+
+    /// 目前的現金餘額。
+    public let balance: Money
+
+    /// 是否標記為家庭公用(例如客廳零用金盒)。預設是個人私帳。
+    public let isJointFund: Bool
+
+    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool) {
+        self.id = id
+        self.name = name
+        self.colorHex = colorHex
+        self.balance = balance
+        self.isJointFund = isJointFund
     }
 }
 
@@ -77,6 +103,9 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 欠款公私拆解：待繳卡費總額裡估算屬於個人私帳的部分。
     public let personalDebt: Money
 
+    /// 是否標記為家庭卡(所有帳戶類型都能設歸屬)。
+    public let isJointFund: Bool
+
     public init(
         id: AccountID,
         name: String,
@@ -87,8 +116,10 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         statementDay: Int?,
         paymentDueDay: Int?,
         sharedDebt: Money = .zero,
-        personalDebt: Money = .zero
+        personalDebt: Money = .zero,
+        isJointFund: Bool = false
     ) {
+        self.isJointFund = isJointFund
         self.id = id
         self.name = name
         self.colorHex = colorHex

@@ -31,6 +31,11 @@ final class HTTPStub: Sendable {
         state.withLock { $0.reply = Reply(status: status, contentType: contentType, body: body) }
     }
 
+    /// 之後的每個請求都回應這份 JSON。只用在「把真實 fixture 改一個欄位」的測試，例如後端將來新增的帳戶類型。
+    func reply(status: Int, json body: Data) {
+        state.withLock { $0.reply = Reply(status: status, contentType: "application/json", body: body) }
+    }
+
     /// 到目前為止收到的請求(body 已從 stream 讀回 `httpBody`)。
     var requests: [URLRequest] {
         state.withLock { $0.requests }

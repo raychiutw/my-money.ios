@@ -14,6 +14,7 @@ public final class AccountsModel {
     }
 
     public private(set) var phase: Phase = .loading
+    public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
     private var summary: BalanceSummary?
@@ -98,6 +99,11 @@ public final class AccountsModel {
         AccountEditorModel(editing: account, repository: repository, dataVersion: dataVersion)
     }
 
+    /// 現金錢包的餘額合計;還沒載入時是 `nil`。
+    public var cashTotal: Money? { summary?.cashTotal }
+
+    public var cashWalletCountText: String { "\(cashWallets.count) 個現金錢包" }
+
     /// 銀行存款帳戶的餘額合計;還沒載入時是 `nil`。
     public var bankBalanceTotal: Money? { summary?.bankBalanceTotal }
 
@@ -119,6 +125,7 @@ public final class AccountsModel {
             async let accounts = repository.accounts()
             async let summary = repository.balanceSummary()
             let (loadedAccounts, loadedSummary) = try await (accounts, summary)
+            cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary

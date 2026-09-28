@@ -19,8 +19,17 @@ public final class OverviewModel {
 
     public private(set) var phase: Phase = .loading
     public private(set) var summary: BalanceSummary?
+    public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
+
+    /// 淨可用餘額的組成(web 的 Dashboard):現金 + 活存 - 卡債(已出帳加未出帳)。數字都是後端算好的。
+    public var availableBreakdown: String? {
+        summary.map {
+            "現金 \($0.cashTotal.formatted()) + 活存 \($0.bankBalanceTotal.formatted()) - 卡債 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
+        }
+    }
+
     public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
@@ -106,6 +115,7 @@ public final class OverviewModel {
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
+            cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             recentTransactions = loadedRecent

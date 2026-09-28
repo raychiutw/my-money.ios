@@ -121,6 +121,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-join-already-member.json` | 已經在家庭群組裡時 `POST /households/join` | 400 | 「你已經加入家庭群組，無法重複加入」原樣傳遞 |
 | `households-remove-self.json` | 管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
 | `households-leave.json` | `DELETE /households/leave`。測試帳號是唯一的成員，離開後後端會刪掉整個家庭群組 | 200 | 只回 `{success, message}`,沒有 `data` |
+
+### 對齊上游 `bd0507b`(#43)
+
+以下是 2026-09-28 對 `bd0507b` 的後端錄的。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `accounts-create-cash.json` | `POST /accounts`,建立現金錢包「iOS 測試皮夾」(`type: cash`,餘額 1500,個人私帳) | 201 | 建立後的回應 |
+| `accounts-list-with-cash.json` | `GET /accounts?scope=all`,上面那個現金錢包建立之後 | 200 | `type: "cash"` 解讀成現金錢包;把它改成不認得的類型時只略過那一個 |
+| `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
 | `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 | `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 

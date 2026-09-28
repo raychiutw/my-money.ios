@@ -36,6 +36,19 @@ struct OverviewTests {
         return model
     }
 
+    @Test("帳戶一覽列出現金錢包;淨可用餘額的組成是「現金 + 活存 - 卡債」(web 的 Dashboard)")
+    func availableBreakdownIncludesCash() async {
+        let model = OverviewModel(
+            accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
+            goals: goals, dataVersion: DataVersion(), defaults: defaults, today: { today }
+        )
+
+        await model.load()
+
+        #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
+        #expect(model.availableBreakdown == "現金 $1,500 + 活存 $50,000 - 卡債 $28,500")
+    }
+
     @Test("視角預設全部;選過的視角記在 UserDefaults,下次打開沿用")
     func scopeIsRemembered() {
         let first = model()
