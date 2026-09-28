@@ -16,7 +16,7 @@ struct HouseholdTests {
         _ repository: InMemoryHouseholdRepository, accounts: InMemoryAccountRepository = .sample()
     ) async -> HouseholdModel {
         let model = HouseholdModel(
-            repository: repository, accounts: accounts, dataVersion: dataVersion, currentUserID: me, today: { today }
+            repository: repository, accounts: accounts, dataVersion: dataVersion, today: { today }
         )
         await model.load()
         return model
@@ -30,10 +30,7 @@ struct HouseholdTests {
     }
 
     /// 小美替家裡墊了 600,還沒報銷。
-    private let meiAdvance = HouseholdAdvance(
-        memberID: UserID("sample-mei"), memberName: "小美", totalAdvanced: Money(600), totalReimbursed: .zero,
-        pendingReimbursement: Money(600), advanceItems: [], reimbursementItems: []
-    )
+    private let meiAdvance = InMemoryHouseholdRepository.meiPendingAdvance
 
     @Test("有家庭群組時一起載入代墊統計;沒有家庭群組時是空的")
     func loadsAdvances() async {
@@ -57,14 +54,12 @@ struct HouseholdTests {
         #expect(model.isShowingDetails(of: UserID("sample-mei")))
     }
 
-    @Test("只能從共同基金報銷自己的代墊款;其他成員顯示原因，已結清的不能報銷")
-    func onlyMyPendingAdvanceCanBeReimbursed() async {
+    @Test("有待報銷的家庭成員都能從共同基金撥款報銷，不限本人(web 的 b1382f4);已結清的不能報銷")
+    func anyPendingAdvanceCanBeReimbursed() async {
         let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
 
         #expect(model.canReimburse(InMemoryHouseholdRepository.myPendingAdvance))
-        #expect(model.reimbursementNote(for: InMemoryHouseholdRepository.myPendingAdvance) == nil)
-        #expect(!model.canReimburse(meiAdvance))
-        #expect(model.reimbursementNote(for: meiAdvance) == "後端目前不提供其他成員的收款帳戶，請由小美本人撥款報銷。")
+        #expect(model.canReimburse(meiAdvance))
 
         let settled = HouseholdAdvance(
             memberID: me, memberName: "小明", totalAdvanced: Money(250), totalReimbursed: Money(250),
@@ -84,7 +79,7 @@ struct HouseholdTests {
         ], summary: .zero)
     }
 
-    @Test("撥款報銷的預設值：金額是待報銷總額、撥款帳戶是第一個餘額夠的共同基金、收款帳戶是我的個人帳戶")
+    @Test("撥款報銷的預設值：金額是待報銷總額、撥款帳戶是第一個餘額夠的共同基金、收款帳戶是收款成員的第一個可收款帳戶")
     func reimbursementDefaults() async {
         let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance]), accounts: accountsForReimbursement())
         let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
@@ -120,6 +115,37 @@ struct HouseholdTests {
             date: today, note: "家庭基金撥款報銷 小明 代墊公帳"
         )])
         #expect(dataVersion.value == 1)
+    }
+
+    @Test("替其他家庭成員撥款報銷：收款帳戶是對方的可收款帳戶(不含餘額),送出帶對方的成員 id")
+    func reimbursesAnotherMember() async {
+        let repository = InMemoryHouseholdRepository.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance])
+        let model = await loaded(repository, accounts: accountsForReimbursement())
+        let reimbursement = model.makeReimbursement(for: meiAdvance)
+        await reimbursement.load()
+
+        #expect(reimbursement.receivingAccounts.map(\.name) == ["小美薪轉"])
+        #expect(reimbursement.toAccountID == AccountID("mei-bank"))
+        #expect(reimbursement.canSubmit)
+        _ = await reimbursement.submit()
+
+        #expect(await repository.reimbursements.map(\.memberID) == [UserID("sample-mei")])
+        #expect(await repository.reimbursements.map(\.toAccountID) == [AccountID("mei-bank")])
+    }
+
+    @Test("收款成員沒有可收款帳戶時說明原因，而且不能送出")
+    func reimbursementWithoutReceivingAccount() async {
+        let noAccount = HouseholdAdvance(
+            memberID: UserID("sample-mei"), memberName: "小美", totalAdvanced: Money(600), totalReimbursed: .zero,
+            pendingReimbursement: Money(600), advanceItems: [], reimbursementItems: []
+        )
+        let model = await loaded(.sample(advances: [noAccount]), accounts: accountsForReimbursement())
+        let reimbursement = model.makeReimbursement(for: noAccount)
+        await reimbursement.load()
+
+        #expect(reimbursement.receivingAccountsNote == "小美 還沒有可收款的個人帳戶(銀行存款帳戶或現金錢包)")
+        #expect(!reimbursement.canSubmit)
+        #expect(await reimbursement.submit() == nil)
     }
 
     @Test("還沒加入家庭群組")
@@ -162,7 +188,7 @@ struct HouseholdTests {
         let repository = InMemoryHouseholdRepository(household: nil)
         await repository.fail(with: .rejected("邀請碼無效或已過期"))
         let model = HouseholdModel(
-            repository: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion, currentUserID: me
+            repository: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion
         )
         model.joinCode = "FAM-0000"
 

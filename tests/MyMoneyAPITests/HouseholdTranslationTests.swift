@@ -44,6 +44,22 @@ struct HouseholdTranslationTests {
         )])
     }
 
+    @Test("代墊統計附上每位成員的可收款帳戶，只有名稱和類型(b1382f4);舊的回應沒有這個欄位時是空的")
+    func advancesDecodeReceivingAccounts() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-with-receiving.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.pendingReimbursement == Money(150))
+        #expect(mine.receivingAccounts == [
+            ReceivingAccount(id: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"), name: "iOS 測試存款", kind: .bank),
+            ReceivingAccount(id: AccountID("0fa1efa6-9789-4040-9fe7-22ef3be11b3c"), name: "iOS 測試皮夾", kind: .cash),
+        ])
+
+        try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
+        #expect(try #require(try await repository.advances().first).receivingAccounts.isEmpty)
+    }
+
     @Test("代墊統計：沒有家庭群組時是空的")
     func advancesWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-advances-no-household.json")

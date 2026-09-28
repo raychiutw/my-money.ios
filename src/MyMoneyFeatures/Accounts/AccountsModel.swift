@@ -156,14 +156,26 @@ public final class AccountsModel {
     }
 }
 
+extension AccountKind {
+    /// 資金帳戶類型的名稱(CONTEXT.md)。
+    public var title: String {
+        switch self {
+        case .cash: "現金錢包"
+        case .bank: "銀行存款帳戶"
+        case .creditCard: "信用卡"
+        }
+    }
+}
+
 extension Account {
     /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
     public var menuTitle: String {
-        switch self {
-        case .cash(let wallet): "\(wallet.name)(現金錢包)"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶)"
-        case .creditCard(let card): "\(card.name)(信用卡)"
+        let kind: AccountKind = switch self {
+        case .cash: .cash
+        case .bank: .bank
+        case .creditCard: .creditCard
         }
+        return "\(name)(\(kind.title))"
     }
 
     /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。

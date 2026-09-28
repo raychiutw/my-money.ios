@@ -198,11 +198,8 @@ extension HouseholdScreen {
                     Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
                         reimbursement = model.makeReimbursement(for: advance)
                     }
-                    .accessibilityIdentifier("household.reimburse")
-                } else if let note = model.reimbursementNote(for: advance) {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    .accessibilityLabel("從共同基金報銷給\(advance.memberName)")
+                    .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
                 }
             }
         } header: {

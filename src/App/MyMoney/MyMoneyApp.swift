@@ -48,12 +48,14 @@ struct MyMoneyApp: App {
             let goals = InMemorySavingsGoalRepository.sample()
             let statistics = InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
             let forecast = InMemoryForecastRepository.sampleForToday()
-            // 建立家庭群組之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250(撥款報銷的 UI 測試)。
-            let household = InMemoryHouseholdRepository(household: nil, advances: [InMemoryHouseholdRepository.myPendingAdvance])
+            // 建立家庭群組之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
+            let household = InMemoryHouseholdRepository(
+                household: nil,
+                advances: [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
+            )
             let bot = InMemoryBotRepository.sample()
-            signedIn = SignedInScreens { userID in
+            signedIn = SignedInScreens {
                 MainScreens(
-                    currentUserID: userID,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                     householdRepository: household, botRepository: bot, defaults: defaults
@@ -80,9 +82,8 @@ struct MyMoneyApp: App {
         let bot = LiveBotRepository(client: client)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
-        signedIn = SignedInScreens { userID in
+        signedIn = SignedInScreens {
             MainScreens(
-                currentUserID: userID,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                 householdRepository: household, botRepository: bot

@@ -11,9 +11,8 @@ struct SignedInScreensTests {
     }
 
     private func makeScreens() -> SignedInScreens {
-        SignedInScreens { userID in
+        SignedInScreens {
             MainScreens(
-                currentUserID: userID,
                 accountRepository: InMemoryAccountRepository.sample(),
                 transactionRepository: InMemoryTransactionRepository(transactions: []),
                 recurringRepository: InMemoryRecurringRepository(items: []),

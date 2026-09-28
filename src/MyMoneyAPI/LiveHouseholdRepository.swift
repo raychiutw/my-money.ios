@@ -71,6 +71,12 @@ private struct AdvanceDTO: Decodable {
         }
     }
 
+    struct ReceivingAccountDTO: Decodable {
+        let id: String
+        let name: String
+        let type: String
+    }
+
     struct ReimbursementDTO: Decodable {
         let id: String
         let date: String
@@ -91,6 +97,8 @@ private struct AdvanceDTO: Decodable {
     let pendingReimburse: Decimal
     let advanceItems: [ItemDTO]?
     let reimbursementItems: [ReimbursementDTO]?
+    /// `b1382f4` 起才有;舊的回應沒有這個欄位。
+    let receivingAccounts: [ReceivingAccountDTO]?
 
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
@@ -100,6 +108,7 @@ private struct AdvanceDTO: Decodable {
         case pendingReimburse = "pending_reimburse"
         case advanceItems = "advance_items"
         case reimbursementItems = "reimbursement_items"
+        case receivingAccounts = "receiving_accounts"
     }
 
     func advance() throws -> HouseholdAdvance {
@@ -123,6 +132,10 @@ private struct AdvanceDTO: Decodable {
                     id: TransactionID(item.id), date: date, amount: Money(item.amount), note: item.note ?? "",
                     accountName: item.accountName
                 )
+            },
+            // 後端只回銀行存款帳戶和現金錢包;不認得的類型略過那一筆。
+            receivingAccounts: (receivingAccounts ?? []).compactMap { account in
+                Self.kind(account.type).map { ReceivingAccount(id: AccountID(account.id), name: account.name, kind: $0) }
             }
         )
     }

@@ -152,6 +152,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
+| `households-advances-with-receiving.json` | `GET /households/advances`。先讓測試帳號自己建立只有自己的家庭群組「iOS 測試家庭」,錄完就離開 | 200 | 每位成員多 `receiving_accounts`(`id`、`name`、`type`,只有 `bank`、`cash`,不含餘額);測試帳號的「iOS 測試存款」「iOS 測試皮夾」 |
 
 ### 從缺:`auth-register-success.json`
 
