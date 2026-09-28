@@ -14,6 +14,11 @@ public final class AccountsModel {
     }
 
     public private(set) var phase: Phase = .loading
+
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 畫面在範圍改變時重新載入(`.task(id:)`)。
+    public var scope: ViewScope = .all
+
     public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
@@ -68,8 +73,9 @@ public final class AccountsModel {
         CardPaymentModel(card: card, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today)
     }
 
-    /// 上一次載入時的資料版本;跟目前的版本不同時就要重抓。
+    /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: ViewScope?
 
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
@@ -85,9 +91,9 @@ public final class AccountsModel {
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
     }
 
@@ -118,21 +124,42 @@ public final class AccountsModel {
     /// 淨可用資產(後端以整個家庭群組計算)。
     public var availableBalance: Money? { summary?.availableBalance }
 
-    /// 載入資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
+    /// 這個範圍一個帳戶都沒有時的說明(web 依範圍顯示不同的空狀態);有帳戶時是 `nil`。
+    public var emptyScopeMessage: String? {
+        guard phase == .loaded, cashWallets.isEmpty, bankAccounts.isEmpty, creditCards.isEmpty else { return nil }
+        return scope.emptyAccountsMessage
+    }
+
+    /// 載入這個範圍的資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
         let version = dataVersion.value
+        let scope = scope
         do {
-            async let accounts = repository.accounts()
-            async let summary = repository.balanceSummary()
+            async let accounts = repository.accounts(scope: scope)
+            async let summary = repository.balanceSummary(scope: scope)
             let (loadedAccounts, loadedSummary) = try await (accounts, summary)
+            // 被取消(換了範圍)或已經過期的結果不套用。
+            guard !Task.isCancelled, scope == self.scope else { return }
             cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+}
+
+extension ViewScope {
+    /// 這個範圍一個帳戶都沒有時的說明(web 的帳戶頁與總覽依範圍顯示不同的空狀態)。
+    public var emptyAccountsMessage: String {
+        switch self {
+        case .all: "尚未建立帳戶"
+        case .household: "目前無家庭公用帳戶"
+        case .personal: "目前無個人私帳"
         }
     }
 }

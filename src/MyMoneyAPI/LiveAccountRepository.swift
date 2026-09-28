@@ -10,18 +10,20 @@ public struct LiveAccountRepository: AccountRepository {
     }
 
     /// 不認得的帳戶類型(後端將來新增的)只略過那一個，不讓整份清單失敗(parity 刻意偏離)。
-    public func accounts() async throws -> [Account] {
-        let dtos: [AccountDTO] = try await client.get("/accounts", query: Self.allScope)
+    public func accounts(scope: ViewScope) async throws -> [Account] {
+        let dtos: [AccountDTO] = try await client.get("/accounts", query: Self.query(scope))
         return dtos.compactMap { $0.account() }
     }
 
-    public func balanceSummary() async throws -> BalanceSummary {
-        let dto: BalanceSummaryDTO = try await client.get("/accounts/balance", query: Self.allScope)
+    public func balanceSummary(scope: ViewScope) async throws -> BalanceSummary {
+        let dto: BalanceSummaryDTO = try await client.get("/accounts/balance", query: Self.query(scope))
         return dto.summary
     }
 
-    /// 明確帶 `scope=all`(本人全部 + 家庭公用),不依賴後端的預設範圍。
-    private static let allScope = [URLQueryItem(name: "scope", value: "all")]
+    /// 一律明確帶 `scope`,`all` 也帶，不依賴後端的預設範圍。
+    private static func query(_ scope: ViewScope) -> [URLQueryItem] {
+        [URLQueryItem(name: "scope", value: scope.rawValue)]
+    }
 
     public func create(_ draft: AccountDraft) async throws {
         try await client.send("POST", "/accounts", body: AccountBody(draft))

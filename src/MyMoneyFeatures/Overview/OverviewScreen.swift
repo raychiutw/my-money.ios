@@ -154,7 +154,7 @@ struct OverviewScreen: View {
         Section {
             if model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("尚未建立帳戶")
+                    Text(model.scope.emptyAccountsMessage)
                         .font(.headline)
                     Text("先新增現金錢包、銀行存款帳戶或信用卡，才能開始記帳。")
                         .font(.footnote)

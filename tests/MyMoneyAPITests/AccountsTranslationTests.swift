@@ -26,6 +26,31 @@ struct AccountsTranslationTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
+    @Test("帳戶檢視範圍：家庭公用帶 scope=household,只回傳家庭公用的帳戶")
+    func householdScopeListsJointAccounts() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list-household.json")
+
+        let accounts = try await repository.accounts(scope: .household)
+
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "accounts").appending(queryItems: [
+            URLQueryItem(name: "scope", value: "household"),
+        ]))
+        #expect(accounts.map(\.name) == ["iOS 家庭共同基金"])
+    }
+
+    @Test("帳戶檢視範圍：個人私帳的餘額摘要帶 scope=personal,不含家庭公用帳戶")
+    func personalScopeBalanceSummary() async throws {
+        try stub.reply(status: 200, fixture: "accounts-balance-personal.json")
+
+        let summary = try await repository.balanceSummary(scope: .personal)
+
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "accounts/balance").appending(queryItems: [
+            URLQueryItem(name: "scope", value: "personal"),
+        ]))
+        #expect(summary.bankBalanceTotal == Money(94700))
+        #expect(summary.availableBalance == Money(66820))
+    }
+
     @Test("現金錢包的 balance 解讀成餘額")
     func cashWalletBalanceIsBalance() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-with-cash.json")

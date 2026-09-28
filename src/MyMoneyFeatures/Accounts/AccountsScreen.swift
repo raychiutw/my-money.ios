@@ -32,8 +32,8 @@ struct AccountsScreen: View {
                         .accessibilityIdentifier("accounts.add")
                     }
                 }
-                // 第一次出現時載入;之後資料版本改變(任何畫面新增、修改、刪除成功)就重抓。
-                .task(id: model.dataVersion.value) {
+                // 第一次出現時載入;之後檢視範圍或資料版本改變(任何畫面新增、修改、刪除成功)就重抓。
+                .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
                     await model.refreshIfStale()
                 }
                 .sheet(item: $editor) { sheet in
@@ -87,6 +87,11 @@ struct AccountsScreen: View {
         }
     }
 
+    private struct QueryKey: Equatable {
+        let scope: ViewScope
+        let version: Int
+    }
+
     /// 編輯 sheet 需要 `Identifiable`。
     private struct EditorSheet: Identifiable {
         let id = UUID()
@@ -138,7 +143,24 @@ struct AccountsScreen: View {
             }
         case .loaded:
             List {
+                Section {
+                    Picker("檢視範圍", selection: $model.scope) {
+                        Text("全部").tag(ViewScope.all)
+                        Text("家庭公用").tag(ViewScope.household)
+                        Text("個人私帳").tag(ViewScope.personal)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("accounts.scope")
+                } footer: {
+                    Text("其他成員的個人私帳和現金錢包一律不顯示。")
+                }
                 summarySection
+                if let message = model.emptyScopeMessage {
+                    Section {
+                        Text(message)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 cashSection
                 bankSection
                 creditCardSection

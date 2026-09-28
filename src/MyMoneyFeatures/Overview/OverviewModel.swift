@@ -104,8 +104,8 @@ public final class OverviewModel {
         let scope = scope
         let month = CalendarMonth(today())
         do {
-            async let summary = accountRepository.balanceSummary()
-            async let accounts = accountRepository.accounts()
+            async let summary = accountRepository.balanceSummary(scope: scope)
+            async let accounts = accountRepository.accounts(scope: scope)
             async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 6, offset: 0)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)

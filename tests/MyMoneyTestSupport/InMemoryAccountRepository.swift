@@ -26,15 +26,29 @@ public actor InMemoryAccountRepository: AccountRepository {
         self.gate = gate
     }
 
-    public func accounts() async throws -> [Account] {
+    /// 每次查詢帶的帳戶檢視範圍，依順序。
+    public private(set) var requestedScopes: [ViewScope] = []
+
+    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭公用只留家庭公用，個人私帳只留個人私帳。
+    public func accounts(scope: ViewScope) async throws -> [Account] {
         await gate?.pass()
         fetchCount += 1
+        requestedScopes.append(scope)
         if let failure { throw failure }
-        return storedAccounts
+        return switch scope {
+        case .all: storedAccounts
+        case .household: storedAccounts.filter(\.isJointFund)
+        case .personal: storedAccounts.filter { !$0.isJointFund }
+        }
     }
 
-    public func balanceSummary() async throws -> BalanceSummary {
+    /// 每次查詢資金指標帶的帳戶檢視範圍，依順序。
+    public private(set) var requestedSummaryScopes: [ViewScope] = []
+
+    /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
+    public func balanceSummary(scope: ViewScope) async throws -> BalanceSummary {
         await gate?.pass()
+        requestedSummaryScopes.append(scope)
         if let failure { throw failure }
         return summary
     }

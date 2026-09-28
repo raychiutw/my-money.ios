@@ -43,6 +43,50 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(23000))
     }
 
+    @Test("檢視範圍預設全部;切到家庭公用時，帳戶和資金指標都照這個範圍重新取得")
+    func scopeAppliesToAccountsAndSummary() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        #expect(model.scope == .all)
+        await model.load()
+
+        model.scope = .household
+        await model.load()
+
+        #expect(await repository.requestedScopes == [.all, .household])
+        #expect(await repository.requestedSummaryScopes == [.all, .household])
+        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
+        #expect(model.emptyScopeMessage == "目前無家庭公用帳戶")
+    }
+
+    @Test("換了檢視範圍之後，就算資料版本沒變也要重抓(畫面用範圍和資料版本當 task 的 key)")
+    func changingScopeMakesDataStale() async {
+        let repository = InMemoryAccountRepository.sample()
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        await model.refreshIfStale()
+        await model.refreshIfStale()
+        #expect(await repository.requestedScopes == [.all])
+
+        model.scope = .personal
+        await model.refreshIfStale()
+
+        #expect(await repository.requestedScopes == [.all, .personal])
+    }
+
+    @Test("個人私帳範圍沒有帳戶時的空狀態;有帳戶時沒有空狀態")
+    func emptyScopeMessages() async {
+        let model = AccountsModel(
+            repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion()
+        )
+        model.scope = .personal
+        await model.load()
+        #expect(model.emptyScopeMessage == "目前無個人私帳")
+
+        let withAccounts = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
+        await withAccounts.load()
+        #expect(withAccounts.emptyScopeMessage == nil)
+    }
+
     @Test("資料回來之前是載入中，不顯示任何金額", .timeLimit(.minutes(1)))
     func showsLoadingBeforeDataArrives() async {
         let gate = Gate()

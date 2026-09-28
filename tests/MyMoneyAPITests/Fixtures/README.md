@@ -131,6 +131,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-cash.json` | `POST /accounts`,建立現金錢包「iOS 測試皮夾」(`type: cash`,餘額 1500,個人私帳) | 201 | 建立後的回應 |
 | `accounts-list-with-cash.json` | `GET /accounts?scope=all`,上面那個現金錢包建立之後 | 200 | `type: "cash"` 解讀成現金錢包;把它改成不認得的類型時只略過那一個 |
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
+| `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳家庭公用(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
+| `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含家庭公用帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
 | `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 | `forecast-purchase-invalid.json` | 同上 `{amount: 0}` | 400 | 「請輸入有效金額」原樣傳遞 |
 

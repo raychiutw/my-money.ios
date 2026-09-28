@@ -78,11 +78,12 @@ final class AccountsUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "1234", "金額欄沒有改成 1234")
         app.buttons["accountEditor.save"].tap()
 
+        // 新帳戶在列表下方(上面有範圍切換、四張統計卡和現金錢包區塊):List 還沒捲到的列不在 UI 階層裡，
+        // 先捲到點得到，左滑才滑得出「刪除」。
         let row = element(in: app, labelContaining: "UI 測試帳戶,餘額 1,234 元")
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "新增後沒有出現在列表上")
-
-        // 新帳戶在列表下方;先捲到點得到，左滑才滑得出「刪除」。
-        for _ in 0..<5 where !row.isHittable { app.swipeUp() }
+        _ = row.waitForExistence(timeout: 2)
+        for _ in 0..<6 where !(row.exists && row.isHittable) { app.swipeUp() }
+        XCTAssertTrue(row.exists, "新增後沒有出現在列表上")
         row.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
         // 左滑的「刪除」只會打開確認對話框;等對話框出現後，再點對話框裡的「刪除」。

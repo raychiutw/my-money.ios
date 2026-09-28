@@ -49,6 +49,17 @@ struct OverviewTests {
         #expect(model.availableBreakdown == "現金 $1,500 + 活存 $50,000 - 卡債 $28,500")
     }
 
+    @Test("視角也套用在資金指標和帳戶一覽(web 的 Dashboard 在 82d9124 起帶 scope)")
+    func scopeAppliesToBalanceAndAccounts() async {
+        let model = model()
+        model.scope = .personal
+
+        await model.load()
+
+        #expect(await accounts.requestedScopes.last == .personal)
+        #expect(await accounts.requestedSummaryScopes.last == .personal)
+    }
+
     @Test("視角預設全部;選過的視角記在 UserDefaults,下次打開沿用")
     func scopeIsRemembered() {
         let first = model()

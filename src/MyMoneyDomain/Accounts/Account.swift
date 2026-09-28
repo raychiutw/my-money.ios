@@ -28,6 +28,15 @@ public enum Account: Hashable, Sendable, Identifiable {
         case .creditCard(let card): card.name
         }
     }
+
+    /// 家庭公用(家庭共同基金、家庭卡)或個人私帳。
+    public var isJointFund: Bool {
+        switch self {
+        case .cash(let wallet): wallet.isJointFund
+        case .bank(let account): account.isJointFund
+        case .creditCard(let card): card.isJointFund
+        }
+    }
 }
 
 /// 現金錢包(Cash Wallet):存放實體現鈔的正資產，例如皮夾、客廳零用金盒。
