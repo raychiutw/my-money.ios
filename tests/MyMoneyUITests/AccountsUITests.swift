@@ -23,7 +23,10 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "待繳卡費總額 28,500 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "淨可用資產 21,500 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "iOS 測試信用卡").exists)
-        XCTAssertTrue(element(in: app, labelContaining: "額度不足").exists, "小額卡沒有顯示剩餘額度不足的警示")
+        // 小額卡在畫面下方(每張信用卡下面還有欠款公私拆解那一列);List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let lowCredit = element(in: app, labelContaining: "額度不足")
+        for _ in 0..<5 where !lowCredit.exists { app.swipeUp() }
+        XCTAssertTrue(lowCredit.exists, "小額卡沒有顯示剩餘額度不足的警示")
     }
 
     /// 從「+」新增銀行存款帳戶後出現在列表上;往左滑刪除、確認後消失。
