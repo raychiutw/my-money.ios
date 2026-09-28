@@ -46,6 +46,12 @@ public struct LiveAccountRepository: AccountRepository {
         return dto.message
     }
 
+    /// 回應還有 `unbilled`、`shared_debt`、`personal_debt`,畫面會重新載入帳戶，只取訊息。
+    public func reconcileUnbilled(_ id: AccountID) async throws -> String {
+        let dto: MessageDTO = try await client.send("POST", "/accounts/\(id.rawValue)/reconcile")
+        return dto.message
+    }
+
     public func transfer(_ transfer: AccountTransfer) async throws -> String {
         let dto: MessageDTO = try await client.send("POST", "/accounts/transfer", body: TransferBody(transfer))
         return dto.message

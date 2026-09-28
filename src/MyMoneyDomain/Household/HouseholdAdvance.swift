@@ -11,6 +11,8 @@ public struct HouseholdAdvance: Hashable, Sendable, Identifiable {
     public let pendingReimbursement: Money
     public let advanceItems: [AdvanceItem]
     public let reimbursementItems: [ReimbursementItem]
+    /// 撥款報銷時可以收款的帳戶(後端 `b1382f4`):這位成員個人私帳的銀行存款帳戶和現金錢包。
+    public let receivingAccounts: [ReceivingAccount]
 
     public var id: UserID { memberID }
 
@@ -24,7 +26,8 @@ public struct HouseholdAdvance: Hashable, Sendable, Identifiable {
         totalReimbursed: Money,
         pendingReimbursement: Money,
         advanceItems: [AdvanceItem],
-        reimbursementItems: [ReimbursementItem]
+        reimbursementItems: [ReimbursementItem],
+        receivingAccounts: [ReceivingAccount] = []
     ) {
         self.memberID = memberID
         self.memberName = memberName
@@ -33,6 +36,23 @@ public struct HouseholdAdvance: Hashable, Sendable, Identifiable {
         self.pendingReimbursement = pendingReimbursement
         self.advanceItems = advanceItems
         self.reimbursementItems = reimbursementItems
+        self.receivingAccounts = receivingAccounts
+    }
+}
+
+/// 可收款帳戶：撥款報銷時，收款成員可以收款的個人私帳帳戶。
+///
+/// 後端只揭露名稱和類型，不含餘額，保護其他成員個人私帳的隱私。
+public struct ReceivingAccount: Hashable, Sendable, Identifiable {
+    public let id: AccountID
+    public let name: String
+    /// 只會是銀行存款帳戶或現金錢包。
+    public let kind: AccountKind
+
+    public init(id: AccountID, name: String, kind: AccountKind) {
+        self.id = id
+        self.name = name
+        self.kind = kind
     }
 }
 

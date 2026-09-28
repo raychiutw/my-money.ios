@@ -22,6 +22,7 @@ struct BotScreen: View {
             }
             webhookSection
         }
+        .skeletonTransition(value: model.isLoadingBindings)
         .navigationTitle("機器人記帳")
         .inlineNavigationTitle()
         .task { await model.load() }
@@ -91,10 +92,18 @@ struct BotScreen: View {
 
     private var bindingsSection: some View {
         Section("已綁定的帳號") {
-            if model.bindings == nil {
-                // 資料回來之前不顯示「尚未綁定」(DESIGN.md「載入」)。
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+            if model.isLoadingBindings {
+                // 資料回來之前不顯示「尚未綁定」,改顯示兩列骨架(DESIGN.md「載入狀態」)。
+                SkeletonItemRow()
+                    .skeletonAnnouncement()
+                SkeletonItemRow()
+                    .skeletonRow()
+            } else if let message = model.bindingsErrorMessage, model.bindings == nil {
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+                Button("重試") {
+                    Task { await model.load() }
+                }
             }
             if model.bindings?.isEmpty == true {
                 Text("尚未綁定任何 LINE 或 Telegram 帳號")

@@ -68,6 +68,32 @@ public final class AccountsModel {
         }
     }
 
+    /// 正在校準未出帳的信用卡;送出期間停用它的「校準未出帳」。
+    public private(set) var reconcilingCardID: AccountID?
+
+    public func isReconciling(_ card: CreditCard) -> Bool {
+        reconcilingCardID == card.id
+    }
+
+    /// 第一句照 web 的確認文字;後端會把已結轉、已繳的消費重複算回未出帳(onion523/my-money#19),
+    /// 所以另外說明重算的期間和後果(parity 刻意偏離)。
+    public func reconcileConfirmation(for card: CreditCard) -> String {
+        let period = card.statementDay == nil ? "這張卡所有的消費" : "上一個結帳日之後的消費"
+        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳金額嗎？會重算\(period)，已經結轉或繳過的消費也會算回未出帳。"
+    }
+
+    /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
+    public func reconcile(_ card: CreditCard) async {
+        reconcilingCardID = card.id
+        defer { reconcilingCardID = nil }
+        do {
+            noticeMessage = try await repository.reconcileUnbilled(card.id)
+            dataVersion.bump()
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
     /// 信用卡還款沖銷的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
@@ -156,22 +182,36 @@ public final class AccountsModel {
     }
 }
 
+extension AccountKind {
+    /// 資金帳戶類型的名稱(CONTEXT.md)。
+    public var title: String {
+        switch self {
+        case .cash: "現金錢包"
+        case .bank: "銀行存款帳戶"
+        case .creditCard: "信用卡"
+        }
+    }
+}
+
 extension Account {
     /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
     public var menuTitle: String {
-        switch self {
-        case .cash(let wallet): "\(wallet.name)(現金錢包)"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶)"
-        case .creditCard(let card): "\(card.name)(信用卡)"
-        }
+        "\(name)(\(kind.title))"
     }
 
     /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。
     public var menuTitleWithBalance: String {
         switch self {
-        case .cash(let wallet): "\(wallet.name)(現金錢包，餘額 \(wallet.balance.formatted()))"
-        case .bank(let bank): "\(bank.name)(銀行存款帳戶，餘額 \(bank.balance.formatted()))"
+        case .cash(let wallet): "\(name)(\(kind.title)，餘額 \(wallet.balance.formatted()))"
+        case .bank(let bank): "\(name)(\(kind.title)，餘額 \(bank.balance.formatted()))"
         case .creditCard: menuTitle
         }
+    }
+}
+
+extension ReceivingAccount {
+    /// 撥款報銷收款帳戶選單的文字：名稱加類型，不含餘額(其他成員個人私帳的餘額不公開)。
+    public var menuTitle: String {
+        "\(name)(\(kind.title))"
     }
 }

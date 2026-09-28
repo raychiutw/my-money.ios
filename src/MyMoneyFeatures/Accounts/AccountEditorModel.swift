@@ -34,13 +34,7 @@ public final class AccountEditorModel {
     public private(set) var isSaving = false
 
     public var title: String {
-        let action = editingID == nil ? "新增" : "編輯"
-        let noun = switch kind {
-        case .cash: "現金錢包"
-        case .bank: "銀行存款帳戶"
-        case .creditCard: "信用卡"
-        }
-        return action + noun
+        (editingID == nil ? "新增" : "編輯") + kind.title
     }
 
     /// 信用卡沒有餘額欄：新增時已出帳待繳金額送 0,編輯時照原值送回。

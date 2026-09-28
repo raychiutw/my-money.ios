@@ -8,12 +8,14 @@ struct AccountsScreen: View {
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
+    @State private var pendingReconcile: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
 
     var body: some View {
         NavigationStack {
             content
+                .skeletonTransition(value: model.phase)
                 .navigationTitle("帳戶")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
@@ -79,6 +81,19 @@ struct AccountsScreen: View {
                     Button("取消", role: .cancel) {}
                 } message: { card in
                     Text(model.rolloverConfirmation(for: card))
+                }
+                .confirmationDialog(
+                    "校準未出帳",
+                    isPresented: Binding(get: { pendingReconcile != nil }, set: { if !$0 { pendingReconcile = nil } }),
+                    titleVisibility: .visible,
+                    presenting: pendingReconcile
+                ) { card in
+                    Button("校準") {
+                        Task { await model.reconcile(card) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: { card in
+                    Text(model.reconcileConfirmation(for: card))
                 }
                 .alert(
                     "無法完成",
@@ -156,8 +171,26 @@ struct AccountsScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                SkeletonSection(count: 1, announces: true) {
+                    Picker("檢視範圍", selection: .constant(0)) {
+                        Text("全部").tag(0)
+                        Text("家庭公用").tag(1)
+                        Text("個人私帳").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                SkeletonSection(count: 4) { SkeletonSummaryRow() }
+                SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
+                SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
+                SkeletonSection(title: "信用卡", count: 1) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonAccountRow()
+                        SkeletonItemRow()
+                        SkeletonItemRow()
+                    }
+                }
+            }
         case .failed(let message):
             ContentUnavailableView {
                 Label("無法載入帳戶", systemImage: "exclamationmark.triangle")
@@ -267,6 +300,8 @@ struct AccountsScreen: View {
                     showsRollover: model.showsRollover(card),
                     reminder: model.rolloverReminder(for: card),
                     rollOver: { pendingRollover = card },
+                    isReconciling: model.isReconciling(card),
+                    reconcile: { pendingReconcile = card },
                     pay: { preset in payment = model.makePayment(for: card, preset: preset) }
                 )
             }
@@ -284,6 +319,8 @@ private struct CardSettlementRow: View {
     let showsRollover: Bool
     let reminder: String
     let rollOver: () -> Void
+    let isReconciling: Bool
+    let reconcile: () -> Void
     let pay: (CardPaymentModel.Preset) -> Void
 
     var body: some View {
@@ -295,16 +332,17 @@ private struct CardSettlementRow: View {
                 .accessibilityLabel(
                     "負債性質拆解，家庭代墊公帳 \(card.sharedDebt.spokenText),個人私帳消費 \(card.personalDebt.spokenText)"
                 )
-            if showsRollover {
-                // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
-                VStack(alignment: .leading, spacing: 4) {
+            // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
+            VStack(alignment: .leading, spacing: 4) {
+                if showsRollover {
                     Text(reminder)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
-                        .buttonStyle(.borderless)
-                        .font(.subheadline.bold())
-                        .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
+                }
+                // 校準每張卡都有(web 的 b5cbe09);結轉只在有未出帳金額時出現。
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 16) { statementButtons }
+                    VStack(alignment: .leading, spacing: 8) { statementButtons }
                 }
             }
             if card.totalDue > .zero {
@@ -321,6 +359,22 @@ private struct CardSettlementRow: View {
                     .foregroundStyle(.green)
             }
         }
+    }
+
+    @ViewBuilder
+    private var statementButtons: some View {
+        if showsRollover {
+            Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
+                .buttonStyle(.borderless)
+                .font(.subheadline.bold())
+                .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
+        }
+        Button(isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath", action: reconcile)
+            .buttonStyle(.borderless)
+            .font(.subheadline.bold())
+            .disabled(isReconciling)
+            .accessibilityLabel("校準「\(card.name)」的未出帳金額")
+            .accessibilityIdentifier("accounts.reconcile.\(card.id.rawValue)")
     }
 
     @ViewBuilder

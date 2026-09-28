@@ -144,6 +144,20 @@ public actor InMemoryAccountRepository: AccountRepository {
         return "已將未出帳 \(card.unbilledDebt.amount.formatted(.currency(code: "TWD").precision(.fractionLength(0)).locale(Locale(identifier: "zh_Hant_TW")))) 成功結轉為已出帳待繳！"
     }
 
+    /// 校準過未出帳的信用卡，依順序。
+    public private(set) var reconciledIDs: [AccountID] = []
+
+    /// 後端是從交易紀錄重算未出帳金額;這裡拿不到交易紀錄，未出帳金額維持原值，只回傳跟後端同格式的訊息。
+    public func reconcileUnbilled(_ id: AccountID) async throws -> String {
+        await gate?.pass()
+        if let failure { throw failure }
+        guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
+            throw RepositoryError.rejected("信用卡不存在或無權限")
+        }
+        reconciledIDs.append(id)
+        return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.amount.formatted(.number.locale(Locale(identifier: "en_US"))))"
+    }
+
     private static func card(_ card: CreditCard, billed: Money, unbilled: Money) -> CreditCard {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,

@@ -1,17 +1,14 @@
 name: CI
 
+# master 不另外跑:合併進 master 的程式碼已經在 PR 測過;TestFlight 只在 PR 沒測過時呼叫這裡(testflight.yml)。
 on:
   pull_request:
-  push:
-    branches: [master]
-  # TestFlight 上傳前先跑同一套測試(testflight.yml)。
   workflow_call:
 
 permissions:
   contents: read
 
-# 群組名稱帶 workflow 名稱：被 TestFlight 呼叫時 github.workflow 是「TestFlight」,
-# 不會跟 master 的 push CI 搶同一個群組而被取消。
+# 群組名稱帶 workflow 名稱：被 TestFlight 呼叫時 github.workflow 是「TestFlight」,不會跟 PR 的 CI 搶同一個群組。
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -74,15 +71,23 @@ jobs:
           echo "udid=${device%% *}" >> "$GITHUB_OUTPUT"
 
       # 關掉平行測試，避免複製多台模擬器。warning 當 error 設在專案的 build settings。
+      # UI 測試的 runner 偶爾在開始跑測試之前就當掉(「never finished bootstrapping」,run 36450479905),
+      # 跟程式碼無關。遇到這種情況不重新編譯，用 test-without-building 自動重跑一次;其他失敗照常算失敗。
       - name: xcodebuild test
-        run: >
-          xcodebuild test
-          -project src/App/MyMoney.xcodeproj
-          -scheme MyMoney
-          -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}"
-          -derivedDataPath .derivedData
-          -parallel-testing-enabled NO
-          -resultBundlePath .derivedData/MyMoney.xcresult
+        env:
+          UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -o pipefail
+          args=(-project src/App/MyMoney.xcodeproj -scheme MyMoney
+            -destination "platform=iOS Simulator,id=$UDID"
+            -derivedDataPath .derivedData -parallel-testing-enabled NO)
+          if xcodebuild test "${args[@]}" -resultBundlePath .derivedData/MyMoney.xcresult 2>&1 | tee xcodebuild-test.log; then
+            exit 0
+          fi
+          grep -q "never finished bootstrapping" xcodebuild-test.log || exit 1
+          echo "::warning::UI 測試的 runner 在啟動階段當掉，不重新編譯，重跑一次"
+          xcrun simctl shutdown all || true
+          xcodebuild test-without-building "${args[@]}" -resultBundlePath .derivedData/MyMoney-retry.xcresult
 
       - name: 檢查零 warning
         run: |
@@ -92,11 +97,14 @@ jobs:
           jq -r '.warnings[]? | "::warning::\(.message)"' build-results.json
           test "$warnings" -eq 0
 
+      # 重跑過時，測試結果以重跑的那一份為準;warning 數量仍然看第一次(有編譯的那一次)。
       - name: 測試摘要
         if: always()
         run: |
-          if [ -d .derivedData/MyMoney.xcresult ]; then
-            xcrun xcresulttool get test-results summary --path .derivedData/MyMoney.xcresult \
+          result=.derivedData/MyMoney.xcresult
+          [ -d .derivedData/MyMoney-retry.xcresult ] && result=.derivedData/MyMoney-retry.xcresult
+          if [ -d "$result" ]; then
+            xcrun xcresulttool get test-results summary --path "$result" \
               | jq -r '"### xcodebuild test\n\n- 結果:\(.result)\n- 通過:\(.passedTests)\n- 失敗:\(.failedTests)\n- 略過:\(.skippedTests)"' \
               >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -106,5 +114,5 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: MyMoney.xcresult
-          path: .derivedData/MyMoney.xcresult
+          path: .derivedData/MyMoney*.xcresult
           retention-days: 7

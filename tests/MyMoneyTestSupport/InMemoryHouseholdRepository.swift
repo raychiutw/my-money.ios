@@ -36,7 +36,18 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
             id: TransactionID("sample-advance"), date: CalendarDay(year: 2026, month: 9, day: 28), category: .dining,
             note: "全家晚餐", amount: Money(250), accountName: "iOS 測試皮夾", accountKind: .cash
         )],
-        reimbursementItems: []
+        reimbursementItems: [],
+        receivingAccounts: [
+            ReceivingAccount(id: SampleAccounts.savings.id, name: SampleAccounts.savings.name, kind: .bank),
+            ReceivingAccount(id: SampleAccounts.wallet.id, name: SampleAccounts.wallet.name, kind: .cash),
+        ]
+    )
+
+    /// 另一位家庭成員小美：待報銷 600,可收款帳戶是她的銀行存款帳戶「小美薪轉」(替其他成員撥款報銷，#47)。
+    public static let meiPendingAdvance = HouseholdAdvance(
+        memberID: UserID("sample-mei"), memberName: "小美", totalAdvanced: Money(600), totalReimbursed: .zero,
+        pendingReimbursement: Money(600), advanceItems: [], reimbursementItems: [],
+        receivingAccounts: [ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank)]
     )
 
     public func advances() async throws -> [HouseholdAdvance] {
@@ -64,7 +75,8 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 reimbursementItems: [ReimbursementItem(
                     id: TransactionID("in-memory-reimbursement-\(reimbursements.count)"), date: reimbursement.date,
                     amount: reimbursement.amount, note: reimbursement.note, accountName: "收款帳戶"
-                )] + advance.reimbursementItems
+                )] + advance.reimbursementItems,
+                receivingAccounts: advance.receivingAccounts
             )
         }
         return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.amount) 給 \(name)！"

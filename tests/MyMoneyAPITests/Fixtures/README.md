@@ -146,6 +146,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |
 
+### 對齊上游 `b5cbe09`(#45)
+
+以下是 2026-09-29 對 `b5cbe09` 的後端錄的。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `households-advances-with-receiving.json` | `GET /households/advances`。先讓測試帳號自己建立只有自己的家庭群組「iOS 測試家庭」,錄完就離開 | 200 | 每位成員多 `receiving_accounts`(`id`、`name`、`type`,只有 `bank`、`cash`,不含餘額);測試帳號的「iOS 測試存款」「iOS 測試皮夾」 |
+| `accounts-reconcile.json` | `POST /accounts/:id/reconcile`,「iOS 測試信用卡」(結帳日 15 號;9/15 之後沒有消費，未出帳本來就是 0) | 200 | 訊息在 `data.message`,另外有 `unbilled`、`shared_debt`、`personal_debt` |
+| `accounts-reconcile-not-card.json` | 同上，帶「iOS 測試存款」的 id | 404 | 「信用卡不存在或無權限」原樣傳遞 |
+
 ### 從缺:`auth-register-success.json`
 
 2026-09-28 用 `POST /auth/register` 註冊測試帳號時，當時的腳本沒有先建立 `Fixtures/` 目錄，後端回了成功(429 bytes),回應卻沒寫進檔案。註冊同一個 email 只能成功一次，之後只會回 409「此 Email 已被使用」。腳本已經修正成先確認寫得進檔案再打 API。

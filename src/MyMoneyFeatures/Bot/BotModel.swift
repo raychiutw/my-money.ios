@@ -72,11 +72,18 @@ public final class BotModel {
         return "確定要解除 \(binding.platform.title)\(name)的機器人綁定嗎？"
     }
 
+    /// 已綁定的帳號載入失敗的原因;畫面在那一區顯示它和「重試」,不再停在骨架屏。
+    public private(set) var bindingsErrorMessage: String?
+
+    /// 已綁定的帳號第一次載入中(顯示骨架屏)。
+    public var isLoadingBindings: Bool { bindings == nil && bindingsErrorMessage == nil }
+
     public func load() async {
         do {
             bindings = try await repository.bindings()
+            bindingsErrorMessage = nil
         } catch {
-            alertMessage = error.localizedDescription
+            bindingsErrorMessage = error.localizedDescription
         }
     }
 

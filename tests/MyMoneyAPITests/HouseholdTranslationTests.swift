@@ -44,6 +44,34 @@ struct HouseholdTranslationTests {
         )])
     }
 
+    @Test("代墊統計附上每位成員的可收款帳戶，只有名稱和類型(b1382f4);舊的回應沒有這個欄位時是空的")
+    func advancesDecodeReceivingAccounts() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-with-receiving.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.pendingReimbursement == Money(150))
+        #expect(mine.receivingAccounts == [
+            ReceivingAccount(id: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"), name: "iOS 測試存款", kind: .bank),
+            ReceivingAccount(id: AccountID("0fa1efa6-9789-4040-9fe7-22ef3be11b3c"), name: "iOS 測試皮夾", kind: .cash),
+        ])
+
+        try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
+        #expect(try #require(try await repository.advances().first).receivingAccounts.isEmpty)
+    }
+
+    @Test("可收款帳戶只收銀行存款帳戶和現金錢包：其他類型(信用卡或 iOS 還不認得的)只略過那一筆")
+    func receivingAccountsSkipOtherKinds() async throws {
+        let recorded = try String(decoding: Fixture.data("households-advances-with-receiving.json"), as: UTF8.self)
+        let other = recorded.replacingOccurrences(of: #""type":"cash""#, with: #""type":"credit_card""#)
+        try #require(other != recorded)
+        stub.reply(status: 200, json: Data(other.utf8))
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.receivingAccounts.map(\.name) == ["iOS 測試存款"])
+    }
+
     @Test("代墊統計：沒有家庭群組時是空的")
     func advancesWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-advances-no-household.json")

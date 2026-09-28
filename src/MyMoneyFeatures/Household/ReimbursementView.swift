@@ -17,13 +17,15 @@ struct ReimbursementView: View {
                             Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
-                    Picker("收款帳戶(我的個人帳戶)", selection: $model.toAccountID) {
+                    // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
+                    Picker("收款帳戶(\(model.advance.memberName)的個人帳戶)", selection: $model.toAccountID) {
                         ForEach(model.receivingAccounts) { account in
-                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
+                            Text(account.menuTitle).tag(Optional(account.id))
                         }
                     }
+                    .disabled(model.receivingAccounts.isEmpty)
                 } footer: {
-                    Text("從家庭共同基金扣款，撥入個人帳戶，自動結清公帳代墊款，不會被重複計入家庭消費支出。")
+                    Text(model.receivingAccountsNote ?? "從家庭共同基金扣款，撥入個人帳戶，自動結清公帳代墊款，不會被重複計入家庭消費支出。")
                 }
 
                 Section {
@@ -66,7 +68,7 @@ struct ReimbursementView: View {
                             }
                         }
                     }
-                    .disabled(model.isSaving)
+                    .disabled(!model.canSubmit)
                     .accessibilityIdentifier("reimbursement.submit")
                 }
             }

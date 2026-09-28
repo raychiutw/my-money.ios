@@ -31,7 +31,10 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        app.buttons["household.leave"].tap()
+        // 「離開家庭群組」在代墊與報銷區塊下面;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let leave = app.buttons["household.leave"]
+        for _ in 0..<5 where !(leave.exists && leave.isHittable) { app.swipeUp() }
+        leave.tap()
         XCTAssertTrue(
             app.staticTexts["確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。"].waitForExistence(timeout: 3),
             "沒有先確認就離開"
@@ -40,10 +43,10 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開後沒有回到建立的畫面")
     }
 
-    /// 替自己撥款報銷(#43):從家庭共同基金報銷自己的代墊款後，顯示後端的訊息，變成「已全數結清」。
-    /// 範例帳號建立家庭群組後，有一筆用個人現金錢包墊付的晚餐 250(InMemoryHouseholdRepository.myPendingAdvance)。
+    /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭群組後，小明和小美都有待報銷
+    /// (InMemoryHouseholdRepository.myPendingAdvance、meiPendingAdvance),從共同基金撥給小美的可收款帳戶。
     @MainActor
-    func testReimburseMyOwnAdvance() throws {
+    func testReimburseAnotherMembersAdvance() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -73,14 +76,20 @@ final class HouseholdUITests: XCTestCase {
         app.buttons["household.create"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "小明,有待請款代墊").waitForExistence(timeout: 5), "沒有顯示我的代墊款")
-        app.buttons["household.reimburse"].tap()
+        XCTAssertTrue(app.buttons["household.reimburse.in-memory-member-1"].exists, "自己的代墊款沒有報銷入口")
+        let reimburseMei = app.buttons["household.reimburse.sample-mei"]
+        for _ in 0..<5 where !reimburseMei.isHittable { app.swipeUp() }
+        reimburseMei.tap()
         let submit = app.buttons["reimbursement.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
+        XCTAssertTrue(element(in: app, labelContaining: "小美薪轉(銀行存款帳戶)").exists, "收款帳戶不是小美的可收款帳戶")
         submit.tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "成功從共同基金撥款報銷 NT$ 250").waitForExistence(timeout: 5), "沒有顯示撥款報銷的結果")
+        XCTAssertTrue(element(in: app, labelContaining: "成功從共同基金撥款報銷 NT$ 600 給 小美").waitForExistence(timeout: 5), "沒有顯示撥款報銷的結果")
         app.buttons["好"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "小明,已全數結清").waitForExistence(timeout: 5), "報銷後沒有結清")
+        let settled = element(in: app, labelContaining: "小美,已全數結清")
+        for _ in 0..<5 where !settled.exists { app.swipeUp() }
+        XCTAssertTrue(settled.exists, "報銷後沒有結清")
     }
 
     @MainActor

@@ -10,6 +10,7 @@ struct HouseholdScreen: View {
 
     var body: some View {
         content
+            .skeletonTransition(value: model.phase)
             .navigationTitle("家庭群組")
             .inlineNavigationTitle()
             .task { await model.load() }
@@ -69,8 +70,11 @@ struct HouseholdScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                SkeletonSection(count: 1, announces: true) { SkeletonItemRow() }
+                SkeletonSection(title: "家庭成員", count: 2) { SkeletonItemRow() }
+                SkeletonSection(title: "家庭公帳代墊與報銷", count: 2) { SkeletonItemRow() }
+            }
         case .failed(let message):
             ContentUnavailableView {
                 Label("無法載入家庭群組", systemImage: "exclamationmark.triangle")
@@ -198,11 +202,8 @@ extension HouseholdScreen {
                     Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
                         reimbursement = model.makeReimbursement(for: advance)
                     }
-                    .accessibilityIdentifier("household.reimburse")
-                } else if let note = model.reimbursementNote(for: advance) {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    .accessibilityLabel("從共同基金報銷給\(advance.memberName)")
+                    .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
                 }
             }
         } header: {

@@ -35,21 +35,17 @@ public final class HouseholdModel {
     @ObservationIgnored private let repository: any HouseholdRepository
     @ObservationIgnored private let accounts: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
-    @ObservationIgnored private let currentUserID: UserID?
     @ObservationIgnored private let today: () -> CalendarDay
 
-    /// `currentUserID`:登入的人，用來判斷能不能撥款報銷(只能報銷自己的代墊款)。
     public init(
         repository: any HouseholdRepository,
         accounts: any AccountRepository,
         dataVersion: DataVersion,
-        currentUserID: UserID?,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.accounts = accounts
         self.dataVersion = dataVersion
-        self.currentUserID = currentUserID
         self.today = today
     }
 
@@ -65,16 +61,9 @@ public final class HouseholdModel {
         }
     }
 
-    /// 只能從共同基金報銷自己的代墊款:後端的 `GET /accounts` 不回傳其他成員的個人帳戶，選不到收款帳戶
-    /// (web 也送不出去，已回報 onion523/my-money#9)。
+    /// 有待報銷就能從共同基金撥款報銷，不限本人(web 的 `b1382f4`:收款帳戶改用代墊統計附的可收款帳戶)。
     public func canReimburse(_ advance: HouseholdAdvance) -> Bool {
-        advance.memberID == currentUserID && !advance.isSettled
-    }
-
-    /// 其他成員還有待報銷時，說明為什麼不能從這裡報銷。
-    public func reimbursementNote(for advance: HouseholdAdvance) -> String? {
-        guard advance.memberID != currentUserID, !advance.isSettled else { return nil }
-        return "後端目前不提供其他成員的收款帳戶，請由\(advance.memberName)本人撥款報銷。"
+        !advance.isSettled
     }
 
     public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {

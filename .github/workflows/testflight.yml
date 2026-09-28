@@ -1,7 +1,13 @@
 name: TestFlight
 
-# 手動觸發(gh workflow run testflight.yml),只從 master 上傳。流程與設定見 docs/testflight.md。
+# 合併進 master 就自動上傳;也可以手動觸發(gh workflow run testflight.yml --ref master)。
+# 只改文件的合併不上傳。流程與設定見 docs/testflight.md。
 on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   workflow_dispatch:
 
 permissions:
@@ -12,12 +18,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 同一份程式碼不測兩次：這個 commit 是 PR 的 merge commit,而且那個 PR 的 CI 成功過，就直接上傳。
+  # 其他情況(直接 push、手動觸發在沒跑過 CI 的 commit 上)才在這裡跑完整的 CI。
+  check:
+    name: 確認 PR 的 CI 已通過
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tested: ${{ steps.check.outputs.tested }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # merge commit 的第二個 parent 是 PR 的 head;pull_request 觸發的 CI 記的 head_sha 就是它。
+          # ponytail: 沒比對 PR 測試當時的 master。兩個 PR 接連合併時，後合併的那個沒測過合併後的組合;
+          # 要嚴格就改成要求 PR 合併前先更新到最新的 master。
+          head="$(gh api "repos/$REPO/commits/$SHA" --jq '.parents[1].sha // ""')"
+          tested=false
+          if [ -n "$head" ]; then
+            runs="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$head&event=pull_request&status=success" --jq '.total_count')"
+            if [ "$runs" -gt 0 ]; then tested=true; fi
+          fi
+          echo "PR head:${head:-(不是 merge commit)},CI 已通過:$tested"
+          echo "tested=$tested" >> "$GITHUB_OUTPUT"
+
   test:
+    needs: check
+    if: needs.check.outputs.tested != 'true'
     uses: ./.github/workflows/ci.yml
 
   deploy:
-    if: github.ref == 'refs/heads/master'
-    needs: test
+    # test 被略過(PR 的 CI 已通過)時也要上傳，所以不用預設的 success()。
+    if: ${{ !cancelled() && github.ref == 'refs/heads/master' && needs.check.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+    needs: [check, test]
     runs-on: xcode-27
     timeout-minutes: 60
     environment: testflight

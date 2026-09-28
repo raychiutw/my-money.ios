@@ -31,6 +31,7 @@ struct OverviewScreen: View {
                 content
             }
             .navigationTitle(greeting)
+            .skeletonTransition(value: model.phase)
             .refreshable { await model.load() }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -77,10 +78,7 @@ struct OverviewScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            Section {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            }
+            OverviewSkeleton()
         case .failed(let message):
             Section {
                 ContentUnavailableView {
@@ -268,6 +266,56 @@ struct OverviewScreen: View {
             Button(action, action: perform)
                 .font(.subheadline)
                 .textCase(nil)
+        }
+    }
+}
+
+/// 首次載入的骨架屏：跟載入後一樣的三張統計卡、帳戶一覽、最近交易和儲蓄目標。
+private struct OverviewSkeleton: View {
+    var body: some View {
+        Section {
+            SummaryRow(title: "淨可用資產", amount: Skeleton.amount, detail: Skeleton.text)
+                .skeletonAnnouncement()
+            ForEach(0..<2, id: \.self) { _ in
+                SummaryRow(title: "統計卡", amount: Skeleton.amount, detail: Skeleton.text)
+                    .skeletonRow()
+            }
+        }
+        Section {
+            ForEach(0..<3, id: \.self) { _ in
+                LabeledContent {
+                    Text(Skeleton.amount.formatted())
+                } label: {
+                    Label("帳戶名稱", systemImage: "building.columns")
+                }
+                .skeletonRow()
+            }
+        } header: {
+            SkeletonHeader("帳戶一覽")
+        }
+        Section {
+            ForEach(0..<4, id: \.self) { _ in
+                TransactionRow(transaction: Skeleton.transaction)
+                    .skeletonRow()
+            }
+        } header: {
+            SkeletonHeader("最近交易")
+        }
+        Section {
+            ForEach(0..<2, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("儲蓄目標名稱")
+                        Spacer()
+                        Text("\(Skeleton.amount.formatted()) / \(Skeleton.amount.formatted())")
+                            .font(.footnote)
+                    }
+                    ProgressView(value: 0.4)
+                }
+                .skeletonRow()
+            }
+        } header: {
+            SkeletonHeader("儲蓄目標")
         }
     }
 }

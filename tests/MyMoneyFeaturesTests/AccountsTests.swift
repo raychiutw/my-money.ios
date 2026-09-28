@@ -13,6 +13,7 @@ struct AccountsTests {
         #expect(Account.creditCard(SampleAccounts.card).menuTitle == "iOS 測試信用卡(信用卡)")
         #expect(Account.cash(SampleAccounts.wallet).menuTitleWithBalance == "iOS 測試皮夾(現金錢包，餘額 $1,500)")
         #expect(Account.bank(SampleAccounts.savings).menuTitleWithBalance == "iOS 測試存款(銀行存款帳戶，餘額 $50,000)")
+        #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuTitle == "小美薪轉(銀行存款帳戶)")
     }
 
     @Test("載入後依類型分成銀行存款帳戶與信用卡帳戶兩區，順序跟後端一樣")
@@ -65,6 +66,23 @@ struct AccountsTests {
         #expect(await repository.requestedScopes == [.all, .household])
         #expect(await repository.requestedSummaryScopes == [.all, .household])
         #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
+    }
+
+    @Test("切換帳戶檢視範圍重新載入期間，維持已載入的內容，不回到骨架屏(web 的二度篩選過渡)", .timeLimit(.minutes(1)))
+    func reloadKeepsLoadedContent() async {
+        let gate = Gate()
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion())
+        await gate.open()
+        await model.load()
+
+        await gate.close()
+        model.scope = .household
+        let reloading = Task { await model.load() }
+        await gate.waitUntilReached()
+        #expect(model.phase == .loaded)
+        #expect(model.bankAccounts.map(\.name) == ["iOS 測試存款"])
+        await gate.open()
+        await reloading.value
     }
 
     @Test("換了檢視範圍之後，就算資料版本沒變也要重抓(畫面用範圍和資料版本當 task 的 key)")

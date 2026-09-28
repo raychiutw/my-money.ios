@@ -10,6 +10,7 @@ struct RecurringScreen: View {
 
     var body: some View {
         content
+            .skeletonTransition(value: model.phase)
             .navigationTitle("固定收支")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -72,8 +73,11 @@ struct RecurringScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
+                SkeletonSection(title: "固定支出", count: 3) { SkeletonItemRow() }
+                SkeletonSection(title: "固定收入", count: 1) { SkeletonItemRow() }
+            }
         case .failed(let message):
             ContentUnavailableView {
                 Label("無法載入固定收支", systemImage: "exclamationmark.triangle")

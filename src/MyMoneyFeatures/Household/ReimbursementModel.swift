@@ -4,14 +4,14 @@ import Observation
 
 /// 從家庭共同基金撥款報銷代墊款的 sheet(web 的「從共同基金撥款報銷給 {名字}」)。
 ///
-/// 撥款帳戶是家庭公用的現金錢包或銀行存款帳戶，收款帳戶是我的個人現金錢包或銀行存款帳戶。
-/// web 兩邊都沒有排除信用卡;拿信用卡撥款或收款沒有意義，這裡不列出來。
+/// 撥款帳戶是家庭公用的現金錢包或銀行存款帳戶(web 沒有排除家庭卡，parity 刻意偏離第 37 項);
+/// 收款帳戶是收款成員的可收款帳戶(後端 `b1382f4` 附在代墊統計裡，只有名稱和類型，不含餘額)。
 @MainActor
 @Observable
 public final class ReimbursementModel {
     public let advance: HouseholdAdvance
     public private(set) var fundAccounts: [Account] = []
-    public private(set) var receivingAccounts: [Account] = []
+    public let receivingAccounts: [ReceivingAccount]
     public var fromAccountID: AccountID?
     public var toAccountID: AccountID?
     public var amountText: String
@@ -36,6 +36,8 @@ public final class ReimbursementModel {
         self.households = households
         self.accounts = accounts
         self.dataVersion = dataVersion
+        receivingAccounts = advance.receivingAccounts
+        toAccountID = advance.receivingAccounts.first?.id
         amountText = "\(advance.pendingReimbursement.amount)"
         date = today()
         note = "家庭基金撥款報銷 \(advance.memberName) 代墊公帳"
@@ -43,20 +45,22 @@ public final class ReimbursementModel {
 
     public var title: String { "從共同基金撥款報銷給\(advance.memberName)" }
 
-    /// 載入可選的帳戶。撥款帳戶預設第一個餘額夠付待報銷金額的共同基金，沒有就用第一個(web 的 openReimburseModal)。
+    /// 收款成員沒有可收款帳戶時的說明;這時不能送出。
+    public var receivingAccountsNote: String? {
+        receivingAccounts.isEmpty ? "\(advance.memberName) 還沒有可收款的個人帳戶(銀行存款帳戶或現金錢包)" : nil
+    }
+
+    public var canSubmit: Bool { !receivingAccounts.isEmpty && !isSaving }
+
+    /// 載入撥款帳戶，預設第一個餘額夠付待報銷金額的共同基金，沒有就用第一個(web 的 openReimburseModal)。
     public func load() async {
         do {
-            async let funds = accounts.accounts(scope: .household)
-            async let mine = accounts.accounts(scope: .personal)
-            let (loadedFunds, loadedMine) = try await (funds, mine)
-            fundAccounts = loadedFunds.filter(Self.holdsMoney)
-            receivingAccounts = loadedMine.filter(Self.holdsMoney)
+            fundAccounts = try await accounts.accounts(scope: .household).filter(Self.holdsMoney)
         } catch {
             errorMessage = error.localizedDescription
             return
         }
         fromAccountID = (fundAccounts.first { (Self.balance(of: $0) ?? .zero) >= advance.pendingReimbursement } ?? fundAccounts.first)?.id
-        toAccountID = receivingAccounts.first?.id
     }
 
     /// 送出;成功時回傳後端的訊息(畫面關閉 sheet 並顯示),並遞增資料版本讓其他畫面重抓。

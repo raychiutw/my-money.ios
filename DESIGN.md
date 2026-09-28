@@ -79,7 +79,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 色點選擇器(帳戶顏色) | 8 色的圓形按鈕列，每個都有 accessibility label |
 | emoji 選擇器(目標) | 12 個 emoji 的格狀按鈕 |
 | 空狀態 | 整頁用 `ContentUnavailableView`;List 區塊裡用標題(`headline`)、說明(`subheadline`)加 borderless 按鈕。文字沿用 web |
-| loading | `ProgressView`。資料回來之前不顯示 `$0` 或「安全」這類預設值 |
+| loading(web 的骨架屏) | 首次載入顯示骨架屏：跟載入後一樣的版面，放畫面自帶的固定佔位內容，套系統的 `.redacted(reason: .placeholder)`(`LoadingSkeleton.swift`)。VoiceOver 只念一次「載入中」,佔位不能點;資料回來時淡入 0.25 秒，開啟「減少動態效果」時不做動畫;不做微光(shimmer)。下拉更新、切換篩選時保留目前的內容，不回到骨架屏。資料回來之前不顯示 `$0` 或「安全」這類預設值 |
 | Recharts 圓餅、柱狀、面積圖 | Swift Charts 的 `SectorMark`、`BarMark`、`AreaMark` |
 | ProgressBar | `ProgressView(value:)` 或 `Gauge`,顏色依語意色 |
 

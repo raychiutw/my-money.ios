@@ -46,6 +46,59 @@ struct StatementRolloverTests {
 }
 
 @MainActor
+@Suite("信用卡未出帳自動校準")
+struct ReconcileUnbilledTests {
+    private let dataVersion = DataVersion()
+
+    @Test("確認文字照 web,再說明重算的期間，以及已結轉、已繳的消費也會算回未出帳(後端的漏洞，onion523/my-money#19)")
+    func confirmationExplainsPeriodAndConsequence() {
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: dataVersion)
+
+        #expect(model.reconcileConfirmation(for: SampleAccounts.card)
+            == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳金額嗎？會重算上一個結帳日之後的消費，已經結轉或繳過的消費也會算回未出帳。")
+
+        let withoutStatementDay = CreditCard(
+            id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+        #expect(model.reconcileConfirmation(for: withoutStatementDay)
+            == "確定要依據「沒有結帳日的卡」的當期消費明細，自動校準未出帳金額嗎？會重算這張卡所有的消費，已經結轉或繳過的消費也會算回未出帳。")
+    }
+
+    @Test("確認後校準，顯示後端的訊息，資料版本遞增;送出期間這張卡是校準中", .timeLimit(.minutes(1)))
+    func reconcile() async {
+        let gate = Gate()
+        let repository = InMemoryAccountRepository.sample(gate: gate)
+        let model = AccountsModel(repository: repository, dataVersion: dataVersion)
+
+        let reconciling = Task { await model.reconcile(SampleAccounts.card) }
+        await gate.waitUntilReached()
+        #expect(model.isReconciling(SampleAccounts.card))
+        #expect(!model.isReconciling(SampleAccounts.lowLimitCard))
+        await gate.open()
+        await reconciling.value
+
+        #expect(!model.isReconciling(SampleAccounts.card))
+        #expect(await repository.reconciledIDs == [SampleAccounts.card.id])
+        #expect(model.noticeMessage == "已自動校準「iOS 測試信用卡」未出帳金額為 NT$ 3,500")
+        #expect(dataVersion.value == 1)
+    }
+
+    @Test("校準失敗時顯示後端的錯誤，資料版本不變")
+    func reconcileFailure() async {
+        let repository = InMemoryAccountRepository.sample()
+        await repository.fail(with: .rejected("信用卡不存在或無權限"))
+        let model = AccountsModel(repository: repository, dataVersion: dataVersion)
+
+        await model.reconcile(SampleAccounts.card)
+
+        #expect(model.alertMessage == "信用卡不存在或無權限")
+        #expect(model.noticeMessage == nil)
+        #expect(dataVersion.value == 0)
+    }
+}
+
+@MainActor
 @Suite("信用卡還款沖銷")
 struct CardPaymentTests {
     private let dataVersion = DataVersion()
