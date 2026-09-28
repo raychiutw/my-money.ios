@@ -21,16 +21,64 @@ public final class HouseholdModel {
     public var joinCode = ""
     /// 操作失敗時顯示的訊息(alert)。
     public var alertMessage: String?
+    /// 操作成功時顯示的訊息(例如撥款報銷的結果)。
+    public var noticeMessage: String?
     public private(set) var isWorking = false
     /// 邀請碼還在產生中;這段期間再按「邀請」不會多產生一組。
     public private(set) var isInviting = false
 
-    @ObservationIgnored private let repository: any HouseholdRepository
-    @ObservationIgnored private let dataVersion: DataVersion
+    /// 每位成員的家庭公帳代墊統計(web 的「家庭公帳代墊與報銷中心」)。
+    public private(set) var advances: [HouseholdAdvance] = []
+    /// 就地展開明細的成員;可以同時展開多位。
+    private var expandedMemberIDs: Set<UserID> = []
 
-    public init(repository: any HouseholdRepository, dataVersion: DataVersion) {
+    @ObservationIgnored private let repository: any HouseholdRepository
+    @ObservationIgnored private let accounts: any AccountRepository
+    @ObservationIgnored private let dataVersion: DataVersion
+    @ObservationIgnored private let currentUserID: UserID?
+    @ObservationIgnored private let today: () -> CalendarDay
+
+    /// `currentUserID`:登入的人，用來判斷能不能撥款報銷(只能報銷自己的代墊款)。
+    public init(
+        repository: any HouseholdRepository,
+        accounts: any AccountRepository,
+        dataVersion: DataVersion,
+        currentUserID: UserID?,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
         self.repository = repository
+        self.accounts = accounts
         self.dataVersion = dataVersion
+        self.currentUserID = currentUserID
+        self.today = today
+    }
+
+    public func isShowingDetails(of memberID: UserID) -> Bool {
+        expandedMemberIDs.contains(memberID)
+    }
+
+    public func toggleDetails(of memberID: UserID) {
+        if expandedMemberIDs.contains(memberID) {
+            expandedMemberIDs.remove(memberID)
+        } else {
+            expandedMemberIDs.insert(memberID)
+        }
+    }
+
+    /// 只能從共同基金報銷自己的代墊款:後端的 `GET /accounts` 不回傳其他成員的個人帳戶，選不到收款帳戶
+    /// (web 也送不出去，已回報 onion523/my-money#9)。
+    public func canReimburse(_ advance: HouseholdAdvance) -> Bool {
+        advance.memberID == currentUserID && !advance.isSettled
+    }
+
+    /// 其他成員還有待報銷時，說明為什麼不能從這裡報銷。
+    public func reimbursementNote(for advance: HouseholdAdvance) -> String? {
+        guard advance.memberID != currentUserID, !advance.isSettled else { return nil }
+        return "後端目前不提供其他成員的收款帳戶，請由\(advance.memberName)本人撥款報銷。"
+    }
+
+    public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {
+        ReimbursementModel(advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, today: today)
     }
 
     /// 名稱必填;還沒填好時停用按鈕(parity 刻意偏離第 23 項)。
@@ -53,6 +101,7 @@ public final class HouseholdModel {
     public func load() async {
         do {
             household = try await repository.current()
+            advances = household == nil ? [] : try await repository.advances()
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)

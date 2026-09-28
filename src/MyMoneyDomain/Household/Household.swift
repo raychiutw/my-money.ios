@@ -71,4 +71,10 @@ public protocol HouseholdRepository: Sendable {
 
     /// 只有管理員可以移除一般成員。
     func removeMember(_ userID: UserID) async throws
+
+    /// 每位成員的家庭公帳代墊統計與明細;還沒加入家庭群組時是空的。
+    func advances() async throws -> [HouseholdAdvance]
+
+    /// 從家庭共同基金撥款報銷代墊款。回傳後端的訊息。
+    func reimburse(_ reimbursement: Reimbursement) async throws -> String
 }
