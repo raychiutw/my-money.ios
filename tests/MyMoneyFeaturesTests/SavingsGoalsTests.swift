@@ -123,7 +123,7 @@ struct SavingsGoalDepositTests {
         #expect(deposit.summary == "目前已存 $3,000 / 目標 $60,000")
     }
 
-    @Test("金額要是正數", arguments: ["", "0", "-5", "abc"])
+    @Test("金額要是正數", arguments: ["", "0", "-5", "abc", "1,000", "12.5"])
     func amountMustBePositive(amount: String) async throws {
         let deposit = try await deposit()
         deposit.amountText = amount

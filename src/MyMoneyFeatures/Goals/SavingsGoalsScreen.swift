@@ -153,7 +153,7 @@ private struct SavingsGoalRow: View {
                     Text(goal.name)
                         .font(.headline)
                     if let deadline = goal.deadline {
-                        Text("截止日 \(Self.text(deadline))")
+                        Text("截止日 \(deadline.slashText)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -195,13 +195,8 @@ private struct SavingsGoalRow: View {
 
     private var accessibilitySummary: String {
         var parts = [goal.name, "已存 \(goal.savedAmount.spokenText)", "目標 \(goal.targetAmount.spokenText)", goal.percentText]
-        if let deadline = goal.deadline { parts.append("截止日 \(Self.text(deadline))") }
+        if let deadline = goal.deadline { parts.append("截止日 \(deadline.slashText)") }
         if goal.isAchieved { parts.append("已達成目標") }
         return parts.joined(separator: ",")
-    }
-
-    /// 例如「2027/03/31」。直接用年月日，不經過時區換算。
-    private static func text(_ day: CalendarDay) -> String {
-        String(format: "%d/%02d/%02d", day.year, day.month, day.day)
     }
 }

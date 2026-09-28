@@ -50,7 +50,7 @@ public struct Settlement: Equatable, Sendable {
 
     /// 每人應負擔的金額(四捨五入到整數)。
     public let perPerson: Money
-    /// 兩人墊付一樣多時是 `nil`。
+    /// 兩人的公帳代墊款一樣多時是 `nil`。
     public let transfer: Transfer?
 
     public init(perPerson: Money, transfer: Transfer?) {
@@ -105,8 +105,7 @@ public final class StatisticsModel {
     public func ratioText(_ share: HouseholdShare) -> String {
         guard householdTotal > .zero else { return "0%" }
         let ratio = share.total.amount / householdTotal.amount * 100
-        let style = Decimal.FormatStyle.number.precision(.fractionLength(1)).rounded(rule: .toNearestOrAwayFromZero)
-        return "\(ratio.formatted(style.locale(Locale(identifier: "en_US_POSIX"))))%"
+        return ratio.percentText(fractionDigits: 1)
     }
 
     public var settlement: Settlement? { Self.settlement(for: householdShares) }
@@ -143,6 +142,8 @@ public final class StatisticsModel {
             async let budgets = repository.budgets(month: month)
             let (loadedExpenses, loadedMine, loadedSummaries, loadedShares, loadedBudgets) =
                 try await (expenses, mine, summaries, shares, budgets)
+            // 被取消(換了月份或視角)或已經過期的結果不套用，免得舊月份的資料蓋掉新的。
+            guard !Task.isCancelled, month == self.month, scope == self.scope else { return }
             categoryExpenses = loadedExpenses
             monthlySummaries = loadedSummaries
             householdShares = loadedShares
@@ -156,6 +157,8 @@ public final class StatisticsModel {
             loadedVersion = version
             phase = .loaded
         } catch {
+            // 被取消的載入不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, month == self.month, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
     }
@@ -208,14 +211,14 @@ public final class BudgetEditorModel {
     /// 儲存;成功時回傳 `true`(sheet 關閉)並遞增資料版本。接受任何正整數(parity 刻意偏離第 4 項)。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入有效預算金額"
             return false
         }
         isSaving = true
         defer { isSaving = false }
         do {
-            try await repository.setBudget(Money(amount), for: category, month: month)
+            try await repository.setBudget(amount, for: category, month: month)
         } catch {
             let message = error.localizedDescription
             errorMessage = message.isEmpty ? "預算設定失敗" : message

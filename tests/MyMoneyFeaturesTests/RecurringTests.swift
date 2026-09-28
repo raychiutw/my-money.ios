@@ -98,6 +98,21 @@ struct RecurringTests {
         #expect(try await export.fetch() == InMemoryRecurringRepository.sampleCSV)
     }
 
+    /// web 把失敗當成 0,三張統計卡顯示 $0(`.catch(() => null)`,parity 刻意偏離第 27 項)。
+    @Test("週期攤提載入失敗時顯示載入失敗，不顯示 $0")
+    func amortizationFailure() async {
+        let repository = InMemoryRecurringRepository.sample()
+        await repository.failAmortization(with: .rejected("伺服器錯誤"))
+        let model = RecurringModel(
+            repository: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: DataVersion(),
+            today: { today }
+        )
+
+        await model.load()
+
+        #expect(model.phase == .failed("伺服器錯誤"))
+    }
+
     @Test("資料版本改變後重抓")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()

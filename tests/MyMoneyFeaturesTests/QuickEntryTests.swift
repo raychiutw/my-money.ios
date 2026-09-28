@@ -57,7 +57,7 @@ struct QuickEntryTests {
         #expect(entry.errorMessage == "請先至「帳戶」建立至少一個帳戶")
     }
 
-    @Test("金額不是正數時提示「請輸入正確的金額」", arguments: ["", "0", "abc", "-5"])
+    @Test("金額不是正數時提示「請輸入正確的金額」", arguments: ["", "0", "abc", "-5", "1,000", "12.5"])
     func requiresPositiveAmount(amount: String) async {
         let entry = await model()
         entry.amountText = amount

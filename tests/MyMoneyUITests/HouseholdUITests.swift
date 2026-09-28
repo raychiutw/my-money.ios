@@ -33,7 +33,7 @@ final class HouseholdUITests: XCTestCase {
 
         app.buttons["household.leave"].tap()
         XCTAssertTrue(
-            app.staticTexts["確定要退出這個家庭嗎？退出後將無法查看這個家庭的家庭公帳。"].waitForExistence(timeout: 3),
+            app.staticTexts["確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。"].waitForExistence(timeout: 3),
             "沒有先確認就離開"
         )
         app.buttons["離開"].firstMatch.tap()

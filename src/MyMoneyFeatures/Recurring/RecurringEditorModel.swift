@@ -54,7 +54,8 @@ public final class RecurringEditorModel {
     public func prepare() async {
         do {
             accounts = try await accountRepository.accounts()
-            if editingID == nil { accountID = accounts.first?.id }
+            // 使用者在資金帳戶載入之前就選了，保留他的選擇。
+            if editingID == nil, accountID == nil { accountID = accounts.first?.id }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -68,12 +69,12 @@ public final class RecurringEditorModel {
             errorMessage = "請填寫項目名稱"
             return false
         }
-        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入有效金額"
             return false
         }
         let draft = RecurringDraft(
-            name: trimmedName, type: type, amount: Money(amount), cycle: cycle, dayOfCycle: dayOfCycle, accountID: accountID
+            name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle, accountID: accountID
         )
         isSaving = true
         defer { isSaving = false }

@@ -43,7 +43,7 @@ struct SavingsGoalEditorTests {
         #expect(editor.errorMessage == "請輸入目標名稱")
     }
 
-    @Test("目標金額要是正數", arguments: ["", "0", "-100", "abc"])
+    @Test("目標金額要是正數", arguments: ["", "0", "-100", "abc", "1,000", "12.5"])
     func targetMustBePositive(amount: String) async {
         let editor = adding()
         editor.name = "買新筆電"

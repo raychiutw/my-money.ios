@@ -120,12 +120,29 @@ struct HouseholdTests {
         #expect(memberView.household?.members.contains { memberView.canRemove($0) } == false)
     }
 
+    @Test("邀請還沒回來之前再按一次，不會多產生一組邀請碼", .timeLimit(.minutes(1)))
+    func inviteIgnoresRepeatedTaps() async throws {
+        let gate = Gate()
+        let repository = InMemoryHouseholdRepository.sample(gate: gate)
+        let model = await loaded(repository)
+
+        let first = Task { await model.invite() }
+        await gate.waitUntilReached()
+        #expect(model.isInviting)
+        await model.invite()
+        await gate.open()
+        await first.value
+
+        #expect(await repository.inviteCount == 1)
+        #expect(!model.isInviting)
+    }
+
     @Test("移除與離開的確認文字")
     func confirmations() async {
         let model = await loaded(InMemoryHouseholdRepository.sample())
 
-        #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出家庭嗎？")
-        #expect(model.leaveConfirmation == "確定要退出這個家庭嗎？退出後將無法查看這個家庭的家庭公帳。")
+        #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出家庭群組嗎？")
+        #expect(model.leaveConfirmation == "確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。")
     }
 
     @Test("移除成員後資料版本遞增")

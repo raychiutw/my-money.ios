@@ -160,9 +160,10 @@ private struct RecurringRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(item.type == .income ? "+\(item.amount.formatted())" : item.amount.formatted())
+                // 金額一律帶正負號，收入綠色、支出紅色(DESIGN.md「顏色」)。
+                Text(item.type == .income ? "+\(item.amount.formatted())" : "-\(item.amount.formatted())")
                     .monospacedDigit()
-                    .foregroundStyle(item.type == .income ? AnyShapeStyle(.green) : AnyShapeStyle(.primary))
+                    .foregroundStyle(item.type == .income ? .green : .red)
                 Text("\(item.cycle.label)\(item.type == .income ? "收" : "繳")")
                     .font(.caption)
                     .foregroundStyle(.secondary)

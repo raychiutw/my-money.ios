@@ -15,6 +15,11 @@ struct ForecastScreen: View {
                 await model.refreshIfStale()
             }
             .keyboardDoneButton { isAmountFocused = false }
+            .onChange(of: model.purchaseError) { _, message in
+                if let message {
+                    AccessibilityNotification.Announcement(message).post()
+                }
+            }
     }
 
     @ViewBuilder
@@ -90,7 +95,7 @@ struct ForecastScreen: View {
         } header: {
             Text("未來 30 天逐日餘額")
         } footer: {
-            Text("起始餘額是自己的資金帳戶的淨可用資產：銀行存款帳戶餘額合計，扣掉信用卡的待繳卡費總額，不含家人的資金帳戶。")
+            Text("起始餘額是自己的資金帳戶的淨可用資產：銀行存款帳戶餘額合計，扣掉信用卡的待繳卡費總額，不含其他家庭成員的資金帳戶。")
         }
     }
 
@@ -104,7 +109,7 @@ struct ForecastScreen: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.name)
-                        Text(String(format: "%d/%02d/%02d", event.date.year, event.date.month, event.date.day))
+                        Text(event.date.slashText)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
@@ -132,7 +137,7 @@ struct ForecastScreen: View {
                     .focused($isAmountFocused)
                     .accessibilityIdentifier("forecast.purchaseAmount")
             }
-            Button("試算") {
+            Button("進行購買力試算") {
                 isAmountFocused = false
                 Task { await model.checkPurchase() }
             }

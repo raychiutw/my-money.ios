@@ -102,9 +102,10 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     }
 
     /// 結帳日出帳結轉的提醒：有結帳日、有未出帳金額，而且今天(台灣時間)已經到了結帳日。
+    /// 結帳日是 29 到 31 號時，較短的月份以月底當結帳日(web 在這些月份永遠不會提醒，parity 刻意偏離第 32 項)。
     public func isStatementDue(today: CalendarDay) -> Bool {
         guard let statementDay, unbilledDebt > .zero else { return false }
-        return today.day >= statementDay
+        return today.day >= min(statementDay, today.daysInMonth)
     }
 
     /// 待繳卡費總額：已出帳待繳金額加上未出帳金額。

@@ -26,7 +26,8 @@ public final class BotModel {
     public static let lineWebhook = "https://my-money-api.onion523.workers.dev/bot/webhook/line"
     public static let telegramWebhook = "https://my-money-api.onion523.workers.dev/bot/webhook/telegram"
 
-    public private(set) var bindings: [BotBinding] = []
+    /// 載入之前是 `nil`,畫面不會先顯示「尚未綁定」。
+    public private(set) var bindings: [BotBinding]?
     public private(set) var messages: [ChatMessage]
     public var draft = ""
     public private(set) var isThinking = false
@@ -112,6 +113,8 @@ public final class BotModel {
             let reply = try await repository.simulate(text)
             messages.append(ChatMessage(sender: .bot, text: reply, time: now(), isError: false))
             dataVersion.bump()
+            // 後端第一次模擬對話時會建立「模擬測試助手」的綁定;重抓失敗就沿用原本的清單。
+            if let latest = try? await repository.bindings() { bindings = latest }
         } catch {
             let message = error.localizedDescription
             messages.append(ChatMessage(

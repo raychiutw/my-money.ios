@@ -5,6 +5,7 @@ import MyMoneyDomain
 public actor InMemoryHouseholdRepository: HouseholdRepository {
     private var stored: Household?
     private var failure: RepositoryError?
+    private let gate: Gate?
 
     public private(set) var createdNames: [String] = []
     public private(set) var joinedCodes: [String] = []
@@ -12,12 +13,13 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     public private(set) var inviteCount = 0
     public private(set) var leaveCount = 0
 
-    public init(household: Household?) {
+    public init(household: Household?, gate: Gate? = nil) {
         stored = household
+        self.gate = gate
     }
 
     /// 「我們家」:小明(管理員，就是登入的範例帳號)和小美(一般成員)。
-    public static func sample(myRole: HouseholdRole = .admin) -> InMemoryHouseholdRepository {
+    public static func sample(myRole: HouseholdRole = .admin, gate: Gate? = nil) -> InMemoryHouseholdRepository {
         let joined = Date(timeIntervalSince1970: 1_790_000_000)
         return InMemoryHouseholdRepository(household: Household(name: "我們家", myRole: myRole, members: [
             me(role: .admin, joinedAt: joined),
@@ -25,7 +27,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 userID: UserID("sample-mei"), name: "小美", email: "mei@example.com", role: .member,
                 joinedAt: joined.addingTimeInterval(86_400)
             ),
-        ]))
+        ]), gate: gate)
     }
 
     public func current() async throws -> Household? {
@@ -43,10 +45,11 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     public func join(code: String) async throws {
         if let failure { throw failure }
         joinedCodes.append(code)
-        stored = Household(name: "家人的家", myRole: .member, members: [Self.me(role: .member, joinedAt: .now)])
+        stored = Household(name: "阿公家", myRole: .member, members: [Self.me(role: .member, joinedAt: .now)])
     }
 
     public func invite() async throws -> HouseholdInvitation {
+        await gate?.pass()
         if let failure { throw failure }
         inviteCount += 1
         return HouseholdInvitation(code: "FAM-TST\(inviteCount)", expiresAt: .now.addingTimeInterval(7 * 86_400))

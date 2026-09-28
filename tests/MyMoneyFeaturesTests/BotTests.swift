@@ -48,18 +48,39 @@ struct BotTests {
         #expect(model.pairingCommand == "綁定 AB12CD")
     }
 
+    @Test("已綁定的帳號載入之前是 nil,畫面不會先顯示「尚未綁定」")
+    func bindingsBeforeLoading() async {
+        let model = model()
+        #expect(model.bindings == nil)
+
+        await model.load()
+        #expect(model.bindings?.count == 1)
+    }
+
+    /// 後端第一次模擬對話時會建立「模擬測試助手」的綁定(parity 後端造成的第 16 項)。
+    @Test("模擬對話送出後重抓已綁定的帳號")
+    func sendReloadsBindings() async {
+        let model = model()
+        await model.load()
+        model.draft = "午餐 120"
+
+        await model.send()
+
+        #expect(model.bindings?.map(\.displayName) == ["小明的 LINE", "模擬測試助手"])
+    }
+
     @Test("已綁定的帳號;解除前確認，解除後重抓")
     func unbind() async throws {
         let repository = InMemoryBotRepository.sample()
         let model = model(repository)
         await model.load()
-        let binding = try #require(model.bindings.first)
+        let binding = try #require(model.bindings?.first)
 
         #expect(model.unbindConfirmation(for: binding) == "確定要解除 LINE「小明的 LINE」的機器人綁定嗎？")
         await model.unbind(binding)
 
         #expect(await repository.unboundIDs == [binding.id])
-        #expect(model.bindings.isEmpty)
+        #expect(model.bindings?.isEmpty == true)
     }
 
     @Test("模擬對話的開頭是歡迎訊息，提供 4 個快捷範例")

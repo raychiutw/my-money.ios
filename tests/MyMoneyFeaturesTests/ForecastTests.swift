@@ -65,7 +65,7 @@ struct ForecastTests {
         #expect(forecast.dailyBalances.count == 30)
     }
 
-    @Test("購買力試算的金額要是正數", arguments: ["", "0", "-1", "abc"])
+    @Test("購買力試算的金額要是正數", arguments: ["", "0", "-1", "abc", "1,000", "12.5"])
     func checkRequiresPositiveAmount(amount: String) async {
         let (model, repository) = await loaded()
         model.purchaseAmountText = amount

@@ -103,6 +103,8 @@ public final class OverviewModel {
             async let goals = goalRepository.goals()
             let (loadedSummary, loadedAccounts, loadedRecent, loadedSummaries, loadedBudgets, loadedGoals) =
                 try await (summary, accounts, recent, summaries, budgets, goals)
+            // 被取消(換了視角)或已經過期的結果不套用。
+            guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
@@ -115,6 +117,8 @@ public final class OverviewModel {
             loadedVersion = version
             phase = .loaded
         } catch {
+            // 被取消的載入不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
     }

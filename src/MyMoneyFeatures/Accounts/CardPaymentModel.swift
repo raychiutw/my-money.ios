@@ -84,11 +84,10 @@ public final class CardPaymentModel {
             errorMessage = "請選擇扣款銀行帳戶"
             return .invalid
         }
-        guard let value = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), value > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入大於 0 的繳款金額"
             return .invalid
         }
-        let amount = Money(value)
         if card.totalDue > .zero, card.totalDue < amount {
             errorMessage = "繳款金額不可超過當前待繳總額 \(card.totalDue.formatted())"
             return .invalid
@@ -119,6 +118,6 @@ extension CreditCard {
     public var sharedDebtPercentText: String {
         guard totalDue > .zero else { return "0%" }
         let percent = sharedDebt.amount / totalDue.amount * 100
-        return "\(percent.formatted(.number.precision(.fractionLength(0)).rounded(rule: .toNearestOrAwayFromZero).locale(Locale(identifier: "en_US_POSIX"))))%"
+        return percent.percentText(fractionDigits: 0)
     }
 }

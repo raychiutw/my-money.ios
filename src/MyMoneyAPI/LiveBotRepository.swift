@@ -10,7 +10,7 @@ public struct LiveBotRepository: BotRepository {
     }
 
     public func pairingCode() async throws -> PairingCode {
-        let dto: PairingCodeDTO = try await client.send("POST", "/bot/pairing-code", body: EmptyBody())
+        let dto: PairingCodeDTO = try await client.send("POST", "/bot/pairing-code")
         return PairingCode(code: dto.code, expiresInSeconds: dto.expiresInSeconds)
     }
 
@@ -33,8 +33,6 @@ public struct LiveBotRepository: BotRepository {
         return dto.reply
     }
 }
-
-private struct EmptyBody: Encodable {}
 
 private struct PairingCodeDTO: Decodable {
     let code: String

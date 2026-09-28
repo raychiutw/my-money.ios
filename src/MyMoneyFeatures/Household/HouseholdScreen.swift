@@ -9,14 +9,14 @@ struct HouseholdScreen: View {
 
     var body: some View {
         content
-            .navigationTitle("家庭")
+            .navigationTitle("家庭群組")
             .inlineNavigationTitle()
             .task { await model.load() }
             .sheet(item: $model.invitation) { invitation in
                 InvitationSheet(invitation: invitation)
             }
             .confirmationDialog(
-                "離開家庭",
+                "離開家庭群組",
                 isPresented: $isLeaveConfirming,
                 titleVisibility: .visible
             ) {
@@ -58,7 +58,7 @@ struct HouseholdScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
-                Label("無法載入家庭", systemImage: "exclamationmark.triangle")
+                Label("無法載入家庭群組", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
@@ -78,24 +78,24 @@ struct HouseholdScreen: View {
     private var notJoined: some View {
         Form {
             Section {
-                TextField("家庭名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
+                TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
                     .accessibilityIdentifier("household.createName")
-                Button("建立家庭") {
+                Button("建立家庭群組") {
                     Task { await model.create() }
                 }
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
             } header: {
-                Text("建立家庭")
+                Text("建立家庭群組")
             } footer: {
-                Text("建立之後，你是這個家庭群組的管理員，可以邀請家人加入。")
+                Text("建立之後，你是這個家庭群組的管理員，可以邀請家庭成員加入。")
             }
 
             Section {
                 TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("household.joinCode")
-                Button("加入家庭") {
+                Button("加入家庭群組") {
                     Task { await model.join() }
                 }
                 .disabled(!model.canJoin)
@@ -103,7 +103,7 @@ struct HouseholdScreen: View {
             } header: {
                 Text("用邀請碼加入")
             } footer: {
-                Text("輸入家人分享的邀請碼，格式是 FAM-XXXX。")
+                Text("輸入家庭成員分享的邀請碼，格式是 FAM-XXXX。")
             }
         }
     }
@@ -119,9 +119,10 @@ struct HouseholdScreen: View {
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
-                Button("邀請家人", systemImage: "person.badge.plus") {
+                Button("邀請家庭成員", systemImage: "person.badge.plus") {
                     Task { await model.invite() }
                 }
+                .disabled(model.isInviting)
                 .accessibilityIdentifier("household.invite")
             }
 
@@ -146,7 +147,7 @@ struct HouseholdScreen: View {
             }
 
             Section {
-                Button("離開家庭", role: .destructive) {
+                Button("離開家庭群組", role: .destructive) {
                     isLeaveConfirming = true
                 }
                 .accessibilityIdentifier("household.leave")
@@ -210,10 +211,10 @@ private struct InvitationSheet: View {
                     }
                     .accessibilityIdentifier("household.copy")
                 } footer: {
-                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))。請家人登入後，在「帳號 → 家庭」輸入這組邀請碼(格式是 FAM-XXXX)。")
+                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))。請家庭成員登入後，在「帳號 → 家庭群組」輸入這組邀請碼(格式是 FAM-XXXX)。")
                 }
             }
-            .navigationTitle("邀請家人")
+            .navigationTitle("邀請家庭成員")
             .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

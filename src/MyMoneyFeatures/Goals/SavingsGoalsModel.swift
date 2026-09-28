@@ -34,14 +34,11 @@ public final class SavingsGoalsModel {
     public var totalTarget: Money { goals.reduce(.zero) { $0 + $1.targetAmount } }
     public var totalMonthlyReserve: Money { goals.reduce(.zero) { $0 + $1.monthlyReserve } }
 
-    /// 百分比固定用 `.` 當小數點(web 的 `toFixed`),不跟著裝置語系走。
-    nonisolated fileprivate static let posix = Locale(identifier: "en_US_POSIX")
-
     /// 整體達成率，取 1 位小數;目標金額合計是 0 時顯示「0%」(跟 web 一樣)。
     public var overallRateText: String {
         guard totalTarget > .zero else { return "0%" }
         let rate = totalSaved.amount / totalTarget.amount * 100
-        return "\(rate.formatted(.number.precision(.fractionLength(1)).rounded(rule: .toNearestOrAwayFromZero).locale(Self.posix)))%"
+        return rate.percentText(fractionDigits: 1)
     }
 
     /// 載入儲蓄目標。重新載入時保留舊資料。
@@ -102,7 +99,7 @@ extension SavingsGoal {
     public var percentText: String {
         guard targetAmount > .zero else { return "0%" }
         let percent = min(savedAmount.amount / targetAmount.amount * 100, 100)
-        return "\(percent.formatted(.number.precision(.fractionLength(0)).rounded(rule: .toNearestOrAwayFromZero).locale(SavingsGoalsModel.posix)))%"
+        return percent.percentText(fractionDigits: 0)
     }
 }
 
@@ -133,17 +130,17 @@ public final class SavingsGoalDepositModel {
     /// 存入;成功時回傳 `true`(sheet 關閉)並遞增資料版本。已存金額以後端重抓的結果為準。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入有效存款金額"
             return false
         }
         isSaving = true
         defer { isSaving = false }
         do {
-            try await repository.deposit(Money(amount), into: goalID)
+            try await repository.deposit(amount, into: goalID)
         } catch {
             let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "存錢失敗" : message
+            errorMessage = message.isEmpty ? "存入失敗" : message
             return false
         }
         dataVersion.bump()

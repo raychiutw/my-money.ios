@@ -90,11 +90,16 @@ struct BotScreen: View {
 
     private var bindingsSection: some View {
         Section("已綁定的帳號") {
-            if model.bindings.isEmpty {
+            if model.bindings == nil {
+                // 資料回來之前不顯示「尚未綁定」(DESIGN.md「載入」)。
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            }
+            if model.bindings?.isEmpty == true {
                 Text("尚未綁定任何 LINE 或 Telegram 帳號")
                     .foregroundStyle(.secondary)
             }
-            ForEach(model.bindings) { binding in
+            ForEach(model.bindings ?? []) { binding in
                 LabeledContent(binding.platform.title, value: binding.displayName ?? "")
                     .swipeActions {
                         Button("解除", systemImage: "xmark.circle", role: .destructive) {
@@ -224,17 +229,22 @@ private struct MessageBubble: View {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(background)
                 )
-                .foregroundStyle(message.sender == .user ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             Text(message.time.formatted(date: .omitted, time: .shortened))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: message.sender == .user ? .trailing : .leading)
-        .accessibilityElement(children: .combine)
+        // 誰說的只靠左右位置和顏色看得出來，VoiceOver 要念出來。
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(message.sender == .user ? "我" : "記帳小幫手")\(message.isError ? ",錯誤" : ""):\(message.text),"
+                + message.time.formatted(date: .omitted, time: .shortened)
+        )
     }
 
+    /// 我的訊息用淡色的 tint 底配主要文字色：白字配品牌粉在深色模式只有 2.27:1(DESIGN.md「顏色」)。
     private var background: AnyShapeStyle {
         if message.isError { return AnyShapeStyle(.red.opacity(0.15)) }
-        return message.sender == .user ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary)
+        return message.sender == .user ? AnyShapeStyle(.tint.opacity(0.2)) : AnyShapeStyle(.fill.tertiary)
     }
 }

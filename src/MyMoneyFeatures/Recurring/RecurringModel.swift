@@ -47,15 +47,16 @@ public final class RecurringModel {
     /// 每月固定淨額：固定收入減固定支出。
     public var monthlyNet: Money { monthlyIncome - monthlyExpense }
 
-    /// 載入固定收支與週期攤提。週期攤提失敗時當作 0(跟 web 一樣)。重新載入時保留舊資料。
+    /// 載入固定收支與週期攤提。任一個失敗都顯示載入失敗，不把週期攤提當成 0
+    /// (web 用 `.catch(() => null)` 顯示 $0,parity 刻意偏離第 27 項)。重新載入時保留舊資料。
     public func load() async {
         let version = dataVersion.value
         do {
             async let items = repository.items()
-            async let amortization = try? repository.amortization()
+            async let amortization = repository.amortization()
             let (loadedItems, loadedAmortization) = try await (items, amortization)
             self.items = loadedItems
-            self.amortization = loadedAmortization ?? .zero
+            self.amortization = loadedAmortization
             loadedVersion = version
             phase = .loaded
         } catch {

@@ -22,6 +22,8 @@ public final class HouseholdModel {
     /// 操作失敗時顯示的訊息(alert)。
     public var alertMessage: String?
     public private(set) var isWorking = false
+    /// 邀請碼還在產生中;這段期間再按「邀請」不會多產生一組。
+    public private(set) var isInviting = false
 
     @ObservationIgnored private let repository: any HouseholdRepository
     @ObservationIgnored private let dataVersion: DataVersion
@@ -37,10 +39,10 @@ public final class HouseholdModel {
 
     public var memberCountText: String { "\(household?.members.count ?? 0) 位成員" }
 
-    public let leaveConfirmation = "確定要退出這個家庭嗎？退出後將無法查看這個家庭的家庭公帳。"
+    public let leaveConfirmation = "確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。"
 
     public func removeConfirmation(for member: HouseholdMember) -> String {
-        "確定要將「\(member.name)」移出家庭嗎？"
+        "確定要將「\(member.name)」移出家庭群組嗎？"
     }
 
     /// 只有管理員看得到「移除」,而且只出現在一般成員上。
@@ -69,6 +71,9 @@ public final class HouseholdModel {
 
     /// 每按一次產生一組新的邀請碼。
     public func invite() async {
+        guard !isInviting else { return }
+        isInviting = true
+        defer { isInviting = false }
         do {
             invitation = try await repository.invite()
         } catch {

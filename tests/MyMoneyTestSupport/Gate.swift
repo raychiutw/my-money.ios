@@ -10,12 +10,30 @@ public actor Gate {
     public init() {}
 
     /// repository 端：通知請求已送達，然後停在這裡直到測試放行。
+    ///
+    /// 也會回應取消：測試寫錯、永遠不放行時，`.timeLimit` 取消測試後這裡就放行，測試記下失敗後結束，
+    /// 不會讓整個測試程序卡住。
     public func pass() async {
         reached = true
         arrivalWaiters.forEach { $0.resume() }
         arrivalWaiters.removeAll()
         guard !isOpen else { return }
-        await withCheckedContinuation { passWaiters.append($0) }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume()
+                } else {
+                    passWaiters.append(continuation)
+                }
+            }
+        } onCancel: {
+            Task { await self.releasePassWaiters() }
+        }
+    }
+
+    private func releasePassWaiters() {
+        passWaiters.forEach { $0.resume() }
+        passWaiters.removeAll()
     }
 
     /// 測試端：等到 repository 收到請求。

@@ -108,7 +108,7 @@ struct StatisticsScreen: View {
     private func settlementText(_ settlement: Settlement, spoken: Bool) -> String {
         let text: (Money) -> String = { spoken ? $0.spokenText : $0.formatted() }
         let perPerson = "平分後每人應負擔 \(text(settlement.perPerson))"
-        guard let transfer = settlement.transfer else { return "\(perPerson),兩人墊付一樣多，不用轉帳" }
+        guard let transfer = settlement.transfer else { return "\(perPerson),兩人的公帳代墊款一樣多，不用轉帳" }
         return "\(perPerson),\(transfer.from) 轉 \(text(transfer.amount)) 給 \(transfer.to)"
     }
 

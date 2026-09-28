@@ -32,6 +32,23 @@ struct CreditCardTests {
         #expect(card.isStatementDue(today: CalendarDay(year: 2026, month: 9, day: today)) == expected)
     }
 
+    /// web 用 `getDate() >= statement_day`,結帳日 31 號的卡在 2 月、4 月永遠不會提醒(parity 刻意偏離第 32 項)。
+    @Test("結帳日是 29 到 31 號時，較短的月份以月底當結帳日", arguments: [
+        (31, 2026, 2, 28, true),
+        (30, 2026, 2, 27, false),
+        (31, 2026, 4, 30, true),
+        (31, 2026, 4, 29, false),
+        (29, 2028, 2, 29, true),
+    ])
+    func shortMonths(statementDay: Int, year: Int, month: Int, day: Int, expected: Bool) {
+        let card = CreditCard(
+            id: AccountID("card"), name: "測試卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: Money(100),
+            creditLimit: nil, statementDay: statementDay, paymentDueDay: nil
+        )
+
+        #expect(card.isStatementDue(today: CalendarDay(year: year, month: month, day: day)) == expected)
+    }
+
     @Test("沒有結帳日時不提醒結轉")
     func noStatementDay() {
         let card = CreditCard(

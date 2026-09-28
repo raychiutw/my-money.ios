@@ -50,7 +50,7 @@ public final class ForecastModel {
     /// 購買力試算;接受任何正整數(parity 刻意偏離第 4 項)。
     public func checkPurchase() async {
         purchaseError = nil
-        guard let amount = Decimal(string: purchaseAmountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: purchaseAmountText), amount > .zero else {
             purchaseCheck = nil
             purchaseError = "請輸入有效的購買金額"
             return
@@ -58,7 +58,7 @@ public final class ForecastModel {
         isChecking = true
         defer { isChecking = false }
         do {
-            purchaseCheck = try await repository.checkPurchase(Money(amount))
+            purchaseCheck = try await repository.checkPurchase(amount)
         } catch {
             purchaseCheck = nil
             let message = error.localizedDescription
@@ -73,7 +73,7 @@ extension CashFlowForecast {
     /// 最低餘額發生的日期，例如「2026/10/05」;沒有變動時是「無變動」。
     public var minDateText: String {
         guard let minDate else { return "無變動" }
-        return String(format: "%d/%02d/%02d", minDate.year, minDate.month, minDate.day)
+        return minDate.slashText
     }
 }
 

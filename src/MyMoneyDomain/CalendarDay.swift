@@ -47,6 +47,11 @@ public struct CalendarDay: Hashable, Comparable, Sendable {
         Self.taipeiCalendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    /// 這個月有幾天。
+    public var daysInMonth: Int {
+        Self.taipeiCalendar.range(of: .day, in: .month, for: startOfDay)!.count
+    }
+
     /// 台灣時間的今天。
     public static func today(now: Date = Date()) -> CalendarDay {
         CalendarDay(date: now)

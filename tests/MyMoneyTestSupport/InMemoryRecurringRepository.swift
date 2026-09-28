@@ -5,6 +5,7 @@ import MyMoneyDomain
 public actor InMemoryRecurringRepository: RecurringRepository {
     private var stored: [RecurringItem]
     private var failure: RepositoryError?
+    private var amortizationFailure: RepositoryError?
 
     public private(set) var createdDrafts: [RecurringDraft] = []
     public private(set) var updatedDrafts: [RecurringItemID: RecurringDraft] = [:]
@@ -48,7 +49,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
 
     /// 跟後端一樣把每一項的週期攤提加總(測試用的替身，給 UI 測試在新增、刪除後看到合計改變)。
     public func amortization() async throws -> RecurringAmortization {
-        if let failure { throw failure }
+        if let failure = failure ?? amortizationFailure { throw failure }
         func total(_ type: TransactionType) -> Money {
             stored.filter { $0.type == type }.reduce(.zero) { $0 + $1.monthlyAmortization }
         }
@@ -90,5 +91,10 @@ public actor InMemoryRecurringRepository: RecurringRepository {
     /// 之後的請求都以這個錯誤失敗。
     public func fail(with error: RepositoryError) {
         failure = error
+    }
+
+    /// 只有週期攤提(`amortization()`)以這個錯誤失敗。
+    public func failAmortization(with error: RepositoryError) {
+        amortizationFailure = error
     }
 }

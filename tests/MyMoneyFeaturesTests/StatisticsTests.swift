@@ -140,7 +140,7 @@ struct StatisticsTests {
         #expect(settlement == Settlement(perPerson: Money(5000), transfer: .init(from: "小美", to: "小明", amount: Money(1000))))
     }
 
-    @Test("兩人墊付一樣多時不用轉帳;不是剛好兩人時沒有分攤建議")
+    @Test("兩人的公帳代墊款一樣多時不用轉帳;不是剛好兩人時沒有分攤建議")
     func settlementEdgeCases() {
         #expect(StatisticsModel.settlement(for: [share("小明", 3000), share("小美", 3000)])
             == Settlement(perPerson: Money(3000), transfer: nil))
@@ -203,7 +203,7 @@ struct BudgetEditorTests {
     }
 
     /// web 的 `step` 會擋掉合法金額(parity 刻意偏離第 4 項),iOS 接受任何正整數。
-    @Test("金額要是正數", arguments: ["", "0", "-100", "abc"])
+    @Test("金額要是正數", arguments: ["", "0", "-100", "abc", "1,000", "12.5"])
     func amountMustBePositive(amount: String) async throws {
         let (editor, repository, _) = try await editor(for: .dining)
         editor.amountText = amount

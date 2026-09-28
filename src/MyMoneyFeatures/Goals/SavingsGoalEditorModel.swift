@@ -67,15 +67,14 @@ public final class SavingsGoalEditorModel {
             errorMessage = "請輸入目標名稱"
             return false
         }
-        let posix = Locale(identifier: "en_US_POSIX")
-        guard let target = Decimal(string: targetAmountText, locale: posix), target > 0 else {
+        guard let target = Money(wholeNumber: targetAmountText), target > .zero else {
             errorMessage = "請輸入有效目標金額"
             return false
         }
         // 跟 web 一樣：沒填或看不懂時當作 0;web 的欄位也不允許負數。
-        let reserve = max(Decimal(string: monthlyReserveText, locale: posix) ?? 0, 0)
+        let reserve = Money(wholeNumber: monthlyReserveText) ?? .zero
         let draft = SavingsGoalDraft(
-            name: trimmedName, emoji: emoji, targetAmount: Money(target), monthlyReserve: Money(reserve),
+            name: trimmedName, emoji: emoji, targetAmount: target, monthlyReserve: reserve,
             deadline: hasDeadline ? deadline : nil
         )
         isSaving = true

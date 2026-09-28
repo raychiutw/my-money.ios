@@ -74,7 +74,7 @@ public final class TransactionEditorModel {
             errorMessage = "請先建立並選擇帳戶"
             return false
         }
-        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入有效金額"
             return false
         }
@@ -85,7 +85,7 @@ public final class TransactionEditorModel {
                 accountID: accountID,
                 type: type,
                 category: category,
-                amount: Money(amount),
+                amount: amount,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 date: date,
                 isShared: isShared

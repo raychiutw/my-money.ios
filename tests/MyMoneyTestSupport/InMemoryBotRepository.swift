@@ -38,11 +38,15 @@ public actor InMemoryBotRepository: BotRepository {
         stored.removeAll { $0.id == id }
     }
 
-    /// 不解析訊息，一律回「記帳成功：{訊息}」。
+    /// 不解析訊息，一律回「記帳成功：{訊息}」。跟後端一樣，第一次會建立「模擬測試助手」的 LINE 綁定。
     public func simulate(_ text: String) async throws -> String {
         await gate?.pass()
         if let failure { throw failure }
         simulatedTexts.append(text)
+        let simulated = BotBindingID("simulated-helper")
+        if !stored.contains(where: { $0.id == simulated }) {
+            stored.append(BotBinding(id: simulated, platform: .line, displayName: "模擬測試助手"))
+        }
         return "記帳成功：\(text)"
     }
 

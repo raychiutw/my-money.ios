@@ -25,7 +25,7 @@ public struct LiveHouseholdRepository: HouseholdRepository {
     }
 
     public func invite() async throws -> HouseholdInvitation {
-        let dto: InvitationDTO = try await client.send("POST", "/households/invite", body: EmptyBody())
+        let dto: InvitationDTO = try await client.send("POST", "/households/invite")
         // 後端用 `toISOString()`,有毫秒。
         guard let expiresAt = try? Date(dto.expiresAt, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)) else {
             throw RepositoryError.unreadableResponse
@@ -42,8 +42,6 @@ public struct LiveHouseholdRepository: HouseholdRepository {
         try await client.send("DELETE", "/households/members/\(userID.rawValue)")
     }
 }
-
-private struct EmptyBody: Encodable {}
 
 private struct CurrentDTO: Decodable {
     struct HouseholdDTO: Decodable {

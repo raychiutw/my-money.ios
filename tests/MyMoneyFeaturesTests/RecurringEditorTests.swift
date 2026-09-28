@@ -28,6 +28,22 @@ struct RecurringEditorTests {
         #expect(editor.accountID == SampleAccounts.savings.id)
     }
 
+    @Test("資金帳戶載入之前就選了關聯帳戶時，不會被第一個資金帳戶蓋掉", .timeLimit(.minutes(1)))
+    func prepareKeepsEarlyChoice() async {
+        let gate = Gate()
+        let editor = RecurringEditorModel(
+            adding: (), repository: repository, accounts: InMemoryAccountRepository.sample(gate: gate), dataVersion: dataVersion
+        )
+
+        let preparing = Task { await editor.prepare() }
+        await gate.waitUntilReached()
+        editor.accountID = SampleAccounts.card.id
+        await gate.open()
+        await preparing.value
+
+        #expect(editor.accountID == SampleAccounts.card.id)
+    }
+
     @Test("名稱必填")
     func nameIsRequired() async {
         let editor = await adding()
@@ -38,7 +54,7 @@ struct RecurringEditorTests {
         #expect(editor.errorMessage == "請填寫項目名稱")
     }
 
-    @Test("金額要是正數", arguments: ["", "0", "abc"])
+    @Test("金額要是正數", arguments: ["", "0", "abc", "1,000", "12.5"])
     func amountMustBePositive(amount: String) async {
         let editor = await adding()
         editor.name = "網路費"

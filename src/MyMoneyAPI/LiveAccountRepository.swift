@@ -36,12 +36,10 @@ public struct LiveAccountRepository: AccountRepository {
     }
 
     public func rollOverStatement(_ id: AccountID) async throws -> String {
-        let dto: RolloverDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement", body: EmptyBody())
+        let dto: RolloverDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement")
         return dto.message
     }
 }
-
-private struct EmptyBody: Encodable {}
 
 /// 結帳日出帳結轉的結果：訊息在 `data.message`。
 private struct RolloverDTO: Decodable {

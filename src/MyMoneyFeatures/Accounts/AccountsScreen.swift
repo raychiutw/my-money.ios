@@ -225,11 +225,11 @@ private struct CardSettlementRow: View {
                 )
             }
             if showsRollover {
-                HStack {
+                // 上下排，大字級時提醒文字才不會被按鈕擠掉(Dynamic Type)。
+                VStack(alignment: .leading, spacing: 4) {
                     Label(reminder, systemImage: "calendar.badge.exclamationmark")
                         .font(.footnote)
                         .foregroundStyle(.orange)
-                    Spacer()
                     Button("一鍵出帳", action: rollOver)
                         .buttonStyle(.borderless)
                         .font(.footnote.bold())

@@ -73,7 +73,7 @@ public final class QuickEntryModel {
             errorMessage = "請先至「帳戶」建立至少一個帳戶"
             return false
         }
-        guard let amount = Decimal(string: amountText, locale: Locale(identifier: "en_US_POSIX")), amount > 0 else {
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
             errorMessage = "請輸入正確的金額"
             return false
         }
@@ -84,7 +84,7 @@ public final class QuickEntryModel {
                 accountID: accountID,
                 type: type,
                 category: category,
-                amount: Money(amount),
+                amount: amount,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 date: date,
                 isShared: isShared
