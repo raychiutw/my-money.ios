@@ -50,7 +50,8 @@ jobs:
   app:
     name: App 與 UI 測試(xcodebuild test)
     runs-on: xcode-27
-    timeout-minutes: 45
+    # 2026-09-28 實測 28 到 35 分鐘，慢的 runner 超過 45 分鐘被取消(run 36399342873)。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
