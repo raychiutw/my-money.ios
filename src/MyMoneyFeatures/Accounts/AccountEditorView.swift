@@ -17,17 +17,16 @@ struct AccountEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if model.canChangeKind {
-                    Picker("類型", selection: $model.kind) {
-                        Text("現金錢包").tag(AccountKind.cash)
-                        Text("銀行存款帳戶").tag(AccountKind.bank)
-                        Text("信用卡").tag(AccountKind.creditCard)
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                }
-
                 Section {
+                    // 新增時可以切換類型，用表單裡一般的選擇列(#65):選項字不會像分段控制一樣被壓小。
+                    if model.canChangeKind {
+                        Picker("類型", selection: $model.kind) {
+                            Text("現金錢包").tag(AccountKind.cash)
+                            Text("銀行存款帳戶").tag(AccountKind.bank)
+                            Text("信用卡").tag(AccountKind.creditCard)
+                        }
+                        .accessibilityIdentifier("accountEditor.kind")
+                    }
                     TextField("名稱", text: $model.name, prompt: Text(namePrompt))
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("accountEditor.name")

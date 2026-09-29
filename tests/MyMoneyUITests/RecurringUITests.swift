@@ -40,6 +40,38 @@ final class RecurringUITests: XCTestCase {
         XCTAssertTrue(rent.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
+    /// 編輯器的週期支出／週期收入在 sheet 導覽列中間(分段控制),表單裡沒有分段控制(#65)。
+    /// 切到週期收入、新增每期 1,000 的項目，每月固定淨額從 31,000 變成 32,000。
+    @MainActor
+    func testEditorTypeInNavigationBar() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["規劃"].tap()
+        app.buttons["週期收支"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 31,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
+
+        app.buttons["recurring.add"].tap()
+        let name = app.textFields["recurringEditor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3), "沒有打開週期收支編輯器")
+        let type = app.navigationBars.segmentedControls.firstMatch
+        XCTAssertTrue(type.exists, "週期支出／週期收入不在導覽列中間")
+        XCTAssertTrue(type.buttons["週期支出"].isSelected, "新增週期收支預設不是週期支出")
+        type.buttons["週期收入"].tap()
+        let form = app.collectionViews.containing(.textField, identifier: "recurringEditor.name").firstMatch
+        XCTAssertEqual(form.segmentedControls.count, 0, "週期收支編輯器的表單裡還有分段控制")
+
+        name.tap()
+        name.typeText("兼職")
+        let amount = app.textFields["recurringEditor.amount"]
+        amount.tap()
+        amount.typeText("1000")
+        app.buttons["recurringEditor.save"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 32,000 元").waitForExistence(timeout: 5), "新增週期收入後每月固定淨額沒有增加")
+    }
+
     @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch

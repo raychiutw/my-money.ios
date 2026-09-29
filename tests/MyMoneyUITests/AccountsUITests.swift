@@ -91,6 +91,36 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 800 元").waitForExistence(timeout: 5), "新增後沒有出現在現金錢包區塊")
     }
 
+    /// 新增資產帳戶的類型是表單裡一般的選擇列，表單裡沒有分段控制(#65)。
+    /// 從現金錢包切成信用卡之後，出現信用卡的未出帳款欄，餘額欄不見。
+    @MainActor
+    func testAccountKindIsAPickerRow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+
+        app.buttons["accounts.add"].tap()
+        app.buttons["新增現金錢包"].tap()
+        let name = app.textFields["accountEditor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3), "沒有打開新增資產帳戶")
+        // 選單樣式的 `Picker` 沒有 accessibility value,值是選擇列裡唯一的文字。
+        let kind = app.buttons["accountEditor.kind"]
+        XCTAssertTrue(kind.exists, "資產帳戶的類型不是表單選擇列")
+        XCTAssertEqual(kind.staticTexts.firstMatch.label, "現金錢包", "從「新增現金錢包」打開，類型不是現金錢包")
+        let form = app.collectionViews.containing(.textField, identifier: "accountEditor.name").firstMatch
+        XCTAssertEqual(form.segmentedControls.count, 0, "資產帳戶表單裡還有分段控制")
+
+        kind.tap()
+        let creditCard = app.cells.children(matching: .button)["信用卡"]
+        XCTAssertTrue(creditCard.waitForExistence(timeout: 3), "類型選單裡沒有「信用卡」")
+        creditCard.tap()
+        XCTAssertTrue(app.textFields["accountEditor.unbilled"].waitForExistence(timeout: 3), "切成信用卡之後沒有未出帳款欄")
+        XCTAssertFalse(app.textFields["accountEditor.amount"].exists, "切成信用卡之後還有餘額欄")
+    }
+
     /// ATM 提款(#43):銀行存款帳戶轉到現金錢包，顯示後端的訊息，兩邊的餘額都更新。
     @MainActor
     func testATMWithdrawalMovesMoneyIntoWallet() throws {

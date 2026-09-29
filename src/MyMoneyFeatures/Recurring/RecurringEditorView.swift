@@ -15,13 +15,6 @@ struct RecurringEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("類型", selection: $model.type) {
-                    Text("週期支出").tag(TransactionType.expense)
-                    Text("週期收入").tag(TransactionType.income)
-                }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
-
                 Section {
                     TextField(
                         "名稱",
@@ -70,6 +63,14 @@ struct RecurringEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
+                }
+                // 週期支出／週期收入放在導覽列中間(#65,跟記一筆一樣),不另外佔表單一列。
+                ToolbarItem(placement: .principal) {
+                    Picker("類型", selection: $model.type) {
+                        Text("週期支出").tag(TransactionType.expense)
+                        Text("週期收入").tag(TransactionType.income)
+                    }
+                    .pickerStyle(.segmented)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("儲存") {

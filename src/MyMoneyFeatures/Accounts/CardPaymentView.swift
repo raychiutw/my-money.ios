@@ -50,11 +50,12 @@ struct CardPaymentView: View {
                     .calendarDayTimeZone()
                     TextField("備註", text: $model.note)
                         .focused($focusedField, equals: .note)
+                    // 表單裡一般的選擇列(#65)。
                     Picker("歸屬", selection: $model.isShared) {
                         Text("家庭公帳").tag(true)
                         Text("個人私帳").tag(false)
                     }
-                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("cardPayment.ownership")
                 }
 
                 if let message = model.errorMessage {
