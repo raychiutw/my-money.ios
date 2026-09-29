@@ -248,16 +248,15 @@ private struct BudgetRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(row.category.name, systemImage: row.category.symbolName)
-            Group {
-                LabeledContent("已花") { amount(row.spent.formatted()) }
-                LabeledContent("預算") { amount(row.budget?.amount.formatted() ?? "未設定") }
-            }
-            .font(.subheadline)
+            field("已花", value: row.spent.formatted())
             if let budget = row.budget {
+                field("預算", value: budget.amount.formatted())
                 // 超支時進度卡在 100%,VoiceOver 改念 `spokenText` 裡的超支金額。
                 ProgressView(value: budget.amount > .zero ? min(row.spent.chartValue / budget.amount.chartValue, 1) : 1)
                     .tint(tint)
                     .accessibilityHidden(true)
+            } else {
+                field("預算", value: "未設定", isPlaceholder: true)
             }
             if let statusText = row.statusText(spoken: false) {
                 Label(statusText, systemImage: "exclamationmark.triangle.fill")
@@ -268,12 +267,22 @@ private struct BudgetRowView: View {
         .padding(.vertical, 2)
     }
 
-    /// 金額一律單行(DESIGN.md「列與欄位」)。
-    private func amount(_ text: String) -> some View {
-        Text(text)
-            .monospacedDigit()
-            .lineLimit(1)
-            .fixedSize()
+    /// 已花、預算各一列：標籤在左、金額在右，大字級放不下時自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
+    /// 字級直接設在 `Text` 上：設在外層時，List 裡的 `LabeledContent` 仍是 `body`(#76 的截圖)。
+    /// `isPlaceholder`:沒有值(「未設定」)時用次要文字色，跟金額區分。
+    private func field(_ title: String, value: String, isPlaceholder: Bool = false) -> some View {
+        LabeledContent {
+            Text(value)
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(isPlaceholder ? .secondary : .primary)
+                .lineLimit(1)
+                .fixedSize()
+        } label: {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var tint: Color {
