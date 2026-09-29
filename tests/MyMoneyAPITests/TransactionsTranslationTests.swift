@@ -44,7 +44,7 @@ struct TransactionsTranslationTests {
         #expect(stub.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
-    @Test("解讀成交易記錄:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人")
+    @Test("解讀成交易記錄:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人(名稱與 user_id)")
     func listDecodesTransactions() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")
 
@@ -61,7 +61,8 @@ struct TransactionsTranslationTests {
             note: "耳機",
             date: CalendarDay(year: 2026, month: 9, day: 27),
             isShared: false,
-            recorderName: "iOS 測試帳號"
+            recorderName: "iOS 測試帳號",
+            recorderID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
         ))
         #expect(transactions[1].isShared)
         #expect(transactions[2].type == .income)

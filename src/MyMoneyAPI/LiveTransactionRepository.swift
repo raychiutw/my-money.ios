@@ -46,6 +46,8 @@ public struct LiveTransactionRepository: TransactionRepository {
 /// `GET /transactions` 的一筆:資料表欄位加上 JOIN 的 `account_name`、`user_name`。
 private struct TransactionDTO: Decodable {
     let id: String
+    /// 記帳人的 ID。
+    let userID: String?
     let accountID: String
     let accountName: String?
     let type: String
@@ -63,6 +65,7 @@ private struct TransactionDTO: Decodable {
         case accountName = "account_name"
         case isShared = "is_shared"
         case userName = "user_name"
+        case userID = "user_id"
     }
 
     func transaction() throws -> Transaction {
@@ -79,7 +82,8 @@ private struct TransactionDTO: Decodable {
             note: note ?? "",
             date: day,
             isShared: isShared == 1,
-            recorderName: userName
+            recorderName: userName,
+            recorderID: userID.map(UserID.init)
         )
     }
 }

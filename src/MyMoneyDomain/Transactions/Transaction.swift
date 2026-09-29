@@ -73,6 +73,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 記帳人的名稱。
     public let recorderName: String?
 
+    /// 記帳人的 ID。用來判斷是不是自己記的：自己記的不顯示記帳人(#72)。
+    public let recorderID: UserID?
+
     public init(
         id: TransactionID,
         accountID: AccountID,
@@ -83,7 +86,8 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         note: String,
         date: CalendarDay,
         isShared: Bool,
-        recorderName: String?
+        recorderName: String?,
+        recorderID: UserID? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -95,6 +99,7 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         self.date = date
         self.isShared = isShared
         self.recorderName = recorderName
+        self.recorderID = recorderID
     }
 
     /// 系統內部平帳或轉帳的紀錄(4 種系統分類):後端禁止編輯和刪除，統計也都排除。
