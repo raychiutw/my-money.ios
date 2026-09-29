@@ -20,6 +20,7 @@ xcodebuild test -project src/App/MyMoney.xcodeproj -scheme MyMoney \
 xcodebuild build -scheme MyMoney-Package -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .derivedData/package SWIFT_TREAT_WARNINGS_AS_ERRORS=YES  # 以 iOS 編譯 package
 scripts/record-fixture.sh <檔名> <METHOD> <path> [body]         # 從 prod 錄 fixture,見 Fixtures/README.md
+scripts/screen-tour.sh [-o 輸出目錄] [-a light,dark] [-s default,xxl,ax5]  # 截圖巡覽，預設輸出到 /tmp/my-money-screen-tour,見 DESIGN.md「截圖巡覽」
 gh workflow run testflight.yml --ref master                     # 手動重發 TestFlight(合併進 master 會自動上傳);每次發佈都要先遞增 MARKETING_VERSION,見 docs/testflight.md
 ```
 

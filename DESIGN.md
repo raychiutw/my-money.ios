@@ -139,6 +139,29 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - 圖表的每個元素都要有 accessibility label,另外保留 Swift Charts 預設的 Audio Graph。
 - 支援減少動態效果：不做裝飾性的動畫。
 
+## 截圖巡覽
+
+版面用截圖驗收(#68)。`scripts/screen-tour.sh` 用 in-memory 範例資料走過每一頁和主要的 sheet,拍淺色、深色 × 預設、XXL、AX5 字級，共 6 種組合。
+
+- **怎麼跑**:`scripts/screen-tour.sh` 跑全部組合，大約 35 分鐘(AX5 一種組合就要 9 分鐘左右);只跑部分組合用 `-a dark -s ax5` 這類參數，參數說明在 script 開頭。
+  - 用專用的模擬器「MyMoney Screen Tour」(iPhone 17,沒有就建立一台),也可以用 `-d` 指定 UDID,不佔用其他測試正在用的模擬器。
+  - 建置放在 `.derivedData/screen-tour`,不跟一般測試的建置搶鎖。
+  - script 會切換模擬器的外觀、固定狀態列時間，跑完還原。
+- **截圖放在哪裡**:預設是 `/tmp/my-money-screen-tour`,用 `-o` 改。截圖不進 repo。
+  - 檔名是「外觀-字級-畫面-序號.png」,例如 `dark-ax5-accounts-03.png`。
+  - 外觀是 `light`、`dark`;字級是 `default`、`xxl`、`ax5`。
+- **範圍**:
+  - 登入、註冊、五個 tab(規劃底下的週期收支、儲蓄目標、現金流預測)。
+  - 帳號 sheet、家庭群組、機器人記帳、模擬對話。
+  - 記一筆、新增資產帳戶(現金錢包、銀行存款帳戶、信用卡)、ATM 提款／轉帳、信用卡扣款還款、新增週期收支、建立儲蓄目標。
+  - 可以捲的畫面捲到底，每一屏拍一張(往上拖半個畫面，上下兩張會重疊)。
+  - 範例帳號沒有加入家庭群組，家庭群組只拍得到建立和加入。
+- **只看不改**:只開畫面、捲動、按「取消」或系統的返回，不按任何儲存或送出。登入用 in-memory 的範例帳號，repo 裡沒有真實帳號或密碼。
+- **版面票的 PR**:改之前先跑一次，用 `-o` 存到另一個目錄;改完再跑一次，附上改前改後。
+- **維護**:新增畫面或改了入口(例如「+」改成選單)時，一起更新 `tests/MyMoneyUITests/ScreenTourUITests.swift`。
+  - 返回一律點系統的返回按鈕。不要點「所有導覽列的第一顆按鈕」:sheet 底下那一層的導覽列也算，會點錯層。
+  - 這個測試沒有設 `SCREEN_TOUR_CONTENT_SIZE` 就 skip,一般的 `xcodebuild test` 和 CI 不跑它。
+
 ## App icon
 
 - 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。素材、設計說明和授權聲明在 `design/app-icon/`。
