@@ -42,9 +42,10 @@ final class ScreenTourUITests: XCTestCase {
         }
         tour.dismissSheet(titled: "帳號")
 
-        // 交易。
+        // 交易，以及 toolbar 篩選按鈕打開的篩選 sheet(#74)。
         tour.select(tab: "交易")
         tour.captureScrolling("transactions")
+        tour.present(app.buttons["transactions.filter"], capturing: "transaction-filter")
 
         // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡詳細頁和信用卡扣款還款。
         tour.select(tab: "帳戶")
