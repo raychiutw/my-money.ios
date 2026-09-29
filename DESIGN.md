@@ -45,6 +45,25 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 金額加上 `.monospacedDigit()`。
 - 新台幣的顯示跟 web 一致：例如 `$1,234` 和 `-$1,500`,0 位小數，捨入規則是 away from zero。
 
+## 說明文字
+
+依 HIG Writing:「Check each word to be sure it needs to be there. If you can use fewer words, do so.」,以及「small screens require brevity」。畫面上只留下面 7 類文字，其餘解釋名詞、計算方式、功能用途的說明文字和宣傳句一律不寫，也不做資訊按鈕(ⓘ)把說明收起來再點開(#60)。
+
+1. 確認對話框的訊息。
+2. 警告：一句話說明會造成不可逆或意外的後果。例如預算額度設定後無法刪除、模擬對話會寫入真的交易記錄、預測餘額會跌破 0、有 N 個分類超支。
+3. 錯誤，以及操作不能進行的原因。例如收款成員沒有可收款帳戶。
+4. 空狀態：只留標題和「下一步」(例如總覽的「至帳戶管理新增…」),不寫宣傳句。
+5. 資料：
+   - 含數字或日期的明細，例如收入 x · 支出 y、已出帳待繳款與未出帳款、N 個現金錢包、整體達成率、最低餘額發生日、邀請碼有效期限、欠款公私拆解。
+   - 功能產出的結果，例如購買力試算的評估說明、分攤建議。
+   - 聊天內容。
+6. 完成流程必要的指示：機器人的「傳送：綁定 驗證碼」。
+7. 登入、註冊頁的標語和「還沒有帳號？」這類連結前導。
+
+- 需要讓人知道「不能操作」的地方，用 symbol 加 accessibility label,不另外寫說明。例如系統分類交易記錄的鎖定標記(見「分類圖示」)。
+- 刪掉 footer 之後，空的 `Section` 一併整理，不留空白。
+- 跟 web 的差異見 parity 刻意偏離第 43 項。
+
 ## 導覽(ADR-0003)
 
 ```text
@@ -57,9 +76,13 @@ Tab bar(iPad 用 .sidebarAdaptable)
 總覽 toolbar 右上  person.crop.circle → 帳號 sheet(自帶 NavigationStack)
                    名稱與 email、家庭、機器人記帳、外觀、登出
 總覽、交易 toolbar  plus → 「記一筆」sheet
+總覽、統計 toolbar  line.3.horizontal.decrease → 視角選單(全部、家庭、個人)
 ```
 
-- 視角(全部、家庭、個人)放在總覽、交易、統計頁頂端，用 segmented `Picker`。
+- **視角**(全部、家庭、個人):總覽、統計頁放在 toolbar 的篩選按鈕(`line.3.horizontal.decrease`),點開是可勾選的選單(`ViewScopeFilter.swift`);導覽列副標題(`navigationSubtitle`)一律顯示目前的視角，不用打開選單就知道現在看的範圍。清單最上面不放分段控制，打開畫面最上面就是資料。
+  - VoiceOver:篩選按鈕的標籤是「視角」,值是目前的選擇。
+  - HIG 依據:pull-down button 適合三個以上的選項;toolbar 的項目要精選，加上篩選按鈕之後，每頁的 toolbar 不超過三組。
+  - 交易頁的視角暫時還在清單最上面(segmented `Picker`),#74 會跟日期區間、類型、分類一起收進篩選 sheet。
 - 帳戶頁頂端是帳戶檢視範圍(全部、家庭共同基金、個人私帳)的 segmented `Picker`,下面依序是統計卡、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態。
 - 「ATM 提款／轉帳」是 sheet:入口在帳戶頁 toolbar(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
 - 信用卡的三個還款入口(繳家庭代墊、繳個人私帳、全額結清)是 borderless 按鈕，跟 web 一樣排成一排、只放文字;大字級放不下時改成帶 icon 的直排(`ViewThatFits`)。
@@ -83,7 +106,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 金額輸入 | 共用的 `AmountField`:靠右對齊、`.numberPad`、等寬數字，取得焦點時全選(直接輸入就取代原值)。綁定文字，儲存時用 `Money(wholeNumber:)` 解析;鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵),按下清掉整個表單的焦點：表單的所有文字欄位(包括備註)綁到同一個 focus 狀態，不管焦點在哪個欄位都收起鍵盤;捲動表單也會收起鍵盤(`keyboardDismissal(clearing:)`) |
 | 色點選擇器(帳戶顏色) | 8 色的圓形按鈕列，每個都有 accessibility label |
 | emoji 選擇器(目標) | 12 個 emoji 的格狀按鈕 |
-| 空狀態 | 整頁用 `ContentUnavailableView`;List 區塊裡用標題(`headline`)、說明(`subheadline`)加 borderless 按鈕。文字沿用 web |
+| 空狀態 | 整頁用 `ContentUnavailableView`;List 區塊裡用標題(`headline`)、下一步(`subheadline`,例如「至帳戶管理新增…」)加 borderless 按鈕。標題和下一步沿用 web,宣傳句不寫(見「說明文字」) |
 | loading(web 的骨架屏) | 首次載入顯示骨架屏：跟載入後一樣的版面，放畫面自帶的固定佔位內容，套系統的 `.redacted(reason: .placeholder)`(`LoadingSkeleton.swift`)。VoiceOver 只念一次「載入中」,佔位不能點;資料回來時淡入 0.25 秒，開啟「減少動態效果」時不做動畫;不做微光(shimmer)。下拉更新、切換篩選時保留目前的內容，不回到骨架屏。資料回來之前不顯示 `$0` 或「安全」這類預設值 |
 | Recharts 圓餅、柱狀、面積圖 | Swift Charts 的 `SectorMark`、`BarMark`、`AreaMark` |
 | ProgressBar | `ProgressView(value:)` 或 `Gauge`,顏色依語意色 |
@@ -102,7 +125,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 機器人記帳可能寫入不在清單中的分類(例如舊版寫入的「副業」),所以需要 fallback 圖示。
 
-系統專用的分類「信用卡還款」(信用卡扣款還款產生的交易記錄)用 `creditcard.and.123`。這類交易記錄不能編輯或刪除，列表上的鎖定標記用 `lock.fill`,加上文字說明。家庭共同基金的標記用 `house.fill` 加上文字「家庭共同基金」。
+系統專用的分類「信用卡還款」(信用卡扣款還款產生的交易記錄)用 `creditcard.and.123`。這類交易記錄不能編輯或刪除，列表上只在列尾放鎖定標記 `lock.fill`,不放說明文字;VoiceOver 接在交易記錄後面念「系統紀錄，不能編輯或刪除」。家庭共同基金的標記用 `house.fill` 加上文字「家庭共同基金」。
 
 ## 無障礙
 
