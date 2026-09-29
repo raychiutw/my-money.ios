@@ -23,6 +23,7 @@ final class AccountColorUITests: XCTestCase {
         XCTAssertEqual(initiallySelected.count, 1, "新增銀行存款帳戶時，代表色不是剛好選了一個")
         let selected = initiallySelected.firstMatch
         XCTAssertTrue(isFullyVisible(selected, in: row, app: app), "打開時已選的「\(selected.label)」沒有完整看得到：\(selected.frame)")
+        XCTAssertTrue(showsPartialSwatch(in: row, app: app), "打開時(已選「\(selected.label)」)邊緣沒有露出部分色塊，看不出還能滑")
 
         for name in colorNames {
             let swatch = app.buttons[name]
@@ -42,7 +43,8 @@ final class AccountColorUITests: XCTestCase {
         }
     }
 
-    /// 編輯既有的資產帳戶：代表色在最右邊時，打開就捲到它，打勾完整看得到，不用自己滑。
+    /// 編輯既有的資產帳戶：打開就捲到已選的顏色，打勾完整看得到，不用自己滑;邊緣照樣露出部分色塊。
+    /// 「薰衣草」在最右邊，沒有自動捲動就在畫面外;「玫瑰紅」在中間，捲到它時兩端都還有色塊沒露出來。
     @MainActor
     func testEditingAccountScrollsToSelectedColor() throws {
         let app = XCUIApplication()
@@ -54,27 +56,29 @@ final class AccountColorUITests: XCTestCase {
 
         // 銀行存款帳戶區塊在現金錢包區塊下面，捲下去才在 UI 階層裡。
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
-        XCTAssertTrue(swipeUntilHittable(bank, in: app), "帳戶頁沒有範例的銀行存款帳戶")
-        bank.tap()
+        for name in ["薰衣草", "玫瑰紅"] {
+            // 把代表色改成這個顏色後儲存。
+            XCTAssertTrue(swipeUntilHittable(bank, in: app), "帳戶頁沒有範例的銀行存款帳戶")
+            bank.tap()
+            let swatch = app.buttons[name]
+            XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有打開編輯資產帳戶")
+            scrollIntoView(swatch, row: colorRow(in: app), app: app)
+            swatch.tap()
+            XCTAssertTrue(swatch.isSelected, "點了「\(name)」之後沒有標記為已選取")
+            app.buttons["accountEditor.save"].tap()
+            XCTAssertTrue(swatch.waitForNonExistence(timeout: 5), "儲存後編輯資產帳戶沒有關閉")
 
-        // 把代表色改成最右邊的「薰衣草」後儲存。
-        let lavender = app.buttons["薰衣草"]
-        XCTAssertTrue(lavender.waitForExistence(timeout: 3), "沒有打開編輯資產帳戶")
-        scrollIntoView(lavender, row: colorRow(in: app), app: app)
-        lavender.tap()
-        XCTAssertTrue(lavender.isSelected, "點了「薰衣草」之後沒有標記為已選取")
-        app.buttons["accountEditor.save"].tap()
-        XCTAssertTrue(lavender.waitForNonExistence(timeout: 5), "儲存後編輯資產帳戶沒有關閉")
-
-        // 再打開同一個帳戶：不滑動，「薰衣草」就完整看得到，而且是已選取。
-        XCTAssertTrue(swipeUntilHittable(bank, in: app), "儲存後帳戶頁沒有範例的銀行存款帳戶")
-        bank.tap()
-        XCTAssertTrue(lavender.waitForExistence(timeout: 3), "沒有再打開編輯資產帳戶")
-        XCTAssertTrue(lavender.isSelected, "再打開時代表色不是剛存的「薰衣草」")
-        XCTAssertTrue(
-            isFullyVisible(lavender, in: colorRow(in: app), app: app),
-            "打開時沒有捲到已選的「薰衣草」:色塊 \(lavender.frame),代表色列 \(colorRow(in: app).frame)"
-        )
+            // 再打開同一個帳戶：不滑動，剛存的顏色就完整看得到，而且是已選取。
+            XCTAssertTrue(swipeUntilHittable(bank, in: app), "儲存後帳戶頁沒有範例的銀行存款帳戶")
+            bank.tap()
+            XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有再打開編輯資產帳戶")
+            let row = colorRow(in: app)
+            XCTAssertTrue(swatch.isSelected, "再打開時代表色不是剛存的「\(name)」")
+            XCTAssertTrue(isFullyVisible(swatch, in: row, app: app), "打開時沒有捲到已選的「\(name)」:色塊 \(swatch.frame),代表色列 \(row.frame)")
+            XCTAssertTrue(showsPartialSwatch(in: row, app: app), "打開時(已選「\(name)」)邊緣沒有露出部分色塊，看不出還能滑")
+            app.buttons["取消"].tap()
+            XCTAssertTrue(swatch.waitForNonExistence(timeout: 5), "按取消後編輯資產帳戶沒有關閉")
+        }
     }
 
     /// 橫向放得下一行：8 顆排成一行，不用滑就全部完整看得到。
@@ -136,6 +140,18 @@ final class AccountColorUITests: XCTestCase {
         let frame = swatch.frame
         let visible = row.frame.intersection(app.windows.firstMatch.frame).insetBy(dx: -0.5, dy: -0.5)
         return visible.contains(frame)
+    }
+
+    /// 有一顆色塊的圓形(直徑 32 pt,在按鈕範圍的正中間)只露出一部分：被代表色列的邊緣切到。
+    @MainActor
+    private func showsPartialSwatch(in row: XCUIElement, app: XCUIApplication) -> Bool {
+        let visible = row.frame.intersection(app.windows.firstMatch.frame)
+        return colorNames.contains { name in
+            let frame = app.buttons[name].frame
+            let circle = CGRect(x: frame.midX - 16, y: frame.midY - 16, width: 32, height: 32)
+            let shown = circle.intersection(visible)
+            return !shown.isNull && shown.width >= 1 && shown.width <= circle.width - 1
+        }
     }
 
     /// 在代表色列上左右滑，直到色塊完整看得到(最多滑 4 次;滑不動就維持原樣，交給呼叫端判斷)。

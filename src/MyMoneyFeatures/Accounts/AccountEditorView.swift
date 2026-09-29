@@ -163,7 +163,10 @@ private struct ColorChoices: View {
             }
             .contentMargins(.horizontal, Self.scrollMargin, for: .scrollContent)
             .scrollIndicators(.hidden)
-            .scrollPosition(id: $scrolledHex, anchor: .center)
+            // 停下來時對齊色塊的邊界，右緣(捲到底時是左緣)一定露出半顆。
+            // 捲到已選的顏色也用前緣對齊;置中的話，中間的顏色兩端剛好都是完整的圓，看不出還能滑。
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $scrolledHex, anchor: .leading)
             // 一開始就給值不會捲動，要在出現後才設。
             .onAppear { scrolledHex = selection }
         }
