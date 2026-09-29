@@ -6,7 +6,12 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 - **系統外觀優先**:背景、surface、文字、分隔線全部用系統語意色(`systemGroupedBackground`、`secondarySystemGroupedBackground`、`label`、`secondaryLabel`……),字型只用系統 text style。
 - **Liquid Glass 只出現在導覽層和控制層**,也就是 tab bar、toolbar、sheet 這些標準元件自帶的玻璃效果。內容層(帳戶卡、交易列、預算、圖表)不使用玻璃，也不自己刻玻璃效果。
-- **不提供 app 內的外觀設定**,一律跟隨系統的淺色／深色(HIG Dark Mode:「Avoid offering an app-specific appearance setting」)。增強對比、減少透明度、減少動態效果都要能正常呈現。
+- **外觀三選一，預設跟隨系統**:帳號 sheet 的「外觀」選擇列可選跟隨系統、淺色、深色。沒動過設定時跟隨系統的淺色／深色，包括系統依時間自動切換。
+  - 選擇只記在這台裝置(composition root 注入的 UserDefaults),不送後端。
+  - 由 composition root 設在 window 的 `overrideUserInterfaceStyle`,登入頁、所有 sheet 和 alert 立即一起變。不用 `preferredColorScheme`:帳號 sheet 開著時切到深色，之後再切成淺色或跟隨系統，sheet 都停在深色(#62 的截圖驗證)。
+  - 啟動畫面由系統顯示，照系統外觀，不受這個設定影響。
+  - **跟 HIG 的出入**:HIG Dark Mode 建議「Avoid offering an app-specific appearance setting」。理由：家人明確要求在 app 裡固定淺色或深色，web 也有主題切換鈕(parity 刻意偏離第 16 項)。預設維持跟隨系統，沒動過設定的人不受影響。
+- 增強對比、減少透明度、減少動態效果都要能正常呈現。強制淺色或深色時，增強對比照樣生效，`AccentColor` 的四個變體照常套用。
 - **不用 emoji 當介面圖示**,改用 SF Symbols。儲蓄目標的 emoji 是使用者資料，照原樣顯示。
 - 所有 UI 文字使用 `CONTEXT.md` 的詞彙。
 
@@ -50,7 +55,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   統計   chart.bar            ← 含預算
   規劃   calendar             → 週期收支 / 儲蓄目標 / 現金流預測(列表 push)
 總覽 toolbar 右上  person.crop.circle → 帳號 sheet(自帶 NavigationStack)
-                   名稱與 email、家庭、機器人記帳、登出
+                   名稱與 email、家庭、機器人記帳、外觀、登出
 總覽、交易 toolbar  plus → 「記一筆」sheet
 ```
 
@@ -68,7 +73,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo |
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
-| 主題切換鈕 | 移除，跟隨系統 |
+| 主題切換鈕(淺色／深色兩段式) | 帳號 sheet 的「外觀」選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
 | `<select>` | `Picker` |

@@ -246,7 +246,7 @@
 | 13 | web 在 `da82a11` 把全站用字改成上游 `CONTEXT.md` 的正名，但全域取代留下疊字，例如「個人個人私帳」(W:Accounts.tsx@f32ff6c:397、Transactions.tsx@f32ff6c:254)、「結帳日出帳出帳作業」(W:Accounts.tsx@f32ff6c:698)、「信用信用卡待繳款」(:1097)、「家庭群組群組帳本」(W:Family.tsx@f32ff6c:312);少數畫面還是舊詞，例如「固定收入」(W:Recurring.tsx@f32ff6c:208、297-306、385)、「新增固定項目」「建立固定項目」(:192、:478)、「未出帳金額」(W:Accounts.tsx@f32ff6c:180、688、861);同一個概念也還有好幾種叫法，例如「活存」(W:Accounts.tsx@f32ff6c:809)、「卡債」(W:Dashboard.tsx@f32ff6c:243)。已回報 onion523/my-money#27 第 3 項 | 一律用 `CONTEXT.md` 的正名(用字規則見 `CONTEXT.md` 開頭),不照抄疊字和舊詞 | 詞彙 |
 | 14 | 頁面寫綁定驗證碼是「6 位數」,實際是英數混合;邀請碼寫「6~8 碼」,實際格式是 `FAM-XXXX` | 照實際格式描述 | bug 修正 |
 | 15 | 交易頁的分類篩選把「其他」列了兩次，選項也不隨類型改變。`79edd20` 已去掉重複，但選項仍然不隨類型改變 | 依選定的類型列出分類 | bug 修正 |
-| 16 | 主題切換鈕 | 移除，跟隨系統外觀 | HIG 轉譯 |
+| 16 | 主題切換鈕是兩段式的淺色／深色切換，在手機版頂端和側欄底部(W:components/Layout.tsx@f32ff6c:85、139)。第一次開啟時依系統決定，按過切換鈕之後存在瀏覽器(`localStorage` 的 `mm_theme`,W:store/useStore.ts@f32ff6c:51-60、90-98) | 帳號 sheet 的「外觀」選擇列，三選一：跟隨系統、淺色、深色，預設跟隨系統(包括系統依時間自動切換)。存在裝置上，不送後端，跟 web 的設定互不影響。HIG Dark Mode 建議不要做 app 內的外觀設定，這是使用者的明確需求，出入和理由見 `DESIGN.md`「原則」(#62) | HIG 轉譯 |
 | 17 | 側欄 9 頁;手機版 4 個 tab 加「更多」抽屜 | 5 個 tab 加帳號 sheet(ADR-0003) | HIG 轉譯 |
 | 18 | CSV 用 `window.open` 下載,JWT 放在 URL query 裡 | 用 `Authorization` header 抓檔，再用 ShareLink 分享 | HIG 轉譯 + 安全 |
 | 19 | 分類和提示用 emoji 當圖示 | 改用 SF Symbols(見 `DESIGN.md`);目標的 emoji 是使用者資料，保留 | HIG 轉譯 |
