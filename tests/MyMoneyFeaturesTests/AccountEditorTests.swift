@@ -201,16 +201,6 @@ struct AccountEditorTests {
         #expect(editor.ownershipChoices.map(\.isJointFund) == [false, true])
     }
 
-    @Test("歸屬的說明隨選項改變：家庭共同基金對家庭群組全體成員公開，個人私帳只有本人看得到")
-    func ownershipNoteFollowsChoice() {
-        let editor = adding(.cash)
-        #expect(editor.ownershipNote == "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。")
-
-        editor.isJointFund = true
-
-        #expect(editor.ownershipNote == "家庭共同基金帳戶將對家庭群組全體成員公開。")
-    }
-
     @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")
     func addingJointFund() async {
         let editor = adding(.bank)

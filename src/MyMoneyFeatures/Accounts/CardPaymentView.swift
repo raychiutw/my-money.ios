@@ -24,8 +24,6 @@ struct CardPaymentView: View {
                     LabeledContent("個人私帳", value: model.card.personalDebt.formatted())
                 } header: {
                     Text(model.card.name)
-                } footer: {
-                    Text("先沖已出帳待繳款，不足的部分再沖未出帳款。會產生兩筆「信用卡還款」交易記錄：銀行存款帳戶一筆支出、信用卡一筆收入。")
                 }
                 .monospacedDigit()
 

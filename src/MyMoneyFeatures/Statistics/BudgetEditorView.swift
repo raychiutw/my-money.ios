@@ -27,7 +27,8 @@ struct BudgetEditorView: View {
                         )
                     }
                 } footer: {
-                    Text("預算額度每個月各自一份，設定後無法刪除。")
+                    // 只留警告(DESIGN.md「說明文字」第 2 類)。
+                    Text("設定後無法刪除。")
                 }
 
                 if let message = model.errorMessage {

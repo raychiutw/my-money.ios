@@ -30,7 +30,10 @@ struct ReimbursementView: View {
                     }
                     .disabled(model.receivingAccounts.isEmpty)
                 } footer: {
-                    Text(model.receivingAccountsNote ?? "從家庭共同基金扣款，撥入個人帳戶，自動結清公帳代墊款，不會被重複計入家庭消費支出。")
+                    // 只留無法撥款的原因(DESIGN.md「說明文字」第 3 類)。
+                    if let note = model.receivingAccountsNote {
+                        Text(note)
+                    }
                 }
 
                 Section {

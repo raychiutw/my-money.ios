@@ -22,8 +22,6 @@ struct SavingsGoalDepositView: View {
                             focus: $focusedField, equals: .amount, identifier: "goalDeposit.amount"
                         )
                     }
-                } footer: {
-                    Text("存入只記在儲蓄目標上，不會動到任何資產帳戶。")
                 }
 
                 if let message = model.errorMessage {

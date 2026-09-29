@@ -52,11 +52,6 @@ public final class AccountEditorModel {
         [(false, "個人私帳"), (true, "家庭共同基金")]
     }
 
-    /// 歸屬選項下面的說明，隨選項改變(web 的原文)。
-    public var ownershipNote: String {
-        isJointFund ? "家庭共同基金帳戶將對家庭群組全體成員公開。" : "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。"
-    }
-
     public var canChangeKind: Bool { editingID == nil }
 
     @ObservationIgnored private let editingID: AccountID?

@@ -36,8 +36,6 @@ struct TransferView: View {
                             Text(account.menuTitleWithBalance).tag(Optional(account.id))
                         }
                     }
-                } footer: {
-                    Text("帳戶間互轉或 ATM 提領現鈔只是資金調度，不會被列為生活消費支出。")
                 }
 
                 Section {

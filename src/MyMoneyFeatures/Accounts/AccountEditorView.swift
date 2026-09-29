@@ -43,8 +43,6 @@ struct AccountEditorView: View {
                         }
                     }
                     .accessibilityIdentifier("accountEditor.jointFund")
-                } footer: {
-                    Text(model.ownershipNote)
                 }
 
                 if model.kind == .creditCard {
