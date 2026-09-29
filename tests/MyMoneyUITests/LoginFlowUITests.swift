@@ -32,7 +32,9 @@ final class LoginFlowUITests: XCTestCase {
         app.buttons["overview.account"].tap()
         XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["family@example.com"].exists)
-        XCTAssertTrue(app.buttons["家庭"].exists)
+        // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被帳號 sheet 蓋住的總覽視角分段控制，
+        // 視角改進 toolbar 選單(#63)之後就找不到了。
+        XCTAssertTrue(app.buttons["account.household"].exists, "帳號 sheet 沒有「家庭群組」")
         XCTAssertTrue(app.buttons["機器人記帳"].exists)
 
         app.buttons["account.signOut"].tap()
