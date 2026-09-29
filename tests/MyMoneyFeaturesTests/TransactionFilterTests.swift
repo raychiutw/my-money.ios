@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
@@ -18,11 +19,131 @@ struct TransactionFilterTests {
         return (list, repository)
     }
 
+    /// 篩選 sheet 改的是一份草稿(#74):一項一項改的時候不查詢，按「完成」才一次套用，只發一次查詢。
+    @Test("篩選草稿按「完成」才套用，而且只查詢一次")
+    func draftAppliesOnDoneWithOneQuery() async {
+        let (list, repository) = await loadedList()
+        let queriesBeforeEditing = await repository.queries.count
+
+        list.editFilter()
+        list.filterDraft.scope = .household
+        list.filterDraft.to = CalendarDay(year: 2026, month: 9, day: 30)
+        list.filterDraft.type = .expense
+        list.filterDraft.category = .dining
+
+        #expect(list.isEditingFilter)
+        #expect(list.filter.scope == .all, "還沒按完成，視角就變了")
+        #expect(list.filter.to == today, "還沒按完成，迄日就變了")
+        #expect(list.count == 4, "還沒按完成，清單就被篩選了")
+        #expect(await repository.queries.count == queriesBeforeEditing, "還沒按完成就查詢了")
+
+        await list.applyFilter()
+
+        #expect(!list.isEditingFilter)
+        let queries = await repository.queries.dropFirst(queriesBeforeEditing)
+        #expect(queries.count == 1, "按完成後查詢了 \(queries.count) 次")
+        #expect(queries.first?.scope == .household)
+        #expect(queries.first?.from == CalendarDay(year: 2026, month: 9, day: 1))
+        #expect(queries.first?.to == CalendarDay(year: 2026, month: 9, day: 30))
+        #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
+    }
+
+    @Test("只改類型或分類時，按「完成」不重新查詢(只在本機過濾)")
+    func applyingLocalFilterDoesNotQuery() async {
+        let (list, repository) = await loadedList()
+        let queriesBeforeEditing = await repository.queries.count
+
+        list.editFilter()
+        list.filterDraft.type = .expense
+        list.filterDraft.category = .dining
+        await list.applyFilter()
+
+        #expect(await repository.queries.count == queriesBeforeEditing, "只改類型和分類也重新查詢了")
+        #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
+    }
+
+    @Test("「重設為本月」把草稿的起迄日改回本月 1 號到今天，其他篩選不變")
+    func resetDraftToThisMonth() async {
+        let (list, _) = await loadedList()
+        list.editFilter()
+        list.filterDraft.from = CalendarDay(year: 2026, month: 7, day: 1)
+        list.filterDraft.to = CalendarDay(year: 2026, month: 8, day: 31)
+        list.filterDraft.scope = .household
+        list.filterDraft.type = .expense
+
+        list.resetFilterDraftToThisMonth()
+
+        #expect(list.filterDraft.from == CalendarDay(year: 2026, month: 9, day: 1))
+        #expect(list.filterDraft.to == today)
+        #expect(list.filterDraft.scope == .household)
+        #expect(list.filterDraft.type == .expense)
+        #expect(list.filter.from == CalendarDay(year: 2026, month: 9, day: 1), "重設改的是草稿，不是套用中的篩選")
+    }
+
+    /// 迄日的 DatePicker 選不到起日之前;起日改到迄日之後時，迄日跟著改。
+    @Test("迄日不早於起日：起日改到迄日之後時，迄日跟著改成起日")
+    func toFollowsFrom() async {
+        let (list, _) = await loadedList()
+        list.editFilter()
+
+        list.filterDraft.from = CalendarDay(year: 2026, month: 10, day: 5)
+
+        #expect(list.filterDraft.to == CalendarDay(year: 2026, month: 10, day: 5))
+
+        list.filterDraft.from = CalendarDay(year: 2026, month: 9, day: 3)
+
+        #expect(list.filterDraft.to == CalendarDay(year: 2026, month: 10, day: 5), "起日往前改時，迄日不用動")
+    }
+
+    @Test("按「取消」時篩選不變，也不查詢;再打開時草稿是目前套用的篩選")
+    func cancellingKeepsFilter() async {
+        let (list, repository) = await loadedList()
+        let applied = list.filter
+        let queriesBeforeEditing = await repository.queries.count
+
+        list.editFilter()
+        list.filterDraft.scope = .personal
+        list.filterDraft.type = .income
+        list.cancelFilter()
+
+        #expect(!list.isEditingFilter, "按取消後篩選 sheet 沒有關閉")
+        #expect(list.filter == applied)
+        #expect(list.count == 4)
+        #expect(await repository.queries.count == queriesBeforeEditing, "按取消後查詢了")
+
+        list.editFilter()
+        #expect(list.filterDraft == applied, "再打開時還留著取消掉的草稿")
+    }
+
+    /// 不打開 sheet 也知道在看什麼(HIG Searching 的「Clearly display the current scope」)。日期用系統格式(DESIGN.md「日期」)。
+    @Test("導覽列副標題一律顯示目前的範圍：視角、起迄日，有篩選時加上類型與分類")
+    func subtitleShowsCurrentScope() async {
+        let list = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)),
+            dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"), today: { today }
+        )
+        await list.load()
+
+        #expect(list.subtitle == "全部・9月1日–9月28日")
+
+        list.editFilter()
+        list.filterDraft.scope = .household
+        list.filterDraft.to = CalendarDay(year: 2026, month: 9, day: 30)
+        list.filterDraft.type = .expense
+        list.filterDraft.category = .dining
+        #expect(list.subtitle == "全部・9月1日–9月28日", "還沒按完成，副標題就變了")
+        await list.applyFilter()
+
+        #expect(list.subtitle == "家庭・9月1日–9月30日・支出・餐飲")
+    }
+
     @Test("只看收入時，列表與加總都只算收入")
     func filtersByType() async {
         let (list, _) = await loadedList()
 
-        list.typeFilter = .income
+        list.editFilter()
+        list.filterDraft.type = .income
+        await list.applyFilter()
 
         #expect(list.count == 1)
         #expect(list.totalIncome == Money(45000))
@@ -33,32 +154,36 @@ struct TransactionFilterTests {
     @Test("分類選項隨類型改變，「其他」不會重複")
     func categoryOptionsFollowType() async {
         let (list, _) = await loadedList()
+        list.editFilter()
 
-        #expect(list.categoryOptions.filter { $0.name == "其他" }.count == 1)
+        #expect(list.filterDraft.categoryOptions.filter { $0.name == "其他" }.count == 1)
 
-        list.typeFilter = .expense
-        #expect(list.categoryOptions == TransactionCategory.expenseCategories)
+        list.filterDraft.type = .expense
+        #expect(list.filterDraft.categoryOptions == TransactionCategory.expenseCategories)
 
-        list.typeFilter = .income
-        #expect(list.categoryOptions == TransactionCategory.incomeCategories)
+        list.filterDraft.type = .income
+        #expect(list.filterDraft.categoryOptions == TransactionCategory.incomeCategories)
     }
 
     @Test("切換類型後，不屬於新類型的分類篩選會清掉")
     func switchingTypeClearsIncompatibleCategory() async {
         let (list, _) = await loadedList()
-        list.typeFilter = .expense
-        list.categoryFilter = .dining
+        list.editFilter()
+        list.filterDraft.type = .expense
+        list.filterDraft.category = .dining
 
-        list.typeFilter = .income
+        list.filterDraft.type = .income
 
-        #expect(list.categoryFilter == nil)
+        #expect(list.filterDraft.category == nil)
     }
 
     @Test("依分類篩選")
     func filtersByCategory() async {
         let (list, _) = await loadedList()
 
-        list.categoryFilter = .dining
+        list.editFilter()
+        list.filterDraft.category = .dining
+        await list.applyFilter()
 
         #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
     }

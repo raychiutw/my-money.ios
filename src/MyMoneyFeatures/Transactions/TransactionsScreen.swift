@@ -2,7 +2,10 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「交易」tab:起迄日、視角、篩選、加總列、依日期分組的交易記錄(parity.md「交易」)。
+/// 「交易」tab:搜尋、摘要、依日期分組的交易記錄(parity.md「交易」)。
+///
+/// 視角、起迄日、類型、分類收在 toolbar 篩選按鈕打開的「篩選」sheet(#74),目前的範圍一律顯示在導覽列副標題;
+/// 打開畫面最上面就是摘要和交易記錄。
 struct TransactionsScreen: View {
     @Bindable var model: TransactionsModel
     let quickEntry: QuickEntryModel
@@ -15,6 +18,7 @@ struct TransactionsScreen: View {
             content
                 .skeletonTransition(value: model.phase)
                 .navigationTitle("交易")
+                .navigationSubtitle(model.subtitle)
                 // 搜尋欄一直顯示在標題下方。iOS 26 起在 TabView 裡用預設位置時，CI 的 UI 階層裡找不到搜尋欄。
                 #if os(iOS)
                 .searchable(text: $model.keyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋備註、分類、帳戶或記帳人")
@@ -22,6 +26,18 @@ struct TransactionsScreen: View {
                 .searchable(text: $model.keyword, prompt: "搜尋備註、分類、帳戶或記帳人")
                 #endif
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        // 跟其他頁的篩選按鈕(`ScopeFilter`)同一個 symbol。label 用 `Label` 時,toolbar 上的
+                        // `accessibilityValue` 會被丟掉，所以只放 symbol,標籤另外用 `accessibilityLabel` 補上。
+                        Button {
+                            model.editFilter()
+                        } label: {
+                            Image(systemName: "line.3.horizontal.decrease")
+                        }
+                        .accessibilityLabel("篩選")
+                        .accessibilityValue(model.subtitle)
+                        .accessibilityIdentifier("transactions.filter")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             isEntryPresented = true
@@ -39,9 +55,12 @@ struct TransactionsScreen: View {
                         }
                     }
                 }
-                // 起迄日、視角或資料版本任一改變就重抓;類型、分類、關鍵字只在本機過濾。
-                .task(id: QueryKey(from: model.from, to: model.to, scope: model.scope, version: model.dataVersion.value)) {
+                // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
+                .task(id: model.dataVersion.value) {
                     await model.load()
+                }
+                .sheet(isPresented: $model.isEditingFilter) {
+                    TransactionFilterView(model: model)
                 }
                 .sheet(isPresented: $isEntryPresented) {
                     TransactionFormView(model: quickEntry)
@@ -73,13 +92,6 @@ struct TransactionsScreen: View {
         }
     }
 
-    private struct QueryKey: Equatable {
-        let from: CalendarDay
-        let to: CalendarDay
-        let scope: ViewScope
-        let version: Int
-    }
-
     /// 編輯 sheet 需要 `Identifiable`。
     private struct EditorSheet: Identifiable {
         let id = UUID()
@@ -89,33 +101,11 @@ struct TransactionsScreen: View {
     @ViewBuilder
     private var content: some View {
         List {
-            Section {
-                Picker("視角", selection: $model.scope) {
-                    Text("全部").tag(ViewScope.all)
-                    Text("家庭").tag(ViewScope.household)
-                    Text("個人").tag(ViewScope.personal)
-                }
-                .pickerStyle(.segmented)
-                DatePicker("起日", selection: dayBinding(\.from), displayedComponents: .date)
-                    .calendarDayTimeZone()
-                DatePicker("迄日", selection: dayBinding(\.to), displayedComponents: .date)
-                    .calendarDayTimeZone()
-                Picker("類型", selection: $model.typeFilter) {
-                    Text("全部類型").tag(TransactionsModel.TypeFilter.all)
-                    Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
-                    Text("僅收入").tag(TransactionsModel.TypeFilter.income)
-                }
-                Picker("分類", selection: $model.categoryFilter) {
-                    Text("全部分類").tag(TransactionCategory?.none)
-                    ForEach(model.categoryOptions, id: \.self) { category in
-                        Label(category.name, systemImage: category.symbolName).tag(Optional(category))
-                    }
-                }
-            }
-
             switch model.phase {
             case .loading:
-                SkeletonSection(count: 1, announces: true) { SkeletonItemRow() }
+                SkeletonSection(count: 3, announces: true) {
+                    LabeledContent("總收入", value: Skeleton.amount.formatted())
+                }
                 SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
                 SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
             case .failed(let message):
@@ -125,20 +115,30 @@ struct TransactionsScreen: View {
                 }
             case .loaded:
                 totalsSection
-                if model.days.isEmpty {
+                let days = model.days
+                if days.isEmpty {
                     ContentUnavailableView {
                         Label("沒有符合條件的交易記錄", systemImage: "magnifyingglass")
                     } actions: {
                         Button("記一筆") { isEntryPresented = true }
                     }
                 }
-                ForEach(model.days) { day in
+                ForEach(days) { day in
                     Section {
                         ForEach(day.transactions) { transaction in
                             row(transaction)
                         }
                     } header: {
-                        DayHeader(day: day)
+                        // 筆數寫在交易記錄的標題，放在第一天的標頭上面(#74);用粗一級的字，跟日期分得開。
+                        if day.id == days.first?.id {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("交易記錄(\(model.count))")
+                                    .font(.headline)
+                                DayHeader(day: day)
+                            }
+                        } else {
+                            DayHeader(day: day)
+                        }
                     }
                 }
             }
@@ -179,36 +179,36 @@ struct TransactionsScreen: View {
         }
     }
 
+    /// 摘要：總收入、總支出、淨收支各一列(DESIGN.md「列與欄位」);筆數在交易記錄的標題。
     private var totalsSection: some View {
         Section {
-            HStack {
-                Text("\(model.count) 筆")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("總收入 +\(model.totalIncome.formatted())")
-                        .foregroundStyle(.green)
-                    Text("總支出 -\(model.totalExpense.formatted())")
-                        .foregroundStyle(.red)
-                    Text("淨收支 \(model.net.formatted())")
-                        .bold()
-                }
-                .font(.subheadline)
-                .monospacedDigit()
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                "\(model.count) 筆，總收入 \(model.totalIncome.spokenText),總支出 \(model.totalExpense.spokenText),淨收支 \(model.net.spokenText)"
-            )
+            TotalRow(title: "總收入", amount: model.totalIncome, text: "+\(model.totalIncome.formatted())", style: .green)
+            TotalRow(title: "總支出", amount: model.totalExpense, text: "-\(model.totalExpense.formatted())", style: .red)
+            TotalRow(title: "淨收支", amount: model.net, text: model.net.formatted(), style: .primary)
+                .bold()
         }
     }
+}
 
-    /// DatePicker 用 `Date`;轉換一律以台灣時間計算。
-    private func dayBinding(_ keyPath: ReferenceWritableKeyPath<TransactionsModel, CalendarDay>) -> Binding<Date> {
-        Binding(
-            get: { model[keyPath: keyPath].startOfDay },
-            set: { model[keyPath: keyPath] = CalendarDay(date: $0) }
-        )
+/// 摘要的一列：標籤在左、金額在右，大字級放不下時 `LabeledContent` 自動改成上下堆疊;金額一律單行。
+/// VoiceOver 念「總收入 45,000 元」。
+private struct TotalRow: View {
+    let title: String
+    let amount: Money
+    let text: String
+    let style: Color
+
+    var body: some View {
+        LabeledContent(title) {
+            Text(text)
+                .foregroundStyle(style)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(amount.spokenText)
     }
 }
 

@@ -20,18 +20,21 @@ struct TransactionsListTests {
     func defaultPeriodAndScope() {
         let list = model(InMemoryTransactionRepository(transactions: []))
 
-        #expect(list.from == CalendarDay(year: 2026, month: 9, day: 1))
-        #expect(list.to == today)
-        #expect(list.scope == .all)
+        #expect(list.filter.from == CalendarDay(year: 2026, month: 9, day: 1))
+        #expect(list.filter.to == today)
+        #expect(list.filter.scope == .all)
+        #expect(list.filter.type == .all)
+        #expect(list.filter.category == nil)
     }
 
     @Test("用起迄日與視角查詢")
     func queriesWithPeriodAndScope() async {
         let repository = InMemoryTransactionRepository(transactions: [])
         let list = model(repository)
-        list.scope = .personal
+        list.editFilter()
+        list.filterDraft.scope = .personal
 
-        await list.load()
+        await list.applyFilter()
 
         let query = await repository.queries.last
         #expect(query?.from == CalendarDay(year: 2026, month: 9, day: 1))
@@ -68,15 +71,16 @@ struct TransactionsListTests {
             repository: InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today) + [newYearsEve]),
             dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"), today: { today }
         )
-        list.from = CalendarDay(year: 2025, month: 12, day: 1)
+        list.editFilter()
+        list.filterDraft.from = CalendarDay(year: 2025, month: 12, day: 1)
 
-        await list.load()
+        await list.applyFilter()
 
         #expect(list.days.map(\.title) == ["9月28日週一", "9月10日週四", "9月1日週二", "2025年12月31日週三"])
     }
 
     /// 信用卡扣款還款時錢只是從銀行存款帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
-    @Test("加總列：筆數、總收入、總支出(不含信用卡還款)、淨收支")
+    @Test("摘要：筆數、總收入、總支出(不含信用卡還款)、淨收支")
     func totalsExcludeCreditCardRepayment() async {
         let list = model(InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)))
 
@@ -89,7 +93,7 @@ struct TransactionsListTests {
     }
 
     /// 轉帳、ATM 提款和報銷都各產生一筆支出和一筆收入(或其中一邊),只是資金調度;算進合計會重複(web 仍然算進去，#43)。
-    @Test("加總列不含 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷),收入和支出都不算")
+    @Test("摘要不含 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷),收入和支出都不算")
     func totalsExcludeAllSystemCategories() async {
         let systemRecords = [
             systemRecord("atm-out", .expense, .atmWithdrawal, Money(500)),

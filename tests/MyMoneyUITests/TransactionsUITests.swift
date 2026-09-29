@@ -18,10 +18,10 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
-        // 迄日是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
+        // 預設的範圍是本月 1 號到台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertTrue(
-            app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
-            "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
+            subtitle("全部・\(Self.taipeiThisMonthPeriod())", in: app).exists,
+            "導覽列副標題不是本月 1 號到台灣時間的今天(\(Self.taipeiThisMonthPeriod()))"
         )
 
         app.buttons["transactions.add"].tap()
@@ -32,6 +32,55 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
+    }
+
+    /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，導覽列副標題一律顯示目前的範圍。
+    /// 在 sheet 裡改類型後按「完成」,清單、副標題和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
+    @MainActor
+    func testFilterSheetAppliesOnDoneAndCancelKeepsFilter() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let period = Self.taipeiThisMonthPeriod()
+        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
+        XCTAssertTrue(subtitle("全部・\(period)", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的範圍(全部・\(period))")
+        XCTAssertEqual(app.collectionViews.firstMatch.segmentedControls.count, 0, "交易頁的清單上方還有分段控制")
+        XCTAssertTrue(app.staticTexts["交易記錄(4)"].exists, "交易記錄的筆數不在 section 的標題")
+
+        let filter = app.buttons["transactions.filter"]
+        XCTAssertTrue(filter.exists, "toolbar 沒有篩選按鈕")
+        XCTAssertEqual(filter.label, "篩選", "篩選按鈕的 VoiceOver 標籤不是「篩選」")
+        filter.tap()
+        let sheet = app.navigationBars["篩選"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 3), "點篩選按鈕沒有打開「篩選」sheet")
+        XCTAssertTrue(app.segmentedControls.buttons["家庭"].exists, "篩選 sheet 裡沒有視角的分段控制")
+        // 迄日的 DatePicker 是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
+        XCTAssertTrue(
+            app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
+            "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
+        )
+        choose("僅收入", from: app.buttons["transactionFilter.type"], in: app)
+        sheet.buttons["完成"].tap()
+
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
+        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).waitForExistence(timeout: 3), "按完成後副標題沒有加上類型")
+        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按完成後清單沒有收入")
+        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按完成後清單還有支出")
+        XCTAssertTrue(app.staticTexts["交易記錄(1)"].exists, "按完成後交易記錄的筆數沒有更新")
+
+        // 改成僅支出再按取消：清單和副標題都不變。
+        filter.tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
+        choose("僅支出", from: app.buttons["transactionFilter.type"], in: app)
+        sheet.buttons["取消"].tap()
+
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
+        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).exists, "按取消後副標題變了")
+        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按取消後清單變了")
+        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
     }
 
     /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
@@ -115,7 +164,7 @@ final class TransactionsUITests: XCTestCase {
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
-        // 上面有篩選和加總列，列表在畫面下方。iOS 26 的 tab bar 浮在內容上，被它蓋住的列 isHittable 仍然是 true,
+        // 上面有摘要，列表可能在畫面下方。iOS 26 的 tab bar 浮在內容上，被它蓋住的列 isHittable 仍然是 true,
         // 左滑卻會滑在 tab bar 上:先捲到畫面上方 3/4 以內，左滑才滑得出「刪除」。
         let lunch = element(in: app, labelContaining: "支出 120 元")
         let screenBottom = app.windows.firstMatch.frame.maxY
@@ -222,6 +271,14 @@ final class TransactionsUITests: XCTestCase {
         return "\(day.year!)年\(day.month!)月\(day.day!)日"
     }
 
+    /// 台灣時間的本月 1 號到今天，格式跟導覽列副標題一樣，例如「9月1日–9月28日」。
+    private static func taipeiThisMonthPeriod() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let day = calendar.dateComponents([.month, .day], from: .now)
+        return "\(day.month!)月1日–\(day.month!)月\(day.day!)日"
+    }
+
     /// 台灣時間的今天，格式跟交易頁的分組標頭一樣，例如「9月28日週一」。
     private static func taipeiTodayHeader() -> String {
         var calendar = Calendar(identifier: .gregorian)
@@ -240,6 +297,12 @@ final class TransactionsUITests: XCTestCase {
         let item = app.cells.children(matching: .button)[option]
         XCTAssertTrue(item.waitForExistence(timeout: 3), "選單裡沒有「\(option)」")
         item.tap()
+    }
+
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
+    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.navigationBars.staticTexts[text]
     }
 
     @MainActor
