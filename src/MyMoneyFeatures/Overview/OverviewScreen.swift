@@ -100,45 +100,41 @@ struct OverviewScreen: View {
         }
     }
 
+    /// 摘要(#75):淨可用餘額是主數字，真實可支配現金、當月淨收支是一般列。
+    /// 公式明細不寫：淨可用餘額的組成在帳戶頁，分攤平滑與每月預留在週期收支、儲蓄目標頁，當月收入與支出在統計頁。
     @ViewBuilder
     private var summarySection: some View {
         if let summary = model.summary {
             Section {
-                SummaryRow(
-                    title: "淨可用餘額",
-                    amount: summary.availableBalance,
-                    detail: model.availableBreakdown ?? "",
-                    warnsWhenNegative: true
-                )
-                SummaryRow(
-                    title: "真實可支配現金",
-                    amount: summary.disposableCash,
-                    detail: "已扣掉分攤平滑 \(summary.monthlyAmortization.formatted()) 與每月預留 \(summary.monthlySavingsReserve.formatted())",
-                    warnsWhenNegative: true
-                )
-                SummaryRow(
-                    title: model.netTitle,
-                    amount: model.monthNet,
-                    detail: "收入 \(model.monthIncome.formatted()) · 支出 \(model.monthExpense.formatted())",
-                    warnsWhenNegative: true
-                )
+                SummaryRow(title: "淨可用餘額", amount: summary.availableBalance, warnsWhenNegative: true)
+                AmountRow(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
+                AmountRow(title: model.netTitle, amount: model.monthNet, warnsWhenNegative: true)
             }
         }
     }
 
+    /// 超支警告(#75):標題是「有 N 個分類支出已超出預算」,每個超支的分類一列，顯示分類名稱和超支金額。
+    /// 已花和預算額度在統計頁的預算額度。
     private var overBudgetSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(model.overBudgetTitle, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.red)
-                ForEach(model.overBudgets, id: \.category) { budget in
-                    Text("\(budget.category.name):已花 \(budget.spent.formatted()) / 預算 \(budget.amount.formatted())(超支 \((budget.spent - budget.amount).formatted()))")
-                        .font(.subheadline)
+            ForEach(model.overBudgets) { item in
+                LabeledContent {
+                    Text("超支 \(item.overspent.formatted())")
+                        .foregroundStyle(.red)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                } label: {
+                    Label(item.category.name, systemImage: item.category.symbolName)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(item.category.name)
+                .accessibilityValue("超支 \(item.overspent.spokenText)")
             }
-            .accessibilityElement(children: .combine)
+        } header: {
+            Label(model.overBudgetTitle, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .textCase(nil)
         }
     }
 
@@ -255,14 +251,14 @@ struct OverviewScreen: View {
     }
 }
 
-/// 首次載入的骨架屏：跟載入後一樣的三張統計卡、帳戶一覽、最近交易和儲蓄目標。
+/// 首次載入的骨架屏：跟載入後一樣的摘要(主數字加兩列)、帳戶一覽、最近交易和儲蓄目標。
 private struct OverviewSkeleton: View {
     var body: some View {
         Section {
-            SummaryRow(title: "淨可用餘額", amount: Skeleton.amount, detail: Skeleton.text)
+            SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
                 .skeletonAnnouncement()
             ForEach(0..<2, id: \.self) { _ in
-                SummaryRow(title: "統計卡", amount: Skeleton.amount, detail: Skeleton.text)
+                AmountRow(title: "摘要數字", amount: Skeleton.amount)
                     .skeletonRow()
             }
         }

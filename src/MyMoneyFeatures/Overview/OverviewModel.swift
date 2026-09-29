@@ -31,17 +31,11 @@ public final class OverviewModel {
         )
     }
 
-    /// 淨可用餘額的組成(web 的 Dashboard 寫成「現金 + 銀行存款帳戶 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 信用卡待繳總額(已出帳加未出帳)。數字都是後端算好的。
-    public var availableBreakdown: String? {
-        summary.map {
-            "現金 \($0.cashTotal.formatted()) + 銀行存款 \($0.bankBalanceTotal.formatted()) - 信用卡待繳總額 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
-        }
-    }
-
     public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
-    public private(set) var overBudgets: [Budget] = []
+    /// 超支警告：每個超支的分類一列(#75),順序跟後端一樣。
+    public private(set) var overBudgets: [OverBudget] = []
     public private(set) var topGoals: [SavingsGoal] = []
 
     @ObservationIgnored private let accountRepository: any AccountRepository
@@ -130,7 +124,7 @@ public final class OverviewModel {
             let thisMonth = loadedSummaries.first { $0.month == month }
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
-            overBudgets = loadedBudgets.filter(\.isOver)
+            overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             topGoals = Array(loadedGoals.prefix(3))
             loadedVersion = version
             phase = .loaded
@@ -146,6 +140,25 @@ public final class OverviewModel {
         guard loadedVersion != dataVersion.value else { return }
         await load()
     }
+}
+
+/// 超支警告的一列：分類名稱和超支金額(#75)。已花、預算額度在統計頁的預算額度。
+public struct OverBudget: Identifiable, Hashable, Sendable {
+    public let category: TransactionCategory
+    /// 超支金額：已花減預算額度(web 的 Dashboard 也是這樣算)。
+    public let overspent: Money
+
+    public init(category: TransactionCategory, overspent: Money) {
+        self.category = category
+        self.overspent = overspent
+    }
+
+    /// 超支用後端的 `over` 判斷，這裡只算超出多少。
+    init(_ budget: Budget) {
+        self.init(category: budget.category, overspent: budget.spent - budget.amount)
+    }
+
+    public var id: String { category.name }
 }
 
 extension ViewScope {

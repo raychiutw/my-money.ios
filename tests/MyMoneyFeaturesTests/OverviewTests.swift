@@ -56,8 +56,8 @@ struct OverviewTests {
         #expect(model.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
     }
 
-    @Test("帳戶一覽列出現金錢包;淨可用餘額的組成是現金加銀行存款減信用卡待繳總額(web 的 Dashboard 寫成「現金 + 銀行存款帳戶 - 卡債」)")
-    func availableBreakdownIncludesCash() async {
+    @Test("帳戶一覽列出現金錢包")
+    func accountsListIncludesCash() async {
         let model = OverviewModel(
             accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
             goals: goals, dataVersion: DataVersion(), defaults: defaults, today: { today }
@@ -66,7 +66,6 @@ struct OverviewTests {
         await model.load()
 
         #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
-        #expect(model.availableBreakdown == "現金 $1,500 + 銀行存款 $50,000 - 信用卡待繳總額 $28,500")
     }
 
     @Test("視角也套用在資金指標和帳戶一覽(web 的 Dashboard 在 82d9124 起帶同一個 scope)", arguments: [
@@ -147,8 +146,8 @@ struct OverviewTests {
         #expect(await statistics.budgetQueries == [CalendarMonth(year: 2026, month: 9)])
     }
 
-    @Test("三張統計卡：淨可用餘額、真實可支配現金、當月淨收支")
-    func summaryCards() async throws {
+    @Test("摘要：淨可用餘額(主數字)、真實可支配現金、當月淨收支")
+    func summaryNumbers() async throws {
         let model = await loaded()
         let summary = try #require(model.summary)
 
@@ -190,6 +189,33 @@ struct OverviewTests {
 
         #expect(model.overBudgets.map(\.category) == [.dining])
         #expect(model.overBudgetTitle == "有 1 個分類支出已超出預算")
+    }
+
+    /// 超支警告每個超支的分類一列(#75):分類名稱和超支金額(已花減預算額度),順序跟後端一樣;沒超支的分類不列。
+    @Test("超支警告每個超支的分類一列，顯示分類名稱和超支金額")
+    func overBudgetRows() async {
+        let transport = TransactionCategory("交通")
+        let statistics = InMemoryStatisticsRepository(
+            expensesByScope: [:], summaries: [], shares: [],
+            budgets: [
+                Budget(category: .dining, amount: Money(100), spent: Money(120), isOver: true),
+                Budget(category: TransactionCategory("購物"), amount: Money(1000), spent: Money(880), isOver: false),
+                Budget(category: transport, amount: Money(500), spent: Money(1250), isOver: true),
+            ]
+        )
+        let model = OverviewModel(
+            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
+            dataVersion: DataVersion(), defaults: defaults, today: { today }
+        )
+
+        await model.load()
+
+        #expect(model.overBudgets == [
+            OverBudget(category: .dining, overspent: Money(20)),
+            OverBudget(category: transport, overspent: Money(750)),
+        ])
+        #expect(model.overBudgets.map(\.category.name) == ["餐飲", "交通"])
+        #expect(model.overBudgetTitle == "有 2 個分類支出已超出預算")
     }
 
     @Test("儲蓄目標只顯示前 3 個")

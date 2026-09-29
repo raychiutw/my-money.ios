@@ -15,8 +15,7 @@ final class OverviewUITests: XCTestCase {
         signIn(app)
 
         // 範例：收入 45,000,支出 120 + 880(信用卡還款不算)。
-        XCTAssertTrue(element(in: app, labelContaining: "當月淨收支 44,000 元").waitForExistence(timeout: 5), "沒有看到當月淨收支")
-        XCTAssertTrue(element(in: app, labelContaining: "有 1 個分類支出已超出預算").exists, "沒有超支警示")
+        XCTAssertTrue(row("當月淨收支", value: "44,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
 
         app.buttons["overview.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -25,7 +24,7 @@ final class OverviewUITests: XCTestCase {
         amount.typeText("250")
         app.buttons["quickEntry.save"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "當月淨收支 43,750 元").waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
+        XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
         // 最近交易在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
         let recent = element(in: app, labelContaining: "支出 250 元")
         for _ in 0..<5 where !recent.exists { app.swipeUp() }
@@ -35,6 +34,35 @@ final class OverviewUITests: XCTestCase {
         for _ in 0..<5 where !showAll.isHittable { app.swipeUp() }
         showAll.tap()
         XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部」沒有進入交易 tab")
+    }
+
+    /// 摘要只有一個主數字(#75):淨可用餘額在最上面，真實可支配現金、當月淨收支是一般列;沒有公式明細。
+    /// 超支警告每個超支的分類一列：分類名稱和超支金額。
+    @MainActor
+    func testSummaryHasOneMainNumberAndOverBudgetRows() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        let available = element(in: app, labelContaining: "淨可用餘額 21,500 元")
+        XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
+        for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元")] {
+            let summaryRow = row(label, value: value, in: app)
+            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一列")
+            XCTAssertLessThan(available.frame.minY, summaryRow.frame.minY, "淨可用餘額不在「\(label)」上面")
+        }
+        // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
+        for formula in ["銀行存款 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
+            XCTAssertFalse(element(in: app, labelContaining: formula).exists, "總覽還有公式明細「\(formula)」")
+        }
+
+        // 範例的預算額度：餐飲 100,已花 120。
+        let overBudget = row("餐飲", value: "超支 20 元", in: app)
+        for _ in 0..<5 where !overBudget.exists { app.swipeUp() }
+        XCTAssertTrue(overBudget.exists, "超支警告沒有「餐飲」這一列")
+        XCTAssertTrue(element(in: app, labelContaining: "有 1 個分類支出已超出預算").exists, "超支警告沒有標題")
+        XCTAssertFalse(element(in: app, labelContaining: "已花").exists, "超支警告還有已花和預算額度")
     }
 
     /// 最近交易跟交易頁用同一種交易記錄列(#72):整列念成一句完整的話，自己記的不念記帳人。
@@ -114,6 +142,12 @@ final class OverviewUITests: XCTestCase {
         app.launchArguments = ["-uiTesting"] + (resettingSession ? ["-resetSession"] : [])
         app.launch()
         return app
+    }
+
+    /// 摘要和超支警告的一般列：VoiceOver 念標籤，值是金額，例如標籤「當月淨收支」、值「44,000 元」。
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

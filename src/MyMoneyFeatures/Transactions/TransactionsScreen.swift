@@ -182,33 +182,11 @@ struct TransactionsScreen: View {
     /// 摘要：總收入、總支出、淨收支各一列(DESIGN.md「列與欄位」);筆數在交易記錄的標題。
     private var totalsSection: some View {
         Section {
-            TotalRow(title: "總收入", amount: model.totalIncome, text: "+\(model.totalIncome.formatted())", style: .green)
-            TotalRow(title: "總支出", amount: model.totalExpense, text: "-\(model.totalExpense.formatted())", style: .red)
-            TotalRow(title: "淨收支", amount: model.net, text: model.net.formatted(), style: .primary)
+            AmountRow(title: "總收入", amount: model.totalIncome, text: "+\(model.totalIncome.formatted())", style: .green)
+            AmountRow(title: "總支出", amount: model.totalExpense, text: "-\(model.totalExpense.formatted())", style: .red)
+            AmountRow(title: "淨收支", amount: model.net, style: .primary)
                 .bold()
         }
-    }
-}
-
-/// 摘要的一列：標籤在左、金額在右，大字級放不下時 `LabeledContent` 自動改成上下堆疊;金額一律單行。
-/// VoiceOver 念「總收入 45,000 元」。
-private struct TotalRow: View {
-    let title: String
-    let amount: Money
-    let text: String
-    let style: Color
-
-    var body: some View {
-        LabeledContent(title) {
-            Text(text)
-                .foregroundStyle(style)
-                .monospacedDigit()
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(amount.spokenText)
     }
 }
 
