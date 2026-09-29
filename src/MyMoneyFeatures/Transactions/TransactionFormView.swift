@@ -105,7 +105,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     .accessibilityIdentifier("quickEntry.save")
                 }
             }
-            .keyboardDoneButton(clearing: $focusedField)
+            .keyboardDismissal(clearing: $focusedField)
             .task {
                 await model.prepare()
                 focusedField = .amount

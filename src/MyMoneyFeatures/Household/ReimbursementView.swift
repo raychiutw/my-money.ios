@@ -78,7 +78,7 @@ struct ReimbursementView: View {
                     .accessibilityIdentifier("reimbursement.submit")
                 }
             }
-            .keyboardDoneButton(clearing: $focusedField)
+            .keyboardDismissal(clearing: $focusedField)
             .task { await model.load() }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {

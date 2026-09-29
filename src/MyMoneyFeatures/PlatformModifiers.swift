@@ -33,7 +33,7 @@ extension View {
         #endif
     }
 
-    /// 金額欄位的鍵盤：數字鍵盤。number pad 沒有 Return 鍵，所以要搭配 `keyboardDoneButton`。
+    /// 金額欄位的鍵盤：數字鍵盤。number pad 沒有 Return 鍵，所以要搭配 `keyboardDismissal`。
     func numberKeyboard() -> some View {
         #if os(iOS)
         keyboardType(.numberPad)
@@ -42,11 +42,15 @@ extension View {
         #endif
     }
 
-    /// 鍵盤上方的「完成」鈕：清掉整個表單的焦點，不管焦點在哪個欄位都收起鍵盤(#61)。
+    /// 表單收起鍵盤的方式(#61):鍵盤上方的「完成」鈕清掉整個表單的焦點，不管焦點在哪個欄位都收起鍵盤;
+    /// 捲動表單也會收起鍵盤。
     ///
     /// 表單的所有文字欄位(包括備註)都要綁到同一個 `focus`。沒綁到的欄位取得焦點時，`focus` 早就是 `nil`,
     /// 按「完成」不會有反應。number pad 沒有 Return 鍵，所以有金額欄的表單一定要加。
-    func keyboardDoneButton<Field: Hashable>(clearing focus: FocusState<Field?>.Binding) -> some View {
+    ///
+    /// 捲動用 `.immediately`,一開始捲動就收起。`.interactively` 要手指往下拖進鍵盤才會收起，
+    /// 但表單大多在 sheet 裡，在最上面往下拖拉動的是 sheet 本身。
+    func keyboardDismissal<Field: Hashable>(clearing focus: FocusState<Field?>.Binding) -> some View {
         #if os(iOS)
         toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -54,6 +58,7 @@ extension View {
                 Button("完成") { focus.wrappedValue = nil }
             }
         }
+        .scrollDismissesKeyboard(.immediately)
         #else
         self
         #endif

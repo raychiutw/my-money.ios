@@ -19,7 +19,7 @@ struct ForecastScreen: View {
             .task(id: model.dataVersion.value) {
                 await model.refreshIfStale()
             }
-            .keyboardDoneButton(clearing: $focusedField)
+            .keyboardDismissal(clearing: $focusedField)
             .onChange(of: model.purchaseError) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

@@ -129,6 +129,28 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "備註欄按「完成」後，鍵盤沒有收起")
     }
 
+    /// 記一筆：捲動表單會收起鍵盤(#61),表單仍然開著。
+    @MainActor
+    func testScrollingQuickEntryDismissesKeyboard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        app.buttons["transactions.add"].tap()
+        let note = app.textFields["quickEntry.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開記一筆")
+        note.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點備註欄後沒有出現鍵盤")
+        // 在鍵盤上方按住表單往上拖。`swipeUp()` 太快，表單不會開始捲動;在最上面往下拖會拉動 sheet 本身。
+        let form = app.collectionViews.containing(.textField, identifier: "quickEntry.note").firstMatch
+        form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            .press(forDuration: 0.05, thenDragTo: form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "捲動表單後，鍵盤沒有收起")
+        XCTAssertTrue(app.buttons["quickEntry.save"].exists, "捲動表單時把記一筆關掉了")
+    }
+
     /// 台灣時間的今天，格式跟 DatePicker 的值一樣，例如「2026年9月28日」。
     private static func taipeiToday() -> String {
         var calendar = Calendar(identifier: .gregorian)
