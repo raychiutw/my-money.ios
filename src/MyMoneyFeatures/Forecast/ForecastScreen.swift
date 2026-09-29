@@ -6,7 +6,11 @@ import SwiftUI
 /// 規劃 → 現金流預測：透支風險、最低餘額、預定收支、30 天逐日餘額與購買力試算(parity.md「現金流預測」)。
 struct ForecastScreen: View {
     @Bindable var model: ForecastModel
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+    }
 
     var body: some View {
         content
@@ -15,7 +19,7 @@ struct ForecastScreen: View {
             .task(id: model.dataVersion.value) {
                 await model.refreshIfStale()
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDoneButton(clearing: $focusedField)
             .onChange(of: model.purchaseError) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()
@@ -136,11 +140,11 @@ struct ForecastScreen: View {
             LabeledContent("購買金額") {
                 AmountField(
                     "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
-                    focus: $isAmountFocused, equals: true, identifier: "forecast.purchaseAmount"
+                    focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
                 )
             }
             Button("進行購買力試算") {
-                isAmountFocused = false
+                focusedField = nil
                 Task { await model.checkPurchase() }
             }
             .disabled(model.isChecking)

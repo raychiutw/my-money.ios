@@ -27,7 +27,12 @@ extension TransactionEditorModel: TransactionForm {}
 struct TransactionFormView<Model: TransactionForm>: View {
     @Bindable var model: Model
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+        case note
+    }
 
     var body: some View {
         NavigationStack {
@@ -52,7 +57,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     LabeledContent("金額") {
                         AmountField(
                             "金額", text: $model.amountText, prompt: Text(verbatim: "0"),
-                            focus: $isAmountFocused, equals: true, identifier: "quickEntry.amount"
+                            focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
                         )
                     }
                     Picker("分類", selection: $model.category) {
@@ -72,6 +77,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     )
                     .calendarDayTimeZone()
                     TextField("備註(選填)", text: $model.note)
+                        .focused($focusedField, equals: .note)
                         .accessibilityIdentifier("quickEntry.note")
                 }
 
@@ -99,10 +105,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     .accessibilityIdentifier("quickEntry.save")
                 }
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDoneButton(clearing: $focusedField)
             .task {
                 await model.prepare()
-                isAmountFocused = true
+                focusedField = .amount
             }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {

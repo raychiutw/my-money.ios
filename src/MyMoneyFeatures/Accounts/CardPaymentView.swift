@@ -77,7 +77,7 @@ struct CardPaymentView: View {
                         .accessibilityIdentifier("cardPayment.submit")
                 }
             }
-            .keyboardDoneButton { focusedField = nil }
+            .keyboardDoneButton(clearing: $focusedField)
             .confirmationDialog(
                 "扣款帳戶餘額不足",
                 isPresented: $isLowBalanceConfirming,

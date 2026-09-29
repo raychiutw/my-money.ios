@@ -64,7 +64,7 @@ struct SavingsGoalEditorView: View {
                     .accessibilityIdentifier("goalEditor.save")
                 }
             }
-            .keyboardDoneButton { focusedField = nil }
+            .keyboardDoneButton(clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

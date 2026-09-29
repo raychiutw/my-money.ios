@@ -120,6 +120,24 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(bank.exists, "銀行存款帳戶的餘額沒有減少")
     }
 
+    /// 轉帳：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
+    @MainActor
+    func testDoneOnTransferNoteDismissesKeyboard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+
+        app.buttons["accounts.transfer"].tap()
+        let note = app.textFields["transfer.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開轉帳")
+        note.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點備註欄後沒有出現鍵盤")
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "備註欄按「完成」後，鍵盤沒有收起")
+    }
+
     /// 從「+」新增銀行存款帳戶後出現在列表上;往左滑刪除、確認後消失。
     @MainActor
     func testAddThenDeleteBankAccount() throws {

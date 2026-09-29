@@ -6,7 +6,12 @@ struct ReimbursementView: View {
     @Bindable var model: ReimbursementModel
     let onDone: (String) -> Void
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+        case note
+    }
 
     var body: some View {
         NavigationStack {
@@ -32,7 +37,7 @@ struct ReimbursementView: View {
                     LabeledContent("報銷金額") {
                         AmountField(
                             "報銷金額", text: $model.amountText, prompt: Text(verbatim: "0"),
-                            focus: $isAmountFocused, equals: true, identifier: "reimbursement.amount"
+                            focus: $focusedField, equals: .amount, identifier: "reimbursement.amount"
                         )
                     }
                     DatePicker(
@@ -42,6 +47,7 @@ struct ReimbursementView: View {
                     )
                     .calendarDayTimeZone()
                     TextField("備註", text: $model.note)
+                        .focused($focusedField, equals: .note)
                         .accessibilityIdentifier("reimbursement.note")
                 }
 
@@ -72,7 +78,7 @@ struct ReimbursementView: View {
                     .accessibilityIdentifier("reimbursement.submit")
                 }
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDoneButton(clearing: $focusedField)
             .task { await model.load() }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {

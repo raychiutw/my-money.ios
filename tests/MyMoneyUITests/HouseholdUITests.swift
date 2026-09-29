@@ -97,6 +97,35 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(settled.exists, "報銷後沒有結清")
     }
 
+    /// 撥款報銷：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
+    /// 範例帳號建立家庭群組後，自己就有待報銷(InMemoryHouseholdRepository.myPendingAdvance)。
+    @MainActor
+    func testDoneOnReimbursementNoteDismissesKeyboard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.buttons["overview.account"].tap()
+        app.buttons["account.household"].tap()
+        let name = app.textFields["household.createName"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("我們家")
+        app.buttons["household.create"].tap()
+
+        let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
+        XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "自己的代墊款沒有報銷入口")
+        for _ in 0..<5 where !reimburse.isHittable { app.swipeUp() }
+        reimburse.tap()
+        let note = app.textFields["reimbursement.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開撥款報銷")
+        note.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點備註欄後沒有出現鍵盤")
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "備註欄按「完成」後，鍵盤沒有收起")
+    }
+
     @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch

@@ -81,7 +81,7 @@ struct RecurringEditorView: View {
                     .accessibilityIdentifier("recurringEditor.save")
                 }
             }
-            .keyboardDoneButton { focusedField = nil }
+            .keyboardDoneButton(clearing: $focusedField)
             .task { await model.prepare() }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {

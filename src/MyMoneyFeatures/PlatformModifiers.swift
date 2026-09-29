@@ -42,13 +42,16 @@ extension View {
         #endif
     }
 
-    /// 鍵盤上方的「完成」鈕，用來收起數字鍵盤。
-    func keyboardDoneButton(action: @escaping () -> Void) -> some View {
+    /// 鍵盤上方的「完成」鈕：清掉整個表單的焦點，不管焦點在哪個欄位都收起鍵盤(#61)。
+    ///
+    /// 表單的所有文字欄位(包括備註)都要綁到同一個 `focus`。沒綁到的欄位取得焦點時，`focus` 早就是 `nil`,
+    /// 按「完成」不會有反應。number pad 沒有 Return 鍵，所以有金額欄的表單一定要加。
+    func keyboardDoneButton<Field: Hashable>(clearing focus: FocusState<Field?>.Binding) -> some View {
         #if os(iOS)
         toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("完成", action: action)
+                Button("完成") { focus.wrappedValue = nil }
             }
         }
         #else

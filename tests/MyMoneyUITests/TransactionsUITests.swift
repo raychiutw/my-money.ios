@@ -109,6 +109,26 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 770 元").waitForExistence(timeout: 5), "編輯後金額沒有更新")
     }
 
+    /// 記一筆：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
+    ///
+    /// 以前「完成」只清掉金額欄的焦點，備註欄沒有納入同一個 focus 狀態，按了沒反應。
+    @MainActor
+    func testDoneOnQuickEntryNoteDismissesKeyboard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        app.buttons["transactions.add"].tap()
+        let note = app.textFields["quickEntry.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開記一筆")
+        note.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點備註欄後沒有出現鍵盤")
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "備註欄按「完成」後，鍵盤沒有收起")
+    }
+
     /// 台灣時間的今天，格式跟 DatePicker 的值一樣，例如「2026年9月28日」。
     private static func taipeiToday() -> String {
         var calendar = Calendar(identifier: .gregorian)

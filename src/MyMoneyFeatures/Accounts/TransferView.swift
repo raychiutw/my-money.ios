@@ -6,7 +6,12 @@ struct TransferView: View {
     @Bindable var model: TransferModel
     let onDone: (String) -> Void
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+        case note
+    }
 
     var body: some View {
         NavigationStack {
@@ -39,7 +44,7 @@ struct TransferView: View {
                     LabeledContent("金額") {
                         AmountField(
                             "金額", text: $model.amountText, prompt: Text("例如：3000"),
-                            focus: $isAmountFocused, equals: true, identifier: "transfer.amount"
+                            focus: $focusedField, equals: .amount, identifier: "transfer.amount"
                         )
                     }
                     DatePicker(
@@ -49,6 +54,7 @@ struct TransferView: View {
                     )
                     .calendarDayTimeZone()
                     TextField("備註(選填)", text: $model.note, prompt: Text("例如：超商 ATM 提款"))
+                        .focused($focusedField, equals: .note)
                         .accessibilityIdentifier("transfer.note")
                 }
 
@@ -79,7 +85,7 @@ struct TransferView: View {
                     .accessibilityIdentifier("transfer.submit")
                 }
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDoneButton(clearing: $focusedField)
             .task { await model.load() }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
