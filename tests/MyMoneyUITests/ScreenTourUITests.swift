@@ -46,15 +46,18 @@ final class ScreenTourUITests: XCTestCase {
         tour.select(tab: "交易")
         tour.captureScrolling("transactions")
 
-        // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡扣款還款。
+        // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡詳細頁和信用卡扣款還款。
         tour.select(tab: "帳戶")
         tour.captureScrolling("accounts")
         tour.present(app.buttons["accounts.add"], menuItem: "新增現金錢包", capturing: "account-editor-cash")
         tour.present(app.buttons["accounts.add"], menuItem: "新增銀行存款帳戶", capturing: "account-editor-bank")
         tour.present(app.buttons["accounts.add"], menuItem: "新增信用卡", capturing: "account-editor-card")
         tour.present(app.buttons["accounts.transfer"], capturing: "transfer")
-        // 每種組合都繳同一張卡(範例資料的「iOS 測試信用卡」),改前改後才比得起來。
-        tour.present(app.buttons["accounts.payFull.sample-card"], capturing: "card-payment")
+        // 信用卡精簡列點進詳細頁(#73),信用卡扣款還款從詳細頁的「繳款」選單打開。
+        // 每種組合都用同一張卡(範例資料的「iOS 測試信用卡」)、同一個項目(全額結清),改前改後才比得起來。
+        tour.push(app.buttons["accounts.card.sample-card"], capturing: "card-detail") {
+            tour.present(app.buttons["cardDetail.pay"], menuItem: "全額結清", capturing: "card-payment")
+        }
 
         // 統計。
         tour.select(tab: "統計")
@@ -173,13 +176,13 @@ private struct Tour {
     /// 捲到入口完整露出來為止(例如帳戶頁下方的信用卡):先往下找，找不到再往上找。
     private func reveal(_ element: XCUIElement) {
         _ = element.waitForExistence(timeout: 2)
-        guard !isClear(element) else { return }
+        guard !isClear(element), !nudge(element) else { return }
         for (from, to) in [(0.75, 0.25), (0.3, 0.8)] {
             var previous = fingerprint()
             for _ in 0..<maxScreens {
                 drag(from: from, to: to)
                 settle()
-                if isClear(element) { return }
+                if isClear(element) || nudge(element) { return }
                 let current = fingerprint()
                 if current == previous { break }
                 previous = current
@@ -193,10 +196,39 @@ private struct Tour {
         guard element.exists, element.isHittable else { return false }
         let bars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
         if bars.contains(where: { $0.insetBy(dx: -1, dy: -1).contains(element.frame) }) { return true }
-        let top = bars.map(\.maxY).max() ?? 0
+        let (top, bottom) = contentBounds()
+        return element.frame.minY >= top && element.frame.maxY <= bottom
+    }
+
+    /// 導覽列下緣到 tab bar 上緣：清單裡的元素完整露出的範圍。
+    private func contentBounds() -> (top: CGFloat, bottom: CGFloat) {
+        let top = app.navigationBars.allElementsBoundByIndex.map(\.frame.maxY).max() ?? 0
         let tabBar = app.tabBars.firstMatch
         let bottom = tabBar.exists ? tabBar.frame.minY : app.windows.firstMatch.frame.maxY
-        return element.frame.minY >= top && element.frame.maxY <= bottom
+        return (top, bottom)
+    }
+
+    /// 元素已經在畫面上，只是被導覽列或 tab bar 擋住一部分：依擋住的距離再拖一小段。
+    /// 大字級的列很高(例如 AX5 的信用卡精簡列),每次拖半個畫面，可能剛好跳過它完整露出的位置。
+    private func nudge(_ element: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let (top, bottom) = contentBounds()
+        let frame = element.frame
+        guard frame.height < bottom - top else { return false }
+        // 正數是內容往上移。多拖一點，抵掉手指開始捲動前的那一小段。
+        let margin: CGFloat = 24
+        let shift: CGFloat
+        if frame.minY < top {
+            shift = frame.minY - top - margin
+        } else if frame.maxY > bottom {
+            shift = frame.maxY - bottom + margin
+        } else {
+            return false
+        }
+        let height = app.windows.firstMatch.frame.height
+        drag(from: 0.5, to: min(max(0.5 - shift / height, 0.05), 0.95))
+        settle()
+        return isClear(element)
     }
 
     /// 在畫面水平中央，從 `from` 拖到 `to`(畫面高度的比例)。停住再放開，不會甩出慣性，每次捲的距離固定。
