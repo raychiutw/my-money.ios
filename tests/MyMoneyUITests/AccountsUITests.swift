@@ -36,8 +36,8 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(remaining.exists, "小額卡沒有顯示剩餘額度")
     }
 
-    /// 帳戶檢視範圍是「全部」「家庭共同基金」「個人私帳」(web 的 bd0507b)。範例資料的資產帳戶都是個人私帳，
-    /// 切到家庭共同基金之後，銀行存款帳戶區塊是空的。
+    /// 帳戶檢視範圍是「全部」「家庭共同基金」「個人私帳」(web 的 bd0507b),在 toolbar 的篩選按鈕(#64):
+    /// 點按鈕再選，導覽列副標題顯示目前的範圍。範例資料的資產帳戶都是個人私帳，切到家庭共同基金之後，銀行存款帳戶區塊是空的。
     @MainActor
     func testJointFundScopeHidesPersonalAccounts() throws {
         let app = XCUIApplication()
@@ -46,10 +46,19 @@ final class AccountsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
 
-        let scope = app.segmentedControls["accounts.scope"]
-        XCTAssertTrue(scope.waitForExistence(timeout: 5), "沒有看到帳戶檢視範圍")
-        XCTAssertEqual(scope.buttons.allElementsBoundByIndex.map(\.label), ["全部", "家庭共同基金", "個人私帳"])
-        scope.buttons["家庭共同基金"].tap()
+        let filter = app.buttons["accounts.scope"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5), "toolbar 沒有帳戶檢視範圍的篩選按鈕")
+        XCTAssertEqual(filter.label, "帳戶檢視範圍", "篩選按鈕的 VoiceOver 標籤不是「帳戶檢視範圍」")
+        XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的帳戶檢視範圍")
+        XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的帳戶檢視範圍")
+
+        filter.tap()
+        for option in ["全部", "家庭共同基金", "個人私帳"] {
+            XCTAssertTrue(app.buttons[option].waitForExistence(timeout: 3), "帳戶檢視範圍選單裡沒有「\(option)」")
+        }
+        app.buttons["家庭共同基金"].tap()
+        XCTAssertTrue(subtitle("家庭共同基金", in: app).waitForExistence(timeout: 3), "切換帳戶檢視範圍後導覽列副標題沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "家庭共同基金", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 銀行存款帳戶區塊在統計卡和現金錢包區塊下面，捲下去才在 UI 階層裡。
         let empty = element(in: app, labelContaining: "目前此範圍無銀行存款帳戶")
@@ -160,7 +169,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "1234", "金額欄沒有改成 1234")
         app.buttons["accountEditor.save"].tap()
 
-        // 新帳戶在列表下方(上面有範圍切換、四張統計卡和現金錢包區塊):List 還沒捲到的列不在 UI 階層裡，
+        // 新帳戶在列表下方(上面有四張統計卡和現金錢包區塊):List 還沒捲到的列不在 UI 階層裡，
         // 先捲到點得到，左滑才滑得出「刪除」。
         let row = element(in: app, labelContaining: "UI 測試帳戶,餘額 1,234 元")
         _ = row.waitForExistence(timeout: 2)
@@ -176,6 +185,12 @@ final class AccountsUITests: XCTestCase {
         app.buttons["刪除"].firstMatch.tap()
 
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
+    }
+
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
+    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.navigationBars.staticTexts[text]
     }
 
     @MainActor

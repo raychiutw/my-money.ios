@@ -3,6 +3,7 @@ import MyMoneyDomain
 import SwiftUI
 
 /// 「帳戶」tab:四張統計卡，現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
+/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、ATM 提款／轉帳和新增資產帳戶。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     @State private var editor: EditorSheet?
@@ -17,7 +18,9 @@ struct AccountsScreen: View {
             content
                 .skeletonTransition(value: model.phase)
                 .navigationTitle("帳戶")
+                .navigationSubtitle(model.scope.title)
                 .toolbar {
+                    ScopeFilter("帳戶檢視範圍", scope: $model.scope, identifier: "accounts.scope")
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             transfer = model.makeTransfer()
@@ -172,15 +175,7 @@ struct AccountsScreen: View {
         switch model.phase {
         case .loading:
             List {
-                SkeletonSection(count: 1, announces: true) {
-                    Picker("檢視範圍", selection: .constant(0)) {
-                        Text("全部").tag(0)
-                        Text("家庭共同基金").tag(1)
-                        Text("個人私帳").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                SkeletonSection(count: 4) { SkeletonSummaryRow() }
+                SkeletonSection(count: 4, announces: true) { SkeletonSummaryRow() }
                 SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
                 SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
                 SkeletonSection(title: "信用卡", count: 1) {
@@ -203,17 +198,6 @@ struct AccountsScreen: View {
             }
         case .loaded:
             List {
-                Section {
-                    Picker("檢視範圍", selection: $model.scope) {
-                        Text("全部").tag(AccountScope.all)
-                        Text("家庭共同基金").tag(AccountScope.household)
-                        Text("個人私帳").tag(AccountScope.personal)
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("accounts.scope")
-                } footer: {
-                    Text("其他成員的個人私帳和現金錢包一律不顯示。")
-                }
                 summarySection
                 cashSection
                 bankSection

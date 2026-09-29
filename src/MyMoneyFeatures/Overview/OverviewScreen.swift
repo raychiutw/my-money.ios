@@ -27,7 +27,7 @@ struct OverviewScreen: View {
             .skeletonTransition(value: model.phase)
             .refreshable { await model.load() }
             .toolbar {
-                ViewScopeFilter(scope: $model.scope, identifier: "overview.scope")
+                ScopeFilter("視角", scope: $model.scope, identifier: "overview.scope")
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isEntryPresented = true
