@@ -63,7 +63,12 @@ final class HouseholdUITests: XCTestCase {
         let fundAmount = app.textFields["accountEditor.amount"]
         fundAmount.tap()
         fundAmount.typeText("5000")
-        app.switches["accountEditor.jointFund"].switches.firstMatch.tap()
+        // 歸屬選「家庭共同基金」(所有類型都一樣，跟 web 一樣)。sheet 底下帳戶檢視範圍的分段控制也有一個
+        // 「家庭共同基金」,所以只找選單裡的選項(直接放在 cell 裡的按鈕)。
+        app.buttons["accountEditor.jointFund"].tap()
+        let jointFund = app.cells.children(matching: .button)["家庭共同基金"]
+        XCTAssertTrue(jointFund.waitForExistence(timeout: 3), "歸屬沒有「家庭共同基金」這個選項")
+        jointFund.tap()
         app.buttons["accountEditor.save"].tap()
 
         app.tabBars.buttons["總覽"].tap()

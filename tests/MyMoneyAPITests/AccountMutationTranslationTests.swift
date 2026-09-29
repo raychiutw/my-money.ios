@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("資金帳戶的新增、編輯、刪除(POST、PUT、DELETE /accounts)")
+@Suite("資產帳戶的新增、編輯、刪除(POST、PUT、DELETE /accounts)")
 struct AccountMutationTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")
@@ -59,7 +59,7 @@ struct AccountMutationTranslationTests {
         #expect(json["statement_day"] == nil)
     }
 
-    @Test("信用卡的家庭卡標記送成 is_joint 1(所有類型都能設歸屬)")
+    @Test("家庭信用卡的標記送成 is_joint 1(所有類型都能設歸屬)")
     func householdCardSendsIsJoint() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-credit-card.json")
 
@@ -72,7 +72,7 @@ struct AccountMutationTranslationTests {
         #expect(json["is_joint"] as? Int == 1)
     }
 
-    @Test("新增信用卡帳戶：已出帳待繳金額送成 balance,另有未出帳金額、額度與日期")
+    @Test("新增信用卡帳戶：已出帳待繳款送成 balance,另有未出帳款、額度與日期")
     func createCreditCardSendsCardFields() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-credit-card.json")
 
@@ -124,7 +124,7 @@ struct AccountMutationTranslationTests {
         #expect(request.url == stub.baseURL.appending(path: "accounts/7ed95caa-92e4-4f25-904a-e961317a1d47"))
     }
 
-    @Test("刪除不存在的資金帳戶時，原樣傳遞「帳戶不存在」")
+    @Test("刪除不存在的資產帳戶時，原樣傳遞「帳戶不存在」")
     func deleteNotFoundPassesMessage() async throws {
         try stub.reply(status: 404, fixture: "accounts-delete-not-found.json")
 

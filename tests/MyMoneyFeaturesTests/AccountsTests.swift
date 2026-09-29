@@ -26,7 +26,7 @@ struct AccountsTests {
         #expect(model.creditCards.map(\.name) == ["iOS 測試信用卡", "iOS 測試小額卡"])
     }
 
-    @Test("三張統計卡：銀行存款帳戶餘額合計、待繳卡費總額、淨可用資產")
+    @Test("三張統計卡：銀行存款帳戶餘額合計、信用卡待繳總額、淨可用餘額")
     func summaryCards() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
 
@@ -40,7 +40,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(21500))
     }
 
-    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用資產照後端(含現金)")
+    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用餘額照後端(含現金)")
     func cashWalletsAreTheirOwnSection() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
 
@@ -53,7 +53,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(23000))
     }
 
-    @Test("檢視範圍預設全部;切到家庭公用時，帳戶和資金指標都照這個範圍重新取得")
+    @Test("帳戶檢視範圍預設全部;切到家庭共同基金時，帳戶和資金指標都照這個範圍重新取得")
     func scopeAppliesToAccountsAndSummary() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = AccountsModel(repository: repository, dataVersion: DataVersion())
@@ -141,7 +141,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(0))
     }
 
-    @Test("沒有任何資金帳戶時，兩區都是空的")
+    @Test("沒有任何資產帳戶時，兩區都是空的")
     func emptyAccounts() async {
         let model = AccountsModel(repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion())
 
@@ -152,7 +152,7 @@ struct AccountsTests {
         #expect(model.creditCards.isEmpty)
         #expect(model.bankAccountCountText == "0 個銀行存款帳戶")
     }
-    @Test("刪除資金帳戶後資料版本遞增")
+    @Test("刪除資產帳戶後資料版本遞增")
     func deletingBumpsDataVersion() async {
         let repository = InMemoryAccountRepository.sample()
         let dataVersion = DataVersion()

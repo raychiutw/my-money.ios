@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 新增或編輯資金帳戶的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
+/// 新增或編輯資產帳戶的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
 struct AccountEditorView: View {
     @Bindable var model: AccountEditorModel
     @Environment(\.dismiss) private var dismiss
@@ -36,17 +36,21 @@ struct AccountEditorView: View {
                     }
                 }
 
-                // 所有類型都能設歸屬(web 的「帳戶屬性歸屬」);預設個人私帳。
+                // 所有類型都能設歸屬，選項都是個人私帳、家庭共同基金(web 的「帳戶屬性歸屬」);預設個人私帳。
                 Section {
-                    Toggle(jointFundLabel, isOn: $model.isJointFund)
-                        .accessibilityIdentifier("accountEditor.jointFund")
+                    Picker("歸屬", selection: $model.isJointFund) {
+                        ForEach(model.ownershipChoices, id: \.isJointFund) { choice in
+                            Text(choice.title).tag(choice.isJointFund)
+                        }
+                    }
+                    .accessibilityIdentifier("accountEditor.jointFund")
                 } footer: {
-                    Text(model.isJointFund ? "家庭公用帳戶將對家庭群組全體成員公開。" : "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。")
+                    Text(model.ownershipNote)
                 }
 
                 if model.kind == .creditCard {
                     Section("信用卡") {
-                        amountRow("未出帳金額", text: $model.unbilledText, field: .unbilled, identifier: "accountEditor.unbilled")
+                        amountRow(model.unbilledLabel, text: $model.unbilledText, field: .unbilled, identifier: "accountEditor.unbilled")
                         amountRow("信用額度(選填)", text: $model.creditLimitText, field: .creditLimit, identifier: "accountEditor.creditLimit", prompt: nil)
                         dayPicker("結帳日", selection: $model.statementDay)
                         dayPicker("繳款日", selection: $model.paymentDueDay)
@@ -95,14 +99,6 @@ struct AccountEditorView: View {
         case .cash: "例如：我的皮夾、客廳零用金盒"
         case .bank: "例如：薪轉戶"
         case .creditCard: "例如：旅遊卡"
-        }
-    }
-
-    private var jointFundLabel: String {
-        switch model.kind {
-        case .cash: "設為家庭公用"
-        case .bank: "設為家庭共同基金帳戶"
-        case .creditCard: "設為家庭卡"
         }
     }
 

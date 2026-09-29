@@ -19,13 +19,13 @@ final class AccountsUITests: XCTestCase {
         app.tabBars.buttons["帳戶"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(in: app, labelContaining: "待繳卡費總額 28,500 元").exists)
-        XCTAssertTrue(element(in: app, labelContaining: "淨可用資產 21,500 元").exists)
+        XCTAssertTrue(element(in: app, labelContaining: "信用卡待繳總額 28,500 元").exists)
+        XCTAssertTrue(element(in: app, labelContaining: "淨可用餘額 21,500 元").exists)
         // 統計卡和現金錢包區塊在上面，銀行存款帳戶和信用卡要捲下去才在 UI 階層裡。
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists)
-        // 信用卡標示家庭卡或個人卡(web 的 bd0507b)。
+        // 信用卡標示家庭信用卡或個人卡(web 的 bd0507b)。
         let card = element(in: app, labelContaining: "iOS 測試信用卡、個人卡")
         for _ in 0..<5 where !card.exists { app.swipeUp() }
         XCTAssertTrue(card.exists, "信用卡沒有標示個人卡")
@@ -34,6 +34,29 @@ final class AccountsUITests: XCTestCase {
         let remaining = element(in: app, labelContaining: "剩餘額度 $7,000")
         for _ in 0..<5 where !remaining.exists { app.swipeUp() }
         XCTAssertTrue(remaining.exists, "小額卡沒有顯示剩餘額度")
+    }
+
+    /// 帳戶檢視範圍是「全部」「家庭共同基金」「個人私帳」(web 的 bd0507b)。範例資料的資產帳戶都是個人私帳，
+    /// 切到家庭共同基金之後，銀行存款帳戶區塊是空的。
+    @MainActor
+    func testJointFundScopeHidesPersonalAccounts() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+
+        let scope = app.segmentedControls["accounts.scope"]
+        XCTAssertTrue(scope.waitForExistence(timeout: 5), "沒有看到帳戶檢視範圍")
+        XCTAssertEqual(scope.buttons.allElementsBoundByIndex.map(\.label), ["全部", "家庭共同基金", "個人私帳"])
+        scope.buttons["家庭共同基金"].tap()
+
+        // 銀行存款帳戶區塊在統計卡和現金錢包區塊下面，捲下去才在 UI 階層裡。
+        let empty = element(in: app, labelContaining: "目前此範圍無銀行存款帳戶")
+        _ = empty.waitForExistence(timeout: 2)
+        for _ in 0..<5 where !empty.exists { app.swipeUp() }
+        XCTAssertTrue(empty.exists, "切到家庭共同基金之後，還看得到個人私帳的銀行存款帳戶")
+        XCTAssertFalse(element(in: app, labelContaining: "iOS 測試存款").exists)
     }
 
     /// 從現金錢包區塊的空狀態新增現金錢包(#43,web 的「目前此範圍無現金錢包」):新增後出現在現金錢包區塊。
@@ -56,7 +79,7 @@ final class AccountsUITests: XCTestCase {
         amount.typeText("800")
         app.buttons["accountEditor.save"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 800 元").waitForExistence(timeout: 5), "新增後沒有出現在現金錢包區塊")
+        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 800 元").waitForExistence(timeout: 5), "新增後沒有出現在現金錢包區塊")
     }
 
     /// ATM 提款(#43):銀行存款帳戶轉到現金錢包，顯示後端的訊息，兩邊的餘額都更新。
@@ -78,7 +101,7 @@ final class AccountsUITests: XCTestCase {
         walletAmount.tap()
         walletAmount.typeText("800")
         app.buttons["accountEditor.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 800 元").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 800 元").waitForExistence(timeout: 5))
 
         // 預設轉出是第一個銀行存款帳戶、轉入是第一個現金錢包。
         app.buttons["accounts.transfer"].tap()
@@ -90,7 +113,7 @@ final class AccountsUITests: XCTestCase {
 
         XCTAssertTrue(element(in: app, labelContaining: "ATM 提款成功 NT$ 500").waitForExistence(timeout: 5), "沒有顯示轉帳的結果")
         app.buttons["好"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 1,300 元").waitForExistence(timeout: 5), "現金錢包的餘額沒有增加")
+        XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 1,300 元").waitForExistence(timeout: 5), "現金錢包的餘額沒有增加")
         // 銀行存款帳戶區塊在現金錢包區塊下面，捲下去才在 UI 階層裡。
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 49,500 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }

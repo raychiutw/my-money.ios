@@ -37,7 +37,7 @@ public final class CardPaymentModel {
         case shared
         /// 「繳個人私帳」:欠款裡個人私帳的部分，個人私帳。
         case personal
-        /// 「全額結清」:待繳卡費總額，家庭公帳。
+        /// 「全額結清」:信用卡待繳總額，家庭公帳。
         case full
     }
 

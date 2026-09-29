@@ -1,4 +1,4 @@
-/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員的家庭公用」,家庭公用是全體成員的家庭公用帳戶，
+/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員歸屬家庭共同基金的帳戶」,家庭共同基金是全體成員歸屬家庭共同基金的帳戶，
 /// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易紀錄的視角(`ViewScope`)是兩件事。
 public enum AccountScope: String, Sendable, CaseIterable {
     case all
@@ -6,9 +6,9 @@ public enum AccountScope: String, Sendable, CaseIterable {
     case personal
 }
 
-/// 資金帳戶(`/accounts`)。
+/// 資產帳戶(`/accounts`)。
 public protocol AccountRepository: Sendable {
-    /// 這個範圍的資金帳戶，順序照後端(建立時間由舊到新)。
+    /// 這個範圍的資產帳戶，順序照後端(建立時間由舊到新)。
     func accounts(scope: AccountScope) async throws -> [Account]
 
     /// 這個範圍的資金指標。
@@ -16,10 +16,10 @@ public protocol AccountRepository: Sendable {
 
     func create(_ draft: AccountDraft) async throws
 
-    /// 編輯時不能改類型:`draft` 的類型必須跟原本的資金帳戶一樣。
+    /// 編輯時不能改類型:`draft` 的類型必須跟原本的資產帳戶一樣。
     func update(_ id: AccountID, with draft: AccountDraft) async throws
 
-    /// 刪除資金帳戶。這個帳戶的交易紀錄會被後端一併刪除。
+    /// 刪除資產帳戶。這個帳戶的交易紀錄會被後端一併刪除。
     func delete(_ id: AccountID) async throws
 
     /// 信用卡扣款還款。
@@ -37,7 +37,7 @@ public protocol AccountRepository: Sendable {
 }
 
 extension AccountRepository {
-    /// 全部範圍(本人全部 + 家庭公用),給只需要選帳戶的畫面用，例如記一筆、固定收支。
+    /// 全部範圍(本人全部 + 家庭共同基金),給只需要選帳戶的畫面用，例如記一筆、固定收支。
     public func accounts() async throws -> [Account] {
         try await accounts(scope: .all)
     }

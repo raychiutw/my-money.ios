@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 新增或編輯資金帳戶的 sheet(parity.md「帳戶」)。
+/// 新增或編輯資產帳戶的 sheet(parity.md「帳戶」)。
 @MainActor
 @Observable
 public final class AccountEditorModel {
@@ -23,7 +23,7 @@ public final class AccountEditorModel {
     public var name = ""
     public var colorHex: String
 
-    /// 現金錢包和銀行存款帳戶的餘額。信用卡不輸入已出帳待繳金額(web 在 `82d9124` 拿掉了)。
+    /// 現金錢包和銀行存款帳戶的餘額。信用卡不輸入已出帳待繳款(web 在 `82d9124` 拿掉了)。
     public var amountText = ""
     public var unbilledText = ""
     public var creditLimitText = ""
@@ -37,24 +37,37 @@ public final class AccountEditorModel {
         (editingID == nil ? "新增" : "編輯") + kind.title
     }
 
-    /// 信用卡沒有餘額欄：新增時已出帳待繳金額送 0,編輯時照原值送回。
+    /// 信用卡沒有餘額欄：新增時已出帳待繳款送 0,編輯時照原值送回。
     public var showsAmountField: Bool { kind != .creditCard }
 
     public var amountLabel: String {
         kind == .cash ? "目前現金餘額" : "餘額"
     }
 
+    /// 信用卡專用的未出帳款欄。
+    public var unbilledLabel: String { "未出帳款" }
+
+    /// 歸屬的兩個選項(web 的「帳戶屬性歸屬」),依序是個人私帳(預設)、家庭共同基金;所有類型都一樣，跟 web 相同。
+    public var ownershipChoices: [(isJointFund: Bool, title: String)] {
+        [(false, "個人私帳"), (true, "家庭共同基金")]
+    }
+
+    /// 歸屬選項下面的說明，隨選項改變(web 的原文)。
+    public var ownershipNote: String {
+        isJointFund ? "家庭共同基金帳戶將對家庭群組全體成員公開。" : "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。"
+    }
+
     public var canChangeKind: Bool { editingID == nil }
 
     @ObservationIgnored private let editingID: AccountID?
 
-    /// 編輯信用卡時原本的已出帳待繳金額(表單不能改，照原值送回);新增時是 0。
+    /// 編輯信用卡時原本的已出帳待繳款(表單不能改，照原值送回);新增時是 0。
     @ObservationIgnored private var originalBilledDebt: Money = .zero
 
     /// 新增時隨機挑的代表色;現金錢包改用固定的綠色(見 `applyDefaults`)。
     @ObservationIgnored private var randomDefaultColor = ""
 
-    /// 家庭公用(家庭共同基金、家庭卡)或個人私帳，所有類型都能設。編輯時帶入原本的標記：
+    /// 家庭共同基金(信用卡叫家庭信用卡)或個人私帳，所有類型都能設。編輯時帶入原本的標記：
     /// 後端的 PUT 沒收到 `is_joint` 會寫成 0。
     public var isJointFund: Bool
     @ObservationIgnored private let repository: any AccountRepository
@@ -189,7 +202,7 @@ public final class AccountEditorModel {
     }
 }
 
-/// 資金帳戶可選的 8 種代表色(web 的 ACCOUNT_COLORS),附 VoiceOver 念的名稱。
+/// 資產帳戶可選的 8 種代表色(web 的 ACCOUNT_COLORS),附 VoiceOver 念的名稱。
 public enum AccountColors {
     public static let all: [(hex: String, name: String)] = [
         ("#FF8A8A", "珊瑚粉"),

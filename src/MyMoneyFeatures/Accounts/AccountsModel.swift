@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭共同基金)、家庭共同基金、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
@@ -113,7 +113,7 @@ public final class AccountsModel {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
     }
 
-    /// 刪除資金帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
+    /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
     public func delete(_ account: Account) async {
         do {
             try await repository.delete(account.id)
@@ -152,16 +152,16 @@ public final class AccountsModel {
 
     public var bankAccountCountText: String { "\(bankAccounts.count) 個銀行存款帳戶" }
 
-    /// 所有信用卡帳戶的待繳卡費總額(已出帳待繳金額加未出帳金額)。
+    /// 所有信用卡帳戶的信用卡待繳總額(已出帳待繳款加未出帳款)。
     public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
 
     public var billedDebtTotal: Money? { summary?.billedDebtTotal }
     public var unbilledDebtTotal: Money? { summary?.unbilledDebtTotal }
 
-    /// 淨可用資產(後端依帳戶檢視範圍計算)。
+    /// 淨可用餘額(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
 
-    /// 載入這個範圍的資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
+    /// 載入這個範圍的資產帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
         let version = dataVersion.value
         let scope = scope
@@ -187,7 +187,7 @@ public final class AccountsModel {
 }
 
 extension AccountKind {
-    /// 資金帳戶類型的名稱(CONTEXT.md)。
+    /// 資產帳戶類型的名稱(CONTEXT.md)。
     public var title: String {
         switch self {
         case .cash: "現金錢包"

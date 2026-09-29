@@ -7,7 +7,7 @@ public struct SavingsGoalID: Hashable, Sendable {
     }
 }
 
-/// 儲蓄目標(Savings Goal):只有自己的目標。存入**不會**動到任何資金帳戶。
+/// 儲蓄目標(Savings Goal):只有自己的目標。存入**不會**動到任何資產帳戶。
 public struct SavingsGoal: Hashable, Sendable, Identifiable {
     public let id: SavingsGoalID
     public let name: String

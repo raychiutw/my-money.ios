@@ -17,7 +17,7 @@ struct RecurringEditorTests {
         return editor
     }
 
-    @Test("新增的預設值：固定支出、每月、1 號、第一個資金帳戶")
+    @Test("新增的預設值：固定支出、每月、1 號、第一個資產帳戶")
     func defaults() async {
         let editor = await adding()
 
@@ -28,7 +28,7 @@ struct RecurringEditorTests {
         #expect(editor.accountID == SampleAccounts.savings.id)
     }
 
-    @Test("資金帳戶載入之前就選了關聯帳戶時，不會被第一個資金帳戶蓋掉", .timeLimit(.minutes(1)))
+    @Test("資產帳戶載入之前就選了關聯帳戶時，不會被第一個資產帳戶蓋掉", .timeLimit(.minutes(1)))
     func prepareKeepsEarlyChoice() async {
         let gate = Gate()
         let editor = RecurringEditorModel(

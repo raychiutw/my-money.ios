@@ -58,7 +58,7 @@ public final class TransactionEditorModel {
         self.dataVersion = dataVersion
     }
 
-    /// 打開 sheet 時呼叫：載入資金帳戶(家人的資金帳戶也在裡面)。
+    /// 打開 sheet 時呼叫：載入資產帳戶(家人的資產帳戶也在裡面)。
     public func prepare() async {
         do {
             accounts = try await accountRepository.accounts()

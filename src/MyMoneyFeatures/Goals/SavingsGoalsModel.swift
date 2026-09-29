@@ -103,7 +103,7 @@ extension SavingsGoal {
     }
 }
 
-/// 存入儲蓄目標的 sheet。存入**不會**動到任何資金帳戶。
+/// 存入儲蓄目標的 sheet。存入**不會**動到任何資產帳戶。
 @MainActor
 @Observable
 public final class SavingsGoalDepositModel {

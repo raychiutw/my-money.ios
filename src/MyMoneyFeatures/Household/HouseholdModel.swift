@@ -130,7 +130,7 @@ public final class HouseholdModel {
     private var trimmedName: String { createName.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedCode: String { joinCode.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// 建立、加入、離開、移除成功後，資料版本遞增:淨可用資產、家庭公帳等資料的範圍都會跟著改變。
+    /// 建立、加入、離開、移除成功後，資料版本遞增:淨可用餘額、家庭公帳等資料的範圍都會跟著改變。
     private func perform(_ action: @escaping @Sendable () async throws -> Void) async {
         isWorking = true
         defer { isWorking = false }

@@ -45,7 +45,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "3000")
         app.buttons["cardPayment.submit"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "已出帳待繳金額、$9,000").waitForExistence(timeout: 5), "還款後已出帳待繳金額沒有更新")
+        XCTAssertTrue(element(in: app, labelContaining: "已出帳待繳款、$9,000").waitForExistence(timeout: 5), "還款後已出帳待繳款沒有更新")
     }
 
     /// 校準未出帳(#48):先確認(說明重算的期間、會扣掉刷退和還款，以及未出帳款可能被算少),完成後顯示後端的訊息。

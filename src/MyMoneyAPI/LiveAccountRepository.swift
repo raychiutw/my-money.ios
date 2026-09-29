@@ -172,7 +172,7 @@ private struct AccountBody: Encodable {
 
 /// `GET /accounts` 的一筆:資料表欄位，所以是 snake_case。
 ///
-/// `balance` 一詞兩義：現金錢包和銀行存款帳戶是餘額，信用卡帳戶是已出帳待繳金額(CLAUDE.md「規則」)。
+/// `balance` 一詞兩義：現金錢包和銀行存款帳戶是餘額，信用卡帳戶是已出帳待繳款(CLAUDE.md「規則」)。
 private struct AccountDTO: Decodable {
     let id: String
     let name: String

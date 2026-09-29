@@ -33,10 +33,10 @@ public final class OverviewModel {
         return [debt, card.paymentDueDay.map { "\(unbilled) · 每月 \($0) 日繳款" } ?? unbilled]
     }
 
-    /// 淨可用資產的組成(web 的 Dashboard 寫成「現金 + 活存 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 待繳卡費(已出帳加未出帳)。數字都是後端算好的。
+    /// 淨可用餘額的組成(web 的 Dashboard 寫成「現金 + 銀行存款帳戶 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 信用卡待繳總額(已出帳加未出帳)。數字都是後端算好的。
     public var availableBreakdown: String? {
         summary.map {
-            "現金 \($0.cashTotal.formatted()) + 銀行存款 \($0.bankBalanceTotal.formatted()) - 待繳卡費 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
+            "現金 \($0.cashTotal.formatted()) + 銀行存款 \($0.bankBalanceTotal.formatted()) - 信用卡待繳總額 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
         }
     }
 
@@ -151,7 +151,7 @@ public final class OverviewModel {
 }
 
 extension ViewScope {
-    /// 視角套用到淨可用資產和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
+    /// 視角套用到淨可用餘額和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
     /// 所以「個人」視角(我記的全部交易紀錄)看的是我的個人私帳帳戶。
     var accountScope: AccountScope {
         switch self {
@@ -167,7 +167,7 @@ extension AccountScope {
     public var emptyAccountsTitle: String {
         switch self {
         case .all: "尚未建立帳戶"
-        case .household: "目前無家庭公用帳戶"
+        case .household: "目前無家庭共同基金帳戶"
         case .personal: "目前無個人私帳"
         }
     }
@@ -175,7 +175,7 @@ extension AccountScope {
     /// 空狀態的說明，附「前往帳戶管理」。
     public var emptyAccountsHint: String {
         switch self {
-        case .household: "至帳戶管理將帳戶屬性設為「家庭公用」即可在此呈現"
+        case .household: "至帳戶管理將帳戶屬性設為「家庭共同基金」即可在此呈現"
         case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
         }
     }

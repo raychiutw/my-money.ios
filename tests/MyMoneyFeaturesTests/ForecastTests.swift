@@ -143,7 +143,7 @@ struct ForecastTests {
         #expect(model.purchaseCheck == nil)
     }
 
-    @Test("資料版本改變後重抓(固定收支、資金帳戶或儲蓄目標改了，預測就會變)")
+    @Test("資料版本改變後重抓(固定收支、資產帳戶或儲蓄目標改了，預測就會變)")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()
         let repository = InMemoryForecastRepository.sample(today: today)

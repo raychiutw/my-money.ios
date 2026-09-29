@@ -27,7 +27,7 @@ public final class RecurringEditorModel {
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 新增：預設固定支出、每月、1 號，關聯帳戶是第一個資金帳戶(在 `prepare()` 帶入)。
+    /// 新增：預設固定支出、每月、1 號，關聯帳戶是第一個資產帳戶(在 `prepare()` 帶入)。
     public init(adding: Void, repository: any RecurringRepository, accounts: any AccountRepository, dataVersion: DataVersion) {
         title = "新增固定收支"
         editingID = nil
@@ -50,11 +50,11 @@ public final class RecurringEditorModel {
         self.dataVersion = dataVersion
     }
 
-    /// 打開 sheet 時呼叫：載入資金帳戶;新增時帶入第一個。
+    /// 打開 sheet 時呼叫：載入資產帳戶;新增時帶入第一個。
     public func prepare() async {
         do {
             accounts = try await accountRepository.accounts()
-            // 使用者在資金帳戶載入之前就選了，保留他的選擇。
+            // 使用者在資產帳戶載入之前就選了，保留他的選擇。
             if editingID == nil, accountID == nil { accountID = accounts.first?.id }
         } catch {
             errorMessage = error.localizedDescription

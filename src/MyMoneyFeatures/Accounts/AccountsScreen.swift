@@ -38,7 +38,7 @@ struct AccountsScreen: View {
                                 editor = EditorSheet(model.makeEditor(adding: .creditCard))
                             }
                         } label: {
-                            Label("新增資金帳戶", systemImage: "plus")
+                            Label("新增資產帳戶", systemImage: "plus")
                         }
                         .accessibilityIdentifier("accounts.add")
                     }
@@ -51,7 +51,7 @@ struct AccountsScreen: View {
                     AccountEditorView(model: sheet.model)
                 }
                 .confirmationDialog(
-                    "刪除資金帳戶",
+                    "刪除資產帳戶",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingDeletion
@@ -175,7 +175,7 @@ struct AccountsScreen: View {
                 SkeletonSection(count: 1, announces: true) {
                     Picker("檢視範圍", selection: .constant(0)) {
                         Text("全部").tag(0)
-                        Text("家庭公用").tag(1)
+                        Text("家庭共同基金").tag(1)
                         Text("個人私帳").tag(2)
                     }
                     .pickerStyle(.segmented)
@@ -206,7 +206,7 @@ struct AccountsScreen: View {
                 Section {
                     Picker("檢視範圍", selection: $model.scope) {
                         Text("全部").tag(AccountScope.all)
-                        Text("家庭公用").tag(AccountScope.household)
+                        Text("家庭共同基金").tag(AccountScope.household)
                         Text("個人私帳").tag(AccountScope.personal)
                     }
                     .pickerStyle(.segmented)
@@ -236,14 +236,14 @@ struct AccountsScreen: View {
                 detail: model.bankAccountCountText
             )
             SummaryRow(
-                title: "待繳卡費總額",
+                title: "信用卡待繳總額",
                 amount: model.totalCardDue ?? .zero,
                 detail: "已出帳待繳 \((model.billedDebtTotal ?? .zero).formatted()) · 未出帳 \((model.unbilledDebtTotal ?? .zero).formatted())"
             )
             SummaryRow(
-                title: "淨可用資產",
+                title: "淨可用餘額",
                 amount: model.availableBalance ?? .zero,
-                detail: "現金加銀行存款，扣掉所有信用卡的待繳卡費總額",
+                detail: "現金加銀行存款，扣掉信用卡待繳總額",
                 warnsWhenNegative: true
             )
         }
@@ -374,7 +374,7 @@ private struct CardSettlementRow: View {
             .buttonStyle(.borderless)
             .font(.subheadline.bold())
             .disabled(isReconciling)
-            .accessibilityLabel("校準「\(card.name)」的未出帳金額")
+            .accessibilityLabel("校準「\(card.name)」的未出帳款")
             .accessibilityIdentifier("accounts.reconcile.\(card.id.rawValue)")
     }
 
@@ -403,7 +403,7 @@ private struct CashWalletRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(wallet.name)
                 if wallet.isJointFund {
-                    Label("家庭公用", systemImage: "house.fill")
+                    Label("家庭共同基金", systemImage: "house.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -413,7 +413,7 @@ private struct CashWalletRow: View {
                 .monospacedDigit()
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(wallet.name)\(wallet.isJointFund ? ",家庭公用" : ""),現金餘額 \(wallet.balance.spokenText)")
+        .accessibilityLabel("\(wallet.name)\(wallet.isJointFund ? ",家庭共同基金" : ""),現金錢包餘額 \(wallet.balance.spokenText)")
     }
 }
 
@@ -451,8 +451,8 @@ private struct CreditCardRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(card.name)
                         .font(.headline)
-                    // web 的 bd0507b 一律標示家庭卡或個人卡。
-                    Label(card.isJointFund ? "家庭卡" : "個人卡", systemImage: card.isJointFund ? "house.fill" : "person.fill")
+                    // web 一律標示家庭信用卡或個人卡(`bd0507b` 起)。
+                    Label(card.isJointFund ? "家庭信用卡" : "個人卡", systemImage: card.isJointFund ? "house.fill" : "person.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -464,9 +464,9 @@ private struct CreditCardRow: View {
                         .monospacedDigit()
                 }
             }
-            LabeledContent("已出帳待繳金額", value: card.billedDebt.formatted())
+            LabeledContent("已出帳待繳款", value: card.billedDebt.formatted())
                 .monospacedDigit()
-            LabeledContent("未出帳金額", value: card.unbilledDebt.formatted())
+            LabeledContent("未出帳款", value: card.unbilledDebt.formatted())
                 .monospacedDigit()
             if let dates = billingDates {
                 Text(dates)
@@ -517,7 +517,7 @@ private struct SectionEmptyState: View {
     }
 }
 
-/// 使用者選的資金帳戶代表色。只是輔助辨識，不是唯一的資訊(DESIGN.md「顏色」)。
+/// 使用者選的資產帳戶代表色。只是輔助辨識，不是唯一的資訊(DESIGN.md「顏色」)。
 private struct AccountColorMark: View {
     let hex: String
 

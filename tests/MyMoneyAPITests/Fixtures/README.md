@@ -42,13 +42,13 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 非 `/auth/*` 的 401 是 session 過期 |
 | `bot-bindings-delete.json` | `DELETE /bot/bindings/fixture-nonexistent-binding` | 200 | 只有 `{success, message}` 的 envelope 視為成功(這個 id 不存在，不會刪到任何資料) |
 | `auth-register-email-taken.json` | `POST /auth/register`,用測試帳號已經註冊過的 email | 409 | 「此 Email 已被使用」原樣傳遞(不會建立任何資料) |
-| `accounts-list-empty.json` | `GET /accounts`,測試帳號還沒有任何資金帳戶時 | 200 | 空清單 |
+| `accounts-list-empty.json` | `GET /accounts`,測試帳號還沒有任何資產帳戶時 | 200 | 空清單 |
 | `accounts-create-bank.json` | `POST /accounts`,建立銀行存款帳戶「iOS 測試存款」(餘額 50000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試信用卡」(已出帳 12000、未出帳 3500、額度 100000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card-low-limit.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試小額卡」(已出帳 8000、未出帳 5000、額度 20000) | 201 | 建立後的回應(#7 使用) |
-| `accounts-list.json` | `GET /accounts`,上面三個資金帳戶建立之後 | 200 | snake_case;`balance` 依類型拆成餘額或已出帳待繳金額;含 `is_joint`、`shared_debt`、`personal_debt` |
-| `accounts-balance.json` | `GET /accounts/balance`,同上 | 200 | camelCase 的資金指標(淨可用資產 21500) |
-| `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資金帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
+| `accounts-list.json` | `GET /accounts`,上面三個資產帳戶建立之後 | 200 | snake_case;`balance` 依類型拆成餘額或已出帳待繳款;含 `is_joint`、`shared_debt`、`personal_debt` |
+| `accounts-balance.json` | `GET /accounts/balance`,同上 | 200 | camelCase 的資金指標(淨可用餘額 21500) |
+| `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資產帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
 | `accounts-delete.json` | `DELETE /accounts/:id`,刪除上面那個暫時帳戶 | 200 | `{success, data: null}` 視為成功 |
 | `accounts-delete-not-found.json` | 再刪一次同一個 id | 404 | 「帳戶不存在」原樣傳遞 |
 | `transactions-create-shared-expense.json` | `POST /transactions`,「iOS 測試存款」家庭公帳支出 餐飲 120「午餐」 | 201 | 記一筆成功 |
@@ -57,7 +57,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-joint-fund.json` | `POST /accounts`,建立銀行存款帳戶「iOS 家庭共同基金」(餘額 10000,`is_joint: 1`) | 201 | 家庭共同基金的標記 |
 | `transactions-create-card-shared.json` | `POST /transactions`,「iOS 測試信用卡」家庭公帳支出 購物 3000「全家的日用品」 | 201 | 讓欠款公私拆解有家庭公帳的部分 |
 | `accounts-list-with-debt-split.json` | `GET /accounts`,上面兩筆之後 | 200 | 信用卡帳戶的 `shared_debt` 3000、`personal_debt` 16380;家庭共同基金的 `is_joint: 1` |
-| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳金額(12000 → 9000),未出帳金額不變;產生一筆「信用卡還款」交易紀錄 |
+| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」交易紀錄 |
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
 | `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試信用卡」 | 200 | 未出帳 7380 移到已出帳待繳;訊息在 `data.message` |
@@ -133,8 +133,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-cash.json` | `POST /accounts`,建立現金錢包「iOS 測試皮夾」(`type: cash`,餘額 1500,個人私帳) | 201 | 建立後的回應 |
 | `accounts-list-with-cash.json` | `GET /accounts?scope=all`,上面那個現金錢包建立之後 | 200 | `type: "cash"` 解讀成現金錢包;把它改成不認得的類型時只略過那一個 |
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
-| `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳家庭公用(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
-| `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含家庭公用帳戶：銀行存款 94700(少了共同基金 7000)、淨可用資產 66820 |
+| `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳歸屬家庭共同基金(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
+| `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含歸屬家庭共同基金的帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
 | `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易紀錄 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
 | `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |

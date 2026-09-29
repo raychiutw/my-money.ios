@@ -106,7 +106,7 @@ public struct ReimbursementItem: Hashable, Sendable, Identifiable {
 public struct Reimbursement: Hashable, Sendable {
     /// 收款的成員。
     public let memberID: UserID
-    /// 撥款的家庭共同基金(家庭公用帳戶)。
+    /// 撥款的家庭共同基金(歸屬家庭共同基金的銀行存款帳戶或現金錢包)。
     public let fromAccountID: AccountID
     /// 收款成員的個人帳戶。
     public let toAccountID: AccountID

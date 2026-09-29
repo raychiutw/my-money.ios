@@ -52,7 +52,7 @@ public final class QuickEntryModel {
         date = today()
     }
 
-    /// 打開 sheet 時呼叫：載入資金帳戶;還沒選過、或選的帳戶已經不在時，預設第一個。
+    /// 打開 sheet 時呼叫：載入資產帳戶;還沒選過、或選的帳戶已經不在時，預設第一個。
     public func prepare() async {
         errorMessage = nil
         do {

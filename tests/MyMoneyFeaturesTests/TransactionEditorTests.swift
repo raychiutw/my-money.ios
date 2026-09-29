@@ -70,7 +70,7 @@ struct TransactionEditorTests {
         #expect(dataVersion.value == 0)
     }
 
-    @Test("沒選資金帳戶時提示「請先建立並選擇帳戶」")
+    @Test("沒選資產帳戶時提示「請先建立並選擇帳戶」")
     func requiresAccount() async {
         let editor = await editor(for: headphones)
         editor.accountID = nil

@@ -4,7 +4,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("資金帳戶的新增與編輯")
+@Suite("資產帳戶的新增與編輯")
 struct AccountEditorTests {
     private let repository = InMemoryAccountRepository(accounts: [], summary: .zero)
     private let dataVersion = DataVersion()
@@ -38,12 +38,13 @@ struct AccountEditorTests {
         #expect(editor.colorHex == "#10B981")
     }
 
-    @Test("新增信用卡的預設值：不輸入已出帳待繳金額(web 拿掉了)、未出帳空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
+    @Test("新增信用卡的預設值：不輸入已出帳待繳款(web 拿掉了)、未出帳款欄空白(存成 0)、額度 100000、結帳日 15、繳款日 5")
     func creditCardDefaults() {
         let editor = adding(.creditCard)
 
         #expect(editor.title == "新增信用卡")
         #expect(!editor.showsAmountField)
+        #expect(editor.unbilledLabel == "未出帳款")
         #expect(editor.unbilledText == "")
         #expect(editor.creditLimitText == "100000")
         #expect(editor.statementDay == 15)
@@ -143,7 +144,7 @@ struct AccountEditorTests {
         ))])
     }
 
-    @Test("編輯家庭公用的現金錢包：帶入原值、不能改類型，送出現金錢包並保留家庭公用")
+    @Test("編輯歸屬家庭共同基金的現金錢包：帶入原值、不能改類型，送出現金錢包並保留家庭共同基金")
     func editingCashWallet() async {
         let jar = CashWallet(id: AccountID("jar"), name: "客廳零用金盒", colorHex: "#10B981", balance: Money(2000), isJointFund: true)
         let editor = AccountEditorModel(editing: .cash(jar), repository: repository, dataVersion: dataVersion)
@@ -160,7 +161,7 @@ struct AccountEditorTests {
         ))])
     }
 
-    @Test("信用卡也能設成家庭卡(所有類型都能設歸屬)")
+    @Test("信用卡也能設成家庭信用卡(所有類型都能設歸屬)")
     func creditCardCanBeHouseholdCard() async {
         let editor = adding(.creditCard)
         editor.name = "家庭卡"
@@ -175,7 +176,7 @@ struct AccountEditorTests {
         #expect(card.isJointFund)
     }
 
-    @Test("編輯信用卡時照原值送回已出帳待繳金額(表單不能改)")
+    @Test("編輯信用卡時照原值送回已出帳待繳款(表單不能改)")
     func editingCardKeepsBilledDebt() async {
         let editor = AccountEditorModel(editing: .creditCard(SampleAccounts.card), repository: repository, dataVersion: dataVersion)
         editor.unbilledText = "4000"
@@ -188,6 +189,26 @@ struct AccountEditorTests {
         }
         #expect(card.billedDebt == Money(12000))
         #expect(card.unbilledDebt == Money(4000))
+    }
+
+    @Test("歸屬的兩個選項是「個人私帳」「家庭共同基金」,所有類型都一樣(跟 web 一樣)", arguments: [
+        AccountKind.cash, .bank, .creditCard,
+    ])
+    func ownershipChoicesAreTheSameForAllKinds(kind: AccountKind) {
+        let editor = adding(kind)
+
+        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭共同基金"])
+        #expect(editor.ownershipChoices.map(\.isJointFund) == [false, true])
+    }
+
+    @Test("歸屬的說明隨選項改變：家庭共同基金對家庭群組全體成員公開，個人私帳只有本人看得到")
+    func ownershipNoteFollowsChoice() {
+        let editor = adding(.cash)
+        #expect(editor.ownershipNote == "個人私帳僅你本人可見，其他家庭成員無法檢視餘額。")
+
+        editor.isJointFund = true
+
+        #expect(editor.ownershipNote == "家庭共同基金帳戶將對家庭群組全體成員公開。")
     }
 
     @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")

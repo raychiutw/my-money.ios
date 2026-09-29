@@ -111,7 +111,7 @@ struct OverviewScreen: View {
         if let summary = model.summary {
             Section {
                 SummaryRow(
-                    title: "淨可用資產",
+                    title: "淨可用餘額",
                     amount: summary.availableBalance,
                     detail: model.availableBreakdown ?? "",
                     warnsWhenNegative: true
@@ -179,7 +179,7 @@ struct OverviewScreen: View {
             }
             ForEach(model.creditCards) { card in
                 LabeledContent {
-                    // 待繳卡費總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
+                    // 信用卡待繳總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
                     Text(card.totalDue.formatted())
                         .monospacedDigit()
                         .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
@@ -274,7 +274,7 @@ struct OverviewScreen: View {
 private struct OverviewSkeleton: View {
     var body: some View {
         Section {
-            SummaryRow(title: "淨可用資產", amount: Skeleton.amount, detail: Skeleton.text)
+            SummaryRow(title: "淨可用餘額", amount: Skeleton.amount, detail: Skeleton.text)
                 .skeletonAnnouncement()
             ForEach(0..<2, id: \.self) { _ in
                 SummaryRow(title: "統計卡", amount: Skeleton.amount, detail: Skeleton.text)

@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Testing
 
-@Suite("信用卡帳戶的待繳卡費總額與剩餘額度")
+@Suite("信用卡帳戶的信用卡待繳總額與剩餘額度")
 struct CreditCardTests {
     private func card(billed: Decimal, unbilled: Decimal, limit: Decimal?) -> CreditCard {
         CreditCard(
@@ -17,12 +17,12 @@ struct CreditCardTests {
         )
     }
 
-    @Test("待繳卡費總額是已出帳待繳金額加上未出帳金額")
+    @Test("信用卡待繳總額是已出帳待繳款加上未出帳款")
     func totalDueIsBilledPlusUnbilled() {
         #expect(card(billed: 12000, unbilled: 3500, limit: 100_000).totalDue == Money(15500))
     }
 
-    @Test("剩餘額度是信用額度扣掉待繳卡費總額")
+    @Test("剩餘額度是信用額度扣掉信用卡待繳總額")
     func remainingCreditIsLimitMinusTotalDue() {
         #expect(card(billed: 12000, unbilled: 3500, limit: 100_000).remainingCredit == Money(84500))
     }

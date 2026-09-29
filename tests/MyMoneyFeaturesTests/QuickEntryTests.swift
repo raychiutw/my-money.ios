@@ -21,7 +21,7 @@ struct QuickEntryTests {
         return model
     }
 
-    @Test("預設值：家庭公帳、支出、餐飲、今天、第一個資金帳戶")
+    @Test("預設值：家庭公帳、支出、餐飲、今天、第一個資產帳戶")
     func defaults() async {
         let entry = await model()
 
@@ -47,7 +47,7 @@ struct QuickEntryTests {
         #expect(entry.categories == TransactionCategory.expenseCategories)
     }
 
-    @Test("還沒有任何資金帳戶時提示先建立")
+    @Test("還沒有任何資產帳戶時提示先建立")
     func requiresAnAccount() async {
         let entry = await model(accounts: [])
         entry.amountText = "120"

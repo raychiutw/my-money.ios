@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 信用卡扣款還款的 sheet:待繳卡費總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
+/// 信用卡扣款還款的 sheet:信用卡待繳總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
 struct CardPaymentView: View {
     @Bindable var model: CardPaymentModel
     @Environment(\.dismiss) private var dismiss
@@ -17,9 +17,9 @@ struct CardPaymentView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("待繳卡費總額", value: model.card.totalDue.formatted())
-                    LabeledContent("已出帳待繳金額", value: model.card.billedDebt.formatted())
-                    LabeledContent("未出帳金額", value: model.card.unbilledDebt.formatted())
+                    LabeledContent("信用卡待繳總額", value: model.card.totalDue.formatted())
+                    LabeledContent("已出帳待繳款", value: model.card.billedDebt.formatted())
+                    LabeledContent("未出帳款", value: model.card.unbilledDebt.formatted())
                     LabeledContent("家庭公帳", value: model.card.sharedDebt.formatted())
                     LabeledContent("個人私帳", value: model.card.personalDebt.formatted())
                 } header: {
