@@ -30,13 +30,12 @@ struct StatementRolloverTests {
         #expect(!model.showsRollover(settled))
     }
 
-    @Test("提醒與確認說明轉入本期已出帳待繳款;確認後做出帳作業，顯示後端的訊息，資料版本遞增")
+    @Test("確認說明轉入本期已出帳待繳款;確認後做出帳作業，顯示後端的訊息，資料版本遞增")
     func rollOver() async throws {
         let (model, repository) = await loaded(today: 28)
         let card = try #require(model.creditCards.first)
 
         #expect(model.rolloverConfirmation(for: card) == "確定要將「iOS 測試信用卡」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？")
-        #expect(model.rolloverReminder(for: card) == "未出帳款 $3,500,可做出帳作業，轉入本期已出帳待繳款")
         await model.rollOver(card)
 
         #expect(await repository.rolledOverIDs == [card.id])

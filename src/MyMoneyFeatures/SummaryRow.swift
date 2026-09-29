@@ -1,11 +1,11 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 統計卡的一列：標題、金額、說明。
+/// 統計卡的一列：標題、金額，以及選填的明細(例如「N 個現金錢包」;解釋算法的說明不寫，見 DESIGN.md「說明文字」)。
 struct SummaryRow: View {
     let title: String
     let amount: Money
-    let detail: String
+    var detail: String?
     var warnsWhenNegative = false
 
     var body: some View {
@@ -17,12 +17,14 @@ struct SummaryRow: View {
                 .font(.title2.bold())
                 .monospacedDigit()
                 .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-            Text(detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if let detail {
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title) \(amount.spokenText),\(detail)")
+        .accessibilityLabel(detail.map { "\(title) \(amount.spokenText),\($0)" } ?? "\(title) \(amount.spokenText)")
     }
 }

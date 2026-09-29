@@ -227,7 +227,6 @@ struct AccountsScreen: View {
             SummaryRow(
                 title: "淨可用餘額",
                 amount: model.availableBalance ?? .zero,
-                detail: "現金加銀行存款，扣掉信用卡待繳總額",
                 warnsWhenNegative: true
             )
         }
@@ -238,7 +237,6 @@ struct AccountsScreen: View {
             if model.cashWallets.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無現金錢包",
-                    message: "建立你的個人隨身皮夾或客廳公用零用金盒，掌握實體現鈔流向！",
                     actionTitle: "立即新增現金錢包", identifier: "accounts.emptyAdd.cash"
                 ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
@@ -255,7 +253,6 @@ struct AccountsScreen: View {
             if model.bankAccounts.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無銀行存款帳戶",
-                    message: "新增個人薪轉或家庭共同基金帳戶，輕鬆追蹤儲蓄與扣款。",
                     actionTitle: "立即新增銀行存款帳戶", identifier: "accounts.emptyAdd.bank"
                 ) { editor = EditorSheet(model.makeEditor(adding: .bank)) }
             }
@@ -272,17 +269,15 @@ struct AccountsScreen: View {
             if model.creditCards.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無信用卡",
-                    message: "新增信用卡可掌握家庭公帳代墊與個人私帳刷卡分流，避免突襲式卡費！",
                     actionTitle: "立即新增信用卡", identifier: "accounts.emptyAdd.creditCard"
                 ) { editor = EditorSheet(model.makeEditor(adding: .creditCard)) }
             }
             ForEach(model.creditCards) { card in
                 accountRow(.creditCard(card)) { CreditCardRow(card: card) }
-                // 卡片本身點一下是編輯，所以欠款公私拆解、結帳日提醒與還款放在下一列，不把按鈕塞進按鈕裡。
+                // 卡片本身點一下是編輯，所以欠款公私拆解、出帳作業、校準與還款放在下一列，不把按鈕塞進按鈕裡。
                 CardSettlementRow(
                     card: card,
                     showsRollover: model.showsRollover(card),
-                    reminder: model.rolloverReminder(for: card),
                     rollOver: { pendingRollover = card },
                     isReconciling: model.isReconciling(card),
                     reconcile: { pendingReconcile = card },
@@ -301,7 +296,6 @@ extension TransferModel: Identifiable {}
 private struct CardSettlementRow: View {
     let card: CreditCard
     let showsRollover: Bool
-    let reminder: String
     let rollOver: () -> Void
     let isReconciling: Bool
     let reconcile: () -> Void
@@ -316,18 +310,10 @@ private struct CardSettlementRow: View {
                 .accessibilityLabel(
                     "負債性質拆解，家庭代墊公帳 \(card.sharedDebt.spokenText),個人私帳消費 \(card.personalDebt.spokenText)"
                 )
-            // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
-            VStack(alignment: .leading, spacing: 4) {
-                if showsRollover {
-                    Text(reminder)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                // 校準每張卡都有(web 的 b5cbe09);出帳作業只在有未出帳款時出現。
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 16) { statementButtons }
-                    VStack(alignment: .leading, spacing: 8) { statementButtons }
-                }
+            // 校準每張卡都有(web 的 b5cbe09);出帳作業只在有未出帳款時出現(未出帳款的金額在卡片上，不另外寫提醒)。
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { statementButtons }
+                VStack(alignment: .leading, spacing: 8) { statementButtons }
             }
             if card.totalDue > .zero {
                 // List 的一列裡有好幾個按鈕：每個都要 borderless,不然點一個會全部觸發。大字級時改成直排。
@@ -479,10 +465,9 @@ private struct CreditCardRow: View {
     }
 }
 
-/// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」),附新增的入口。
+/// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」):只有標題和新增的入口，web 的宣傳句不寫(DESIGN.md「說明文字」)。
 private struct SectionEmptyState: View {
     let title: String
-    let message: String
     let actionTitle: String
     let identifier: String
     let action: () -> Void
@@ -491,9 +476,6 @@ private struct SectionEmptyState: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
             Button(actionTitle, action: action)
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier(identifier)

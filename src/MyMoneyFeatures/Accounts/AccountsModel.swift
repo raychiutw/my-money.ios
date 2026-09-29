@@ -49,12 +49,8 @@ public final class AccountsModel {
         card.unbilledDebt > .zero
     }
 
-    /// 例如「未出帳款 $3,500,可做出帳作業，轉入本期已出帳待繳款」。
+    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」。
     /// web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
-    public func rolloverReminder(for card: CreditCard) -> String {
-        "未出帳款 \(card.unbilledDebt.formatted()),可做出帳作業，轉入本期已出帳待繳款"
-    }
-
     public func rolloverConfirmation(for card: CreditCard) -> String {
         "確定要將「\(card.name)」的未出帳款 \(card.unbilledDebt.formatted()) 轉入本期已出帳待繳款嗎？"
     }
