@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("結帳日出帳結轉")
+@Suite("結帳日出帳作業")
 struct StatementRolloverTests {
     private let dataVersion = DataVersion()
 
@@ -18,7 +18,7 @@ struct StatementRolloverTests {
         return (model, repository)
     }
 
-    @Test("有未出帳金額就能結轉，不看結帳日(web 在 82d9124 拿掉了結帳日的條件);沒有未出帳金額時不能結轉")
+    @Test("有未出帳款就能做出帳作業，不看結帳日(web 在 82d9124 拿掉了結帳日的條件);沒有未出帳款時不能做")
     func showsRolloverWheneverUnbilled() async {
         let (model, _) = await loaded(today: 1)
         #expect(model.creditCards.map(model.showsRollover) == [true, true])
@@ -30,17 +30,18 @@ struct StatementRolloverTests {
         #expect(!model.showsRollover(settled))
     }
 
-    @Test("確認後結轉，顯示後端的訊息，資料版本遞增")
+    @Test("提醒與確認說明轉入本期已出帳待繳款;確認後做出帳作業，顯示後端的訊息，資料版本遞增")
     func rollOver() async throws {
         let (model, repository) = await loaded(today: 28)
         let card = try #require(model.creditCards.first)
 
-        #expect(model.rolloverConfirmation(for: card) == "確定要將「iOS 測試信用卡」的未出帳金額 $3,500 結轉為本期已出帳待繳嗎？")
-        #expect(model.rolloverReminder(for: card) == "未出帳 $3,500,可結轉為本期已出帳待繳")
+        #expect(model.rolloverConfirmation(for: card) == "確定要將「iOS 測試信用卡」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？")
+        #expect(model.rolloverReminder(for: card) == "未出帳款 $3,500,可做出帳作業，轉入本期已出帳待繳款")
         await model.rollOver(card)
 
         #expect(await repository.rolledOverIDs == [card.id])
-        #expect(model.noticeMessage == "已將未出帳 $3,500 成功結轉為已出帳待繳！")
+        // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
+        #expect(model.noticeMessage == "已將未出帳 NT$ 3,500 成功出帳作業為已出帳待繳款！")
         #expect(dataVersion.value == 1)
     }
 }
@@ -50,19 +51,23 @@ struct StatementRolloverTests {
 struct ReconcileUnbilledTests {
     private let dataVersion = DataVersion()
 
-    @Test("確認文字照 web,再說明重算的期間，以及已結轉、已繳的消費也會算回未出帳(後端的漏洞，onion523/my-money#19)")
+    @Test("確認文字照 web 用正名，再說明重算的期間、會扣掉刷退和還款，並提醒繳過已出帳待繳款的話未出帳款會被算少(後端的問題，onion523/my-money#27)")
     func confirmationExplainsPeriodAndConsequence() {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: dataVersion)
 
         #expect(model.reconcileConfirmation(for: SampleAccounts.card)
-            == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳金額嗎？會重算上一個結帳日之後的消費，已經結轉或繳過的消費也會算回未出帳。")
+            == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳款嗎？"
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，從上一個結帳日起算),並扣掉這段期間的刷退和還款。"
+            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。")
 
         let withoutStatementDay = CreditCard(
             id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
             creditLimit: nil, statementDay: nil, paymentDueDay: nil
         )
         #expect(model.reconcileConfirmation(for: withoutStatementDay)
-            == "確定要依據「沒有結帳日的卡」的當期消費明細，自動校準未出帳金額嗎？會重算這張卡所有的消費，已經結轉或繳過的消費也會算回未出帳。")
+            == "確定要依據「沒有結帳日的卡」的當期消費明細，自動校準未出帳款嗎？"
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，算這張卡所有的消費),並扣掉這段期間的刷退和還款。"
+            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。")
     }
 
     @Test("確認後校準，顯示後端的訊息，資料版本遞增;送出期間這張卡是校準中", .timeLimit(.minutes(1)))
@@ -99,7 +104,7 @@ struct ReconcileUnbilledTests {
 }
 
 @MainActor
-@Suite("信用卡還款沖銷")
+@Suite("信用卡扣款還款")
 struct CardPaymentTests {
     private let dataVersion = DataVersion()
     private let today = CalendarDay(year: 2026, month: 9, day: 28)

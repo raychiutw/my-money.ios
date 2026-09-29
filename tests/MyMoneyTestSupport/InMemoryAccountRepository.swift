@@ -104,10 +104,10 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
-    /// 信用卡還款沖銷送出過的內容，依送出順序。
+    /// 信用卡扣款還款送出過的內容，依送出順序。
     public private(set) var payments: [CardPayment] = []
 
-    /// 結帳日出帳結轉過的信用卡帳戶，依順序。
+    /// 做過結帳日出帳作業的信用卡帳戶，依順序。
     public private(set) var rolledOverIDs: [AccountID] = []
 
     /// 跟後端一樣：從銀行存款帳戶扣款，先沖已出帳待繳金額，不足的部分再沖未出帳金額(不重算資金指標與欠款公私拆解)。
@@ -135,13 +135,14 @@ public actor InMemoryAccountRepository: AccountRepository {
     public func rollOverStatement(_ id: AccountID) async throws -> String {
         if let failure { throw failure }
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }), card.unbilledDebt > .zero else {
-            throw RepositoryError.rejected("目前無未出帳金額需結轉")
+            throw RepositoryError.rejected("目前無未出帳金額需出帳作業")
         }
         rolledOverIDs.append(id)
         storedAccounts = storedAccounts.map {
             $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
         }
-        return "已將未出帳 \(card.unbilledDebt.amount.formatted(.currency(code: "TWD").precision(.fractionLength(0)).locale(Locale(identifier: "zh_Hant_TW")))) 成功結轉為已出帳待繳！"
+        // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:274),疊字已回報 onion523/my-money#27。
+        return "已將未出帳 NT$ \(card.unbilledDebt.amount.formatted(.number.locale(Locale(identifier: "en_US")))) 成功出帳作業為已出帳待繳款！"
     }
 
     /// 校準過未出帳的信用卡，依順序。

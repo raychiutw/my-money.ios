@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 信用卡還款沖銷的 sheet:待繳卡費總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
+/// 信用卡扣款還款的 sheet:待繳卡費總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
 struct CardPaymentView: View {
     @Bindable var model: CardPaymentModel
     @Environment(\.dismiss) private var dismiss
@@ -25,7 +25,7 @@ struct CardPaymentView: View {
                 } header: {
                     Text(model.card.name)
                 } footer: {
-                    Text("先沖已出帳待繳金額，不足的部分再沖未出帳金額。會產生一筆「信用卡還款」交易紀錄。")
+                    Text("先沖已出帳待繳款，不足的部分再沖未出帳款。會產生兩筆「信用卡還款」交易記錄：銀行存款帳戶一筆支出、信用卡一筆收入。")
                 }
                 .monospacedDigit()
 
@@ -65,7 +65,7 @@ struct CardPaymentView: View {
                     }
                 }
             }
-            .navigationTitle("信用卡還款沖銷")
+            .navigationTitle("信用卡扣款還款")
             .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

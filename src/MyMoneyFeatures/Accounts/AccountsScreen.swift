@@ -70,12 +70,12 @@ struct AccountsScreen: View {
                     CardPaymentView(model: payment)
                 }
                 .confirmationDialog(
-                    "結帳日出帳結轉",
+                    "結帳日出帳作業",
                     isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingRollover
                 ) { card in
-                    Button("結轉") {
+                    Button("出帳作業") {
                         Task { await model.rollOver(card) }
                     }
                     Button("取消", role: .cancel) {}
@@ -313,7 +313,7 @@ struct AccountsScreen: View {
 extension CardPaymentModel: Identifiable {}
 extension TransferModel: Identifiable {}
 
-/// 信用卡帳戶的負債性質拆解、結帳日出帳結轉與還款(web 在 `82d9124` 把三個還款按鈕移到卡片上)。
+/// 信用卡帳戶的負債性質拆解、結帳日出帳作業、校準未出帳與信用卡扣款還款(web 在 `82d9124` 把三個還款按鈕移到卡片上)。
 private struct CardSettlementRow: View {
     let card: CreditCard
     let showsRollover: Bool
@@ -339,7 +339,7 @@ private struct CardSettlementRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                // 校準每張卡都有(web 的 b5cbe09);結轉只在有未出帳金額時出現。
+                // 校準每張卡都有(web 的 b5cbe09);出帳作業只在有未出帳款時出現。
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 16) { statementButtons }
                     VStack(alignment: .leading, spacing: 8) { statementButtons }
@@ -364,9 +364,10 @@ private struct CardSettlementRow: View {
     @ViewBuilder
     private var statementButtons: some View {
         if showsRollover {
-            Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
+            Button("出帳作業", systemImage: "calendar.badge.clock", action: rollOver)
                 .buttonStyle(.borderless)
                 .font(.subheadline.bold())
+                .accessibilityLabel("「\(card.name)」出帳作業")
                 .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
         }
         Button(isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath", action: reconcile)

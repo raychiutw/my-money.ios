@@ -61,7 +61,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
 | `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試信用卡」 | 200 | 未出帳 7380 移到已出帳待繳;訊息在 `data.message` |
-| `accounts-rollover-statement-none.json` | 再結轉一次 | 400 | 「目前無未出帳金額需結轉」原樣傳遞 |
+| `accounts-rollover-statement-none.json` | 再做一次出帳作業 | 400 | 「目前無未出帳金額需結轉」原樣傳遞 |
 | `transactions-recent.json` | `GET /transactions?scope=all&limit=6&offset=0`,不帶 `from` / `to`(總覽的最近 6 筆) | 200 | 不限日期，由新到舊 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
 | `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |

@@ -30,7 +30,7 @@ public struct APIClient: Sendable {
         return try decodeData(data)
     }
 
-    /// 送出沒有 body 的請求，並取出 `{success, data}` 裡的 `data`(例如產生邀請碼、結帳日出帳結轉)。
+    /// 送出沒有 body 的請求，並取出 `{success, data}` 裡的 `data`(例如產生邀請碼、結帳日出帳作業)。
     package func send<Payload: Decodable>(_ method: String, _ path: String) async throws -> Payload {
         let data = try await perform(method, path, body: nil)
         return try decodeData(data)

@@ -25,7 +25,7 @@ public struct TransactionCategory: Hashable, Sendable {
     public static let dining = TransactionCategory("餐飲")
     public static let salary = TransactionCategory("薪資")
 
-    /// 信用卡還款沖銷產生的交易紀錄;不能編輯或刪除，也不算進生活消費支出。
+    /// 信用卡扣款還款產生的交易記錄(銀行存款帳戶一筆支出、信用卡一筆收入);不能編輯或刪除，也不算進收支統計。
     public static let creditCardRepayment = TransactionCategory("信用卡還款")
 
     /// 帳戶互轉(ATM 提款以外)產生的交易紀錄，一筆支出一筆收入(`POST /accounts/transfer`)。

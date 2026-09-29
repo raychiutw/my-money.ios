@@ -22,13 +22,14 @@ public protocol AccountRepository: Sendable {
     /// 刪除資金帳戶。這個帳戶的交易紀錄會被後端一併刪除。
     func delete(_ id: AccountID) async throws
 
-    /// 信用卡還款沖銷。
+    /// 信用卡扣款還款。
     func payCreditCard(_ payment: CardPayment) async throws
 
-    /// 結帳日出帳結轉：把未出帳金額一次移到已出帳待繳金額。回傳後端的訊息。
+    /// 結帳日出帳作業：把未出帳款一次轉入已出帳待繳款，後端並記錄這次出帳作業的時間點(`da82a11` 起)。回傳後端的訊息。
     func rollOverStatement(_ id: AccountID) async throws -> String
 
-    /// 信用卡未出帳自動校準(後端 `b5cbe09`):把未出帳金額重算成上一個結帳日之後的消費合計。回傳後端的訊息。
+    /// 信用卡未出帳自動校準(後端 `b5cbe09`,`da82a11` 改了算法):把未出帳款覆寫成上一次結帳日出帳作業之後的消費合計，
+    /// 扣掉同一段期間的刷退和還款。回傳後端的訊息。
     func reconcileUnbilled(_ id: AccountID) async throws -> String
 
     /// ATM 提款／帳戶互轉。回傳後端的訊息。

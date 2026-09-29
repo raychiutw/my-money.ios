@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 信用卡還款沖銷的 sheet(parity.md「帳戶」的信用卡還款沖銷)。
+/// 信用卡扣款還款的 sheet(parity.md「帳戶」的信用卡扣款還款)。
 @MainActor
 @Observable
 public final class CardPaymentModel {

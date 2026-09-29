@@ -1,13 +1,13 @@
 import XCTest
 
-/// 帳戶 tab 的結帳日出帳結轉與信用卡還款沖銷。資料來自 MyMoneyTestSupport 的 `SampleAccounts`(不連網路)。
+/// 帳戶 tab 的結帳日出帳作業、校準未出帳與信用卡扣款還款。資料來自 MyMoneyTestSupport 的 `SampleAccounts`(不連網路)。
 final class CardSettlementUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    /// 有未出帳金額就能出帳結轉(先確認)，結轉後顯示後端的訊息。
-    /// 信用卡還款沖銷：從卡片上的「繳家庭代墊」打開(帶入 3,000),已出帳待繳金額從 12,000 變成 9,000。
+    /// 有未出帳款就能做出帳作業(先確認),完成後顯示後端的訊息;按鈕的 VoiceOver 念出卡名。
+    /// 信用卡扣款還款：從卡片上的「繳家庭代墊」打開(帶入 3,000),已出帳待繳款從 12,000 變成 9,000。
     @MainActor
     func testRolloverAndPayment() throws {
         let app = XCUIApplication()
@@ -18,17 +18,26 @@ final class CardSettlementUITests: XCTestCase {
 
         let rollover = app.buttons["accounts.rollover.sample-low-limit-card"]
         for _ in 0..<5 where !rollover.isHittable { app.swipeUp() }
+        XCTAssertEqual(rollover.label, "「iOS 測試小額卡」出帳作業", "出帳作業的按鈕沒有念出卡名")
         rollover.tap()
-        XCTAssertTrue(element(in: app, labelContaining: "結轉為本期已出帳待繳嗎？").waitForExistence(timeout: 3), "沒有先確認就結轉")
-        app.buttons["結轉"].firstMatch.tap()
-        XCTAssertTrue(element(in: app, labelContaining: "成功結轉為已出帳待繳").waitForExistence(timeout: 5), "沒有顯示結轉的結果")
+        XCTAssertTrue(
+            element(in: app, labelContaining: "確定要將「iOS 測試小額卡」的未出帳款 $5,000 轉入本期已出帳待繳款嗎？")
+                .waitForExistence(timeout: 3),
+            "沒有先確認就做出帳作業"
+        )
+        app.buttons["出帳作業"].firstMatch.tap()
+        // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
+        XCTAssertTrue(
+            element(in: app, labelContaining: "已將未出帳 NT$ 5,000 成功出帳作業為已出帳待繳款！").waitForExistence(timeout: 5),
+            "沒有顯示出帳作業的結果"
+        )
         app.buttons["好"].tap()
 
         let payShared = app.buttons["accounts.payShared.sample-card"]
         for _ in 0..<5 where !payShared.isHittable { app.swipeUp() }
         payShared.tap()
         let amount = app.textFields["cardPayment.amount"]
-        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡還款沖銷")
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡扣款還款")
         XCTAssertEqual(amount.value as? String, "3000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
         // 點金額欄全選後重打一次，直接取代原值(#32)。
         amount.tap()
@@ -39,7 +48,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "已出帳待繳金額、$9,000").waitForExistence(timeout: 5), "還款後已出帳待繳金額沒有更新")
     }
 
-    /// 校準未出帳(#48):先確認(說明重算的期間和後果),完成後顯示後端的訊息。
+    /// 校準未出帳(#48):先確認(說明重算的期間、會扣掉刷退和還款，以及未出帳款可能被算少),完成後顯示後端的訊息。
     @MainActor
     func testReconcileUnbilled() throws {
         let app = XCUIApplication()
@@ -52,8 +61,8 @@ final class CardSettlementUITests: XCTestCase {
         for _ in 0..<5 where !(reconcile.exists && reconcile.isHittable) { app.swipeUp() }
         reconcile.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "已經結轉或繳過的消費也會算回未出帳").waitForExistence(timeout: 3),
-            "確認時沒有說明後果"
+            element(in: app, labelContaining: "這段期間繳過已出帳待繳款的話，未出帳款會被算少。").waitForExistence(timeout: 3),
+            "確認時沒有提醒未出帳款會被算少"
         )
         app.buttons["校準"].firstMatch.tap()
 

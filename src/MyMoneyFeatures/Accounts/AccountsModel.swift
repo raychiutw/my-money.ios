@@ -27,7 +27,7 @@ public final class AccountsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
-    /// 操作成功時顯示的訊息(例如結帳日出帳結轉的結果)。
+    /// 操作成功時顯示的訊息(例如結帳日出帳作業的結果)。
     public var noticeMessage: String?
 
     @ObservationIgnored private let repository: any AccountRepository
@@ -44,21 +44,22 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 有未出帳金額就能結帳日出帳結轉，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
+    /// 有未出帳款就能做結帳日出帳作業，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
     public func showsRollover(_ card: CreditCard) -> Bool {
         card.unbilledDebt > .zero
     }
 
-    /// 例如「未出帳 $3,500,可結轉為本期已出帳待繳」。
+    /// 例如「未出帳款 $3,500,可做出帳作業，轉入本期已出帳待繳款」。
+    /// web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
     public func rolloverReminder(for card: CreditCard) -> String {
-        "未出帳 \(card.unbilledDebt.formatted()),可結轉為本期已出帳待繳"
+        "未出帳款 \(card.unbilledDebt.formatted()),可做出帳作業，轉入本期已出帳待繳款"
     }
 
     public func rolloverConfirmation(for card: CreditCard) -> String {
-        "確定要將「\(card.name)」的未出帳金額 \(card.unbilledDebt.formatted()) 結轉為本期已出帳待繳嗎？"
+        "確定要將「\(card.name)」的未出帳款 \(card.unbilledDebt.formatted()) 轉入本期已出帳待繳款嗎？"
     }
 
-    /// 結帳日出帳結轉;成功後顯示後端的訊息，並遞增資料版本。
+    /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
     public func rollOver(_ card: CreditCard) async {
         do {
             noticeMessage = try await repository.rollOverStatement(card.id)
@@ -75,11 +76,14 @@ public final class AccountsModel {
         reconcilingCardID == card.id
     }
 
-    /// 第一句照 web 的確認文字;後端會把已結轉、已繳的消費重複算回未出帳(onion523/my-money#19),
-    /// 所以另外說明重算的期間和後果(parity 刻意偏離)。
+    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退和還款。
+    /// 後端扣的是還款的全額，繳過已出帳待繳款的話未出帳款會被算少(onion523/my-money#27 第 1 項),
+    /// 所以最後提醒(parity 刻意偏離第 39 項)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
     public func reconcileConfirmation(for card: CreditCard) -> String {
-        let period = card.statementDay == nil ? "這張卡所有的消費" : "上一個結帳日之後的消費"
-        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳金額嗎？會重算\(period)，已經結轉或繳過的消費也會算回未出帳。"
+        let fallback = card.statementDay == nil ? "算這張卡所有的消費" : "從上一個結帳日起算"
+        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？"
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退和還款。"
+            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。"
     }
 
     /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
@@ -94,7 +98,7 @@ public final class AccountsModel {
         }
     }
 
-    /// 信用卡還款沖銷的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
+    /// 信用卡扣款還款的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today

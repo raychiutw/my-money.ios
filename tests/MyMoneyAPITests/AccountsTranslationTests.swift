@@ -132,7 +132,7 @@ struct AccountsTranslationTests {
         #expect(joint.isJointFund)
     }
 
-    @Test("信用卡還款沖銷:POST /accounts/pay-credit-card")
+    @Test("信用卡扣款還款:POST /accounts/pay-credit-card")
     func payCreditCard() async throws {
         try stub.reply(status: 200, fixture: "accounts-pay-credit-card.json")
 
@@ -158,7 +158,7 @@ struct AccountsTranslationTests {
         #expect(json["is_shared"] as? Int == 1)
     }
 
-    @Test("信用卡還款沖銷的錯誤原樣傳遞", arguments: [
+    @Test("信用卡扣款還款的錯誤原樣傳遞", arguments: [
         ("accounts-pay-credit-card-over.json", "繳款金額不可超過當前待繳總額 NT$ 16,380"),
         ("accounts-pay-credit-card-missing.json", "請填寫扣款帳戶、信用卡及正確繳費金額"),
     ])
@@ -217,10 +217,11 @@ struct AccountsTranslationTests {
         }
     }
 
-    @Test("結帳日出帳結轉：回傳後端的訊息;沒有未出帳金額時原樣傳遞錯誤")
+    @Test("結帳日出帳作業：回傳後端的訊息;沒有未出帳款時原樣傳遞錯誤")
     func rollOverStatement() async throws {
         let card = AccountID("70b75089-3652-40a3-8c47-c23d04aab28c")
 
+        // fixture 是後端 `da82a11` 改用字之前從 prod 錄的，訊息是錄製當時的原文(見 Fixtures README);iOS 原樣傳遞，不依文字判斷。
         try stub.reply(status: 200, fixture: "accounts-rollover-statement.json")
         let message = try await repository.rollOverStatement(card)
         #expect(message == "已將未出帳 NT$ 7,380 成功結轉為已出帳待繳！")

@@ -81,7 +81,7 @@ private struct TransferBody: Encodable {
     }
 }
 
-/// 只用到 `data.message` 的回應(結帳日出帳結轉、轉帳、撥款報銷)。
+/// 只用到 `data.message` 的回應(結帳日出帳作業、轉帳、撥款報銷)。
 struct MessageDTO: Decodable {
     let message: String
 }
