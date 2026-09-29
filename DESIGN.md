@@ -109,7 +109,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | `<input type=date>` | `DatePicker(.compact)` |
 | `<input type=month>` | 月份 `Picker`(年、月) |
 | 金額輸入 | 共用的 `AmountField`:靠右對齊、`.numberPad`、等寬數字，取得焦點時全選(直接輸入就取代原值)。綁定文字，儲存時用 `Money(wholeNumber:)` 解析;鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵),按下清掉整個表單的焦點：表單的所有文字欄位(包括備註)綁到同一個 focus 狀態，不管焦點在哪個欄位都收起鍵盤;捲動表單也會收起鍵盤(`keyboardDismissal(clearing:)`) |
-| 色點選擇器(帳戶顏色) | 8 色的圓形按鈕列，每個都有 accessibility label |
+| 色點選擇器(資產帳戶的代表色) | 8 色的圓形按鈕，每顆觸控範圍至少 44×44 pt;VoiceOver 念顏色的名稱，已選的標記為已選取。**一行放得下就排一行，放不下(例如 iPhone 直向)就改成可以左右滑**,用 `ViewThatFits` 依實際寬度判斷，不看裝置或字級。可以滑的時候，捲動範圍延伸到表單列的兩端，一次看得到六顆半，邊緣露出的半顆提示還能滑;打開時用 `scrollPosition` 捲到已選的顏色，打勾完整看得到(編輯既有帳戶也一樣)。維持 web 的 8 色，不用系統的 `ColorPicker`:任意顏色是 web 沒有的功能(ADR-0001),所以刻意不採用 HIG「優先用系統色彩控制項」的建議(#71) |
 | emoji 選擇器(目標) | 12 個 emoji 的格狀按鈕 |
 | 空狀態 | 整頁用 `ContentUnavailableView`;List 區塊裡用標題(`headline`)、下一步(`subheadline`,例如「至帳戶管理新增…」)加 borderless 按鈕。標題和下一步沿用 web,宣傳句不寫(見「說明文字」) |
 | loading(web 的骨架屏) | 首次載入顯示骨架屏：跟載入後一樣的版面，放畫面自帶的固定佔位內容，套系統的 `.redacted(reason: .placeholder)`(`LoadingSkeleton.swift`)。VoiceOver 只念一次「載入中」,佔位不能點;資料回來時淡入 0.25 秒，開啟「減少動態效果」時不做動畫;不做微光(shimmer)。下拉更新、切換篩選時保留目前的內容，不回到骨架屏。資料回來之前不顯示 `$0` 或「安全」這類預設值 |
