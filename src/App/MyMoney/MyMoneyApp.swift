@@ -14,6 +14,8 @@ struct MyMoneyApp: App {
     private let login: LoginModel
     private let register: RegisterModel
     private let signedIn: SignedInScreens
+    /// 帳號 sheet 的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
+    private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
     private let suggestsStrongPasswords: Bool
     /// UI 測試拉長「已複製」的顯示時間(見 `copiedFeedbackDuration`);`nil` 是沿用預設值。
@@ -31,7 +33,7 @@ struct MyMoneyApp: App {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
             let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
-            // 總覽選過的視角也另外存，每個 UI 測試從預設值開始。
+            // 總覽選過的視角、外觀也另外存，每個 UI 測試從預設值開始。
             let defaultsSuite = "com.raychiu.mymoney.ui-testing"
             let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
             if arguments.contains("-resetSession") {
@@ -39,6 +41,7 @@ struct MyMoneyApp: App {
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
             session = AppSession(storage: storage)
+            appearance = AppearanceSetting(defaults: defaults)
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
@@ -67,6 +70,7 @@ struct MyMoneyApp: App {
         }
         #endif
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
+        appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
         let auth = LiveAuthRepository(client: client)
@@ -97,10 +101,32 @@ struct MyMoneyApp: App {
         WindowGroup {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
+                .environment(appearance)
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
                 }
+                .onChange(of: appearance.appearance, initial: true) { _, selected in
+                    Self.apply(selected)
+                }
+        }
+    }
+
+    /// 把外觀設在每個 window 上，登入頁、sheet 和 alert 都在 window 裡，一起跟著變。
+    ///
+    /// 不用 `preferredColorScheme`:在 iOS 27 上，帳號 sheet 開著時切到深色，之後再切成淺色或跟隨系統，
+    /// sheet 都停在深色(#62 的截圖驗證)。window 的 `.unspecified` 就是跟隨系統，系統依時間自動切換也會跟著變;
+    /// 增強對比是另一個 trait,不受影響。
+    private static func apply(_ appearance: Appearance) {
+        let style: UIUserInterfaceStyle = switch appearance {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
         }
     }
 }
