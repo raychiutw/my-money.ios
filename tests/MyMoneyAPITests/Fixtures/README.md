@@ -156,6 +156,12 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-reconcile.json` | `POST /accounts/:id/reconcile`,「iOS 測試信用卡」(結帳日 15 號;9/15 之後沒有消費，未出帳本來就是 0) | 200 | 訊息在 `data.message`,另外有 `unbilled`、`shared_debt`、`personal_debt` |
 | `accounts-reconcile-not-card.json` | 同上，帶「iOS 測試存款」的 id | 404 | 「信用卡不存在或無權限」原樣傳遞 |
 
+### 對齊上游 `f32ff6c`(#54)
+
+`da82a11` 和 `f32ff6c` 沒有新增或變更 fixture。回應的形狀沒變，只有資產帳戶的資料列多了 `last_rollover_at`(上一次結帳日出帳作業的時間),iOS 不解碼，所以不重錄。
+
+後端有幾則訊息的文字改了，例如「紀錄不存在」改成「交易記錄不存在」、「目前無未出帳金額需結轉」改成「目前無未出帳金額需出帳作業」。上面各表引用的是錄製當時的原文;iOS 原樣顯示後端的訊息，不依文字判斷。
+
 ### 從缺:`auth-register-success.json`
 
 2026-09-28 用 `POST /auth/register` 註冊測試帳號時，當時的腳本沒有先建立 `Fixtures/` 目錄，後端回了成功(429 bytes),回應卻沒寫進檔案。註冊同一個 email 只能成功一次，之後只會回 409「此 Email 已被使用」。腳本已經修正成先確認寫得進檔案再打 API。

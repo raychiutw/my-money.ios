@@ -1,10 +1,10 @@
 # 功能對等清單(web → iOS)
 
-**基準**:[`onion523/my-money@b5cbe09`](https://github.com/onion523/my-money/tree/b5cbe09)(2026-09-28,#45)。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。沒特別註明版本的行號，指的是舊基準 `43a205d`。
+**基準**:[`onion523/my-money@f32ff6c`](https://github.com/onion523/my-money/tree/f32ff6c)(2026-09-29,#54)。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。沒特別註明版本的行號，指的是舊基準 `43a205d`。
 
-**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。舊基準的問題回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1)、[#2](https://github.com/onion523/my-money/issues/2);`bd0507b` 之後的問題回報於 [onion523/my-money#9](https://github.com/onion523/my-money/issues/9)(上游在 `b1382f4` 修正並關閉),`b5cbe09` 之後的問題回報於 [onion523/my-money#19](https://github.com/onion523/my-money/issues/19)。
+**規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。舊基準的問題回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1)、[#2](https://github.com/onion523/my-money/issues/2);`bd0507b` 之後的問題回報於 [onion523/my-money#9](https://github.com/onion523/my-money/issues/9)(上游在 `b1382f4` 修正並關閉),`b5cbe09` 之後的問題回報於 [onion523/my-money#19](https://github.com/onion523/my-money/issues/19)(上游在 `da82a11` 修正並關閉),`f32ff6c` 之後的問題回報於 [onion523/my-money#27](https://github.com/onion523/my-money/issues/27)。
 
-**詞彙**:以 `CONTEXT.md` 為準，UI 文字也用它的詞(見 `CONTEXT.md` 開頭:`bd0507b` 的 web `CONTEXT.md` 改了一批詞，但 web 畫面沒改，iOS 跟 web 畫面一致)。本檔引用的 web 畫面文字只用來說明 web 的現況。
+**詞彙**:以 `CONTEXT.md` 為準，UI 文字也用它的詞，用字規則見 `CONTEXT.md` 開頭：上游 `CONTEXT.md` 有定義的概念用正名;iOS 補充的詞跟 web 畫面現在的叫法;web 的疊字不照抄;wire 上的資料(系統分類名稱)、使用者資料和英文識別字不改。本檔引用的 web 畫面文字和後端訊息只用來說明現況，照原文引用，包括疊字和舊詞。
 
 ## 全域
 
@@ -266,7 +266,7 @@
 | 37 | 撥款報銷的撥款帳戶是所有家庭公用帳戶、收款帳戶是該成員所有的個人私帳帳戶，都包含信用卡，而且信用卡被標成「銀行」(W:Family.tsx@bd0507b:74,116,766) | 撥款帳戶和收款帳戶只列現金錢包和銀行存款帳戶：信用卡不是資金來源，也收不了款(見後端造成第 16 項，已回報 onion523/my-money#9、#19)。web 的收款帳戶在 `b1382f4` 改用可收款帳戶，撥款帳戶仍然列出家庭卡 | bug 修正 |
 | 38 | 撥款報銷的收款帳戶用 emoji 區分類型(「💵 現金 - 名稱」「🏦 銀行 - 名稱」,W:Family.tsx@b5cbe09:763) | 用文字標示類型，例如「小美薪轉(銀行存款帳戶)」。收款成員沒有可收款帳戶時(web 的下拉是空的，送不出去),另外說明「名稱 還沒有可收款的個人帳戶(銀行存款帳戶或現金錢包)」並停用送出 | HIG 轉譯 |
 | 39 | 校準的確認只問「確定要依據「卡名」的當期消費明細，自動校準未出帳金額嗎？」(W:Accounts.tsx@b5cbe09:180) | 後面補一句「會重算上一個結帳日之後的消費(沒有結帳日的卡是這張卡所有的消費),已經結轉或繳過的消費也會算回未出帳。」,避免在結轉或繳款後誤按(見後端造成第 18 項) | bug 修正 |
-| 40 | 骨架屏有 45 度流動的微光動效(W:index.css@b5cbe09:432-435);切換篩選時在原內容上蓋一層半透明微光 | 不做微光：系統沒有內建，HIG 也不要求;切換篩選時保留原內容，不另外加過渡層。資料回來時淡入，開啟「減少動態效果」時不做動畫 | HIG 轉譯 |
+| 40 | 骨架屏有流動的微光動效，`f32ff6c` 起改成溫暖水彩磨砂玻璃:135 度櫻粉微暖漸層底色加毛玻璃(`backdrop-filter: blur(5px)`),上面有一道由左至右流動的高光(W:index.css@f32ff6c:732-771,上游 ADR-0007)。切換篩選時保留原內容，不回到骨架屏(例如 W:Dashboard.tsx@f32ff6c:152) | 不做微光：系統沒有內建，HIG 也不要求;切換篩選時保留原內容，不另外加過渡層。資料回來時淡入，開啟「減少動態效果」時不做動畫 | HIG 轉譯 |
 
 第 27、29、31、32 項已經刪除:web 在 `bd0507b` 改成顯示錯誤橫幅加「重新嘗試」、用當地日期顯示加入時間、沒有待繳卡費時不顯示還款按鈕，也不再用結帳日判斷能不能結轉，兩邊一致。
 
@@ -274,7 +274,7 @@
 
 以下是後端的問題。後端凍結,iOS 避不開(ADR-0001),等上游修正:
 
-1. ~~編輯或刪除交易時不回沖帳戶餘額~~:已在 `b5cbe09` 修正(交易餘額雙向連動)。信用卡的回沖還有問題，見第 17 項。
+1. ~~編輯或刪除交易時不回沖帳戶餘額~~:已在 `b5cbe09` 修正(交易餘額雙向連動)。信用卡的回沖在 `da82a11` 改成雙層負債回退(第 17 項),在同一張卡上編輯刷退仍有問題，見第 20 項。
 2. 預測的週期判斷寫成 `month % cycle === 0`:季繳只在 3/6/9/12 月觸發，年繳只在 12 月;扣款日設 29 到 31 時，遇到較短的月份會直接跳過(B:handlers/forecast.ts:22)。
 3. 資料範圍不一致:`/accounts` 和 `/accounts/balance` 依 `scope` 計算(`bd0507b`),但 `/forecast`、`/forecast/purchase-check`、`/recurring`、`/goals`、`/budgets` 和 CSV 匯出只算自己(B:forecast.ts:33,69、export.ts:13)。
 4. 預算無法刪除，也無法歸零。
@@ -286,12 +286,15 @@
 10. `DELETE /auth/account` 沒有任何 web UI 使用，所以 iOS 依 parity 也不做(見「不做」)。**建立家庭群組的人刪除帳號時，因為 `households.created_by` 是 `ON DELETE CASCADE`,整個家庭群組和其他成員的成員關係都會一起被刪除**。
 11. `POST /accounts/pay-credit-card` 沒有檢查 `bank_account_id` 是不是銀行存款帳戶，所以 API 允許從另一張信用卡「扣款」。web 只列出銀行存款帳戶,iOS 也只列銀行存款帳戶。
 12. 欠款公私拆解只用這張卡最近 50 筆支出，從最新的一筆往回分配，是一種估算;如果繳過一部分卡費，拆解出來的結果不一定準確。
-13. 後端沒有記錄上一次結帳日出帳結轉的日期，而且從 `82d9124` 起有未出帳金額就能結轉，所以下一期的刷卡也可能被一起結轉(已回報 onion523/my-money#2)。iOS 跟 web 用一樣的條件。
+13. 結帳日出帳作業從 `82d9124` 起不檢查結帳日，有未出帳款就能做，所以下一期的刷卡也可能被一起轉入已出帳待繳款(已回報 onion523/my-money#2)。`da82a11` 起後端會記錄出帳作業的時間(`last_rollover_at`,B:handlers/accounts.ts@f32ff6c:265),但只用在信用卡未出帳自動校準的起點;有未出帳款就能做的條件沒變(B:handlers/accounts.ts@f32ff6c:262)。iOS 跟 web 用一樣的條件。
 14. ~~現金流預測、購買力試算和機器人查餘額的起始餘額沒有算現金錢包~~:已在 `b1382f4` 修正。
 15. ~~`POST /accounts/transfer`、`POST /households/reimburse` 和 `POST /accounts/pay-credit-card` 沒帶 `date` 時用 UTC 的日期~~:已在 `b1382f4` 改用台灣時間。iOS 仍然一律帶台灣時間的日期。
-16. `POST /households/reimburse` 不檢查帳戶類型(B:handlers/households.ts@b5cbe09:290-315):撥款帳戶是家庭卡時，拿已出帳待繳金額當餘額比較，扣款又等於替卡還款;收款帳戶是信用卡時，金額會加到已出帳待繳金額。web 的收款帳戶在 `b1382f4` 改用 `receiving_accounts`(只有銀行存款帳戶和現金錢包),撥款帳戶仍然列出家庭卡。iOS 只列現金錢包和銀行存款帳戶，碰不到這個情況(已回報 onion523/my-money#9、#19)。
-17. 編輯或刪除信用卡交易時，回沖寫成 `unbilled = MAX(0, unbilled + delta)`(B:handlers/transactions.ts@b5cbe09:46-58):這筆消費已經結轉進已出帳待繳金額、或未出帳已經被還款沖掉時，回沖會被夾到 0,已出帳的部分不會退。例如刷 1,000 → 結轉 → 刪掉這筆交易，已出帳待繳金額仍是 1,000;把金額改成 800 則待繳總額變成 1,800。`PUT` 和 `DELETE` 也是先改帳戶、再改交易，沒有包在同一個 batch(已回報 onion523/my-money#19)。
-18. `POST /accounts/:id/reconcile` 把未出帳金額**覆寫**成上一個結帳日之後的支出合計(B:handlers/accounts.ts@b5cbe09:269-355),但結帳日出帳結轉和信用卡還款沖銷都沒有記錄處理過哪幾筆交易：結轉或繳款之後再校準，已經結轉或繳過的消費會被重複算回未出帳;沒有結帳日的卡會算這張卡所有的支出;刷退(卡片上的收入)不算。iOS 只能在確認時說明(刻意偏離第 39 項;已回報 onion523/my-money#19)。
+16. ~~`POST /households/reimburse` 不檢查帳戶類型~~:已在 `da82a11` 修正。撥款帳戶必須是家庭共同基金的銀行存款帳戶或現金錢包，收款帳戶必須是銀行存款帳戶或現金錢包(B:handlers/households.ts@f32ff6c:304-320)。
+17. ~~編輯或刪除信用卡交易時，回沖被夾到 0,已出帳的部分不會退~~:已在 `da82a11` 修正，改成雙層負債回退(B:handlers/transactions.ts@f32ff6c:46-90),`PUT` 和 `DELETE` 也把改帳戶和改交易包進同一個 batch。在同一張卡上編輯刷退時，回沖會被蓋掉，見第 20 項。
+18. ~~校準會把已經出帳作業或繳過的消費重複算回未出帳款~~:已在 `da82a11` 修正。校準改從上一次結帳日出帳作業的時間點起算(還沒做過的卡從上一個結帳日起算),並扣掉刷退和還款(B:handlers/accounts.ts@f32ff6c:292-353)。但還款扣的是全額，見第 19 項。
+19. `POST /accounts/:id/reconcile` 把未出帳款覆寫成 `MAX(0, 支出 - 刷退 - 還款)`(B:handlers/accounts.ts@f32ff6c:340-353),其中還款是這段期間這張卡所有「信用卡還款」交易記錄的**全額**;但信用卡扣款還款是先沖已出帳待繳款，剩下的才沖未出帳款(B:handlers/accounts.ts@f32ff6c:199-208)。所以繳過已出帳待繳款再校準，未出帳款會被算少。例如出帳作業之後，已出帳待繳款 1,000、未出帳款 0 → 刷 500 → 繳 1,000(全部沖已出帳待繳款，未出帳款仍是 500) → 校準得到 500 - 0 - 1,000,夾到 0,正確應該是 500。上游 `CONTEXT.md` 寫的是扣「當期未出帳還款沖抵額」。iOS 不自己算未出帳款，只能在確認時提醒(刻意偏離第 39 項;已回報 onion523/my-money#27 第 1 項)。
+20. `PUT /transactions/:id` 先分別算好舊帳戶的回沖和新帳戶的認列，再一起放進 batch(B:handlers/transactions.ts@f32ff6c:167-173)。兩者都在 batch 執行之前讀帳戶，而信用卡的「回沖支出」和「認列刷退」是用讀到的值先算好，再直接寫入(`SET unbilled = ?, balance = ?`,B:handlers/transactions.ts@f32ff6c:68、85)。新舊帳戶是同一張卡、編輯後是刷退時，後寫的那一句會用改之前的值蓋掉前面的回沖：刷退 300 改成 200,未出帳款淨減 200,正確應該是淨增 100;支出 1,000 改成刷退 1,000,只減 1,000,正確應該是減 2,000。只改支出金額不受影響。iOS 照舊重新載入資產帳戶(已回報 onion523/my-money#27 第 2 項)。
+21. 後端訊息有疊字:「你已經加入家庭群組群組，無法重複加入」(B:handlers/households.ts@f32ff6c:130)、「已離開家庭群組群組」(:178)、「尚未建立或加入家庭群組群組」(:289),以及出帳作業成功的「已將未出帳 NT$ X 成功出帳作業為已出帳待繳款！」(B:handlers/accounts.ts@f32ff6c:274,「出帳作業」被當成動詞)。iOS 照原樣顯示後端的訊息，等上游修正(已回報 onion523/my-money#27 第 3 項)。
 
 `bd0507b` 時原本的第 10 項(CSV 沒加引號)、第 14 項(預測用 UTC)、第 15 項(調低目標金額不卡住已存金額)、第 16 項(模擬對話建立假綁定)已經在上游修正，刪除並重新編號。`b5cbe09` 起改成刪除線，不再重新編號，避免交叉引用跑掉。
 
