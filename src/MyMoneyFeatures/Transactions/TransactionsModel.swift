@@ -66,17 +66,21 @@ public final class TransactionsModel {
     @ObservationIgnored private let accountRepository: (any AccountRepository)?
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
 
+    /// `currentUser` 是登入的人：自己記的交易記錄不顯示記帳人。
     public init(
         repository: any TransactionRepository,
         accounts: (any AccountRepository)? = nil,
         dataVersion: DataVersion,
+        currentUser: UserID? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
+        self.currentUser = currentUser
         self.today = today
         let now = today()
         from = now.firstOfMonth
@@ -154,6 +158,11 @@ public final class TransactionsModel {
         !transaction.isSystemRecord
     }
 
+    /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。
+    public func recorderName(of transaction: Transaction) -> String? {
+        transaction.recorderName(besides: currentUser)
+    }
+
     public func makeEditor(for transaction: Transaction) -> TransactionEditorModel? {
         guard canModify(transaction), let accountRepository else { return nil }
         return TransactionEditorModel(
@@ -189,5 +198,13 @@ public final class TransactionsModel {
     /// 支出合計，不含系統分類：信用卡扣款還款、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
     private static func expense(of transactions: [Transaction]) -> Money {
         transactions.filter { $0.type == .expense && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
+    }
+}
+
+extension Transaction {
+    /// 記帳人的名稱;`user` 自己記的是 `nil`。用 ID 判斷，家人可能同名。
+    func recorderName(besides user: UserID?) -> String? {
+        guard let user, recorderID == user else { return recorderName }
+        return nil
     }
 }

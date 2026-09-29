@@ -57,8 +57,9 @@ struct MyMoneyApp: App {
                 advances: [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
             )
             let bot = InMemoryBotRepository.sample()
-            signedIn = SignedInScreens {
+            signedIn = SignedInScreens { user in
                 MainScreens(
+                    currentUser: user.id,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                     householdRepository: household, botRepository: bot, defaults: defaults
@@ -86,8 +87,9 @@ struct MyMoneyApp: App {
         let bot = LiveBotRepository(client: client)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
-        signedIn = SignedInScreens {
+        signedIn = SignedInScreens { user in
             MainScreens(
+                currentUser: user.id,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                 householdRepository: household, botRepository: bot

@@ -94,6 +94,28 @@ struct TransactionsListTests {
         )
     }
 
+    /// 家庭群組裡家人記的家庭公帳也看得到;自己記的不用再顯示自己的名字(#72)。用 ID 判斷，家人可能同名。
+    @Test("記帳人只有不是自己記的才顯示")
+    func recorderOnlyForOthers() {
+        let me = InMemoryAuthRepository.Member.sample.user
+        let list = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: []), dataVersion: DataVersion(),
+            currentUser: me.id, today: { today }
+        )
+
+        #expect(list.recorderName(of: recorded(by: me.name, id: me.id)) == nil)
+        #expect(list.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
+        #expect(list.recorderName(of: recorded(by: me.name, id: UserID("another-ming"))) == me.name)
+    }
+
+    private func recorded(by name: String, id: UserID) -> Transaction {
+        Transaction(
+            id: TransactionID("recorded-by-\(id.rawValue)"), accountID: SampleAccounts.savings.id,
+            accountName: SampleAccounts.savings.name, type: .expense, category: .dining, amount: Money(120), note: "午餐",
+            date: today, isShared: true, recorderName: name, recorderID: id
+        )
+    }
+
     @Test("沒有符合條件的交易記錄時是空的")
     func emptyPeriod() async {
         let list = model(InMemoryTransactionRepository(transactions: []))

@@ -67,7 +67,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             note: draft.note,
             date: draft.date,
             isShared: draft.isShared,
-            recorderName: InMemoryAuthRepository.Member.sample.user.name
+            recorderName: InMemoryAuthRepository.Member.sample.user.name,
+            recorderID: InMemoryAuthRepository.Member.sample.user.id
         ))
     }
 
@@ -86,7 +87,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
                 note: draft.note,
                 date: draft.date,
                 isShared: draft.isShared,
-                recorderName: transaction.recorderName
+                recorderName: transaction.recorderName,
+                recorderID: transaction.recorderID
             )
         }
     }
@@ -177,7 +179,8 @@ public enum SampleTransactions {
             note: note,
             date: date,
             isShared: shared,
-            recorderName: InMemoryAuthRepository.Member.sample.user.name
+            recorderName: InMemoryAuthRepository.Member.sample.user.name,
+            recorderID: InMemoryAuthRepository.Member.sample.user.id
         )
     }
 }

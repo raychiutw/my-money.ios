@@ -53,10 +53,12 @@ public final class OverviewModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
 
     private static let scopeKey = "overview.scope"
 
+    /// `currentUser` 是登入的人：最近交易裡自己記的不顯示記帳人。
     public init(
         accounts: any AccountRepository,
         transactions: any TransactionRepository,
@@ -64,6 +66,7 @@ public final class OverviewModel {
         goals: any SavingsGoalRepository,
         dataVersion: DataVersion,
         defaults: UserDefaults,
+        currentUser: UserID? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         accountRepository = accounts
@@ -72,11 +75,17 @@ public final class OverviewModel {
         goalRepository = goals
         self.dataVersion = dataVersion
         self.defaults = defaults
+        self.currentUser = currentUser
         self.today = today
         scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     public var monthNet: Money { monthIncome - monthExpense }
+
+    /// 最近交易的記帳人：只有不是自己記的才顯示(#72)。
+    public func recorderName(of transaction: MyMoneyDomain.Transaction) -> String? {
+        transaction.recorderName(besides: currentUser)
+    }
 
     /// 標題隨視角改變;「個人」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {

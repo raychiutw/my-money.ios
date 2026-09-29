@@ -36,6 +36,26 @@ struct OverviewTests {
         return model
     }
 
+    /// 最近交易跟交易頁用同一種交易記錄列：記帳人只有不是自己記的才顯示(#72)。
+    @Test("最近交易的記帳人只有不是自己記的才顯示")
+    func recentRecorderOnlyForOthers() {
+        let me = InMemoryAuthRepository.Member.sample.user
+        let model = OverviewModel(
+            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
+            dataVersion: DataVersion(), defaults: defaults, currentUser: me.id, today: { today }
+        )
+        func recorded(by name: String, id: UserID) -> MyMoneyDomain.Transaction {
+            MyMoneyDomain.Transaction(
+                id: TransactionID("recorded-by-\(id.rawValue)"), accountID: SampleAccounts.savings.id,
+                accountName: SampleAccounts.savings.name, type: .expense, category: .dining, amount: Money(120),
+                note: "", date: today, isShared: true, recorderName: name, recorderID: id
+            )
+        }
+
+        #expect(model.recorderName(of: recorded(by: me.name, id: me.id)) == nil)
+        #expect(model.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
+    }
+
     @Test("帳戶一覽列出現金錢包;淨可用餘額的組成是現金加銀行存款減信用卡待繳總額(web 的 Dashboard 寫成「現金 + 銀行存款帳戶 - 卡債」)")
     func availableBreakdownIncludesCash() async {
         let model = OverviewModel(

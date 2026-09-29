@@ -11,8 +11,9 @@ struct SignedInScreensTests {
     }
 
     private func makeScreens() -> SignedInScreens {
-        SignedInScreens {
+        SignedInScreens { user in
             MainScreens(
+                currentUser: user.id,
                 accountRepository: InMemoryAccountRepository.sample(),
                 transactionRepository: InMemoryTransactionRepository(transactions: []),
                 recurringRepository: InMemoryRecurringRepository(items: []),
@@ -47,6 +48,22 @@ struct SignedInScreensTests {
 
         #expect(screens.current != nil)
         #expect(screens.current?.accounts !== first)
+    }
+
+    /// 交易記錄列只有不是自己記的才顯示記帳人(#72),所以畫面 model 要知道登入的是誰。
+    @Test("畫面 model 知道登入的是誰：自己記的交易記錄不顯示記帳人")
+    func screensKnowSignedInUser() throws {
+        let screens = makeScreens()
+        screens.update(for: session("mei"))
+        let current = try #require(screens.current)
+        let mine = Transaction(
+            id: TransactionID("mine"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+            type: .expense, category: .dining, amount: Money(120), note: "", date: CalendarDay(year: 2026, month: 9, day: 28),
+            isShared: true, recorderName: "mei", recorderID: UserID("mei")
+        )
+
+        #expect(current.transactions.recorderName(of: mine) == nil)
+        #expect(current.overview.recorderName(of: mine) == nil)
     }
 
     @Test("登出時丟掉畫面")
