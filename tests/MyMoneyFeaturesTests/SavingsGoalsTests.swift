@@ -50,6 +50,20 @@ struct SavingsGoalsTests {
         #expect(model.undatedGoals.map(\.name) == ["緊急備用金"])
     }
 
+    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「2027/03/31」。跟今天同一年時省略年份。
+    @Test("截止日是「2027年3月31日」這種系統格式，今年的省略年份")
+    func deadlineText() async throws {
+        let model = SavingsGoalsModel(
+            repository: InMemorySavingsGoalRepository.sample(), dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"),
+            today: { CalendarDay(year: 2026, month: 9, day: 28) }
+        )
+        await model.load()
+
+        #expect(model.datedGoals.map { model.deadlineText(of: $0) } == ["2027年3月31日", "12月31日"])
+        let undated = try #require(model.undatedGoals.first)
+        #expect(model.deadlineText(of: undated) == nil)
+    }
+
     /// 已存金額可能超過目標金額：編輯時把目標金額調低，後端的 PUT 不會重新卡上限。
     @Test("目標卡片的百分比取整數，最多 100%", arguments: [
         (60000, 3000, "5%"),

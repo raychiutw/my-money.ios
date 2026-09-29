@@ -36,17 +36,36 @@ public final class HouseholdModel {
     @ObservationIgnored private let accounts: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let locale: Locale
 
+    /// `locale` 決定日期的格式，預設跟著系統。
     public init(
         repository: any HouseholdRepository,
         accounts: any AccountRepository,
         dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.accounts = accounts
         self.dataVersion = dataVersion
+        self.locale = locale
         self.today = today
+    }
+
+    /// 加入日期(台灣時間的那一天),例如「9月28日」,不是今年的加上年份(DESIGN.md「日期」)。
+    public func joinedDateText(of member: HouseholdMember) -> String {
+        member.joinedAt.dayText(today: today(), locale: locale)
+    }
+
+    /// 代墊與報銷明細的日期，例如「9月27日」,不是今年的加上年份。
+    public func dateText(_ day: CalendarDay) -> String {
+        day.text(today: today(), locale: locale)
+    }
+
+    /// 邀請碼的有效期限(台灣時間),例如「10月5日 下午3:00」,不是今年的加上年份。
+    public func expiryText(of invitation: HouseholdInvitation) -> String {
+        invitation.expiresAt.dateTimeText(today: today(), locale: locale)
     }
 
     public func isShowingDetails(of memberID: UserID) -> Bool {
@@ -159,12 +178,4 @@ extension HouseholdRole {
 extension HouseholdMember {
     /// 名稱的開頭字，英文轉大寫;沒有名稱時是「?」。
     public var initial: String { name.first.map { String($0).uppercased() } ?? "?" }
-
-    /// 加入日期，換成當地的日期，例如「2026/09/28」(parity 刻意偏離第 29 項)。
-    public func joinedDateText(in timeZone: TimeZone = .current) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        let day = calendar.dateComponents([.year, .month, .day], from: joinedAt)
-        return String(format: "%d/%02d/%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
-    }
 }

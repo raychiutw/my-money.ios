@@ -79,7 +79,7 @@ struct ForecastScreen: View {
             SummaryRow(
                 title: "最低餘額",
                 amount: forecast.minBalance,
-                detail: forecast.minDate == nil ? forecast.minDateText : "發生在 \(forecast.minDateText)",
+                detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))",
                 warnsWhenNegative: true
             )
             LabeledContent("未來 30 天的預定收支", value: "\(forecast.events.count) 筆")
@@ -93,7 +93,7 @@ struct ForecastScreen: View {
                     .foregroundStyle(.tint.opacity(0.2))
                     .accessibilityHidden(true)
                 LineMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
-                    .accessibilityLabel("\(day.date.month) 月 \(day.date.day) 日")
+                    .accessibilityLabel(model.dateText(day.date))
                     .accessibilityValue("餘額 \(day.balance.spokenText)")
                 if forecast.willOverdraft {
                     RuleMark(y: .value("零", 0))
@@ -116,7 +116,7 @@ struct ForecastScreen: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.name)
-                        Text(event.date.slashText)
+                        Text(model.dateText(event.date))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
@@ -128,7 +128,7 @@ struct ForecastScreen: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    "\(event.name),\(event.date.month) 月 \(event.date.day) 日,\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"
+                    "\(event.name),\(model.dateText(event.date)),\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"
                 )
             }
         }

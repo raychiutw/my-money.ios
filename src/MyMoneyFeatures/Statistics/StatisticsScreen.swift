@@ -13,7 +13,7 @@ struct StatisticsScreen: View {
         NavigationStack {
             List {
                 Section {
-                    MonthSwitcher(month: $model.month)
+                    MonthSwitcher(month: $model.month, title: model.monthTitle)
                 }
                 content
             }
@@ -144,9 +144,9 @@ struct StatisticsScreen: View {
     }
 
     private var trendSection: some View {
-        Section("\(String(model.month.year)) 年收支趨勢") {
+        Section("\(model.yearTitle)收支趨勢") {
             if model.monthlySummaries.isEmpty {
-                Text("\(String(model.month.year)) 年尚無收支紀錄")
+                Text("\(model.yearTitle)尚無收支紀錄")
                     .foregroundStyle(.secondary)
             } else {
                 Chart(model.monthlySummaries, id: \.month) { summary in
@@ -186,13 +186,15 @@ struct StatisticsScreen: View {
 /// 上一個月、下一個月。
 private struct MonthSwitcher: View {
     @Binding var month: CalendarMonth
+    /// 所選的月份(畫面 model 依系統格式產生)。
+    let title: String
 
     var body: some View {
         HStack {
             Button("上一個月", systemImage: "chevron.left") { month = month.previous }
                 .labelStyle(.iconOnly)
             Spacer()
-            Text("\(String(month.year)) 年 \(month.month) 月")
+            Text(title)
                 .font(.headline)
                 .monospacedDigit()
             Spacer()

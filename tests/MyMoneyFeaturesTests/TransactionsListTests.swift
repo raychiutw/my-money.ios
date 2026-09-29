@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
@@ -53,6 +54,25 @@ struct TransactionsListTests {
         #expect(list.days[0].expense == Money(1000))
         #expect(list.days[0].income == Money(0))
         #expect(list.days[2].income == Money(45000))
+    }
+
+    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「09/28」(parity 刻意偏離)。起日拉到去年，跨年的標頭要有年份。
+    @Test("分組標頭是「9月28日週一」這種系統格式，不是今年的加上年份")
+    func dayHeaderTitles() async {
+        let newYearsEve = Transaction(
+            id: TransactionID("new-years-eve"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+            type: .expense, category: .dining, amount: Money(500), note: "跨年", date: CalendarDay(year: 2025, month: 12, day: 31),
+            isShared: true, recorderName: "小明"
+        )
+        let list = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today) + [newYearsEve]),
+            dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"), today: { today }
+        )
+        list.from = CalendarDay(year: 2025, month: 12, day: 1)
+
+        await list.load()
+
+        #expect(list.days.map(\.title) == ["9月28日週一", "9月10日週四", "9月1日週二", "2025年12月31日週三"])
     }
 
     /// 信用卡扣款還款時錢只是從銀行存款帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。

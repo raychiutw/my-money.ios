@@ -115,7 +115,7 @@ struct SavingsGoalsScreen: View {
         if !goals.isEmpty {
             Section("\(title)(\(goals.count))") {
                 ForEach(goals) { goal in
-                    SavingsGoalRow(goal: goal) {
+                    SavingsGoalRow(goal: goal, deadline: model.deadlineText(of: goal)) {
                         sheet = model.makeDeposit(for: goal).map(ActiveSheet.deposit)
                     }
                     .swipeActions {
@@ -149,6 +149,8 @@ struct SavingsGoalsScreen: View {
 /// 已達成時用成功色，並停用存入(parity 刻意偏離第 6 項)。
 private struct SavingsGoalRow: View {
     let goal: SavingsGoal
+    /// 截止日的文字(畫面 model 依系統格式產生);沒有截止日是 `nil`。
+    let deadline: String?
     let deposit: () -> Void
 
     var body: some View {
@@ -160,8 +162,8 @@ private struct SavingsGoalRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name)
                         .font(.headline)
-                    if let deadline = goal.deadline {
-                        Text("截止日 \(deadline.slashText)")
+                    if let deadline {
+                        Text("截止日 \(deadline)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -203,7 +205,7 @@ private struct SavingsGoalRow: View {
 
     private var accessibilitySummary: String {
         var parts = [goal.name, "已存 \(goal.savedAmount.spokenText)", "目標 \(goal.targetAmount.spokenText)", goal.percentText]
-        if let deadline = goal.deadline { parts.append("截止日 \(deadline.slashText)") }
+        if let deadline { parts.append("截止日 \(deadline)") }
         if goal.isAchieved { parts.append("已達成目標") }
         return parts.joined(separator: ",")
     }

@@ -28,10 +28,3 @@ extension Decimal {
         return "\(formatted(style))%"
     }
 }
-
-extension CalendarDay {
-    /// 例如「2026/10/05」。直接用年月日，不經過時區換算。
-    var slashText: String {
-        String(format: "%d/%02d/%02d", year, month, day)
-    }
-}

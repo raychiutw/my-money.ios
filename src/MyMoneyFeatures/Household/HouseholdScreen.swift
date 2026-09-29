@@ -15,7 +15,7 @@ struct HouseholdScreen: View {
             .inlineNavigationTitle()
             .task { await model.load() }
             .sheet(item: $model.invitation) { invitation in
-                InvitationSheet(invitation: invitation)
+                InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))
             }
             .confirmationDialog(
                 "離開家庭群組",
@@ -142,7 +142,7 @@ struct HouseholdScreen: View {
 
             Section("家庭成員名冊") {
                 ForEach(household.members) { member in
-                    MemberRow(member: member)
+                    MemberRow(member: member, joined: model.joinedDateText(of: member))
                         .swipeActions {
                             if model.canRemove(member) {
                                 Button("移除", systemImage: "person.badge.minus", role: .destructive) {
@@ -189,7 +189,7 @@ extension HouseholdScreen {
                 }
                 .accessibilityIdentifier("household.advanceDetails")
                 if model.isShowingDetails(of: advance.memberID) {
-                    AdvanceDetails(advance: advance)
+                    AdvanceDetails(advance: advance, dateText: model.dateText)
                 }
                 if model.canReimburse(advance) {
                     Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
@@ -244,6 +244,8 @@ private struct AdvanceSummaryRow: View {
 /// 就地展開的兩份明細：個人代墊消費明細、共同基金撥款沖帳紀錄。
 private struct AdvanceDetails: View {
     let advance: HouseholdAdvance
+    /// 明細的日期(畫面 model 依系統格式產生)。
+    let dateText: (CalendarDay) -> String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -282,7 +284,7 @@ private struct AdvanceDetails: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                Text("\(date.slashText) · \(account)")
+                Text("\(dateText(date)) · \(account)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -292,7 +294,7 @@ private struct AdvanceDetails: View {
                 .foregroundStyle(isIncome ? .green : .red)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(date.slashText),\(account)")
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date)),\(account)")
     }
 }
 
@@ -301,6 +303,8 @@ extension ReimbursementModel: Identifiable {}
 /// 名冊的一個人：名稱開頭字、名稱、角色、email、加入日期。
 private struct MemberRow: View {
     let member: HouseholdMember
+    /// 加入日期(畫面 model 依系統格式產生)。
+    let joined: String
 
     var body: some View {
         HStack(spacing: 12) {
@@ -319,7 +323,7 @@ private struct MemberRow: View {
                 Text(member.email)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text("加入日期 \(member.joinedDateText())")
+                Text("加入日期 \(joined)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -328,9 +332,11 @@ private struct MemberRow: View {
     }
 }
 
-/// 剛產生的邀請碼：邀請碼、有效期限(當地格式)與「複製」。
+/// 剛產生的邀請碼：邀請碼、有效期限(系統格式，台灣時間)與「複製」。
 private struct InvitationSheet: View {
     let invitation: HouseholdInvitation
+    /// 有效期限(畫面 model 依系統格式產生，台灣時間)。
+    let expiry: String
     @Environment(\.dismiss) private var dismiss
     @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
     @State private var isCopied = false
@@ -355,7 +361,7 @@ private struct InvitationSheet: View {
                     .accessibilityIdentifier("household.copy")
                 } footer: {
                     // 只留有效期限(資料);怎麼使用邀請碼不另外說明(DESIGN.md「說明文字」)。
-                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))")
+                    Text("有效期限：\(expiry)")
                 }
             }
             .navigationTitle("邀請家庭成員")

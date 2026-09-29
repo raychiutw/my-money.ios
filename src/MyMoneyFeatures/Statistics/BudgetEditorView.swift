@@ -20,7 +20,7 @@ struct BudgetEditorView: View {
                             Label(category.name, systemImage: category.symbolName).tag(category)
                         }
                     }
-                    LabeledContent("\(String(model.month.year)) 年 \(model.month.month) 月的預算") {
+                    LabeledContent("\(model.monthTitle)的預算") {
                         AmountField(
                             "預算", text: $model.amountText, prompt: Text("例如：8000"),
                             focus: $focusedField, equals: .amount, identifier: "budgetEditor.amount"

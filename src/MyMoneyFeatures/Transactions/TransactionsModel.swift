@@ -5,6 +5,8 @@ import Observation
 /// 交易頁的一天：當天的交易記錄，以及當日的收入與支出(不含信用卡還款)。
 public struct TransactionDay: Identifiable, Sendable {
     public let date: CalendarDay
+    /// 分組標頭的日期，例如「9月29日週二」(DESIGN.md「日期」)。
+    public let title: String
     public let transactions: [Transaction]
     public let income: Money
     public let expense: Money
@@ -67,20 +69,23 @@ public final class TransactionsModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let currentUser: UserID?
+    @ObservationIgnored private let locale: Locale
     @ObservationIgnored private var loadedVersion: Int?
 
-    /// `currentUser` 是登入的人：自己記的交易記錄不顯示記帳人。
+    /// `currentUser` 是登入的人：自己記的交易記錄不顯示記帳人。`locale` 決定日期的格式，預設跟著系統。
     public init(
         repository: any TransactionRepository,
         accounts: (any AccountRepository)? = nil,
         dataVersion: DataVersion,
         currentUser: UserID? = nil,
+        locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
         self.currentUser = currentUser
+        self.locale = locale
         self.today = today
         let now = today()
         from = now.firstOfMonth
@@ -108,9 +113,13 @@ public final class TransactionsModel {
             if byDay[transaction.date] == nil { order.append(transaction.date) }
             byDay[transaction.date, default: []].append(transaction)
         }
+        let today = today()
         return order.sorted(by: >).map { date in
             let items = byDay[date] ?? []
-            return TransactionDay(date: date, transactions: items, income: Self.income(of: items), expense: Self.expense(of: items))
+            return TransactionDay(
+                date: date, title: date.headerText(today: today, locale: locale), transactions: items,
+                income: Self.income(of: items), expense: Self.expense(of: items)
+            )
         }
     }
 

@@ -82,16 +82,26 @@ public final class StatisticsModel {
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private let locale: Locale
 
+    /// `locale` 決定月份的格式，預設跟著系統。
     public init(
         repository: any StatisticsRepository,
         dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent,
         today: () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.locale = locale
         month = CalendarMonth(today())
     }
+
+    /// 所選的月份，例如「2026年9月」(DESIGN.md「日期」)。
+    public var monthTitle: String { month.text(locale: locale) }
+
+    /// 所選月份的年份(收支趨勢),例如「2026年」。
+    public var yearTitle: String { month.yearText(locale: locale) }
 
     public var totalCategoryExpense: Money { categoryExpenses.reduce(.zero) { $0 + $1.total } }
 
@@ -170,7 +180,10 @@ public final class StatisticsModel {
     }
 
     public func makeBudgetEditor(for row: BudgetRow) -> BudgetEditorModel {
-        BudgetEditorModel(category: row.category, existing: row.budget, month: month, repository: repository, dataVersion: dataVersion)
+        BudgetEditorModel(
+            category: row.category, existing: row.budget, month: month, monthTitle: monthTitle, repository: repository,
+            dataVersion: dataVersion
+        )
     }
 }
 
@@ -187,6 +200,8 @@ public final class BudgetEditorModel {
     public private(set) var isSaving = false
 
     public let month: CalendarMonth
+    /// 月份，例如「2026年9月」(DESIGN.md「日期」)。
+    public let monthTitle: String
 
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored private let dataVersion: DataVersion
@@ -196,12 +211,14 @@ public final class BudgetEditorModel {
         category: TransactionCategory,
         existing: Budget?,
         month: CalendarMonth,
+        monthTitle: String,
         repository: any StatisticsRepository,
         dataVersion: DataVersion
     ) {
         self.category = category
         amountText = existing.map { "\($0.amount.amount)" } ?? "5000"
         self.month = month
+        self.monthTitle = monthTitle
         self.repository = repository
         self.dataVersion = dataVersion
     }

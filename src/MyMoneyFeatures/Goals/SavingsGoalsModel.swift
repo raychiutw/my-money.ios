@@ -21,10 +21,25 @@ public final class SavingsGoalsModel {
     @ObservationIgnored private let repository: any SavingsGoalRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let today: () -> CalendarDay
 
-    public init(repository: any SavingsGoalRepository, dataVersion: DataVersion) {
+    /// `locale` 決定日期的格式，預設跟著系統;`today` 決定截止日要不要寫年份。
+    public init(
+        repository: any SavingsGoalRepository,
+        dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.locale = locale
+        self.today = today
+    }
+
+    /// 截止日，例如「2027年3月31日」,今年的省略年份(DESIGN.md「日期」);沒有截止日是 `nil`。
+    public func deadlineText(of goal: SavingsGoal) -> String? {
+        goal.deadline?.text(today: today(), locale: locale)
     }
 
     public var datedGoals: [SavingsGoal] { goals.filter { $0.deadline != nil } }

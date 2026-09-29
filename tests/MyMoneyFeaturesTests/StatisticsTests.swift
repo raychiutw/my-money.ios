@@ -38,6 +38,25 @@ struct StatisticsTests {
         #expect(model.scope == .all)
     }
 
+    /// 系統依地區的格式(DESIGN.md「日期」),跟 DatePicker 的「2026年9月29日」一致，不再是「2026 年 9 月」。
+    @Test("月份與年份用系統格式：「2026年9月」「2026年」;預算額度 sheet 也一樣")
+    func monthAndYearTitles() async throws {
+        let model = StatisticsModel(
+            repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            locale: Locale(identifier: "zh_Hant_TW"), today: { CalendarDay(year: 2026, month: 9, day: 28) }
+        )
+        await model.load()
+
+        #expect(model.monthTitle == "2026年9月")
+        #expect(model.yearTitle == "2026年")
+        let row = try #require(model.budgetRows.first)
+        #expect(model.makeBudgetEditor(for: row).monthTitle == "2026年9月")
+
+        model.month = CalendarMonth(year: 2027, month: 1)
+        #expect(model.monthTitle == "2027年1月")
+        #expect(model.yearTitle == "2027年")
+    }
+
     /// web 的收支趨勢永遠是今年(parity 刻意偏離第 12 項)。
     @Test("依所選的月份與視角查詢;收支趨勢帶入所選月份的年份;已花另外用我記的支出")
     func queries() async {
