@@ -210,14 +210,6 @@ struct OverviewTests {
         #expect(OverviewModel.greeting(hour: hour, name: "小明") == "\(expected)，小明")
     }
 
-    @Test("家庭財務錦囊帶入分攤平滑和每月預留合計")
-    func tip() async {
-        let model = await loaded()
-
-        #expect(model.tipText.contains("週期支出的分攤平滑每月 \(SampleAccounts.summary.monthlyAmortization.formatted())"))
-        #expect(model.tipText.contains(SampleAccounts.summary.monthlySavingsReserve.formatted()))
-    }
-
     @Test("資料版本改變後重抓(例如從總覽記一筆之後)")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()

@@ -34,7 +34,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
-    /// 點一筆交易記錄編輯歸屬;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
+    /// 點一筆交易記錄編輯歸屬;左滑刪除(先確認);信用卡還款只有鎖定標記;搜尋只留下符合的紀錄。
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
@@ -66,9 +66,12 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        let locked = element(in: app, labelContaining: "受保護")
+        // 系統分類的交易記錄只顯示鎖定標記，不再有說明文字(#63);VoiceOver 念出不能編輯或刪除。
+        let locked = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "信用卡還款", "系統紀錄，不能編輯或刪除")
+        ).firstMatch
         for _ in 0..<5 where !locked.exists { app.swipeUp() }
-        XCTAssertTrue(locked.exists, "信用卡還款沒有顯示受保護的說明")
+        XCTAssertTrue(locked.exists, "信用卡還款沒有鎖定標記，或 VoiceOver 沒有念出「系統紀錄，不能編輯或刪除」")
 
         // 搜尋欄在最上面，捲回去才點得到。
         let search = app.searchFields.firstMatch

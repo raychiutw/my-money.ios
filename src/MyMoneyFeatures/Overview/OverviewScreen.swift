@@ -93,10 +93,6 @@ struct OverviewScreen: View {
             accountsSection
             recentSection
             goalsSection
-            Section("家庭財務錦囊") {
-                Label(model.tipText, systemImage: "lightbulb")
-                    .font(.subheadline)
-            }
         }
     }
 

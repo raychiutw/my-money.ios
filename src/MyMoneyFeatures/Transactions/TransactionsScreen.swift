@@ -174,11 +174,13 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            VStack(alignment: .leading, spacing: 4) {
+            // 只放鎖定標記，不放說明文字(#63);VoiceOver 接在交易記錄後面念出。
+            HStack(spacing: 8) {
                 TransactionRow(transaction: transaction)
-                Label("「\(transaction.category.name)」是系統內部平帳或轉帳的紀錄，受保護;金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
+                Image(systemName: "lock.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("系統紀錄，不能編輯或刪除")
             }
             .accessibilityElement(children: .combine)
         }

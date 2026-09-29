@@ -169,16 +169,12 @@ struct StatisticsScreen: View {
     }
 
     private var budgetSection: some View {
-        Section {
+        Section("預算額度") {
             ForEach(model.budgetRows) { row in
                 BudgetRowView(row: row) {
                     budgetEditor = model.makeBudgetEditor(for: row)
                 }
             }
-        } header: {
-            Text("預算額度")
-        } footer: {
-            Text("已花是這個月我記的支出，包含家庭公帳與個人私帳，不隨視角改變。")
         }
     }
 
