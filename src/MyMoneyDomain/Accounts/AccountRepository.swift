@@ -1,5 +1,5 @@
 /// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員歸屬家庭共同基金的帳戶」,家庭共同基金是全體成員歸屬家庭共同基金的帳戶，
-/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易紀錄的視角(`ViewScope`)是兩件事。
+/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易記錄的視角(`ViewScope`)是兩件事。
 public enum AccountScope: String, Sendable, CaseIterable {
     case all
     case household
@@ -19,7 +19,7 @@ public protocol AccountRepository: Sendable {
     /// 編輯時不能改類型:`draft` 的類型必須跟原本的資產帳戶一樣。
     func update(_ id: AccountID, with draft: AccountDraft) async throws
 
-    /// 刪除資產帳戶。這個帳戶的交易紀錄會被後端一併刪除。
+    /// 刪除資產帳戶。這個帳戶的交易記錄會被後端一併刪除。
     func delete(_ id: AccountID) async throws
 
     /// 信用卡扣款還款。

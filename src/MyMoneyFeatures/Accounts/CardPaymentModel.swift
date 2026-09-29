@@ -42,7 +42,7 @@ public final class CardPaymentModel {
     }
 
     /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的按鈕;
-    /// 今天;「繳納 {卡名} 卡費 (家庭代墊 / 個人私帳 / 全額)」。
+    /// 今天;備註是「信用卡扣款還款「卡名」(家庭代墊／個人私帳／全額)」,不照抄 web 的疊字(parity 刻意偏離第 42 項)。
     public init(
         card: CreditCard,
         preset: Preset,
@@ -63,7 +63,7 @@ public final class CardPaymentModel {
         }
         amountText = amount > .zero ? "\(amount.amount)" : ""
         date = today()
-        note = "繳納 \(card.name) 卡費 (\(kind))"
+        note = "信用卡扣款還款「\(card.name)」(\(kind))"
         self.isShared = isShared
     }
 
@@ -80,7 +80,7 @@ public final class CardPaymentModel {
             return .invalid
         }
         if card.totalDue > .zero, card.totalDue < amount {
-            errorMessage = "繳款金額不可超過當前待繳總額 \(card.totalDue.formatted())"
+            errorMessage = "繳款金額不可超過信用卡待繳總額 \(card.totalDue.formatted())"
             return .invalid
         }
         if bank.balance < amount, !confirmedLowBalance {

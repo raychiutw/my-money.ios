@@ -78,7 +78,7 @@ struct TransactionFilterTests {
         #expect(list.days.flatMap(\.transactions).map(\.note) == notes)
     }
 
-    @Test("刪除交易紀錄後資料版本遞增")
+    @Test("刪除交易記錄後資料版本遞增")
     func deletingBumpsDataVersion() async {
         let dataVersion = DataVersion()
         let (list, repository) = await loadedList(dataVersion: dataVersion)
@@ -108,18 +108,18 @@ struct TransactionFilterTests {
     func deleteConfirmation() async {
         let (list, _) = await loadedList()
 
-        #expect(list.deleteConfirmation == "確定要刪除這筆交易紀錄嗎？")
+        #expect(list.deleteConfirmation == "確定要刪除這筆交易記錄嗎？")
     }
 
     @Test("刪除失敗時顯示後端的訊息")
     func deleteFailureShowsAlert() async {
         let (list, repository) = await loadedList()
         let lunch = list.days.flatMap(\.transactions).first { $0.note == "午餐" }!
-        await repository.fail(with: .rejected("紀錄不存在"))
+        await repository.fail(with: .rejected("交易記錄不存在"))
 
         await list.delete(lunch)
 
-        #expect(list.alertMessage == "紀錄不存在")
+        #expect(list.alertMessage == "交易記錄不存在")
     }
 
     @Test("匯出目前起迄日的 CSV,檔名跟 web 一樣")

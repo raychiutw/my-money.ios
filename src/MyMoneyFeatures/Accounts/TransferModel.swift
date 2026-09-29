@@ -4,7 +4,7 @@ import Observation
 
 /// ATM 提款／帳戶互轉的 sheet(web 的「ATM 提款 / 帳戶轉帳」Modal)。
 ///
-/// 只能在現金錢包和銀行存款帳戶之間轉，信用卡不在選項裡。後端會產生兩筆系統交易紀錄，不算生活消費。
+/// 只能在現金錢包和銀行存款帳戶之間轉，信用卡不在選項裡。後端會產生兩筆系統交易記錄，不算生活消費。
 @MainActor
 @Observable
 public final class TransferModel {

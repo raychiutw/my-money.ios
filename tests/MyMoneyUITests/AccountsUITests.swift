@@ -152,7 +152,7 @@ final class AccountsUITests: XCTestCase {
         app.buttons["刪除"].firstMatch.tap()
         // 左滑的「刪除」只會打開確認對話框;等對話框出現後，再點對話框裡的「刪除」。
         XCTAssertTrue(
-            app.staticTexts["確定要刪除帳戶「UI 測試帳戶」嗎？這個帳戶的交易紀錄也會一併刪除！"].waitForExistence(timeout: 3),
+            app.staticTexts["確定要刪除帳戶「UI 測試帳戶」嗎？這個帳戶的交易記錄也會一併刪除！"].waitForExistence(timeout: 3),
             "沒有先確認就刪除"
         )
         app.buttons["刪除"].firstMatch.tap()

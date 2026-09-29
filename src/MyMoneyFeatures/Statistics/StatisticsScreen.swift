@@ -3,7 +3,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「統計」tab:月份與視角、公帳代墊款與分攤建議、支出分類、收支趨勢、分類預算(parity.md「統計與預算」)。
+/// 「統計」tab:月份與視角、公帳代墊款與分攤建議、支出分類、收支趨勢、預算額度(parity.md「統計與預算」)。
 struct StatisticsScreen: View {
     @Bindable var model: StatisticsModel
     @State private var budgetEditor: BudgetEditorModel?
@@ -177,7 +177,7 @@ struct StatisticsScreen: View {
                 }
             }
         } header: {
-            Text("分類預算")
+            Text("預算額度")
         } footer: {
             Text("已花是這個月我記的支出，包含家庭公帳與個人私帳，不隨視角改變。")
         }
@@ -208,7 +208,7 @@ private struct MonthSwitcher: View {
     }
 }
 
-/// 一個支出分類的已花與分類預算;超支與接近上限用 symbol 加文字，不只靠顏色。
+/// 一個支出分類的已花與預算額度;超支與接近上限用 symbol 加文字，不只靠顏色。
 private struct BudgetRowView: View {
     let row: BudgetRow
     let edit: () -> Void

@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("交易紀錄的翻譯(GET、POST /transactions)")
+@Suite("交易記錄的翻譯(GET、POST /transactions)")
 struct TransactionsTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")
@@ -15,7 +15,7 @@ struct TransactionsTranslationTests {
     private let september1 = CalendarDay(year: 2026, month: 9, day: 1)
     private let september30 = CalendarDay(year: 2026, month: 9, day: 30)
 
-    @Test("最近的交易紀錄不限日期：不送 from / to(跟 web 的總覽一樣)")
+    @Test("最近的交易記錄不限日期：不送 from / to(跟 web 的總覽一樣)")
     func recentOmitsDates() async throws {
         try stub.reply(status: 200, fixture: "transactions-recent.json")
 
@@ -44,7 +44,7 @@ struct TransactionsTranslationTests {
         #expect(stub.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
-    @Test("解讀成交易紀錄:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人")
+    @Test("解讀成交易記錄:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人")
     func listDecodesTransactions() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")
 
@@ -68,7 +68,7 @@ struct TransactionsTranslationTests {
         #expect(transactions[2].category == .salary)
     }
 
-    @Test("ATM 提款產生的兩筆交易紀錄是系統分類(受保護、不算進合計)")
+    @Test("ATM 提款產生的兩筆交易記錄是系統分類(受保護、不算進合計)")
     func atmWithdrawalRecordsAreSystemRecords() async throws {
         try stub.reply(status: 200, fixture: "transactions-list-with-transfer.json")
 

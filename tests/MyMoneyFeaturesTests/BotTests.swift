@@ -110,7 +110,7 @@ struct BotTests {
         #expect(BotModel.examples == ["午餐 120", "一蘭拉麵 320 現金", "薪水 65000 銀行", "查帳"])
     }
 
-    @Test("送出後附上機器人的回覆，清掉輸入框，資料版本遞增(寫入的是真的交易紀錄)")
+    @Test("送出後附上機器人的回覆，清掉輸入框，資料版本遞增(寫入的是真的交易記錄)")
     func send() async throws {
         let repository = InMemoryBotRepository.sample()
         let model = model(repository)

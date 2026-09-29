@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 設定分類預算的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
+/// 設定預算額度的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
 struct BudgetEditorView: View {
     @Bindable var model: BudgetEditorModel
     @Environment(\.dismiss) private var dismiss
@@ -23,7 +23,7 @@ struct BudgetEditorView: View {
                         )
                     }
                 } footer: {
-                    Text("分類預算每個月各自一份，設定後無法刪除。")
+                    Text("預算額度每個月各自一份，設定後無法刪除。")
                 }
 
                 if let message = model.errorMessage {

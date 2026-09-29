@@ -143,13 +143,13 @@ public actor InMemoryAccountRepository: AccountRepository {
             $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
         }
         // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:274),疊字已回報 onion523/my-money#27。
-        return "已將未出帳 NT$ \(card.unbilledDebt.amount.formatted(.number.locale(Locale(identifier: "en_US")))) 成功出帳作業為已出帳待繳款！"
+        return "已將未出帳 NT$ \(card.unbilledDebt.backendText) 成功出帳作業為已出帳待繳款！"
     }
 
     /// 校準過未出帳的信用卡，依順序。
     public private(set) var reconciledIDs: [AccountID] = []
 
-    /// 後端是從交易紀錄重算未出帳款;這裡拿不到交易紀錄，未出帳款維持原值，只回傳跟後端同格式的訊息。
+    /// 後端是從交易記錄重算未出帳款;這裡拿不到交易記錄，未出帳款維持原值，只回傳跟後端同格式的訊息。
     public func reconcileUnbilled(_ id: AccountID) async throws -> String {
         await gate?.pass()
         if let failure { throw failure }
@@ -158,7 +158,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
         reconciledIDs.append(id)
         // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:387):後端的訊息還沒改用正名，照抄。
-        return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.amount.formatted(.number.locale(Locale(identifier: "en_US"))))"
+        return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.backendText)"
     }
 
     private static func card(_ card: CreditCard, billed: Money, unbilled: Money) -> CreditCard {
@@ -186,7 +186,8 @@ public actor InMemoryAccountRepository: AccountRepository {
             throw RepositoryError.rejected("找不到轉出帳戶或無權限操作")
         }
         if let balance = Self.balance(of: from), balance < transfer.amount {
-            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.amount)）")
+            // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:466、491)。
+            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.backendText)）")
         }
         transfers.append(transfer)
         storedAccounts = storedAccounts.map { account in
@@ -196,7 +197,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
         let isATM: Bool
         if case .bank = from, case .cash = to { isATM = true } else { isATM = false }
-        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.amount) (\(from.name) ➡️ \(to.name))"
+        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.backendText) (\(from.name) ➡️ \(to.name))"
     }
 
     /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
@@ -235,6 +236,13 @@ public actor InMemoryAccountRepository: AccountRepository {
     public func replace(accounts: [Account], summary: BalanceSummary) {
         storedAccounts = accounts
         self.summary = summary
+    }
+}
+
+extension Money {
+    /// 後端訊息裡的金額：`toLocaleString()` 加上千分位，例如「NT$ 50,000」的 `50,000`。
+    var backendText: String {
+        amount.formatted(.number.locale(Locale(identifier: "en_US")))
     }
 }
 

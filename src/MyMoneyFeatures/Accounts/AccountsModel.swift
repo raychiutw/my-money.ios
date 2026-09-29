@@ -110,7 +110,7 @@ public final class AccountsModel {
     @ObservationIgnored private var loadedScope: AccountScope?
 
     public func deleteConfirmation(for account: Account) -> String {
-        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
+        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易記錄也會一併刪除！"
     }
 
     /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。

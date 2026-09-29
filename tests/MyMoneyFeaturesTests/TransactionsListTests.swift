@@ -55,7 +55,7 @@ struct TransactionsListTests {
         #expect(list.days[2].income == Money(45000))
     }
 
-    /// 繳卡費時錢只是從銀行存款帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
+    /// 信用卡扣款還款時錢只是從銀行存款帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
     @Test("加總列：筆數、總收入、總支出(不含信用卡還款)、淨收支")
     func totalsExcludeCreditCardRepayment() async {
         let list = model(InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)))
@@ -94,7 +94,7 @@ struct TransactionsListTests {
         )
     }
 
-    @Test("沒有符合條件的交易紀錄時是空的")
+    @Test("沒有符合條件的交易記錄時是空的")
     func emptyPeriod() async {
         let list = model(InMemoryTransactionRepository(transactions: []))
 

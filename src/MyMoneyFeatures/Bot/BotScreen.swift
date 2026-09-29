@@ -18,7 +18,7 @@ struct BotScreen: View {
                     BotChatScreen(model: model)
                 }
             } footer: {
-                Text("在 app 裡試用機器人記帳。這裡送出的訊息會寫入真的交易紀錄。")
+                Text("在 app 裡試用機器人記帳。這裡送出的訊息會寫入真的交易記錄。")
             }
             webhookSection
         }
@@ -164,7 +164,7 @@ struct BotChatScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Label("這裡送出的訊息會寫入真的交易紀錄。", systemImage: "exclamationmark.triangle.fill")
+            Label("這裡送出的訊息會寫入真的交易記錄。", systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline)
                 .foregroundStyle(.orange)
                 .frame(maxWidth: .infinity)

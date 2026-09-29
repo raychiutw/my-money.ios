@@ -108,7 +108,7 @@ public final class OverviewModel {
         return "\(greeting)，\(name)"
     }
 
-    /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);分類預算帶入明確的當月。
+    /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);預算額度帶入明確的當月。
     public func load() async {
         let version = dataVersion.value
         let scope = scope
@@ -152,7 +152,7 @@ public final class OverviewModel {
 
 extension ViewScope {
     /// 視角套用到淨可用餘額和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
-    /// 所以「個人」視角(我記的全部交易紀錄)看的是我的個人私帳帳戶。
+    /// 所以「個人」視角(我記的全部交易記錄)看的是我的個人私帳帳戶。
     var accountScope: AccountScope {
         switch self {
         case .all: .all

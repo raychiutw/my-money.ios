@@ -1,6 +1,6 @@
 /// ATM 提款／帳戶互轉(`POST /accounts/transfer`):把錢從一個現金錢包或銀行存款帳戶移到另一個。
 ///
-/// 後端會建立兩筆系統交易紀錄(轉出一筆支出、轉入一筆收入):銀行存款帳戶轉到現金錢包是「ATM提款」,
+/// 後端會建立兩筆系統交易記錄(轉出一筆支出、轉入一筆收入):銀行存款帳戶轉到現金錢包是「ATM提款」,
 /// 其他組合是「內部轉帳」。只是資金調度，不算生活消費。
 public struct AccountTransfer: Hashable, Sendable {
     public let fromAccountID: AccountID

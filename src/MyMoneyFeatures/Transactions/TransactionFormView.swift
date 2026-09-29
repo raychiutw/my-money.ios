@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「記一筆」與「編輯交易紀錄」共用的表單。兩者的欄位相同，只有標題、驗證訊息與儲存後的行為不同。
+/// 「記一筆」與「編輯交易記錄」共用的表單。兩者的欄位相同，只有標題、驗證訊息與儲存後的行為不同。
 @MainActor
 public protocol TransactionForm: AnyObject, Observable {
     var title: String { get }
@@ -23,7 +23,7 @@ public protocol TransactionForm: AnyObject, Observable {
 extension QuickEntryModel: TransactionForm {}
 extension TransactionEditorModel: TransactionForm {}
 
-/// 交易紀錄的表單 sheet。「記一筆」的 model 每個 session 一份，下一筆會沿用上一筆的類型、分類、帳戶和公私帳。
+/// 交易記錄的表單 sheet。「記一筆」的 model 每個 session 一份，下一筆會沿用上一筆的類型、分類、帳戶和公私帳。
 struct TransactionFormView<Model: TransactionForm>: View {
     @Bindable var model: Model
     @Environment(\.dismiss) private var dismiss

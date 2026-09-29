@@ -29,7 +29,7 @@ public enum RecurringCycle: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// 週期收支(RecurringItem):只是提醒與估算，**不會**自動產生交易紀錄。只有自己的項目。
+/// 週期收支(RecurringItem):只是提醒與估算，**不會**自動產生交易記錄。只有自己的項目。
 public struct RecurringItem: Hashable, Sendable, Identifiable {
     public let id: RecurringItemID
     public let name: String

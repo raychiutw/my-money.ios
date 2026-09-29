@@ -6,7 +6,7 @@ final class StatisticsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 公帳代墊款與分攤建議;個人視角時不顯示;超支標示;設定一個分類預算。
+    /// 公帳代墊款與分攤建議;個人視角時不顯示;超支標示;設定一個預算額度。
     @MainActor
     func testHouseholdSharesScopeAndBudget() throws {
         let app = XCUIApplication()

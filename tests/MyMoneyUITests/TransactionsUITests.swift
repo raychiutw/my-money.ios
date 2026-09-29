@@ -6,7 +6,7 @@ final class TransactionsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 列表顯示本月的交易紀錄;記一筆 250 元後出現在列表上。
+    /// 列表顯示本月的交易記錄;記一筆 250 元後出現在列表上。
     @MainActor
     func testListShowsThisMonthAndQuickEntryAddsTransaction() throws {
         let app = XCUIApplication()
@@ -15,7 +15,7 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
 
         app.tabBars.buttons["交易"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易紀錄")
+        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         // 迄日是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
@@ -34,7 +34,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
-    /// 點一筆交易紀錄編輯歸屬;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
+    /// 點一筆交易記錄編輯歸屬;左滑刪除(先確認);信用卡還款顯示受保護的說明;搜尋只留下符合的紀錄。
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
@@ -62,7 +62,7 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<5 where !(lunch.exists && lunch.frame.maxY < screenBottom * 0.75) { app.swipeUp() }
         lunch.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["確定要刪除這筆交易紀錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
+        XCTAssertTrue(app.staticTexts["確定要刪除這筆交易記錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 

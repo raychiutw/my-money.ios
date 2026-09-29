@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 編輯一筆交易紀錄的 sheet(parity.md「交易」)。家人記的也能編輯;「信用卡還款」不能編輯(不會建立這個 model)。
+/// 編輯一筆交易記錄的 sheet(parity.md「交易」)。家人記的也能編輯;「信用卡還款」不能編輯(不會建立這個 model)。
 @MainActor
 @Observable
 public final class TransactionEditorModel {
@@ -26,7 +26,7 @@ public final class TransactionEditorModel {
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
 
-    public let title = "編輯交易紀錄"
+    public let title = "編輯交易記錄"
 
     public var categories: [TransactionCategory] {
         let fixed = type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories

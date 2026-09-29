@@ -180,12 +180,12 @@ struct AccountsTests {
         #expect(dataVersion.value == 0)
     }
 
-    @Test("刪除前的確認文字提醒交易紀錄會一併刪除")
+    @Test("刪除前的確認文字提醒交易記錄會一併刪除")
     func deleteConfirmationMessage() {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
 
         #expect(model.deleteConfirmation(for: .bank(SampleAccounts.savings))
-            == "確定要刪除帳戶「iOS 測試存款」嗎？這個帳戶的交易紀錄也會一併刪除！")
+            == "確定要刪除帳戶「iOS 測試存款」嗎？這個帳戶的交易記錄也會一併刪除！")
     }
 
     @Test("資料版本改變後重新抓資料;沒變時不重抓")

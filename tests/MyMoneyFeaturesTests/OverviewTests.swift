@@ -115,7 +115,7 @@ struct OverviewTests {
         #expect(model().scope == .household)
     }
 
-    @Test("最近 6 筆交易紀錄不限日期，依目前的視角查詢")
+    @Test("最近 6 筆交易記錄不限日期，依目前的視角查詢")
     func recentTransactionsQuery() async throws {
         let model = model()
         model.scope = .personal
@@ -128,7 +128,7 @@ struct OverviewTests {
         #expect(query.limit == 6 && query.offset == 0)
     }
 
-    @Test("當月淨收支來自當月的收支趨勢(依視角),分類預算帶入明確的當月")
+    @Test("當月淨收支來自當月的收支趨勢(依視角),預算額度帶入明確的當月")
     func monthlyQueries() async {
         let model = model()
         model.scope = .household

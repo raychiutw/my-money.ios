@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 交易頁的一天：當天的交易紀錄，以及當日的收入與支出(不含信用卡還款)。
+/// 交易頁的一天：當天的交易記錄，以及當日的收入與支出(不含信用卡還款)。
 public struct TransactionDay: Identifiable, Sendable {
     public let date: CalendarDay
     public let transactions: [Transaction]
@@ -57,9 +57,9 @@ public final class TransactionsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
-    public let deleteConfirmation = "確定要刪除這筆交易紀錄嗎？"
+    public let deleteConfirmation = "確定要刪除這筆交易記錄嗎？"
 
-    /// 從後端載入的區間內所有交易紀錄(篩選前)。
+    /// 從後端載入的區間內所有交易記錄(篩選前)。
     private var loaded: [Transaction] = []
 
     @ObservationIgnored private let repository: any TransactionRepository
@@ -96,7 +96,7 @@ public final class TransactionsModel {
         }
     }
 
-    /// 篩選後的交易紀錄，依日期分組，新的在前。
+    /// 篩選後的交易記錄，依日期分組，新的在前。
     public var days: [TransactionDay] {
         var order: [CalendarDay] = []
         var byDay: [CalendarDay: [Transaction]] = [:]
@@ -131,7 +131,7 @@ public final class TransactionsModel {
         }
     }
 
-    /// 依目前的起迄日與視角，抓齊區間內的所有交易紀錄。
+    /// 依目前的起迄日與視角，抓齊區間內的所有交易記錄。
     public func load() async {
         let version = dataVersion.value
         do {
@@ -186,7 +186,7 @@ public final class TransactionsModel {
         transactions.filter { $0.type == .income && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }
 
-    /// 支出合計，不含系統分類：繳卡費、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
+    /// 支出合計，不含系統分類：信用卡扣款還款、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
     private static func expense(of transactions: [Transaction]) -> Money {
         transactions.filter { $0.type == .expense && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }

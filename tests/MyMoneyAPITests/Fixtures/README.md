@@ -57,7 +57,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-joint-fund.json` | `POST /accounts`,建立銀行存款帳戶「iOS 家庭共同基金」(餘額 10000,`is_joint: 1`) | 201 | 家庭共同基金的標記 |
 | `transactions-create-card-shared.json` | `POST /transactions`,「iOS 測試信用卡」家庭公帳支出 購物 3000「全家的日用品」 | 201 | 讓欠款公私拆解有家庭公帳的部分 |
 | `accounts-list-with-debt-split.json` | `GET /accounts`,上面兩筆之後 | 200 | 信用卡帳戶的 `shared_debt` 3000、`personal_debt` 16380;家庭共同基金的 `is_joint: 1` |
-| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」交易紀錄 |
+| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」交易記錄 |
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
 | `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試信用卡」 | 200 | 未出帳 7380 移到已出帳待繳;訊息在 `data.message` |
@@ -96,11 +96,11 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `stats-monthly.json` | `GET /transactions/summary/monthly?year=2026&scope=all` | 200 | 每個月的收入、支出各一列(`month`、`type`、`total`) |
 | `stats-household-shares-empty.json` | `GET /transactions/summary/household-shares?month=2026-09`,測試帳號沒有家庭群組時 | 200 | 空清單 |
 | `stats-household-shares.json` | 同上。先讓測試帳號自己建立一個只有自己的家庭群組「iOS 測試家庭」,錄完就離開(最後一位成員離開時，後端會刪掉整個家庭群組) | 200 | `user_id`、`user_name`、`total`;兩人的分攤建議用單元測試驗證 |
-| `budgets-list-empty.json` | `GET /budgets?month=2026-09`,還沒有任何分類預算時 | 200 | 空清單 |
+| `budgets-list-empty.json` | `GET /budgets?month=2026-09`,還沒有任何預算額度時 | 200 | 空清單 |
 | `budgets-put-create.json` | `PUT /budgets`,餐飲 5000(新增) | 200 | 回傳設定後的資料列 |
 | `budgets-put-update.json` | `PUT /budgets`,餐飲改成 100(同分類同月份會調整原本那筆) | 200 | 同一個 `id` |
 | `budgets-put-missing-amount.json` | `PUT /budgets`,沒有 `amount` | 400 | 「請填寫所有欄位」原樣傳遞 |
-| `budgets-list.json` | `GET /budgets?month=2026-09`,餐飲 100、購物 1000 設定之後 | 200 | 後端算好的 `spent` 與 `over`(餐飲超支、購物 88%)。分類預算無法刪除，會留在測試帳號的 2026-09 |
+| `budgets-list.json` | `GET /budgets?month=2026-09`,餐飲 100、購物 1000 設定之後 | 200 | 後端算好的 `spent` 與 `over`(餐飲超支、購物 88%)。預算額度無法刪除，會留在測試帳號的 2026-09 |
 | `forecast.json` | `GET /forecast`,台灣時間 2026-09-28 早上錄的 | 200 | camelCase;30 天逐日餘額、`minBalance`、`minDate`、`willOverdraft`、預定收支(房租、薪水)。第一天是 2026-09-27,因為當時後端用 UTC 的今天(`bd0507b` 已改用台灣時間) |
 | `forecast-purchase-safe.json` | `POST /forecast/purchase-check {amount: 1000}` | 200 | 放心購買;`affectedGoals` 列出所有有每月預留的儲蓄目標，不管評估結果是哪一種 |
 | `forecast-purchase-caution.json` | 同上 `{amount: 50000}`。錄之前先把「沖繩旅遊」的每月預留暫時改成 20000,錄完改回 5000 | 200 | 審慎評估(`affectsSavings: true`) |
@@ -109,7 +109,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `bot-bindings-empty.json` | `GET /bot/bindings`,測試帳號還沒有機器人綁定時 | 200 | 空清單 |
 | `bot-pairing-code.json` | `POST /bot/pairing-code` | 200 | 6 碼大寫英數的綁定驗證碼、`expires_in_seconds: 600` |
 | `bot-simulate-missing-text.json` | `POST /bot/test-simulate {text: "", platform: "line"}` | 400 | 「請輸入測試訊息」原樣傳遞 |
-| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的交易紀錄**(預期的結果) | 200 | `reply` 是機器人的回覆文字 |
+| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的交易記錄**(預期的結果) | 200 | `reply` 是機器人的回覆文字 |
 | `bot-simulate-query.json` | 同上 `{text: "查帳"}` | 200 | 查帳不寫入任何資料 |
 | `bot-bindings.json` | `GET /bot/bindings`,模擬對話之後 | 200 | 後端會自動建立「模擬測試助手」的 LINE 綁定 |
 | `bot-unbind.json` | `DELETE /bot/bindings/:id`,解除上面那個綁定;錄完測試帳號回到沒有綁定 | 200 | 只回 `{success, message}` |
@@ -135,13 +135,13 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
 | `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳歸屬家庭共同基金(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
 | `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含歸屬家庭共同基金的帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
-| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易紀錄 |
+| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易記錄 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
 | `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |
 | `transactions-list-with-transfer.json` | `GET /transactions?from=2026-09-28&to=2026-09-28&scope=all&limit=200&offset=0`,上面的 ATM 提款之後 | 200 | 兩筆分類「ATM提款」(一筆支出、一筆收入)是系統分類 |
 | `transactions-create-cash-advance.json` | `POST /transactions`,「iOS 測試皮夾」家庭公帳支出 餐飲 250「全家晚餐」 | 201 | 用個人現金錢包付公帳支出(個人現金公帳代墊) |
 | `households-advances.json` | `GET /households/advances`。先讓測試帳號自己建立一個只有自己的家庭群組「iOS 測試家庭」,錄完下面三份就離開 | 200 | snake_case;累計代墊 250、已報銷 0、待報銷 250;代墊明細帶扣款帳戶名稱與類型 |
-| `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」交易紀錄 |
+| `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」交易記錄 |
 | `households-reimburse-not-joint.json` | 同上，撥款帳戶用個人的「iOS 測試存款」 | 400 | 「撥款帳戶必須為家庭共同基金公帳 (公用帳戶)」原樣傳遞 |
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |

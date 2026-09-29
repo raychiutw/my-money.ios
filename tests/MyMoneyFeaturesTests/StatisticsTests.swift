@@ -171,7 +171,7 @@ struct StatisticsTests {
 }
 
 @MainActor
-@Suite("設定分類預算")
+@Suite("設定預算額度")
 struct BudgetEditorTests {
     private let september = CalendarMonth(year: 2026, month: 9)
 

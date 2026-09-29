@@ -2,20 +2,20 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 預算清單的一列：一個支出分類的已花與分類預算。
+/// 預算清單的一列：一個支出分類的已花與預算額度。
 public struct BudgetRow: Identifiable, Sendable {
     public enum Status: Equatable, Sendable {
-        /// 沒有設定分類預算。
+        /// 沒有設定預算額度。
         case unset
         case normal
-        /// 已花達到分類預算的 80% 以上，但還沒超支。
+        /// 已花達到預算額度的 80% 以上，但還沒超支。
         case nearLimit
         case over(by: Money)
     }
 
     public let category: TransactionCategory
     public let budget: Budget?
-    /// 已花：有分類預算時用後端的 `spent`,沒有時用個人視角的分類支出(兩者都是我記的支出)。
+    /// 已花：有預算額度時用後端的 `spent`,沒有時用個人視角的分類支出(兩者都是我記的支出)。
     public let spent: Money
 
     public init(category: TransactionCategory, budget: Budget?, fallbackSpent: Money) {
@@ -26,7 +26,7 @@ public struct BudgetRow: Identifiable, Sendable {
 
     public var id: String { category.name }
 
-    /// 超支用後端的 `over`;接近上限是已花達到分類預算的 80%。
+    /// 超支用後端的 `over`;接近上限是已花達到預算額度的 80%。
     public var status: Status {
         guard let budget else { return .unset }
         if budget.isOver { return .over(by: spent - budget.amount) }
@@ -174,7 +174,7 @@ public final class StatisticsModel {
     }
 }
 
-/// 設定分類預算的 sheet。
+/// 設定預算額度的 sheet。
 @MainActor
 @Observable
 public final class BudgetEditorModel {
@@ -191,7 +191,7 @@ public final class BudgetEditorModel {
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 已有分類預算時帶入原值，沒有時預設 5000(跟 web 一樣)。
+    /// 已有預算額度時帶入原值，沒有時預設 5000(跟 web 一樣)。
     init(
         category: TransactionCategory,
         existing: Budget?,

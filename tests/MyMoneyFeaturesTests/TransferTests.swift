@@ -110,7 +110,7 @@ struct TransferTests {
 
         #expect(await model.submit() == nil)
 
-        #expect(model.errorMessage == "轉出帳戶餘額不足（目前餘額：NT$ 50000）")
+        #expect(model.errorMessage == "轉出帳戶餘額不足（目前餘額：NT$ 50,000）")
         #expect(dataVersion.value == 0)
     }
 }

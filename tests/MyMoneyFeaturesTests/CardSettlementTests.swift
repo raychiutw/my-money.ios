@@ -134,9 +134,9 @@ struct CardPaymentTests {
     }
 
     @Test("從卡片的三個按鈕打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay)", arguments: [
-        (CardPaymentModel.Preset.shared, "3000", true, "繳納 iOS 測試信用卡 卡費 (家庭代墊)"),
-        (CardPaymentModel.Preset.personal, "16380", false, "繳納 iOS 測試信用卡 卡費 (個人私帳)"),
-        (CardPaymentModel.Preset.full, "19380", true, "繳納 iOS 測試信用卡 卡費 (全額)"),
+        (CardPaymentModel.Preset.shared, "3000", true, "信用卡扣款還款「iOS 測試信用卡」(家庭代墊)"),
+        (CardPaymentModel.Preset.personal, "16380", false, "信用卡扣款還款「iOS 測試信用卡」(個人私帳)"),
+        (CardPaymentModel.Preset.full, "19380", true, "信用卡扣款還款「iOS 測試信用卡」(全額)"),
     ])
     func presets(preset: CardPaymentModel.Preset, amount: String, isShared: Bool, note: String) {
         let model = payment(card(), preset: preset)
@@ -165,7 +165,7 @@ struct CardPaymentTests {
         (true, "abc", "請輸入大於 0 的繳款金額"),
         (true, "1,000", "請輸入大於 0 的繳款金額"),
         (true, "12.5", "請輸入大於 0 的繳款金額"),
-        (true, "19381", "繳款金額不可超過當前待繳總額 $19,380"),
+        (true, "19381", "繳款金額不可超過信用卡待繳總額 $19,380"),
     ])
     func validation(hasBank: Bool, amount: String, message: String) async {
         let repository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
@@ -204,7 +204,7 @@ struct CardPaymentTests {
 
         #expect(await repository.payments == [CardPayment(
             bankAccountID: joint.id, creditCardID: AccountID("card"), amount: Money(3000), date: today,
-            note: "繳納 iOS 測試信用卡 卡費 (家庭代墊)", isShared: true
+            note: "信用卡扣款還款「iOS 測試信用卡」(家庭代墊)", isShared: true
         )])
         #expect(dataVersion.value == 1)
         #expect(model.bankAccounts.map(\.id) == [empty.id, salary.id, joint.id])

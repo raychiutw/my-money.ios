@@ -108,7 +108,7 @@ public final class BotModel {
         await load()
     }
 
-    /// 送出一則訊息。寫入的是真的交易紀錄，所以成功後資料版本遞增;錯誤以一則訊息泡泡呈現。
+    /// 送出一則訊息。寫入的是真的交易記錄，所以成功後資料版本遞增;錯誤以一則訊息泡泡呈現。
     public func send() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isThinking else { return }

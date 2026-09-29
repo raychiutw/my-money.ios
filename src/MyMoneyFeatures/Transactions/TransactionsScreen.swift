@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「交易」tab:起迄日、視角、篩選、加總列、依日期分組的交易紀錄(parity.md「交易」)。
+/// 「交易」tab:起迄日、視角、篩選、加總列、依日期分組的交易記錄(parity.md「交易」)。
 struct TransactionsScreen: View {
     @Bindable var model: TransactionsModel
     let quickEntry: QuickEntryModel
@@ -33,7 +33,7 @@ struct TransactionsScreen: View {
                     ToolbarItem(placement: .secondaryAction) {
                         ShareLink(
                             item: model.csvExport(),
-                            preview: SharePreview("交易紀錄 CSV", image: Image(systemName: "tablecells"))
+                            preview: SharePreview("交易記錄 CSV", image: Image(systemName: "tablecells"))
                         ) {
                             Label("匯出 CSV", systemImage: "square.and.arrow.up")
                         }
@@ -50,7 +50,7 @@ struct TransactionsScreen: View {
                     TransactionFormView(model: sheet.model)
                 }
                 .confirmationDialog(
-                    "刪除交易紀錄",
+                    "刪除交易記錄",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingDeletion
@@ -127,7 +127,7 @@ struct TransactionsScreen: View {
                 totalsSection
                 if model.days.isEmpty {
                     ContentUnavailableView {
-                        Label("沒有符合條件的交易紀錄", systemImage: "magnifyingglass")
+                        Label("沒有符合條件的交易記錄", systemImage: "magnifyingglass")
                     } actions: {
                         Button("記一筆") { isEntryPresented = true }
                     }
@@ -236,7 +236,7 @@ private struct DayHeader: View {
     }
 }
 
-/// 一筆交易紀錄：分類圖示、分類與備註、家庭公帳或個人私帳、記帳人、帳戶、帶正負號的金額。
+/// 一筆交易記錄：分類圖示、分類與備註、家庭公帳或個人私帳、記帳人、帳戶、帶正負號的金額。
 struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
 

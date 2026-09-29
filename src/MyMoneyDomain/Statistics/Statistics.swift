@@ -35,13 +35,13 @@ public struct HouseholdShare: Hashable, Sendable {
     }
 }
 
-/// 分類預算(Budget):屬於個人，每個月各自一份，設定後無法刪除。
+/// 預算額度(Budget):屬於個人，每個月各自一份，設定後無法刪除。
 public struct Budget: Hashable, Sendable {
     public let category: TransactionCategory
     public let amount: Money
     /// 已花：當月該分類中我記的支出合計，不隨視角改變(後端算好)。
     public let spent: Money
-    /// 超支：已花超過分類預算(後端算好)。
+    /// 超支：已花超過預算額度(後端算好)。
     public let isOver: Bool
 
     public init(category: TransactionCategory, amount: Money, spent: Money, isOver: Bool) {
@@ -52,7 +52,7 @@ public struct Budget: Hashable, Sendable {
     }
 }
 
-/// 統計(`/transactions/summary/*`)與分類預算(`/budgets`)。
+/// 統計(`/transactions/summary/*`)與預算額度(`/budgets`)。
 public protocol StatisticsRepository: Sendable {
     /// 當月各支出分類的合計，依金額由大到小。
     func categoryExpenses(month: CalendarMonth, scope: ViewScope) async throws -> [CategoryExpense]
@@ -63,9 +63,9 @@ public protocol StatisticsRepository: Sendable {
     /// 當月每位家庭成員的公帳代墊款，由多到少;沒有家庭群組時是空的。不隨視角改變。
     func householdShares(month: CalendarMonth) async throws -> [HouseholdShare]
 
-    /// 當月設定過的分類預算。
+    /// 當月設定過的預算額度。
     func budgets(month: CalendarMonth) async throws -> [Budget]
 
-    /// 設定(新增或調整)分類預算。
+    /// 設定(新增或調整)預算額度。
     func setBudget(_ amount: Money, for category: TransactionCategory, month: CalendarMonth) async throws
 }
