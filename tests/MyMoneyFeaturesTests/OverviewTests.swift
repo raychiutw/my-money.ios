@@ -69,18 +69,6 @@ struct OverviewTests {
         #expect(model.availableBreakdown == "現金 $1,500 + 銀行存款 $50,000 - 信用卡待繳總額 $28,500")
     }
 
-    @Test("帳戶一覽的信用卡：信用卡待繳總額(已出帳加未出帳),下面是代墊／私帳拆解與未出帳、繳款日;結清時說明已結清")
-    func creditCardLines() {
-        #expect(SampleAccounts.card.totalDue == Money(15500))
-        #expect(OverviewModel.cardDetailLines(SampleAccounts.card) == ["代墊 $3,000 · 私帳 $12,500", "未出帳 $3,500 · 每月 5 日繳款"])
-
-        let settled = CreditCard(
-            id: AccountID("settled"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
-            creditLimit: nil, statementDay: 15, paymentDueDay: nil
-        )
-        #expect(OverviewModel.cardDetailLines(settled) == ["卡費已全數結清", "未出帳 $0"])
-    }
-
     @Test("視角也套用在資金指標和帳戶一覽(web 的 Dashboard 在 82d9124 起帶同一個 scope)", arguments: [
         (ViewScope.all, AccountScope.all), (.household, .household), (.personal, .personal),
     ])

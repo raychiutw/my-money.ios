@@ -31,7 +31,7 @@ public final class CardPaymentModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 從卡片的哪個按鈕打開(web 的 `handleOpenPay`)。
+    /// 從「繳款」選單的哪個項目打開(web 的 `handleOpenPay`;信用卡詳細頁和精簡列的長按選單，#73)。
     public enum Preset: Sendable {
         /// 「繳家庭代墊」:欠款裡家庭公帳的部分，家庭公帳。
         case shared
@@ -41,7 +41,7 @@ public final class CardPaymentModel {
         case full
     }
 
-    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的按鈕;
+    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的項目;
     /// 今天;備註是「信用卡扣款還款「卡名」(家庭代墊／個人私帳／全額)」,不照抄 web 的疊字(parity 刻意偏離第 42 項)。
     public init(
         card: CreditCard,

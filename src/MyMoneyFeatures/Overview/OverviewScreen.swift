@@ -49,6 +49,10 @@ struct OverviewScreen: View {
             .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
                 await model.load()
             }
+            // 帳戶一覽的信用卡精簡列點進信用卡詳細頁;詳細頁的 model 由這裡(路由)建立(#73)。
+            .navigationDestination(for: CreditCard.self) { card in
+                CreditCardDetailScreen(model: model.makeCardDetail(for: card))
+            }
             .sheet(isPresented: $isEntryPresented) {
                 TransactionFormView(model: quickEntry)
             }
@@ -167,32 +171,22 @@ struct OverviewScreen: View {
                     accountLabel(account.name, kind: "銀行存款帳戶", symbol: "building.columns", colorHex: account.colorHex)
                 }
             }
+            // 信用卡跟帳戶頁用同一種精簡列，點進信用卡詳細頁(#73)。
             ForEach(model.creditCards) { card in
-                LabeledContent {
-                    // 信用卡待繳總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
-                    Text(card.totalDue.formatted())
-                        .monospacedDigit()
-                        .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                } label: {
-                    accountLabel(card.name, kind: "信用卡", symbol: "creditcard", colorHex: card.colorHex, details: OverviewModel.cardDetailLines(card))
+                NavigationLink(value: card) {
+                    CreditCardSummaryRow(card: card, mark: .symbol)
                 }
+                .accessibilityIdentifier("overview.card.\(card.id.rawValue)")
             }
         } header: {
             header("帳戶一覽", action: "管理帳戶") { show(.accounts) }
         }
     }
 
-    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。`details` 是名稱下面的說明。
-    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String, details: [String] = []) -> some View {
+    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。
+    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String) -> some View {
         Label {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                ForEach(details, id: \.self) { line in
-                    Text(line)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(name)
         } icon: {
             Image(systemName: symbol)
                 .foregroundStyle(Color(hex: colorHex) ?? .gray)

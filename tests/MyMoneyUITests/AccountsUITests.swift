@@ -8,7 +8,8 @@ final class AccountsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 顯示統計卡、現金錢包、銀行存款帳戶與信用卡帳戶三區，以及信用卡的剩餘額度。
+    /// 顯示統計卡、現金錢包、銀行存款帳戶與信用卡帳戶三區。信用卡是精簡列(#73):名稱、歸屬、信用卡待繳總額，
+    /// 第 2 行只有繳款日;剩餘額度這些欄位在詳細頁(`CardSettlementUITests`)。
     @MainActor
     func testAccountsTabShowsSummaryAndBothSections() throws {
         let app = XCUIApplication()
@@ -25,15 +26,16 @@ final class AccountsUITests: XCTestCase {
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists)
-        // 信用卡標示家庭信用卡或個人卡(web 的 bd0507b)。
-        let card = element(in: app, labelContaining: "iOS 測試信用卡、個人卡")
+        // 信用卡標示家庭信用卡或個人卡(web 的 bd0507b)。整列念成一句話，第 2 行只放繳款日(#73)。
+        let card = app.buttons["iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款"]
         for _ in 0..<5 where !card.exists { app.swipeUp() }
-        XCTAssertTrue(card.exists, "信用卡沒有標示個人卡")
-        // 小額卡在畫面下方(每張信用卡下面還有負債性質拆解與還款那一列);List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        // 剩餘額度 = 20,000 − 待繳 13,000(web 在 82d9124 拿掉了「額度不足」的警示)。
-        let remaining = element(in: app, labelContaining: "剩餘額度 $7,000")
-        for _ in 0..<5 where !remaining.exists { app.swipeUp() }
-        XCTAssertTrue(remaining.exists, "小額卡沒有顯示剩餘額度")
+        XCTAssertTrue(card.exists, "信用卡不是精簡列(名稱、個人卡、信用卡待繳總額、繳款日)")
+        XCTAssertEqual(card.identifier, "accounts.card.sample-card", "信用卡精簡列不是導覽連結")
+        // 小額卡在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let lowLimit = app.buttons["iOS 測試小額卡，個人卡，信用卡待繳總額 13,000 元，每月 20 日繳款"]
+        for _ in 0..<5 where !lowLimit.exists { app.swipeUp() }
+        XCTAssertTrue(lowLimit.exists, "小額卡不是精簡列")
+        XCTAssertFalse(element(in: app, labelContaining: "負債性質拆解").exists, "帳戶頁還有負債性質拆解，應該移到詳細頁")
     }
 
     /// 帳戶檢視範圍是「全部」「家庭共同基金」「個人私帳」(web 的 bd0507b),在 toolbar 的篩選按鈕(#64):

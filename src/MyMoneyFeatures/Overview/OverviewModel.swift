@@ -23,14 +23,12 @@ public final class OverviewModel {
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
 
-    /// 帳戶一覽裡信用卡的兩行說明(web 的 Dashboard):代墊／私帳拆解(沒有待繳時是「卡費已全數結清」),
-    /// 以及未出帳與繳款日。
-    public static func cardDetailLines(_ card: CreditCard) -> [String] {
-        let debt = card.totalDue > .zero
-            ? "代墊 \(card.sharedDebt.formatted()) · 私帳 \(card.personalDebt.formatted())"
-            : "卡費已全數結清"
-        let unbilled = "未出帳 \(card.unbilledDebt.formatted())"
-        return [debt, card.paymentDueDay.map { "\(unbilled) · 每月 \($0) 日繳款" } ?? unbilled]
+    /// 信用卡詳細頁(點帳戶一覽的信用卡精簡列 push,#73):跟帳戶一覽同一個帳戶檢視範圍。
+    public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
+        CreditCardDetailModel(
+            card: card, bankAccounts: bankAccounts, scope: scope.accountScope, repository: accountRepository,
+            dataVersion: dataVersion, today: today
+        )
     }
 
     /// 淨可用餘額的組成(web 的 Dashboard 寫成「現金 + 銀行存款帳戶 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 信用卡待繳總額(已出帳加未出帳)。數字都是後端算好的。

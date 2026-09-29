@@ -51,6 +51,25 @@ final class OverviewUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "自己記的交易記錄還顯示記帳人")
     }
 
+    /// 帳戶一覽的信用卡跟帳戶頁用同一種精簡列(#73):整列念成一句話，點進去是信用卡詳細頁。
+    @MainActor
+    func testCreditCardRowOpensDetail() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        let card = app.buttons["overview.card.sample-card"]
+        _ = card.waitForExistence(timeout: 5)
+        for _ in 0..<5 where !(card.exists && card.isHittable) { app.swipeUp() }
+        XCTAssertTrue(card.exists, "帳戶一覽的信用卡不是導覽連結")
+        XCTAssertEqual(card.label, "iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款", "帳戶一覽的信用卡不是精簡列")
+        card.tap()
+        XCTAssertTrue(app.navigationBars["iOS 測試信用卡"].waitForExistence(timeout: 3), "點帳戶一覽的信用卡沒有進入詳細頁")
+        // 詳細頁的欄位是 `LabeledContent`,標籤和值合成一個元素。
+        XCTAssertTrue(app.staticTexts["信用卡待繳總額、$15,500"].waitForExistence(timeout: 3), "從總覽進入的詳細頁沒有信用卡待繳總額")
+    }
+
     /// 視角在 toolbar 的篩選按鈕(#63):點按鈕再選，導覽列副標題顯示目前的視角;選過的視角重開 app 之後沿用。
     @MainActor
     func testScopeFilterShowsSubtitleAndIsRemembered() throws {

@@ -44,15 +44,14 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 有未出帳款就能做結帳日出帳作業，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
+    /// 有未出帳款就能做結帳日出帳作業(長按選單)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.unbilledDebt > .zero
+        card.canRollOver
     }
 
-    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」。
-    /// web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
+    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」,跟詳細頁的一樣。
     public func rolloverConfirmation(for card: CreditCard) -> String {
-        "確定要將「\(card.name)」的未出帳款 \(card.unbilledDebt.formatted()) 轉入本期已出帳待繳款嗎？"
+        card.rolloverConfirmation
     }
 
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
@@ -65,36 +64,7 @@ public final class AccountsModel {
         }
     }
 
-    /// 正在校準未出帳的信用卡;送出期間停用它的「校準未出帳」。
-    public private(set) var reconcilingCardID: AccountID?
-
-    public func isReconciling(_ card: CreditCard) -> Bool {
-        reconcilingCardID == card.id
-    }
-
-    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退和還款。
-    /// 後端扣的是還款的全額，繳過已出帳待繳款的話未出帳款會被算少(onion523/my-money#27 第 1 項),
-    /// 所以最後提醒(parity 刻意偏離第 39 項)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
-    public func reconcileConfirmation(for card: CreditCard) -> String {
-        let fallback = card.statementDay == nil ? "算這張卡所有的消費" : "從上一個結帳日起算"
-        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退和還款。"
-            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。"
-    }
-
-    /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
-    public func reconcile(_ card: CreditCard) async {
-        reconcilingCardID = card.id
-        defer { reconcilingCardID = nil }
-        do {
-            noticeMessage = try await repository.reconcileUnbilled(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
-    }
-
-    /// 信用卡扣款還款的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
+    /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
@@ -128,6 +98,13 @@ public final class AccountsModel {
     /// ATM 提款／帳戶互轉的 sheet。從某個帳戶的按鈕打開時，預先選好轉出或轉入。
     public func makeTransfer(from: AccountID? = nil, to: AccountID? = nil) -> TransferModel {
         TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredFrom: from, preferredTo: to)
+    }
+
+    /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。
+    public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
+        CreditCardDetailModel(
+            card: card, bankAccounts: bankAccounts, scope: scope, repository: repository, dataVersion: dataVersion, today: today
+        )
     }
 
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
