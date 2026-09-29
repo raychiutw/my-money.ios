@@ -55,7 +55,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 ```
 
 - 視角(全部、家庭、個人)放在總覽、交易、統計頁頂端，用 segmented `Picker`。
-- 帳戶頁頂端是帳戶檢視範圍(全部、家庭公用、個人私帳)的 segmented `Picker`,下面依序是統計卡、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態。
+- 帳戶頁頂端是帳戶檢視範圍(全部、家庭共同基金、個人私帳)的 segmented `Picker`,下面依序是統計卡、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態。
 - 「ATM 提款／轉帳」是 sheet:入口在帳戶頁 toolbar(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
 - 信用卡的三個還款入口(繳家庭代墊、繳個人私帳、全額結清)是 borderless 按鈕，跟 web 一樣排成一排、只放文字;大字級放不下時改成帶 icon 的直排(`ViewThatFits`)。
 - 登入和註冊是全螢幕流程，不放在 tab 裡。
