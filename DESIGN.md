@@ -40,8 +40,9 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - **輔助文字最小用 `subheadline`**(#43:家人反映字太小)。說明、次要資訊用 `subheadline`,
   更次要的註記才用 `footnote`;`caption` 只留給聊天泡泡下的時間這類附屬標記，不用 `caption2`。
   `body` 以上的字級不動。
-- 分段控制的字也是 `subheadline`(預設是 13pt,在 composition root 用 appearance 設定);
-  記一筆最上面的「帳本分類」和「支出／收入」再用 `.controlSize(.large)` 加高。
+- 分段控制的字也是 `subheadline`(預設是 13pt,在 composition root 用 appearance 設定)。
+  分段控制只用在記一筆、週期收支編輯器導覽列中間的支出／收入，用系統預設的高度，不再用 `.controlSize(.large)` 加高(#65);
+  表單裡的其他選擇用表單選擇列，字級是 `body`(見「元件對照」)。
 - 金額加上 `.monospacedDigit()`。
 - 新台幣的顯示跟 web 一致：例如 `$1,234` 和 `-$1,500`,0 位小數，捨入規則是 away from zero。
 
@@ -104,7 +105,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
 | `<select>` | `Picker` |
-| 家庭公帳／個人私帳、支出／收入的切換鈕 | segmented `Picker` |
+| 家庭公帳／個人私帳、支出／收入等切換鈕 | **支出／收入：導覽列中間的分段控制**。記一筆和週期收支編輯器放在 sheet 導覽列中間(`.principal` 的 segmented `Picker`),不另外佔表單一列(HIG 分段控制一節舉的行事曆「新增事件」)。**其他選擇：表單選擇列**。記一筆和信用卡扣款還款的歸屬、資產帳戶的歸屬、新增資產帳戶的類型，都是 `Form` 裡一般的 `Picker`(選單樣式):標籤在左、值在右，`body` 字級，跟著 Dynamic Type(#65)。交易頁的視角暫時例外，見「導覽」 |
 | `<input type=date>` | `DatePicker(.compact)` |
 | `<input type=month>` | 月份 `Picker`(年、月) |
 | 金額輸入 | 共用的 `AmountField`:靠右對齊、`.numberPad`、等寬數字，取得焦點時全選(直接輸入就取代原值)。綁定文字，儲存時用 `Money(wholeNumber:)` 解析;鍵盤 toolbar 放「完成」鈕(number pad 沒有 Return 鍵),按下清掉整個表單的焦點：表單的所有文字欄位(包括備註)綁到同一個 focus 狀態，不管焦點在哪個欄位都收起鍵盤;捲動表單也會收起鍵盤(`keyboardDismissal(clearing:)`) |
