@@ -146,7 +146,7 @@ struct TransactionsScreen: View {
         .refreshable { await model.load() }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。「信用卡還款」只顯示鎖定標記。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄只顯示鎖定標記。
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
@@ -155,7 +155,7 @@ struct TransactionsScreen: View {
                     editor = EditorSheet(model: editorModel)
                 }
             } label: {
-                TransactionRow(transaction: transaction)
+                TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isOpenable: true)
             }
             .tint(.primary)
             .swipeActions {
@@ -174,15 +174,8 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            // 只放鎖定標記，不放說明文字(#63);VoiceOver 接在交易記錄後面念出。
-            HStack(spacing: 8) {
-                TransactionRow(transaction: transaction)
-                Image(systemName: "lock.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("系統紀錄，不能編輯或刪除")
-            }
-            .accessibilityElement(children: .combine)
+            // 只放鎖定標記，不放說明文字(#63);點不開，所以不截斷。
+            TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isLocked: true)
         }
     }
 
@@ -219,60 +212,37 @@ struct TransactionsScreen: View {
     }
 }
 
-/// 每天的標頭：日期(MM/DD,跟 web 一樣),以及大於 0 的當日收入與支出。
+/// 每天的標頭：日期(「9月29日週二」,DESIGN.md「日期」),以及大於 0 的當日收入與支出。
+/// 放不下時(大字級)改成上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
 private struct DayHeader: View {
     let day: TransactionDay
 
     var body: some View {
-        HStack {
-            Text(String(format: "%02d/%02d", day.date.month, day.date.day))
-            Spacer()
-            if day.income > .zero {
-                Text("+\(day.income.formatted())")
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                Text(day.title)
+                Spacer(minLength: 8)
+                amounts
             }
-            if day.expense > .zero {
-                Text("-\(day.expense.formatted())")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.title)
+                amounts
             }
         }
         .monospacedDigit()
     }
-}
 
-/// 一筆交易記錄：分類圖示、分類與備註、家庭公帳或個人私帳、記帳人、帳戶、帶正負號的金額。
-struct TransactionRow: View {
-    let transaction: MyMoneyDomain.Transaction
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: transaction.category.symbolName)
-                .frame(width: 28)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                LedgerBadge(isShared: transaction.isShared)
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(transaction.signedAmountText)
-                .monospacedDigit()
-                .foregroundStyle(transaction.amountColor)
+    @ViewBuilder
+    private var amounts: some View {
+        if day.income > .zero {
+            Text("+\(day.income.formatted())")
+                .lineLimit(1)
+                .fixedSize()
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(transaction.spokenAmount),\(title),\(transaction.isShared ? "家庭公帳" : "個人私帳"),\(detail)"
-        )
-    }
-
-    private var title: String {
-        transaction.note.isEmpty ? transaction.category.name : "\(transaction.category.name) · \(transaction.note)"
-    }
-
-    private var detail: String {
-        let account = "帳戶：\(transaction.accountName ?? "預設帳戶")"
-        guard let recorder = transaction.recorderName else { return account }
-        return "\(account) · 記帳人：\(recorder)"
+        if day.expense > .zero {
+            Text("-\(day.expense.formatted())")
+                .lineLimit(1)
+                .fixedSize()
+        }
     }
 }

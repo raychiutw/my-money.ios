@@ -37,6 +37,20 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部」沒有進入交易 tab")
     }
 
+    /// 最近交易跟交易頁用同一種交易記錄列(#72):整列念成一句完整的話，自己記的不念記帳人。
+    @MainActor
+    func testRecentTransactionReadsAsOneSentence() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        let headphones = app.descendants(matching: .any)["購物，耳機，帳戶 iOS 測試信用卡，個人私帳，支出 880 元"]
+        for _ in 0..<5 where !headphones.exists { app.swipeUp() }
+        XCTAssertTrue(headphones.exists, "最近交易的耳機沒有念成一句完整的話")
+        XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "自己記的交易記錄還顯示記帳人")
+    }
+
     /// 視角在 toolbar 的篩選按鈕(#63):點按鈕再選，導覽列副標題顯示目前的視角;選過的視角重開 app 之後沿用。
     @MainActor
     func testScopeFilterShowsSubtitleAndIsRemembered() throws {

@@ -34,6 +34,35 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
+    /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
+    /// 自己記的不念記帳人;分組標頭是「9月28日週一」這種系統格式，不是「09/28」。
+    @MainActor
+    func testRowReadsAsOneSentenceAndDayHeaderUsesSystemFormat() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元"]
+        XCTAssertTrue(lunch.waitForExistence(timeout: 5), "午餐那一列沒有念成一句完整的話")
+        XCTAssertTrue(
+            app.staticTexts[Self.taipeiTodayHeader()].exists,
+            "分組標頭不是系統格式(\(Self.taipeiTodayHeader()))"
+        )
+        // 範例資料都是自己記的，所以清單裡沒有任何一列念出記帳人(搜尋欄的提示也有「記帳人」,不在清單裡)。
+        let list = app.collectionViews.firstMatch
+        XCTAssertFalse(
+            list.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "記帳人")).firstMatch.exists,
+            "自己記的交易記錄還顯示記帳人"
+        )
+
+        // 沒有備註的列用分類名稱，不重複念兩次。薪資在本月 1 號，在清單最下面。
+        let salary = app.descendants(matching: .any)["薪資，帳戶 iOS 測試存款，家庭公帳，收入 45,000 元"]
+        for _ in 0..<5 where !salary.exists { app.swipeUp() }
+        XCTAssertTrue(salary.exists, "沒有備註的列沒有用分類名稱念成一句話")
+    }
+
     /// 記一筆的支出／收入在 sheet 導覽列中間(分段控制);歸屬是表單裡一般的選擇列，表單裡沒有分段控制(#65)。
     /// 切到收入、歸屬選個人私帳，記一筆 250 元後，列表上是一筆個人私帳的收入。
     @MainActor
@@ -191,6 +220,15 @@ final class TransactionsUITests: XCTestCase {
         calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
         let day = calendar.dateComponents([.year, .month, .day], from: .now)
         return "\(day.year!)年\(day.month!)月\(day.day!)日"
+    }
+
+    /// 台灣時間的今天，格式跟交易頁的分組標頭一樣，例如「9月28日週一」。
+    private static func taipeiTodayHeader() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let day = calendar.dateComponents([.month, .day, .weekday], from: .now)
+        let weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+        return "\(day.month!)月\(day.day!)日週\(weekdays[day.weekday! - 1])"
     }
 
     /// 點表單的選擇列打開選單，再點選項。sheet 底下列表的列也含有同樣的文字，所以只找選單裡的選項
