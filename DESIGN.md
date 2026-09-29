@@ -101,6 +101,16 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - VoiceOver:整列一個元素，念成一句話，依序是分類、備註、帳戶、記帳人、歸屬、收支方向與金額，例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」。沒有備註時不重複念分類;系統紀錄最後念「系統紀錄，不能編輯或刪除」。
 - 交易頁的分組標頭是日期(見「日期」)加當日的收入、支出;放不下時用 `ViewThatFits` 改成上下堆疊。
 
+**信用卡精簡列**(`CreditCardSummaryRow`,帳戶頁、總覽的帳戶一覽共用，#73):
+
+- 前緣是代表色，跟同一區的其他列一致：帳戶頁是色條，總覽是代表色的 `creditcard` 圖示。
+- 第 1 行：名稱，最多兩行。
+- 第 2 行只放一項：信用卡待繳總額是 0 時是「已全數結清」,其餘是繳款日「每月 5 日繳款」;有待繳但沒有設定繳款日時沒有第 2 行。
+- trailing:信用卡待繳總額(大於 0 時用紅色，金額一律單行),下面是歸屬(`person.fill`「個人卡」或 `house.fill`「家庭信用卡」)。
+- 用 `LabeledContent`,大字級放不下時自動改成上下堆疊。
+- 整列是導覽連結(`NavigationLink(value:)`,有 disclosure indicator),點進信用卡詳細頁;已出帳待繳款、未出帳款、欠款公私拆解、信用額度、結帳日這些欄位都在詳細頁(見「導覽」)。
+- VoiceOver:整列一個元素，例如「iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款」。
+
 ## 日期
 
 依 HIG Charts 的「using "June 6" is clearer than using "6/6"」,以及 `Date.FormatStyle`「shares the date and time formatting pattern preferred by the user's locale」(研究 §11,#72)。
@@ -136,6 +146,8 @@ Tab bar(iPad 用 .sidebarAdaptable)
 總覽、統計 toolbar  line.3.horizontal.decrease → 視角選單(全部、家庭、個人)
 帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭共同基金、個人私帳)
                     arrow.left.arrow.right → 「ATM 提款／轉帳」sheet;plus → 新增資產帳戶選單
+帳戶、總覽的信用卡精簡列 → 信用卡詳細頁(push)
+                    「繳款」選單 → 「信用卡扣款還款」sheet;toolbar「編輯」→ 資產帳戶編輯器 sheet
 ```
 
 - **視角**(全部、家庭、個人):總覽、統計頁放在 toolbar 的篩選按鈕(`line.3.horizontal.decrease`),點開是可勾選的選單(`ScopeFilter.swift`);導覽列副標題(`navigationSubtitle`)一律顯示目前的視角，不用打開選單就知道現在看的範圍。清單最上面不放分段控制，打開畫面最上面就是資料。
@@ -146,7 +158,15 @@ Tab bar(iPad 用 .sidebarAdaptable)
   - VoiceOver:篩選按鈕的標籤是「帳戶檢視範圍」,值是目前的選擇。
   - toolbar 是篩選、ATM 提款／轉帳、新增資產帳戶三組。
 - 「ATM 提款／轉帳」是 sheet:入口在帳戶頁 toolbar(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
-- 信用卡的三個還款入口(繳家庭代墊、繳個人私帳、全額結清)是 borderless 按鈕，跟 web 一樣排成一排、只放文字;大字級放不下時改成帶 icon 的直排(`ViewThatFits`)。
+- **信用卡詳細頁**(#73):帳戶頁和總覽「帳戶一覽」的信用卡是精簡列(見「列與欄位」),整列點進去 push 詳細頁，標題是卡名。依 HIG Lists and tables 的「list item titles only, letting people choose an item to reveal its content in a detail view」(研究 §4)。
+  - 每個欄位一列(`LabeledContent`):`Section`「卡費」是信用卡待繳總額、已出帳待繳款、未出帳款、家庭代墊公帳、個人私帳消費;`Section`「設定」是信用額度、剩餘額度(有信用額度才有)、結帳日「每月 15 日」、繳款日「每月 5 日」,沒有設定的顯示「未設定」。
+  - `Section`「操作」:
+    - 「繳款」pull-down(`Menu`),項目是繳家庭代墊、繳個人私帳、全額結清;沒有對應欠款的項目隱藏，不是停用(HIG Context menus 的「Hide unavailable menu items, don't dim them」)。信用卡待繳總額是 0 時沒有「繳款」。選了打開「信用卡扣款還款」sheet。
+    - 「出帳作業」,有未出帳款才有;「校準未出帳」,每張卡都有。兩個都先確認，確認文字見 parity 刻意偏離第 39、41 項。
+  - toolbar 的 trailing 是「編輯」(文字按鈕，HIG Toolbars 允許編輯這類難用符號表達的動作用文字),打開資產帳戶編輯器。
+  - 畫面 model 由路由(`navigationDestination(for: CreditCard.self)`)建立後傳入，沿用打開它的畫面的帳戶檢視範圍;路由在父層重畫時會再建立一份，詳細頁用 `@State` 留住第一次傳入的那一份。
+  - 繳款、出帳作業、校準、編輯成功後遞增資料版本，詳細頁、帳戶頁和總覽都重新取得。重新取得時這張卡已經不在這個範圍(被刪除，或歸屬改了),詳細頁回到上一頁。
+- **信用卡精簡列的捷徑**(帳戶頁):長按選單有繳款(沒有對應欠款的項目隱藏)、出帳作業(有未出帳款才有)、編輯、刪除，每一項在詳細頁都找得到(HIG Context menus 的「Always make context menu items available in the main interface, too」);往左滑是刪除。總覽的精簡列只能點進詳細頁。現金錢包、銀行存款帳戶的列不變，點了照舊開編輯器。
 - 登入和註冊是全螢幕流程，不放在 tab 裡。
 
 ## 元件對照(web → iOS)
@@ -158,6 +178,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
 | 主題切換鈕(淺色／深色兩段式) | 帳號 sheet 的「外觀」選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
+| 信用卡卡片(名稱、已出帳待繳款、未出帳款、負債性質拆解、結帳日、剩餘額度，加上校準、出帳作業、三個還款按鈕，全部在卡片上) | 精簡列加上信用卡詳細頁(#73,見「導覽」和「列與欄位」):列上只有代表色、名稱、歸屬、信用卡待繳總額和一項次要資訊，其餘欄位和動作都在詳細頁;三個還款入口收進詳細頁的「繳款」選單 |
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
 | `<select>` | `Picker` |
@@ -211,7 +232,8 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - **範圍**:
   - 登入、註冊、五個 tab(規劃底下的週期收支、儲蓄目標、現金流預測)。
   - 帳號 sheet、家庭群組、機器人記帳、模擬對話。
-  - 記一筆、新增資產帳戶(現金錢包、銀行存款帳戶、信用卡)、ATM 提款／轉帳、信用卡扣款還款、新增週期收支、建立儲蓄目標。
+  - 記一筆、新增資產帳戶(現金錢包、銀行存款帳戶、信用卡)、ATM 提款／轉帳、新增週期收支、建立儲蓄目標。
+  - 信用卡詳細頁(`card-detail`),以及從詳細頁「繳款」選單的「全額結清」打開的信用卡扣款還款(`card-payment`)。
   - 可以捲的畫面捲到底，每一屏拍一張(往上拖半個畫面，上下兩張會重疊)。
   - 範例帳號沒有加入家庭群組，家庭群組只拍得到建立和加入。
 - **只看不改**:只開畫面、捲動、按「取消」或系統的返回，不按任何儲存或送出。登入用 in-memory 的範例帳號，repo 裡沒有真實帳號或密碼。
