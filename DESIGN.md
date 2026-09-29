@@ -48,7 +48,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   交易   list.bullet.rectangle
   帳戶   creditcard
   統計   chart.bar            ← 含預算
-  規劃   calendar             → 固定收支 / 儲蓄目標 / 現金流預測(列表 push)
+  規劃   calendar             → 週期收支 / 儲蓄目標 / 現金流預測(列表 push)
 總覽 toolbar 右上  person.crop.circle → 帳號 sheet(自帶 NavigationStack)
                    名稱與 email、家庭、機器人記帳、登出
 總覽、交易 toolbar  plus → 「記一筆」sheet
