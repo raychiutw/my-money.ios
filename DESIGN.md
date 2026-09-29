@@ -33,6 +33,10 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
   - 目標達成用 `systemGreen`。
 - **資訊不能只靠顏色傳達**:金額一律帶 `+` 或 `−` 號;家庭公帳和個人私帳用 symbol 加文字標示。
 - **帳戶顏色**是使用者選的資料，只用在帳戶列前緣的色塊，不當成唯一的辨識依據。
+- **支出分類的圖表顏色**(統計頁的圓餅圖，#76):圖表和下方清單共用同一份「分類 → 顏色」對照(`chartForegroundStyleScale(domain:range:)`),清單每列前緣的同色圓點就是圖例，分類名稱照舊顯示。顏色跟著分類固定，不隨排序、月份或視角改變(研究 §10)。
+  - 餐飲 `systemOrange`、交通 `systemBlue`、娛樂 `systemPurple`、購物 `systemPink`、生活 `systemGreen`、醫療 `systemCyan`、教育 `systemYellow`;「其他」和不在清單中的分類是 `systemGray`。
+  - 用系統色，深色和增強對比由系統調整。這 8 色在淺色、深色下任兩色都分得開(一般色覺的 OKLab ΔE ≥ 15);紅色留給支出和超支，不用。
+  - 8 色裡有幾色在淺色背景上的對比不到 3:1,色覺障礙時也有幾對不好分，所以一定要搭配分類名稱，不能只靠顏色。
 
 ## 字型與數字
 
@@ -110,6 +114,14 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 用 `LabeledContent`,大字級放不下時自動改成上下堆疊。
 - 整列是導覽連結(`NavigationLink(value:)`,有 disclosure indicator),點進信用卡詳細頁;已出帳待繳款、未出帳款、欠款公私拆解、信用額度、結帳日這些欄位都在詳細頁(見「導覽」)。
 - VoiceOver:整列一個元素，例如「iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款」。
+
+**預算額度列**(統計頁，#76;研究 §5):
+
+- 只列有預算或本月已花(我記的支出，不隨視角改變)的支出分類，依支出分類的固定順序。
+- 第 1 行是分類(圖示加名稱);已花、預算各一列(`LabeledContent`,`subheadline`,金額單行),沒有預算時預算是「未設定」;有預算時是進度;超支、接近上限用 `exclamationmark.triangle.fill` 加文字，顏色是 `systemRed`、`systemOrange`。
+- 整列是按鈕，點了開設定 sheet,不放「設定／調整」按鈕。
+- section 底部是「新增預算額度」選單(`Menu`,整列都點得開),列出其餘的支出分類，選了打開同一個 sheet;全部都列出時不顯示(HIG Pull-down buttons 的「An Add button could present a menu」)。
+- VoiceOver:整列一個元素，依序念分類、預算、已花和狀態，例如「餐飲，預算 100 元，已花 120 元，超支 20 元」「交通，預算未設定，已花 250 元」;進度條不另外念(超支時卡在 100%)。
 
 **摘要**(總覽、帳戶頁，#75;第 6 條，研究 §3):
 
