@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 規劃 → 固定收支：三張統計卡、固定支出與固定收入兩區(parity.md「固定收支」)。
+/// 規劃 → 週期收支：三張統計卡、週期支出與週期收入兩區(parity.md「週期收支」)。
 struct RecurringScreen: View {
     @Bindable var model: RecurringModel
     @State private var editor: EditorSheet?
@@ -11,20 +11,20 @@ struct RecurringScreen: View {
     var body: some View {
         content
             .skeletonTransition(value: model.phase)
-            .navigationTitle("固定收支")
+            .navigationTitle("週期收支")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         editor = EditorSheet(model.makeEditor())
                     } label: {
-                        Label("新增固定收支", systemImage: "plus")
+                        Label("新增週期收支", systemImage: "plus")
                     }
                     .accessibilityIdentifier("recurring.add")
                 }
                 ToolbarItem(placement: .secondaryAction) {
                     ShareLink(
                         item: model.csvExport(),
-                        preview: SharePreview("固定收支 CSV", image: Image(systemName: "tablecells"))
+                        preview: SharePreview("週期收支 CSV", image: Image(systemName: "tablecells"))
                     ) {
                         Label("匯出 CSV", systemImage: "square.and.arrow.up")
                     }
@@ -37,7 +37,7 @@ struct RecurringScreen: View {
                 RecurringEditorView(model: sheet.model)
             }
             .confirmationDialog(
-                "刪除固定收支",
+                "刪除週期收支",
                 isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                 titleVisibility: .visible,
                 presenting: pendingDeletion
@@ -75,12 +75,12 @@ struct RecurringScreen: View {
         case .loading:
             List {
                 SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
-                SkeletonSection(title: "固定支出", count: 3) { SkeletonItemRow() }
-                SkeletonSection(title: "固定收入", count: 1) { SkeletonItemRow() }
+                SkeletonSection(title: "週期支出", count: 3) { SkeletonItemRow() }
+                SkeletonSection(title: "週期收入", count: 1) { SkeletonItemRow() }
             }
         case .failed(let message):
             ContentUnavailableView {
-                Label("無法載入固定收支", systemImage: "exclamationmark.triangle")
+                Label("無法載入週期收支", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
@@ -91,18 +91,18 @@ struct RecurringScreen: View {
         case .loaded:
             List {
                 summarySection
-                Section("固定支出(\(model.expenses.count))") {
+                Section("週期支出(\(model.expenses.count))") {
                     if model.expenses.isEmpty {
-                        Text("尚未新增固定支出")
+                        Text("尚未新增週期支出")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(model.expenses) { item in
                         row(item)
                     }
                 }
-                Section("固定收入(\(model.incomes.count))") {
+                Section("週期收入(\(model.incomes.count))") {
                     if model.incomes.isEmpty {
-                        Text("尚未設定固定收入")
+                        Text("尚未設定週期收入")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(model.incomes) { item in
@@ -116,9 +116,9 @@ struct RecurringScreen: View {
 
     private var summarySection: some View {
         Section {
-            SummaryRow(title: "固定支出的週期攤提", amount: model.monthlyExpense, detail: "年繳、季繳換算成每月要預留的金額")
-            SummaryRow(title: "固定收入的週期攤提", amount: model.monthlyIncome, detail: "每月穩定入帳的金額")
-            SummaryRow(title: "每月固定淨額", amount: model.monthlyNet, detail: "固定收入減固定支出", warnsWhenNegative: true)
+            SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense, detail: "年繳、季繳換算成每月要預留的金額")
+            SummaryRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome, detail: "每月穩定入帳的金額")
+            SummaryRow(title: "每月固定淨額", amount: model.monthlyNet, detail: "週期收入減週期支出", warnsWhenNegative: true)
         }
     }
 
@@ -146,7 +146,7 @@ struct RecurringScreen: View {
     }
 }
 
-/// 一項固定收支：名稱、扣款日或入帳日、關聯帳戶、(非每月的固定支出)週期攤提、每期金額。
+/// 一項週期收支：名稱、扣款日或入帳日、關聯帳戶、(非每月的週期支出)分攤平滑、每期金額。
 private struct RecurringRow: View {
     let item: RecurringItem
 
@@ -176,7 +176,7 @@ private struct RecurringRow: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(item.name),\(item.type == .income ? "固定收入" : "固定支出") \(item.amount.spokenText),\(item.scheduleText),"
+            "\(item.name),\(item.type == .income ? "週期收入" : "週期支出") \(item.amount.spokenText),\(item.scheduleText),"
                 + details(spoken: true)
         )
     }
@@ -187,6 +187,6 @@ private struct RecurringRow: View {
         let account = item.accountName.map { item.type == .income ? "入帳帳戶：\($0)" : "關聯扣款帳戶：\($0)" } ?? "未指定關聯帳戶"
         guard item.showsMonthlyAmortization else { return account }
         let amortization = spoken ? item.monthlyAmortization.spokenText : item.monthlyAmortization.formatted()
-        return "\(account) · 週期攤提 \(amortization) / 月"
+        return "\(account) · 分攤平滑 \(amortization) / 月"
     }
 }

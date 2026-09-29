@@ -6,7 +6,7 @@ import Testing
 @MainActor
 @Suite("帳戶頁(瀏覽)")
 struct AccountsTests {
-    @Test("帳戶選單標示正確的類型(web 的固定收支把現金錢包標成「信用卡」);轉帳和撥款報銷的選單另外帶餘額")
+    @Test("帳戶選單標示正確的類型(web 的週期收支把現金錢包標成「信用卡」);轉帳和撥款報銷的選單另外帶餘額")
     func menuTitlesShowAccountKind() {
         #expect(Account.cash(SampleAccounts.wallet).menuTitle == "iOS 測試皮夾(現金錢包)")
         #expect(Account.bank(SampleAccounts.savings).menuTitle == "iOS 測試存款(銀行存款帳戶)")

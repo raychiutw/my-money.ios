@@ -12,7 +12,7 @@ public struct MainScreens {
     /// 「記一筆」:每個 session 一份，讓下一筆沿用上一筆的選擇。
     public let quickEntry: QuickEntryModel
 
-    /// 規劃 → 固定收支。
+    /// 規劃 → 週期收支。
     public let recurring: RecurringModel
 
     /// 規劃 → 儲蓄目標。

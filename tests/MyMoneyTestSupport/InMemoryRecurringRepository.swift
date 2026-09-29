@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的固定收支，記下新增、編輯、刪除的內容。
+/// 不連網路的週期收支，記下新增、編輯、刪除的內容。
 public actor InMemoryRecurringRepository: RecurringRepository {
     private var stored: [RecurringItem]
     private var failure: RepositoryError?
@@ -47,7 +47,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         return stored
     }
 
-    /// 跟後端一樣把每一項的週期攤提加總(測試用的替身，給 UI 測試在新增、刪除後看到合計改變)。
+    /// 跟後端一樣把每一項的分攤平滑加總(測試用的替身，給 UI 測試在新增、刪除後看到合計改變)。
     public func amortization() async throws -> RecurringAmortization {
         if let failure = failure ?? amortizationFailure { throw failure }
         func total(_ type: TransactionType) -> Money {
@@ -93,7 +93,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         failure = error
     }
 
-    /// 只有週期攤提(`amortization()`)以這個錯誤失敗。
+    /// 只有分攤平滑(`amortization()`)以這個錯誤失敗。
     public func failAmortization(with error: RepositoryError) {
         amortizationFailure = error
     }

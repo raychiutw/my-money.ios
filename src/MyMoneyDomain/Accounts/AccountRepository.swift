@@ -37,7 +37,7 @@ public protocol AccountRepository: Sendable {
 }
 
 extension AccountRepository {
-    /// 全部範圍(本人全部 + 家庭共同基金),給只需要選帳戶的畫面用，例如記一筆、固定收支。
+    /// 全部範圍(本人全部 + 家庭共同基金),給只需要選帳戶的畫面用，例如記一筆、週期收支。
     public func accounts() async throws -> [Account] {
         try await accounts(scope: .all)
     }

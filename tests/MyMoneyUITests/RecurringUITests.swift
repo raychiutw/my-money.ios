@@ -1,6 +1,6 @@
 import XCTest
 
-/// 規劃 → 固定收支。資料來自 MyMoneyTestSupport 的 `InMemoryRecurringRepository.sample()`(不連網路)。
+/// 規劃 → 週期收支。資料來自 MyMoneyTestSupport 的 `InMemoryRecurringRepository.sample()`(不連網路)。
 final class RecurringUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -15,10 +15,11 @@ final class RecurringUITests: XCTestCase {
         signIn(app)
 
         app.tabBars.buttons["規劃"].tap()
-        app.buttons["固定收支"].tap()
+        app.buttons["週期收支"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 31,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
         XCTAssertTrue(element(in: app, labelContaining: "每年 15 號扣款").exists, "扣款日沒有依週期描述")
-        XCTAssertTrue(element(in: app, labelContaining: "週期攤提 2,000 元 / 月").exists, "年繳項目沒有顯示週期攤提")
+        XCTAssertTrue(element(in: app, labelContaining: "年繳保費,週期支出 24,000 元").exists, "VoiceOver 沒有念出週期支出")
+        XCTAssertTrue(element(in: app, labelContaining: "分攤平滑 2,000 元 / 月").exists, "年繳項目沒有顯示分攤平滑")
 
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
@@ -34,7 +35,7 @@ final class RecurringUITests: XCTestCase {
         let rent = element(in: app, labelContaining: "房租")
         rent.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["確定要刪除固定收支「房租」嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
+        XCTAssertTrue(app.staticTexts["確定要刪除週期收支「房租」嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(rent.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }

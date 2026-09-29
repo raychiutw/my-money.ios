@@ -4,7 +4,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("固定收支")
+@Suite("週期收支")
 struct RecurringTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
 
@@ -20,7 +20,7 @@ struct RecurringTests {
         return (model, repository)
     }
 
-    @Test("固定支出與固定收入分成兩區")
+    @Test("週期支出與週期收入分成兩區")
     func splitsByType() async {
         let (model, _) = await loaded()
 
@@ -28,7 +28,7 @@ struct RecurringTests {
         #expect(model.incomes.map(\.name) == ["薪水"])
     }
 
-    @Test("三張統計卡：固定支出與固定收入的週期攤提(後端算好)、每月固定淨額")
+    @Test("三張統計卡：週期支出與週期收入的分攤平滑(後端算好)、每月固定淨額")
     func summaryCards() async {
         let (model, _) = await loaded()
 
@@ -54,7 +54,7 @@ struct RecurringTests {
         #expect(item.scheduleText == expected)
     }
 
-    @Test("週期不是每月的固定支出，顯示每月的週期攤提;固定收入不顯示")
+    @Test("週期不是每月的週期支出，顯示每月的分攤平滑;週期收入不顯示")
     func perItemAmortization() {
         let annual = RecurringItem(
             id: RecurringItemID("x"), name: "年繳保費", type: .expense, amount: Money(24000), cycle: .annual,
@@ -81,7 +81,7 @@ struct RecurringTests {
         let (model, repository) = await loaded(dataVersion: dataVersion)
         let rent = try #require(model.expenses.first)
 
-        #expect(model.deleteConfirmation(for: rent) == "確定要刪除固定收支「房租」嗎？")
+        #expect(model.deleteConfirmation(for: rent) == "確定要刪除週期收支「房租」嗎？")
         await model.delete(rent)
 
         #expect(await repository.deletedIDs == [rent.id])
@@ -99,7 +99,7 @@ struct RecurringTests {
     }
 
     /// web 把失敗當成 0,三張統計卡顯示 $0(`.catch(() => null)`,parity 刻意偏離第 27 項)。
-    @Test("週期攤提載入失敗時顯示載入失敗，不顯示 $0")
+    @Test("分攤平滑載入失敗時顯示載入失敗，不顯示 $0")
     func amortizationFailure() async {
         let repository = InMemoryRecurringRepository.sample()
         await repository.failAmortization(with: .rejected("伺服器錯誤"))

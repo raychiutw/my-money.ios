@@ -119,7 +119,7 @@ struct OverviewScreen: View {
                 SummaryRow(
                     title: "真實可支配現金",
                     amount: summary.disposableCash,
-                    detail: "已扣掉週期攤提 \(summary.monthlyAmortization.formatted()) 與每月預留 \(summary.monthlySavingsReserve.formatted())",
+                    detail: "已扣掉分攤平滑 \(summary.monthlyAmortization.formatted()) 與每月預留 \(summary.monthlySavingsReserve.formatted())",
                     warnsWhenNegative: true
                 )
                 SummaryRow(

@@ -99,7 +99,7 @@ struct SkeletonAccountRow: View {
     }
 }
 
-/// 兩行項目的佔位：名稱、說明、金額(固定收支、預定收支、已綁定的帳號)。
+/// 兩行項目的佔位：名稱、說明、金額(週期收支、預定收支、已綁定的帳號)。
 struct SkeletonItemRow: View {
     var body: some View {
         HStack {

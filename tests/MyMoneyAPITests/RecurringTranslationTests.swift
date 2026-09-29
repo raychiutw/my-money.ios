@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("固定收支的翻譯(/recurring、/recurring/amortize、/export/recurring)")
+@Suite("週期收支的翻譯(/recurring、/recurring/amortize、/export/recurring)")
 struct RecurringTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")
@@ -18,7 +18,7 @@ struct RecurringTranslationTests {
         return try #require(json as? [String: Any])
     }
 
-    @Test("解讀固定收支:account_id 可以是 null,帶上帳戶名稱")
+    @Test("解讀週期收支:account_id 可以是 null,帶上帳戶名稱")
     func listDecodesItems() async throws {
         try stub.reply(status: 200, fixture: "recurring-list.json")
 
@@ -41,7 +41,7 @@ struct RecurringTranslationTests {
         #expect(items[2].type == .income)
     }
 
-    @Test("週期攤提用後端算好的每月合計")
+    @Test("分攤平滑用後端算好的每月合計")
     func amortizationDecodes() async throws {
         try stub.reply(status: 200, fixture: "recurring-amortize.json")
 
@@ -108,7 +108,7 @@ struct RecurringTranslationTests {
         }
     }
 
-    @Test("匯出固定收支 CSV:GET /export/recurring,原樣回傳")
+    @Test("匯出週期收支 CSV:GET /export/recurring,原樣回傳")
     func exportCSV() async throws {
         try stub.reply(status: 200, fixture: "export-recurring.csv")
 

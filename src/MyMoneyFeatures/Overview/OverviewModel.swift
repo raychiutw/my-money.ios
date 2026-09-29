@@ -93,7 +93,7 @@ public final class OverviewModel {
     public var tipText: String {
         let amortization = summary?.monthlyAmortization ?? .zero
         let reserve = summary?.monthlySavingsReserve ?? .zero
-        return "固定支出的週期攤提每月 \(amortization.formatted()),已經從真實可支配現金扣除;"
+        return "週期支出的分攤平滑每月 \(amortization.formatted()),已經從真實可支配現金扣除;"
             + "儲蓄目標的每月預留合計 \(reserve.formatted()),建議每月先存起來。"
             + "家庭公帳全家都看得到，個人私帳只有自己看得到。"
     }

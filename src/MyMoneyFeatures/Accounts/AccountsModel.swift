@@ -198,7 +198,7 @@ extension AccountKind {
 }
 
 extension Account {
-    /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
+    /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
     public var menuTitle: String {
         "\(name)(\(kind.title))"
     }

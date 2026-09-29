@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 新增或編輯固定收支的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
+/// 新增或編輯週期收支的 sheet(DESIGN.md「元件對照」:Form + 取消 / 儲存)。
 struct RecurringEditorView: View {
     @Bindable var model: RecurringEditorModel
     @Environment(\.dismiss) private var dismiss
@@ -16,8 +16,8 @@ struct RecurringEditorView: View {
         NavigationStack {
             Form {
                 Picker("類型", selection: $model.type) {
-                    Text("固定支出").tag(TransactionType.expense)
-                    Text("固定收入").tag(TransactionType.income)
+                    Text("週期支出").tag(TransactionType.expense)
+                    Text("週期收入").tag(TransactionType.income)
                 }
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)

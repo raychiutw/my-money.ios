@@ -24,7 +24,7 @@ final class LoginFlowUITests: XCTestCase {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "缺少「\(tab)」tab")
         }
         app.tabBars.buttons["規劃"].tap()
-        for item in ["固定收支", "儲蓄目標", "現金流預測"] {
+        for item in ["週期收支", "儲蓄目標", "現金流預測"] {
             XCTAssertTrue(app.buttons[item].waitForExistence(timeout: 3), "規劃缺少「\(item)」")
         }
 
