@@ -38,22 +38,12 @@ struct TransactionFormView<Model: TransactionForm>: View {
         NavigationStack {
             Form {
                 Section {
+                    // 表單裡一般的選擇列(#65):標籤在左、值在右，跟著 Dynamic Type。
                     Picker("歸屬", selection: $model.isShared) {
                         Text("家庭公帳").tag(true)
                         Text("個人私帳").tag(false)
                     }
-                    .pickerStyle(.segmented)
-                    Picker("類型", selection: $model.type) {
-                        Text("支出").tag(TransactionType.expense)
-                        Text("收入").tag(TransactionType.income)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                // 記一筆最先要選的兩件事，用大尺寸的分段控制(#43)。
-                .controlSize(.large)
-                .listRowBackground(Color.clear)
-
-                Section {
+                    .accessibilityIdentifier("quickEntry.ownership")
                     LabeledContent("金額") {
                         AmountField(
                             "金額", text: $model.amountText, prompt: Text(verbatim: "0"),
@@ -94,6 +84,14 @@ struct TransactionFormView<Model: TransactionForm>: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
+                }
+                // 支出／收入放在導覽列中間(#65,HIG 分段控制一節舉的行事曆「新增事件」),不另外佔表單一列。
+                ToolbarItem(placement: .principal) {
+                    Picker("類型", selection: $model.type) {
+                        Text("支出").tag(TransactionType.expense)
+                        Text("收入").tag(TransactionType.income)
+                    }
+                    .pickerStyle(.segmented)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("儲存") {
