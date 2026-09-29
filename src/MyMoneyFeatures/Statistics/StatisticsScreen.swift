@@ -172,7 +172,7 @@ struct StatisticsScreen: View {
         Section("預算額度") {
             ForEach(model.budgetRows) { row in
                 BudgetRowView(row: row) {
-                    budgetEditor = model.makeBudgetEditor(for: row)
+                    budgetEditor = model.makeBudgetEditor(for: row.category)
                 }
             }
         }

@@ -49,8 +49,7 @@ struct StatisticsTests {
 
         #expect(model.monthTitle == "2026年9月")
         #expect(model.yearTitle == "2026年")
-        let row = try #require(model.budgetRows.first)
-        #expect(model.makeBudgetEditor(for: row).monthTitle == "2026年9月")
+        #expect(model.makeBudgetEditor(for: .dining).monthTitle == "2026年9月")
 
         model.month = CalendarMonth(year: 2027, month: 1)
         #expect(model.monthTitle == "2027年1月")
@@ -85,11 +84,64 @@ struct StatisticsTests {
         #expect(model.totalCategoryExpense == Money(1250))
     }
 
-    @Test("預算列出固定的 8 個支出分類")
-    func budgetRowsListEightCategories() async {
+    /// web 一次列出 8 個支出分類(parity 刻意偏離第 50 項)。
+    @Test("預算額度只列有預算或本月有支出(已花)的分類，依支出分類的固定順序")
+    func budgetRowsListBudgetedOrSpentCategories() async {
         let (model, _) = await loaded()
 
+        #expect(model.budgetRows.map(\.category.name) == ["餐飲", "交通", "購物"])
+    }
+
+    /// 本月有支出指的是已花(我記的支出),不隨視角改變：家人記的家庭公帳支出不會多列一個分類。
+    @Test("有預算但還沒花的分類、沒有預算但有已花的分類都列出;只有家人花的分類不列")
+    func budgetRowsIncludeBudgetOnlyAndSpentOnly() async {
+        let repository = InMemoryStatisticsRepository(
+            expensesByScope: [
+                .personal: [CategoryExpense(category: TransactionCategory("醫療"), total: Money(300))],
+                .household: [CategoryExpense(category: TransactionCategory("生活"), total: Money(2000))],
+            ],
+            summaries: [],
+            shares: [],
+            budgets: [Budget(category: TransactionCategory("教育"), amount: Money(500), spent: .zero, isOver: false)]
+        )
+
+        let (model, _) = await loaded(repository, scope: .household)
+
+        #expect(model.budgetRows.map(\.category.name) == ["醫療", "教育"])
+    }
+
+    @Test("「新增預算額度」選單列出其餘的支出分類，依固定順序")
+    func addBudgetMenuListsRemainingCategories() async {
+        let (model, _) = await loaded()
+
+        #expect(model.addableBudgetCategories.map(\.name) == ["娛樂", "生活", "醫療", "教育", "其他"])
+    }
+
+    @Test("全部分類都有預算時沒有「新增預算額度」選單")
+    func noAddBudgetMenuWhenEveryCategoryHasBudget() async {
+        let repository = InMemoryStatisticsRepository(
+            expensesByScope: [:],
+            summaries: [],
+            shares: [],
+            budgets: TransactionCategory.expenseCategories.map {
+                Budget(category: $0, amount: Money(1000), spent: .zero, isOver: false)
+            }
+        )
+
+        let (model, _) = await loaded(repository)
+
         #expect(model.budgetRows.map(\.category) == TransactionCategory.expenseCategories)
+        #expect(model.addableBudgetCategories.isEmpty)
+    }
+
+    @Test("點整列和從選單選分類打開同一個設定 sheet:已有預算帶入原值，沒有時預設 5000")
+    func budgetEditorFromRowOrMenu() async {
+        let (model, _) = await loaded()
+
+        let fromMenu = model.makeBudgetEditor(for: TransactionCategory("娛樂"))
+        #expect(fromMenu.title == "設定 娛樂 的預算")
+        #expect(fromMenu.amountText == "5000")
+        #expect(model.makeBudgetEditor(for: .dining).amountText == "100")
     }
 
     /// web 的統計頁用視角的分類支出當已花(parity 刻意偏離第 10 項)。
@@ -101,14 +153,12 @@ struct StatisticsTests {
         // 家庭視角的分類支出沒有購物，但已花仍然是我記的 880。
         #expect(rows["購物"]?.spent == Money(880))
         #expect(rows["交通"]?.spent == Money(250))
-        #expect(rows["娛樂"]?.spent == .zero)
     }
 
     @Test("超支、接近上限(80% 以上)與沒有預算", arguments: [
         ("餐飲", BudgetRow.Status.over(by: Money(20))),
         ("購物", .nearLimit),
         ("交通", .unset),
-        ("娛樂", .unset),
     ])
     func budgetStatus(category: String, expected: BudgetRow.Status) async throws {
         let (model, _) = await loaded()
@@ -201,8 +251,7 @@ struct BudgetEditorTests {
             repository: repository, dataVersion: dataVersion, today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         await model.load()
-        let row = try #require(model.budgetRows.first { $0.category == category })
-        return (model.makeBudgetEditor(for: row), repository, dataVersion)
+        return (model.makeBudgetEditor(for: category), repository, dataVersion)
     }
 
     @Test("已有預算時帶入原值，沒有時預設 5000")

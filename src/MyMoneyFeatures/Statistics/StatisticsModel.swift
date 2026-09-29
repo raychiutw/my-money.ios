@@ -77,7 +77,14 @@ public final class StatisticsModel {
     public private(set) var categoryExpenses: [CategoryExpense] = []
     public private(set) var monthlySummaries: [MonthlySummary] = []
     public private(set) var householdShares: [HouseholdShare] = []
+    /// 預算額度清單：有預算或本月已花的支出分類，依支出分類的固定順序。
     public private(set) var budgetRows: [BudgetRow] = []
+
+    /// 「新增預算額度」選單：清單沒列出的支出分類，依固定順序;全部都列出時是空的，不顯示選單。
+    public var addableBudgetCategories: [TransactionCategory] {
+        let listed = Set(budgetRows.map(\.category))
+        return BudgetEditorModel.categories.filter { !listed.contains($0) }
+    }
 
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored public let dataVersion: DataVersion
@@ -157,6 +164,7 @@ public final class StatisticsModel {
             categoryExpenses = loadedExpenses
             monthlySummaries = loadedSummaries
             householdShares = loadedShares
+            // 只列有預算或本月已花的分類(parity 刻意偏離第 50 項)。
             budgetRows = BudgetEditorModel.categories.map { category in
                 BudgetRow(
                     category: category,
@@ -164,6 +172,7 @@ public final class StatisticsModel {
                     fallbackSpent: loadedMine.first { $0.category == category }?.total ?? .zero
                 )
             }
+            .filter { $0.budget != nil || $0.spent > .zero }
             loadedVersion = version
             phase = .loaded
         } catch {
@@ -179,10 +188,11 @@ public final class StatisticsModel {
         await load()
     }
 
-    public func makeBudgetEditor(for row: BudgetRow) -> BudgetEditorModel {
+    /// 設定預算額度的 sheet:點整列和從「新增預算額度」選單選分類都用它，已有預算時帶入原值。
+    public func makeBudgetEditor(for category: TransactionCategory) -> BudgetEditorModel {
         BudgetEditorModel(
-            category: row.category, existing: row.budget, month: month, monthTitle: monthTitle, repository: repository,
-            dataVersion: dataVersion
+            category: category, existing: budgetRows.first { $0.category == category }?.budget, month: month,
+            monthTitle: monthTitle, repository: repository, dataVersion: dataVersion
         )
     }
 }
