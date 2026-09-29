@@ -33,6 +33,8 @@ struct CreditCardSummaryRow: View {
     let card: CreditCard
     let mark: Mark
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         LabeledContent {
             VStack(alignment: .trailing, spacing: 2) {
@@ -68,6 +70,8 @@ struct CreditCardSummaryRow: View {
     }
 
     /// 點得開的列：名稱最多兩行，第 2 行一行，從結尾截斷(DESIGN.md「列與欄位」)。
+    /// 無障礙字級時第 2 行可以折行：AX5 一行放不下「每月 5 日繳款」(HIG Typography:
+    /// 「Keep text truncation to a minimum as font size increases」)。
     private var texts: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(card.name)
@@ -76,7 +80,7 @@ struct CreditCardSummaryRow: View {
                 Text(line)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
         }
     }

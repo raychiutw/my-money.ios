@@ -26,21 +26,18 @@ struct AccountsTests {
         #expect(model.creditCards.map(\.name) == ["iOS 測試信用卡", "iOS 測試小額卡"])
     }
 
-    @Test("三張統計卡：銀行存款帳戶餘額合計、信用卡待繳總額、淨可用餘額")
-    func summaryCards() async {
+    @Test("摘要：淨可用餘額(主數字),以及銀行存款帳戶餘額合計、信用卡待繳總額(已出帳待繳款加未出帳款)")
+    func summaryNumbers() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
 
         await model.load()
 
         #expect(model.bankBalanceTotal == Money(50000))
-        #expect(model.bankAccountCountText == "1 個銀行存款帳戶")
         #expect(model.totalCardDue == Money(28500))
-        #expect(model.billedDebtTotal == Money(20000))
-        #expect(model.unbilledDebtTotal == Money(8500))
         #expect(model.availableBalance == Money(21500))
     }
 
-    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用餘額照後端(含現金)")
+    @Test("現金錢包自成一區，摘要有現金錢包總額;淨可用餘額照後端(含現金)")
     func cashWalletsAreTheirOwnSection() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
 
@@ -49,7 +46,6 @@ struct AccountsTests {
         #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
         #expect(model.bankAccounts.map(\.name) == ["iOS 測試存款"])
         #expect(model.cashTotal == Money(1500))
-        #expect(model.cashWalletCountText == "1 個現金錢包")
         #expect(model.availableBalance == Money(23000))
     }
 
@@ -150,7 +146,6 @@ struct AccountsTests {
         #expect(model.phase == .loaded)
         #expect(model.bankAccounts.isEmpty)
         #expect(model.creditCards.isEmpty)
-        #expect(model.bankAccountCountText == "0 個銀行存款帳戶")
     }
     @Test("刪除資產帳戶後資料版本遞增")
     func deletingBumpsDataVersion() async {

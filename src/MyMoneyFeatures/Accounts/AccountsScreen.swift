@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「帳戶」tab:四張統計卡，現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
+/// 「帳戶」tab:摘要(淨可用餘額和它的組成),現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
 /// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、ATM 提款／轉帳和新增資產帳戶。
 /// 信用卡是精簡列，點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
@@ -166,7 +166,14 @@ struct AccountsScreen: View {
         switch model.phase {
         case .loading:
             List {
-                SkeletonSection(count: 4, announces: true) { SkeletonSummaryRow() }
+                Section {
+                    SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
+                        .skeletonAnnouncement()
+                    ForEach(0..<3, id: \.self) { _ in
+                        AmountRow(title: "摘要數字", amount: Skeleton.amount)
+                            .skeletonRow()
+                    }
+                }
                 SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
                 SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
                 SkeletonSection(title: "信用卡", count: 1) { SkeletonAccountRow() }
@@ -192,28 +199,14 @@ struct AccountsScreen: View {
         }
     }
 
+    /// 摘要(#75):淨可用餘額是主數字，下面是它的組成，一項一列。
+    /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
     private var summarySection: some View {
         Section {
-            SummaryRow(
-                title: "現金錢包總額",
-                amount: model.cashTotal ?? .zero,
-                detail: model.cashWalletCountText
-            )
-            SummaryRow(
-                title: "銀行存款帳戶餘額合計",
-                amount: model.bankBalanceTotal ?? .zero,
-                detail: model.bankAccountCountText
-            )
-            SummaryRow(
-                title: "信用卡待繳總額",
-                amount: model.totalCardDue ?? .zero,
-                detail: "已出帳待繳 \((model.billedDebtTotal ?? .zero).formatted()) · 未出帳 \((model.unbilledDebtTotal ?? .zero).formatted())"
-            )
-            SummaryRow(
-                title: "淨可用餘額",
-                amount: model.availableBalance ?? .zero,
-                warnsWhenNegative: true
-            )
+            SummaryRow(title: "淨可用餘額", amount: model.availableBalance ?? .zero, warnsWhenNegative: true)
+            AmountRow(title: "現金錢包總額", amount: model.cashTotal ?? .zero)
+            AmountRow(title: "銀行存款帳戶餘額合計", amount: model.bankBalanceTotal ?? .zero)
+            AmountRow(title: "信用卡待繳總額", amount: model.totalCardDue ?? .zero)
         }
     }
 

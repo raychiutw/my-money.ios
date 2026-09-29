@@ -8,7 +8,7 @@ final class AccountsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 顯示統計卡、現金錢包、銀行存款帳戶與信用卡帳戶三區。信用卡是精簡列(#73):名稱、歸屬、信用卡待繳總額，
+    /// 顯示摘要、現金錢包、銀行存款帳戶與信用卡帳戶三區。信用卡是精簡列(#73):名稱、歸屬、信用卡待繳總額，
     /// 第 2 行只有繳款日;剩餘額度這些欄位在詳細頁(`CardSettlementUITests`)。
     @MainActor
     func testAccountsTabShowsSummaryAndBothSections() throws {
@@ -19,10 +19,19 @@ final class AccountsUITests: XCTestCase {
 
         app.tabBars.buttons["帳戶"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(in: app, labelContaining: "信用卡待繳總額 28,500 元").exists)
-        XCTAssertTrue(element(in: app, labelContaining: "淨可用餘額 21,500 元").exists)
-        // 統計卡和現金錢包區塊在上面，銀行存款帳戶和信用卡要捲下去才在 UI 階層裡。
+        // 摘要(#75):淨可用餘額是主數字，在最上面;下面是它的組成，一項一列(`LabeledContent`)。
+        let available = element(in: app, labelContaining: "淨可用餘額 21,500 元")
+        XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
+        for (label, value) in [("現金錢包總額", "0 元"), ("銀行存款帳戶餘額合計", "50,000 元"), ("信用卡待繳總額", "28,500 元")] {
+            let summaryRow = row(label, value: value, in: app)
+            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一列")
+            XCTAssertLessThan(available.frame.minY, summaryRow.frame.minY, "淨可用餘額不在「\(label)」上面")
+        }
+        // 帳戶數在 section 標題，已出帳待繳款和未出帳款在信用卡詳細頁。
+        XCTAssertFalse(element(in: app, labelContaining: "個現金錢包").exists, "摘要還有現金錢包的個數")
+        XCTAssertFalse(element(in: app, labelContaining: "個銀行存款帳戶").exists, "摘要還有銀行存款帳戶的個數")
+        XCTAssertFalse(element(in: app, labelContaining: "已出帳待繳").exists, "摘要還有已出帳待繳款")
+        // 摘要和現金錢包區塊在上面，銀行存款帳戶和信用卡要捲下去才在 UI 階層裡。
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists)
@@ -131,7 +140,7 @@ final class AccountsUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計 50,000 元").waitForExistence(timeout: 5))
+        XCTAssertTrue(row("銀行存款帳戶餘額合計", value: "50,000 元", in: app).waitForExistence(timeout: 5))
         app.buttons["accounts.add"].tap()
         app.buttons["新增現金錢包"].tap()
         let name = app.textFields["accountEditor.name"]
@@ -201,7 +210,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "1234", "金額欄沒有改成 1234")
         app.buttons["accountEditor.save"].tap()
 
-        // 新帳戶在列表下方(上面有四張統計卡和現金錢包區塊):List 還沒捲到的列不在 UI 階層裡，
+        // 新帳戶在列表下方(上面有摘要和現金錢包區塊):List 還沒捲到的列不在 UI 階層裡，
         // 先捲到點得到，左滑才滑得出「刪除」。
         let row = element(in: app, labelContaining: "UI 測試帳戶,餘額 1,234 元")
         _ = row.waitForExistence(timeout: 2)
@@ -223,6 +232,12 @@ final class AccountsUITests: XCTestCase {
     @MainActor
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
+    }
+
+    /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額，例如標籤「信用卡待繳總額」、值「28,500 元」。
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

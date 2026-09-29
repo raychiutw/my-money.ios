@@ -118,18 +118,11 @@ public final class AccountsModel {
     /// 現金錢包的餘額合計;還沒載入時是 `nil`。
     public var cashTotal: Money? { summary?.cashTotal }
 
-    public var cashWalletCountText: String { "\(cashWallets.count) 個現金錢包" }
-
     /// 銀行存款帳戶的餘額合計;還沒載入時是 `nil`。
     public var bankBalanceTotal: Money? { summary?.bankBalanceTotal }
 
-    public var bankAccountCountText: String { "\(bankAccounts.count) 個銀行存款帳戶" }
-
-    /// 所有信用卡帳戶的信用卡待繳總額(已出帳待繳款加未出帳款)。
+    /// 所有信用卡帳戶的信用卡待繳總額(已出帳待繳款加未出帳款)。兩者各自的金額在信用卡詳細頁(#75)。
     public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
-
-    public var billedDebtTotal: Money? { summary?.billedDebtTotal }
-    public var unbilledDebtTotal: Money? { summary?.unbilledDebtTotal }
 
     /// 淨可用餘額(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
