@@ -3,7 +3,8 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「統計」tab:月份與視角、公帳代墊款與分攤建議、支出分類、收支趨勢、預算額度(parity.md「統計與預算」)。
+/// 「統計」tab:月份、公帳代墊款與分攤建議、支出分類、收支趨勢、預算額度(parity.md「統計與預算」)。
+/// 視角在 toolbar 的篩選按鈕，目前的選擇顯示在導覽列副標題。
 struct StatisticsScreen: View {
     @Bindable var model: StatisticsModel
     @State private var budgetEditor: BudgetEditorModel?
@@ -13,17 +14,15 @@ struct StatisticsScreen: View {
             List {
                 Section {
                     MonthSwitcher(month: $model.month)
-                    Picker("視角", selection: $model.scope) {
-                        Text("全部").tag(ViewScope.all)
-                        Text("家庭").tag(ViewScope.household)
-                        Text("個人").tag(ViewScope.personal)
-                    }
-                    .pickerStyle(.segmented)
                 }
                 content
             }
             .skeletonTransition(value: model.phase)
             .navigationTitle("統計")
+            .navigationSubtitle(model.scope.title)
+            .toolbar {
+                ViewScopeFilter(scope: $model.scope, identifier: "statistics.scope")
+            }
             .refreshable { await model.load() }
             // 月份、視角或資料版本任一改變就重抓。
             .task(id: QueryKey(month: model.month, scope: model.scope, version: model.dataVersion.value)) {

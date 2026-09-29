@@ -37,6 +37,52 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部」沒有進入交易 tab")
     }
 
+    /// 視角在 toolbar 的篩選按鈕(#63):點按鈕再選，導覽列副標題顯示目前的視角;選過的視角重開 app 之後沿用。
+    @MainActor
+    func testScopeFilterShowsSubtitleAndIsRemembered() throws {
+        let app = launch(resettingSession: true)
+        signIn(app)
+
+        let filter = app.buttons["overview.scope"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5), "toolbar 沒有視角的篩選按鈕")
+        XCTAssertEqual(filter.label, "視角", "篩選按鈕的 VoiceOver 標籤不是「視角」")
+        XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
+        XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的視角")
+
+        choose("家庭", from: filter, in: app)
+        XCTAssertTrue(element(in: app, labelContaining: "當月淨收支(家庭)").waitForExistence(timeout: 5), "切到家庭視角後，當月淨收支的標題沒有跟著變")
+        XCTAssertTrue(subtitle("家庭", in: app).exists, "切換視角後導覽列副標題沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "家庭", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
+        app.terminate()
+
+        // 不帶 `-resetSession`:session 和選過的視角都還在。
+        let relaunched = launch(resettingSession: false)
+        XCTAssertTrue(subtitle("家庭", in: relaunched).waitForExistence(timeout: 5), "重開 app 之後沒有沿用選過的視角")
+    }
+
+    /// 點 toolbar 的篩選按鈕打開選單，再點選項。
+    @MainActor
+    private func choose(_ option: String, from filter: XCUIElement, in app: XCUIApplication) {
+        filter.tap()
+        let item = app.buttons[option]
+        XCTAssertTrue(item.waitForExistence(timeout: 3), "視角選單裡沒有「\(option)」")
+        item.tap()
+    }
+
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
+    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.navigationBars.staticTexts[text]
+    }
+
+    @MainActor
+    private func launch(resettingSession: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"] + (resettingSession ? ["-resetSession"] : [])
+        app.launch()
+        return app
+    }
+
     @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch

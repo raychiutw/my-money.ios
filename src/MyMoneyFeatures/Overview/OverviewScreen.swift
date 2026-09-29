@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「總覽」tab(parity.md「總覽」)。toolbar 有記一筆和帳號 sheet。
+/// 「總覽」tab(parity.md「總覽」)。toolbar 有視角的篩選按鈕(目前的選擇顯示在導覽列副標題)、記一筆和帳號 sheet。
 struct OverviewScreen: View {
     @Bindable var model: OverviewModel
     let quickEntry: QuickEntryModel
@@ -20,20 +20,14 @@ struct OverviewScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Picker("視角", selection: $model.scope) {
-                        Text("全部").tag(ViewScope.all)
-                        Text("家庭").tag(ViewScope.household)
-                        Text("個人").tag(ViewScope.personal)
-                    }
-                    .pickerStyle(.segmented)
-                }
                 content
             }
             .navigationTitle(greeting)
+            .navigationSubtitle(model.scope.title)
             .skeletonTransition(value: model.phase)
             .refreshable { await model.load() }
             .toolbar {
+                ViewScopeFilter(scope: $model.scope, identifier: "overview.scope")
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isEntryPresented = true
