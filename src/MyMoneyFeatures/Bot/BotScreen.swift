@@ -1,8 +1,8 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 帳號 sheet → 機器人記帳：綁定驗證碼、已綁定的帳號、模擬對話、webhook 設定說明(parity.md「機器人記帳」)。
-/// 不顯示假的「已連線」狀態(parity 刻意偏離第 22 項)。
+/// 帳號 sheet → 機器人記帳：綁定驗證碼、已綁定的帳號、模擬對話、Webhook 網址(parity.md「機器人記帳」)。
+/// 不顯示假的「已連線」狀態(parity 刻意偏離第 22 項);LINE／Telegram 的設定步驟不顯示(刻意偏離第 43 項)。
 struct BotScreen: View {
     @Bindable var model: BotModel
     @State private var pendingUnbind: BotBinding?
@@ -13,12 +13,11 @@ struct BotScreen: View {
         List {
             pairingSection
             bindingsSection
+            // 會寫入真的交易記錄的警告放在模擬對話畫面上方，這裡不重複。
             Section {
                 NavigationLink("模擬對話") {
                     BotChatScreen(model: model)
                 }
-            } footer: {
-                Text("在 app 裡試用機器人記帳。這裡送出的訊息會寫入真的交易記錄。")
             }
             webhookSection
         }
@@ -50,7 +49,8 @@ struct BotScreen: View {
     }
 
     private var pairingSection: some View {
-        Section {
+        // 綁定驗證碼的效期看倒數，不另外寫說明;「傳送：綁定 綁定驗證碼」是完成流程必要的指示(DESIGN.md「說明文字」第 6 類)。
+        Section("綁定 LINE 或 Telegram") {
             // 每秒重算剩下的時間;歸零時隱藏綁定驗證碼。
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 if let code = model.visiblePairingCode {
@@ -82,11 +82,6 @@ struct BotScreen: View {
                 Task { await model.generatePairingCode() }
             }
             .accessibilityIdentifier("bot.generate")
-        } header: {
-            Text("綁定 LINE 或 Telegram")
-        } footer: {
-            // web 寫「6 位數」,實際是英數混合(parity 刻意偏離第 14 項)。
-            Text("綁定驗證碼是 6 碼大寫英文字母與數字，10 分鐘內有效。重新產生後，舊的就不能用。")
         }
     }
 
@@ -125,35 +120,21 @@ struct BotScreen: View {
         }
     }
 
+    /// 只留 Webhook 網址，可以選取複製;LINE／Telegram 的設定步驟不顯示(parity 刻意偏離第 43 項)。
     private var webhookSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("LINE Messaging API")
-                    .font(.subheadline.bold())
-                Text("1. 在 LINE Developers Console 建立 Messaging API Channel。")
-                Text("2. 在 Messaging API 設定填入 Webhook URL:")
-                Text(BotModel.lineWebhook)
-                    .font(.subheadline.monospaced())
-                    .textSelection(.enabled)
-                Text("3. 打開「Use Webhook」。")
-                Text("4. 在 Workers 設定 LINE_CHANNEL_SECRET 與 LINE_CHANNEL_ACCESS_TOKEN。")
-                Text("5. 加機器人好友，傳送「綁定 綁定驗證碼」。")
-            }
-            .font(.subheadline)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Telegram Bot")
-                    .font(.subheadline.bold())
-                Text("1. 在 Telegram 找 @BotFather,輸入 /newbot 建立機器人。")
-                Text("2. 在 Workers 設定 TELEGRAM_BOT_TOKEN。")
-                Text("3. 呼叫 Telegram 的 setWebhook,網址是:")
-                Text(BotModel.telegramWebhook)
-                    .font(.subheadline.monospaced())
-                    .textSelection(.enabled)
-                Text("4. 私訊機器人，傳送「綁定 綁定驗證碼」。")
-            }
-            .font(.subheadline)
-        } header: {
-            Text("Webhook 設定說明")
+        Section("Webhook 網址") {
+            webhookRow(.line, url: BotModel.lineWebhook)
+            webhookRow(.telegram, url: BotModel.telegramWebhook)
+        }
+    }
+
+    private func webhookRow(_ platform: BotPlatform, url: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(platform.title)
+                .font(.subheadline.bold())
+            Text(url)
+                .font(.subheadline.monospaced())
+                .textSelection(.enabled)
         }
     }
 }

@@ -116,9 +116,9 @@ struct RecurringScreen: View {
 
     private var summarySection: some View {
         Section {
-            SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense, detail: "年繳、季繳換算成每月要預留的金額")
-            SummaryRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome, detail: "每月穩定入帳的金額")
-            SummaryRow(title: "每月固定淨額", amount: model.monthlyNet, detail: "週期收入減週期支出", warnsWhenNegative: true)
+            SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense)
+            SummaryRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome)
+            SummaryRow(title: "每月固定淨額", amount: model.monthlyNet, warnsWhenNegative: true)
         }
     }
 

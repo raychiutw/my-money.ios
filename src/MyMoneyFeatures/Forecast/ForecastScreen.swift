@@ -64,9 +64,12 @@ struct ForecastScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(forecast.riskTitle)
                         .font(.headline)
-                    Text(forecast.willOverdraft ? "預計餘額會跌破 0,請及早調整" : "排定的收支都發生後，餘額仍然大於 0")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    // 只留透支的警告;安全時不另外解釋(DESIGN.md「說明文字」第 2 類)。
+                    if forecast.willOverdraft {
+                        Text("預計餘額會跌破 0,請及早調整")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } icon: {
                 Image(systemName: forecast.willOverdraft ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
@@ -84,7 +87,7 @@ struct ForecastScreen: View {
     }
 
     private func chartSection(_ forecast: CashFlowForecast) -> some View {
-        Section {
+        Section("未來 30 天逐日餘額") {
             Chart(forecast.dailyBalances, id: \.date) { day in
                 AreaMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
                     .foregroundStyle(.tint.opacity(0.2))
@@ -100,10 +103,6 @@ struct ForecastScreen: View {
             }
             .frame(height: 220)
             .padding(.vertical, 8)
-        } header: {
-            Text("未來 30 天逐日餘額")
-        } footer: {
-            Text("起始餘額是自己的現金錢包和銀行存款帳戶餘額合計，扣掉自己的信用卡待繳總額;不含其他家庭成員的資產帳戶。")
         }
     }
 
@@ -136,7 +135,7 @@ struct ForecastScreen: View {
     }
 
     private var purchaseSection: some View {
-        Section {
+        Section("購買力試算") {
             LabeledContent("購買金額") {
                 AmountField(
                     "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
@@ -167,10 +166,6 @@ struct ForecastScreen: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-        } header: {
-            Text("購買力試算")
-        } footer: {
-            Text("輸入打算花的金額，看它對未來 30 天現金流和儲蓄目標的影響。")
         }
     }
 

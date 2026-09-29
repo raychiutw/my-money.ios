@@ -96,7 +96,7 @@ struct HouseholdScreen: View {
 
     private var notJoined: some View {
         Form {
-            Section {
+            Section("建立家庭群組") {
                 TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
                     .accessibilityIdentifier("household.createName")
                 Button("建立家庭群組") {
@@ -104,13 +104,10 @@ struct HouseholdScreen: View {
                 }
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
-            } header: {
-                Text("建立家庭群組")
-            } footer: {
-                Text("建立之後，你是這個家庭群組的管理員，可以邀請家庭成員加入。")
             }
 
-            Section {
+            // 邀請碼的格式只放在 placeholder,不另外寫說明(parity 刻意偏離第 14、43 項)。
+            Section("用邀請碼加入") {
                 TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("household.joinCode")
@@ -119,10 +116,6 @@ struct HouseholdScreen: View {
                 }
                 .disabled(!model.canJoin)
                 .accessibilityIdentifier("household.join")
-            } header: {
-                Text("用邀請碼加入")
-            } footer: {
-                Text("輸入家庭成員分享的邀請碼，格式是 FAM-XXXX。")
             }
         }
     }
@@ -180,7 +173,7 @@ struct HouseholdScreen: View {
 extension HouseholdScreen {
     /// 家庭公帳代墊與報銷(web 的「家庭公帳代墊與報銷中心」):每位成員一列，明細就地展開，可以同時展開多位。
     private var advancesSection: some View {
-        Section {
+        Section("家庭公帳代墊與報銷") {
             if model.advances.isEmpty {
                 Text("暫無公帳代墊款紀錄")
                     .foregroundStyle(.secondary)
@@ -206,10 +199,6 @@ extension HouseholdScreen {
                     .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
                 }
             }
-        } header: {
-            Text("家庭公帳代墊與報銷")
-        } footer: {
-            Text("只有用個人帳戶(個人私帳、私卡或個人現金錢包)付的家庭公帳支出才算代墊;由家庭共同基金直接付的不算。")
         }
     }
 }
@@ -365,7 +354,8 @@ private struct InvitationSheet: View {
                     }
                     .accessibilityIdentifier("household.copy")
                 } footer: {
-                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))。請家庭成員登入後，在「帳號 → 家庭群組」輸入這組邀請碼(格式是 FAM-XXXX)。")
+                    // 只留有效期限(資料);怎麼使用邀請碼不另外說明(DESIGN.md「說明文字」)。
+                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))")
                 }
             }
             .navigationTitle("邀請家庭成員")

@@ -93,9 +93,9 @@ struct SavingsGoalsScreen: View {
         case .loaded:
             List {
                 Section {
-                    SummaryRow(title: "已存金額合計", amount: model.totalSaved, detail: "所有目標累計已存的金額")
+                    SummaryRow(title: "已存金額合計", amount: model.totalSaved)
                     SummaryRow(title: "目標金額合計", amount: model.totalTarget, detail: "整體達成率 \(model.overallRateText)")
-                    SummaryRow(title: "每月預留合計", amount: model.totalMonthlyReserve, detail: "每月從真實可支配現金中扣除")
+                    SummaryRow(title: "每月預留合計", amount: model.totalMonthlyReserve)
                 }
                 if model.goals.isEmpty {
                     Section {

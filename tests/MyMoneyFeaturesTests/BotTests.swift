@@ -170,7 +170,7 @@ struct BotTests {
     }
 
     /// web 的網址多了 /api,網域也不對(parity 刻意偏離第 8 項)。
-    @Test("Webhook 說明的網址")
+    @Test("Webhook 網址")
     func webhookURLs() {
         #expect(BotModel.lineWebhook == "https://my-money-api.onion523.workers.dev/bot/webhook/line")
         #expect(BotModel.telegramWebhook == "https://my-money-api.onion523.workers.dev/bot/webhook/telegram")
