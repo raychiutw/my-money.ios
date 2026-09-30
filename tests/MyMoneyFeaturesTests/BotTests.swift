@@ -23,11 +23,13 @@ struct BotTests {
         BotModel(repository: repository, dataVersion: dataVersion, now: { [clock] in clock.now })
     }
 
-    @Test("綁定驗證碼每秒倒數「M 分 S 秒」,歸零時隱藏")
+    @Test("綁定驗證碼每秒倒數「M 分 S 秒」,歸零時隱藏;過期後綁定區仍有一列(顯示已過期，不是空白列)")
     func pairingCountdown() async {
         let model = model()
+        #expect(!model.hasPairingCode)
 
         await model.generatePairingCode()
+        #expect(model.hasPairingCode)
         #expect(model.visiblePairingCode == "AB12CD")
         #expect(model.countdownText == "10 分 0 秒")
 
@@ -37,6 +39,7 @@ struct BotTests {
 
         clock.advance(539)
         #expect(model.visiblePairingCode == nil)
+        #expect(model.hasPairingCode)
     }
 
     @Test("「複製指令」複製的內容是「綁定 {綁定驗證碼}」")

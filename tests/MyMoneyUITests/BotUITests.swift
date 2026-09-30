@@ -6,7 +6,8 @@ final class BotUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 產生綁定驗證碼並複製指令;webhook 網址正確;模擬對話用快捷範例送出後出現回覆。
+    /// 還沒產生綁定驗證碼時綁定區沒有空白列;產生綁定驗證碼並複製指令;webhook 網址正確、可以複製;
+    /// 模擬對話用快捷範例送出後出現回覆。
     @MainActor
     func testPairingAndSimulatedChat() throws {
         let app = XCUIApplication()
@@ -17,6 +18,13 @@ final class BotUITests: XCTestCase {
         app.buttons["overview.account"].tap()
         app.buttons["機器人記帳"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "小明的 LINE").waitForExistence(timeout: 5), "沒有看到已綁定的帳號")
+        // 綁定區的第一列就是「產生綁定驗證碼」,上面沒有空白列(#79):跟區塊標題的距離不到一列的高度。
+        // 不能用「第一個 cell」判斷，sheet 底下總覽的列也在畫面階層裡。
+        let pairingHeader = app.staticTexts["綁定 LINE 或 Telegram"]
+        XCTAssertLessThan(
+            app.buttons["bot.generate"].frame.minY - pairingHeader.frame.maxY, 44,
+            "「產生綁定驗證碼」上面有一列空白"
+        )
 
         app.buttons["bot.generate"].tap()
         XCTAssertTrue(app.staticTexts["bot.pairingCode"].waitForExistence(timeout: 3), "沒有顯示綁定驗證碼")
@@ -27,6 +35,12 @@ final class BotUITests: XCTestCase {
         let webhook = app.staticTexts["https://my-money-api.onion523.workers.dev/bot/webhook/line"]
         for _ in 0..<5 where !webhook.exists { app.swipeUp() }
         XCTAssertTrue(webhook.exists, "webhook 網址不對")
+        let copyWebhook = app.buttons["bot.copyWebhook.line"]
+        copyWebhook.tap()
+        XCTAssertTrue(
+            copyWebhook.wait(for: \.label, toEqual: "已複製", timeout: 2),
+            "複製 webhook 網址後沒有顯示「已複製」"
+        )
 
         app.buttons["模擬對話"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "會寫入真的交易記錄").waitForExistence(timeout: 3), "沒有告知會寫入真的交易")

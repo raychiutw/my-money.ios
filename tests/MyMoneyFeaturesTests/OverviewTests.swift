@@ -26,7 +26,7 @@ struct OverviewTests {
     private func model(dataVersion: DataVersion = DataVersion()) -> OverviewModel {
         OverviewModel(
             accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
-            dataVersion: dataVersion, defaults: defaults, today: { today }
+            dataVersion: dataVersion, defaults: defaults, today: { today }, locale: Locale(identifier: "zh_Hant_TW")
         )
     }
 
@@ -37,6 +37,17 @@ struct OverviewTests {
     }
 
     /// 最近交易跟交易頁用同一種交易記錄列：記帳人只有不是自己記的才顯示(#72)。
+    /// 使用者決定照 web 在最近交易顯示日期(W:Dashboard.tsx@f32ff6c:462),日期獨立一行，用清單格式(#79)。
+    @Test("最近交易的日期：清單格式，跟今天同一年時省略年份")
+    func recentTransactionDate() async throws {
+        let model = await loaded()
+        let lunch = try #require(model.recentTransactions.first { $0.note == "午餐" })
+        let salary = try #require(model.recentTransactions.first { $0.category == .salary })
+
+        #expect(model.dateText(of: lunch) == "9月28日")
+        #expect(model.dateText(of: salary) == "9月1日")
+    }
+
     @Test("最近交易的記帳人只有不是自己記的才顯示")
     func recentRecorderOnlyForOthers() {
         let me = InMemoryAuthRepository.Member.sample.user

@@ -348,8 +348,6 @@ private struct InvitationSheet: View {
     /// 有效期限(畫面 model 依系統格式產生，台灣時間)。
     let expiry: String
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
-    @State private var isCopied = false
 
     var body: some View {
         NavigationStack {
@@ -360,15 +358,8 @@ private struct InvitationSheet: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("household.invitationCode")
-                    Button(isCopied ? "已複製" : "複製", systemImage: isCopied ? "checkmark" : "doc.on.doc") {
-                        copyToPasteboard(invitation.code)
-                        isCopied = true
-                        Task {
-                            try? await Task.sleep(for: copiedFeedbackDuration)
-                            isCopied = false
-                        }
-                    }
-                    .accessibilityIdentifier("household.copy")
+                    CopyButton(text: invitation.code)
+                        .accessibilityIdentifier("household.copy")
                 } footer: {
                     // 只留有效期限(資料);怎麼使用邀請碼不另外說明(DESIGN.md「說明文字」)。
                     Text("有效期限：\(expiry)")

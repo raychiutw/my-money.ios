@@ -6,8 +6,6 @@ import SwiftUI
 struct BotScreen: View {
     @Bindable var model: BotModel
     @State private var pendingUnbind: BotBinding?
-    @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
-    @State private var isCopied = false
 
     var body: some View {
         List {
@@ -51,30 +49,29 @@ struct BotScreen: View {
     private var pairingSection: some View {
         // 綁定驗證碼的效期看倒數，不另外寫說明;「傳送：綁定 綁定驗證碼」是完成流程必要的指示(DESIGN.md「說明文字」第 6 類)。
         Section("綁定 LINE 或 Telegram") {
-            // 每秒重算剩下的時間;歸零時隱藏綁定驗證碼。
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                if let code = model.visiblePairingCode {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(code)
-                            .font(.largeTitle.monospaced().bold())
-                            .textSelection(.enabled)
-                            .accessibilityIdentifier("bot.pairingCode")
-                        Text("剩下 \(model.countdownText)")
-                            .font(.subheadline)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                        Text("在 LINE 或 Telegram 的聊天室傳送：\(model.pairingCommand)")
-                            .font(.subheadline)
-                        Button(isCopied ? "已複製指令" : "複製指令", systemImage: isCopied ? "checkmark" : "doc.on.doc") {
-                            copyToPasteboard(model.pairingCommand)
-                            isCopied = true
-                            Task {
-                                try? await Task.sleep(for: copiedFeedbackDuration)
-                                isCopied = false
-                            }
+            // 有沒有這一列在列的層級判斷：還沒產生時不能留下空白列(#79)。
+            // 每秒重算剩下的時間;歸零時隱藏綁定驗證碼，改顯示已過期。
+            if model.hasPairingCode {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    if let code = model.visiblePairingCode {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(code)
+                                .font(.largeTitle.monospaced().bold())
+                                .textSelection(.enabled)
+                                .accessibilityIdentifier("bot.pairingCode")
+                            Text("剩下 \(model.countdownText)")
+                                .font(.subheadline)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                            Text("在 LINE 或 Telegram 的聊天室傳送：\(model.pairingCommand)")
+                                .font(.subheadline)
+                            CopyButton(title: "複製指令", copiedTitle: "已複製指令", text: model.pairingCommand)
+                                .buttonStyle(.borderless)
+                                .accessibilityIdentifier("bot.copyCommand")
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("bot.copyCommand")
+                    } else {
+                        Text("綁定驗證碼已過期")
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -120,7 +117,7 @@ struct BotScreen: View {
         }
     }
 
-    /// 只留 Webhook 網址，可以選取複製;LINE／Telegram 的設定步驟不顯示(parity 刻意偏離第 43 項)。
+    /// 只留 Webhook 網址和「複製」;LINE／Telegram 的設定步驟不顯示(parity 刻意偏離第 43 項)。
     private var webhookSection: some View {
         Section("Webhook 網址") {
             webhookRow(.line, url: BotModel.lineWebhook)
@@ -128,13 +125,22 @@ struct BotScreen: View {
         }
     }
 
+    /// 網址單行、從中間截斷，看得到網域和結尾的平台(#79);要完整的網址就按「複製」。
     private func webhookRow(_ platform: BotPlatform, url: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(platform.title)
-                .font(.subheadline.bold())
-            Text(url)
-                .font(.subheadline.monospaced())
-                .textSelection(.enabled)
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(platform.title)
+                Text(url)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            CopyButton(text: url)
+                .buttonStyle(.borderless)
+                .fixedSize()
+                .accessibilityIdentifier("bot.copyWebhook.\(platform.rawValue)")
         }
     }
 }

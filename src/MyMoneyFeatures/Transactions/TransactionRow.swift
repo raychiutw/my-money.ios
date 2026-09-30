@@ -14,6 +14,8 @@ struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
     /// 記帳人;自己記的是 `nil`。
     var recorder: String?
+    /// 日期，獨立一行。總覽的最近交易才傳(#79);交易頁已經依日期分組，是 `nil`。
+    var date: String?
     /// 點得開(可以編輯)的列：備註最多兩行、帳戶和記帳人各一行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
     /// 系統紀錄(不能編輯或刪除):金額前面加鎖定標記，VoiceOver 最後念「系統紀錄，不能編輯或刪除」(#63)。
@@ -68,6 +70,11 @@ struct TransactionRow: View {
 
     @ViewBuilder
     private var details: some View {
+        if let date {
+            Text(date)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
         Text(account)
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -105,10 +112,11 @@ struct TransactionRow: View {
         transaction.accountName ?? "預設帳戶"
     }
 
-    /// 例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」。沒有備註時不重複念分類。
+    /// 例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」;總覽在備註後面念日期。沒有備註時不重複念分類。
     private var spokenText: String {
         var parts = [transaction.category.name]
         if !transaction.note.isEmpty { parts.append(transaction.note) }
+        if let date { parts.append(date) }
         parts.append("帳戶 \(account)")
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(transaction.isShared ? "家庭公帳" : "個人私帳")

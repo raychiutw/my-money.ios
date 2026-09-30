@@ -65,7 +65,8 @@ final class OverviewUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "已花").exists, "超支警告還有已花和預算額度")
     }
 
-    /// 最近交易跟交易頁用同一種交易記錄列(#72):整列念成一句完整的話，自己記的不念記帳人。
+    /// 最近交易跟交易頁用同一種交易記錄列(#72):整列念成一句完整的話，自己記的不念記帳人;
+    /// 總覽多念日期(#79)。
     @MainActor
     func testRecentTransactionReadsAsOneSentence() throws {
         let app = XCUIApplication()
@@ -73,10 +74,18 @@ final class OverviewUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        let headphones = app.descendants(matching: .any)["購物，耳機，帳戶 iOS 測試信用卡，個人私帳，支出 880 元"]
+        let headphones = app.descendants(matching: .any)["購物，耳機，\(Self.taipeiToday())，帳戶 iOS 測試信用卡，個人私帳，支出 880 元"]
         for _ in 0..<5 where !headphones.exists { app.swipeUp() }
         XCTAssertTrue(headphones.exists, "最近交易的耳機沒有念成一句完整的話")
         XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "自己記的交易記錄還顯示記帳人")
+    }
+
+    /// 台灣時間的今天，格式跟清單的日期一樣(同一年省略年份),例如「9月28日」。
+    private static func taipeiToday() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let day = calendar.dateComponents([.month, .day], from: .now)
+        return "\(day.month!)月\(day.day!)日"
     }
 
     /// 帳戶一覽的信用卡跟帳戶頁用同一種精簡列(#73):整列念成一句話，點進去是信用卡詳細頁。

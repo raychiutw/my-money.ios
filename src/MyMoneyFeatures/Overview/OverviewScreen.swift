@@ -202,7 +202,10 @@ struct OverviewScreen: View {
             }
             // 總覽的列點不開，所以不截斷;也沒有編輯，所以不放系統紀錄的鎖定標記。
             ForEach(model.recentTransactions) { transaction in
-                TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction))
+                TransactionRow(
+                    transaction: transaction, recorder: model.recorderName(of: transaction),
+                    date: model.dateText(of: transaction)
+                )
             }
         } header: {
             header("最近交易", action: "查看全部") { show(.transactions) }

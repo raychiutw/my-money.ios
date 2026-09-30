@@ -88,6 +88,8 @@ final class AccountsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "目前此範圍無現金錢包").waitForExistence(timeout: 5))
+        // 跟 web 一樣是「建立」(W:Accounts.tsx@f32ff6c:473,#79)。
+        XCTAssertEqual(app.buttons["accounts.emptyAdd.cash"].label, "立即建立現金錢包")
 
         app.buttons["accounts.emptyAdd.cash"].tap()
         let name = app.textFields["accountEditor.name"]

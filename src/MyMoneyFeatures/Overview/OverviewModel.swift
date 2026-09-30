@@ -45,6 +45,7 @@ public final class OverviewModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
 
@@ -59,7 +60,8 @@ public final class OverviewModel {
         dataVersion: DataVersion,
         defaults: UserDefaults,
         currentUser: UserID? = nil,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+        today: @escaping () -> CalendarDay = { CalendarDay.today() },
+        locale: Locale = .autoupdatingCurrent
     ) {
         accountRepository = accounts
         transactionRepository = transactions
@@ -69,10 +71,16 @@ public final class OverviewModel {
         self.defaults = defaults
         self.currentUser = currentUser
         self.today = today
+        self.locale = locale
         scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     public var monthNet: Money { monthIncome - monthExpense }
+
+    /// 最近交易的日期，例如「9月28日」(清單格式，不是今年的加上年份，#79)。
+    public func dateText(of transaction: MyMoneyDomain.Transaction) -> String {
+        transaction.date.text(today: today(), locale: locale)
+    }
 
     /// 最近交易的記帳人：只有不是自己記的才顯示(#72)。
     public func recorderName(of transaction: MyMoneyDomain.Transaction) -> String? {

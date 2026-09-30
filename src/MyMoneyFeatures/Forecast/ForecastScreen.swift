@@ -52,7 +52,7 @@ struct ForecastScreen: View {
             // 資料回來之前不顯示「安全」或 $0,改顯示骨架屏(parity 刻意偏離第 7 項)。
             List {
                 SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
-                SkeletonSection(title: "30 天逐日餘額", count: 1) { SkeletonChart() }
+                SkeletonSection(title: "未來 30 天逐日餘額", count: 1) { SkeletonChart() }
                 SkeletonSection(title: "預定收支", count: 3) { SkeletonItemRow() }
             }
         }

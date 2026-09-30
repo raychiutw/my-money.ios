@@ -215,12 +215,15 @@ struct AccountsScreen: View {
             if model.cashWallets.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無現金錢包",
-                    actionTitle: "立即新增現金錢包", identifier: "accounts.emptyAdd.cash"
+                    actionTitle: "立即建立現金錢包", identifier: "accounts.emptyAdd.cash"
                 ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
             ForEach(model.cashWallets) { wallet in
                 accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
-                    CashWalletRow(wallet: wallet)
+                    FundAccountRow(
+                        name: wallet.name, colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
+                        balance: wallet.balance, balanceTitle: "現金錢包餘額"
+                    )
                 }
             }
         }
@@ -236,7 +239,10 @@ struct AccountsScreen: View {
             }
             ForEach(model.bankAccounts) { account in
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
-                    BankAccountRow(account: account)
+                    FundAccountRow(
+                        name: account.name, colorHex: account.colorHex, isJointFund: account.isJointFund,
+                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true
+                    )
                 }
             }
         }
@@ -293,50 +299,40 @@ struct AccountsScreen: View {
 extension CardPaymentModel: Identifiable {}
 extension TransferModel: Identifiable {}
 
-private struct CashWalletRow: View {
-    let wallet: CashWallet
+/// 現金錢包、銀行存款帳戶的列：色條、名稱(家庭共同基金多一行標記)和餘額。
+/// 用 `LabeledContent`:放不下同一行時(AX5)自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」第 5 條，#79)。
+private struct FundAccountRow: View {
+    let name: String
+    let colorHex: String
+    let isJointFund: Bool
+    let balance: Money
+    /// VoiceOver 在餘額前念的標籤，例如「現金錢包餘額」。
+    let balanceTitle: String
+    /// 負數用紅色(銀行存款帳戶)。
+    var warnsWhenNegative = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            AccountColorMark(hex: wallet.colorHex)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(wallet.name)
-                if wallet.isJointFund {
-                    Label("家庭共同基金", systemImage: "house.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+        LabeledContent {
+            Text(balance.formatted())
+                .monospacedDigit()
+                .foregroundStyle(warnsWhenNegative && balance < .zero ? Color.red : .primary)
+                .lineLimit(1)
+                .fixedSize()
+        } label: {
+            HStack(spacing: 12) {
+                AccountColorMark(hex: colorHex)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                    if isJointFund {
+                        Label("家庭共同基金", systemImage: "house.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            Spacer()
-            Text(wallet.balance.formatted())
-                .monospacedDigit()
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(wallet.name)\(wallet.isJointFund ? ",家庭共同基金" : ""),現金錢包餘額 \(wallet.balance.spokenText)")
-    }
-}
-
-private struct BankAccountRow: View {
-    let account: BankAccount
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AccountColorMark(hex: account.colorHex)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.name)
-                if account.isJointFund {
-                    Label("家庭共同基金", systemImage: "house.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Text(account.balance.formatted())
-                .monospacedDigit()
-                .foregroundStyle(account.balance < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(account.name)\(account.isJointFund ? ",家庭共同基金" : ""),餘額 \(account.balance.spokenText)")
+        .accessibilityLabel("\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)")
     }
 }
 
