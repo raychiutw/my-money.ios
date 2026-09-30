@@ -70,7 +70,8 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
         sample(month: CalendarMonth(CalendarDay.today()), transactions: transactions)
     }
 
-    /// 截圖巡覽用(`-uiTestingManyCategories`):16 種支出分類都有支出，圓餅圖才看得到「最多 8 塊、其餘併成灰色」(#100)。
+    /// 截圖巡覽用(`-uiTestingManyCategories`):15 種支出分類有支出，圓餅圖才看得到「最多 8 塊、其餘併成灰色」(#100)。
+    /// 留一種(寵物毛孩)沒有支出，「新增預算額度」才還有分類可以新增(全部都列出時按鈕不顯示)。
     /// 金額由大到小，交錯有專屬色與沒有專屬色的分類;其他跟 `sample` 一樣。
     public static func sampleWithEveryCategoryForToday(transactions: InMemoryTransactionRepository) -> InMemoryStatisticsRepository {
         sampleWithEveryCategory(month: CalendarMonth(CalendarDay.today()), transactions: transactions)
@@ -81,7 +82,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     ) -> InMemoryStatisticsRepository {
         let order = [
             "購物", "保險稅費", "餐飲", "居家水電", "交通", "數位訂閱", "汽機車輛", "生活",
-            "社交人情", "娛樂", "旅行度假", "醫療", "美妝保養", "教育", "寵物毛孩", "其他",
+            "社交人情", "娛樂", "旅行度假", "醫療", "美妝保養", "教育", "其他",
         ]
         let spending = order.enumerated().map { index, name in
             CategoryExpense(category: TransactionCategory(name), total: Money(Decimal(9000 - index * 500)))
