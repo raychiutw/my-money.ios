@@ -201,7 +201,7 @@ public final class StatisticsModel {
 @MainActor
 @Observable
 public final class BudgetEditorModel {
-    /// 可以設定預算的是 8 個支出分類。
+    /// 可以設定預算的是全部支出分類(16 種)。
     public static let categories = TransactionCategory.expenseCategories
 
     public var category: TransactionCategory

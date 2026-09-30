@@ -114,7 +114,10 @@ struct StatisticsTests {
     func addBudgetMenuListsRemainingCategories() async {
         let (model, _) = await loaded()
 
-        #expect(model.addableBudgetCategories.map(\.name) == ["娛樂", "生活", "醫療", "教育", "其他"])
+        #expect(model.addableBudgetCategories.map(\.name) == [
+            "汽機車輛", "居家水電", "數位訂閱", "生活", "娛樂", "美妝保養", "醫療", "教育",
+            "寵物毛孩", "旅行度假", "社交人情", "保險稅費", "其他",
+        ])
     }
 
     @Test("全部分類都有預算時沒有「新增預算額度」選單")

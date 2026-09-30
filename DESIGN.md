@@ -235,7 +235,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   | 選項 | 做法 | 例 |
   |---|---|---|
   | 2～5 個 | 內嵌選擇列(`Picker` 的 `.pickerStyle(.inline)`):選項全部攤開，`body` 字級，右邊打勾 | 歸屬、新增資產帳戶的類型、週期收支的週期、外觀、篩選 sheet 的類型 |
-  | 6～12 個 | 攤開成格，欄數由實際空間決定(`GridItem(.adaptive)`,最小欄寬用 `@ScaledMetric` 跟著字級放大:一般字級 4 欄，大字級自然變少，標籤不縮小也不截斷);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類 |
+  | 6～16 個 | 攤開成格，欄數由實際空間決定(`GridItem(.adaptive)`,最小欄寬用 `@ScaledMetric` 跟著字級放大:一般字級 4 欄，16 個分類是 4×4,大字級自然變少，標籤不縮小也不截斷);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類(支出 16 種、收入 8 種) |
   | 不固定或很多 | 推入清單頁，選了自動返回 | 帳戶、結帳日、繳款日、扣款日、篩選 sheet 的分類 |
   | 動作 | pull-down 至少 3 項才用，1～2 項直接放按鈕 | 新增資產帳戶(3 項)、繳款(3 項) |
 
@@ -271,17 +271,27 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 ## 分類圖示
 
-| 分類 | SF Symbol | 分類 | SF Symbol |
-|---|---|---|---|
-| 餐飲 | `fork.knife` | 薪資 | `banknote` |
-| 交通 | `tram.fill` | 獎金 | `gift` |
-| 娛樂 | `gamecontroller` | 投資 | `chart.line.uptrend.xyaxis` |
-| 購物 | `bag` | 兼職 | `briefcase` |
-| 生活 | `lightbulb` | 其他 | `shippingbox` |
-| 醫療 | `cross.case` | 不在清單中的分類 | `tag` |
-| 教育 | `book` | | |
+分類是上游的標準清單(支出 16 種、收入 8 種，順序與 web 一致，上游 ADR-0009),每種有專屬的 SF Symbol,不用 emoji。
 
-機器人記帳可能寫入不在清單中的分類(例如舊版寫入的「副業」),所以需要 fallback 圖示。
+| 支出 | SF Symbol | 支出 | SF Symbol |
+|---|---|---|---|
+| 餐飲 | `fork.knife` | 美妝保養 | `paintbrush.pointed` |
+| 交通 | `tram.fill` | 醫療 | `cross.case` |
+| 汽機車輛 | `car` | 教育 | `book` |
+| 居家水電 | `bolt.fill` | 寵物毛孩 | `pawprint` |
+| 數位訂閱 | `iphone` | 旅行度假 | `airplane` |
+| 購物 | `bag` | 社交人情 | `person.2` |
+| 生活 | `lightbulb` | 保險稅費 | `doc.text` |
+| 娛樂 | `gamecontroller` | 其他 | `shippingbox` |
+
+| 收入 | SF Symbol | 收入 | SF Symbol |
+|---|---|---|---|
+| 薪資 | `banknote` | 政府補貼 | `building.columns` |
+| 獎金 | `gift` | 禮金餽贈 | `envelope` |
+| 投資 | `chart.line.uptrend.xyaxis` | 二手出清 | `arrow.3.trianglepath` |
+| 兼職 | `briefcase` | 其他 | `shippingbox` |
+
+不在清單中的分類(例如舊版機器人寫入的「副業」,歷史資料不遷移)用 `tag`。同一份清單用在記一筆、編輯交易、交易篩選、預算額度、交易列和總覽最近交易。
 
 系統專用的分類「信用卡還款」(信用卡扣款還款產生的交易記錄)用 `creditcard.and.123`。這類交易記錄不能編輯或刪除，列表上只在 trailing 的金額前面放鎖定標記 `lock.fill`,不放說明文字;VoiceOver 接在交易記錄後面念「系統紀錄，不能編輯或刪除」(見「列與欄位」的交易記錄列)。家庭共同基金的標記用 `house.fill` 加上文字「家庭共同基金」。
 
