@@ -35,9 +35,9 @@ final class ScreenTourUITests: XCTestCase {
         tour.captureScrolling("overview")
         // 記一筆:歸屬是內嵌選擇列、分類是格狀;帳戶點進去是清單頁(ADR-0004)。
         tour.present(app.buttons["overview.add"], capturing: "quick-entry") {
-            // 只在記一筆的表單裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕。
-            let form = app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
-            let account = form.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+            // 只在 collection view 裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕,但 tab bar 不是 collection view。
+            // 不能用「含金額欄的 collection view」:字級大到要捲動時,金額欄已被回收,找不到表單。
+            let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
             tour.push(account, capturing: "quick-entry-account")
         }
         tour.tap(app.buttons["toolbar.me"])
