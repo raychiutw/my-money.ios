@@ -228,6 +228,9 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
 | `<select>` | `Picker` |
+| 帳戶下拉(選項是「類型 - 名稱」加餘額) | `AccountPicker`(#78):選擇值只放名稱(`currentValueLabel`),選單項目的副標題是類型;餘額另起一列「可用餘額」(`AmountRow`),只顯示自己看得到的帳戶(轉出、扣款、撥款帳戶),收款帳戶的餘額不公開 |
+| 文字欄位上方的標籤 | `LabeledContent("名稱") { TextField(…) }`:`Form` 裡的 `TextField` 會把 label 當成 placeholder,打字後就看不到;包一層才有一直看得到的標籤，placeholder 只放範例(#78,研究 §7) |
+| 表單裡的主要動作按鈕(家庭群組的建立、加入) | `.buttonStyle(.borderedProminent)`,停用時仍保有按鈕外形，不會跟 placeholder 一樣只剩灰字(#78,研究 §9);Section 標題已經說明是什麼動作時，按鈕只寫動詞，例如「建立」「加入」 |
 | 家庭公帳／個人私帳、支出／收入等切換鈕 | **支出／收入：導覽列中間的分段控制**。記一筆和週期收支編輯器放在 sheet 導覽列中間(`.principal` 的 segmented `Picker`),不另外佔表單一列(HIG 分段控制一節舉的行事曆「新增事件」)。**其他選擇：表單選擇列**。記一筆和信用卡扣款還款的歸屬、資產帳戶的歸屬、新增資產帳戶的類型，都是 `Form` 裡一般的 `Picker`(選單樣式):標籤在左、值在右，`body` 字級，跟著 Dynamic Type(#65)。唯一的例外是交易頁篩選 sheet 裡的視角(分段控制，#74,見「導覽」) |
 | `<input type=date>` | `DatePicker(.compact)` |
 | 日期文字(`09/29`、`2026/09/28`、`2026-10-05`) | `Date.FormatStyle` 的系統格式，時區固定台灣(見「日期」) |
