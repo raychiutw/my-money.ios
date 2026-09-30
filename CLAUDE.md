@@ -32,7 +32,7 @@ warning 當 error 有三道：`Package.swift` 的 `treatAllWarnings`(只對 macO
 
 - **一律走 Matt Pocock skill 工作流**:`/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement`。單一 session 做得完的小功能，grill 完可以直接 `/implement`。忘記該用哪個 skill 就問 `/ask-matt`。
 - **TDD 紅綠重構**:任何 production code 變更都先寫失敗測試，而且要**真的跑出紅燈並留下輸出**。修 bug 先寫重現測試。
-- **完成定義**:`swift test` 和 `xcodebuild test` 全部通過，而且零 warning(`-warnings-as-errors`)。
+- **完成定義**:`swift test` 和 `xcodebuild test` 全部通過，而且零 warning(`-warnings-as-errors`)。**UI 測試不在 CI 跑**(太久)，提交 PR 之前要在本機跑一次 `xcodebuild test`;CI 只編譯 app 與 UI 測試、跑 package 測試。
 - **不直接 commit 到 `master`**:開 feature branch,push 後開 PR,合併時用 **merge commit**,不用 squash。
 - 文件、註解、commit message 一律用繁體中文(台灣用語),技術名詞保留英文。
 - 詞彙在 `CONTEXT.md`,UI 規範在 `DESIGN.md`,功能對等清單在 `docs/parity.md`,難以逆轉的決策在 `docs/adr/`,一手來源研究在 `docs/research/`。

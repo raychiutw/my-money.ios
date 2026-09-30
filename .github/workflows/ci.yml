@@ -44,52 +44,28 @@ jobs:
           -derivedDataPath .derivedData/package
           SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
+  # UI 測試不在 CI 跑:實測要 49 分鐘(建置 5 分、56 個 UI 測試 34 分、收集診斷逾時再等 10 分),
+  # 太久了。UI 測試改成提交 PR 之前在本機跑一次(`xcodebuild test`,見 CLAUDE.md「常用指令」)。
+  # CI 只保證 app 和 UI 測試的程式碼編得過、零 warning,幾分鐘就好。
   app:
-    name: App 與 UI 測試(xcodebuild test)
+    name: App 與 UI 測試編譯(build-for-testing)
     runs-on: xcode-27
-    # 2026-09-28 實測 28 到 35 分鐘，慢的 runner 超過 45 分鐘被取消(run 36399342873)。
-    # 2026-09-30 UI 測試增加到 45 個：建置加第一次啟動當掉約 18 分鐘，重跑的 45 個全部通過但花了 37 分鐘，
-    # 結果檔還沒寫完就碰到 60 分鐘被取消(run 36688941727)。
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: 工具鏈版本
         run: xcodebuild -version
 
-      # 映像上的模擬器名稱會隨 Xcode 版本改變，挑最新 iOS runtime 的第一台 iPhone。
-      - name: 選擇 iPhone 模擬器
-        id: simulator
-        run: |
-          device="$(xcrun simctl list devices available -j | jq -r '
-            .devices | to_entries
-            | map(select(.key | test("SimRuntime\\.iOS-")))
-            | sort_by(.key | capture("iOS-(?<major>[0-9]+)-(?<minor>[0-9]+)") | [(.major | tonumber), (.minor | tonumber)])
-            | reverse
-            | map(.value[] | select(.name | test("^iPhone")))
-            | first
-            | "\(.udid) \(.name)"')"
-          echo "使用模擬器:$device"
-          echo "udid=${device%% *}" >> "$GITHUB_OUTPUT"
-
-      # 關掉平行測試，避免複製多台模擬器。warning 當 error 設在專案的 build settings。
-      # UI 測試的 runner 偶爾在開始跑測試之前就當掉(「never finished bootstrapping」,run 36450479905),
-      # 跟程式碼無關。遇到這種情況不重新編譯，用 test-without-building 自動重跑一次;其他失敗照常算失敗。
-      - name: xcodebuild test
-        env:
-          UDID: ${{ steps.simulator.outputs.udid }}
-        run: |
-          set -o pipefail
-          args=(-project src/App/MyMoney.xcodeproj -scheme MyMoney
-            -destination "platform=iOS Simulator,id=$UDID"
-            -derivedDataPath .derivedData -parallel-testing-enabled NO)
-          if xcodebuild test "${args[@]}" -resultBundlePath .derivedData/MyMoney.xcresult 2>&1 | tee xcodebuild-test.log; then
-            exit 0
-          fi
-          grep -q "never finished bootstrapping" xcodebuild-test.log || exit 1
-          echo "::warning::UI 測試的 runner 在啟動階段當掉，不重新編譯，重跑一次"
-          xcrun simctl shutdown all || true
-          xcodebuild test-without-building "${args[@]}" -resultBundlePath .derivedData/MyMoney-retry.xcresult
+      # 只編譯、不啟動模擬器也不跑測試。warning 當 error 設在專案的 build settings。
+      - name: xcodebuild build-for-testing
+        run: >
+          xcodebuild build-for-testing
+          -project src/App/MyMoney.xcodeproj
+          -scheme MyMoney
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath .derivedData
+          -resultBundlePath .derivedData/MyMoney.xcresult
 
       - name: 檢查零 warning
         run: |
@@ -99,19 +75,7 @@ jobs:
           jq -r '.warnings[]? | "::warning::\(.message)"' build-results.json
           test "$warnings" -eq 0
 
-      # 重跑過時，測試結果以重跑的那一份為準;warning 數量仍然看第一次(有編譯的那一次)。
-      - name: 測試摘要
-        if: always()
-        run: |
-          result=.derivedData/MyMoney.xcresult
-          [ -d .derivedData/MyMoney-retry.xcresult ] && result=.derivedData/MyMoney-retry.xcresult
-          if [ -d "$result" ]; then
-            xcrun xcresulttool get test-results summary --path "$result" \
-              | jq -r '"### xcodebuild test\n\n- 結果:\(.result)\n- 通過:\(.passedTests)\n- 失敗:\(.failedTests)\n- 略過:\(.skippedTests)"' \
-              >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: 上傳測試結果
+      - name: 上傳建置結果
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
