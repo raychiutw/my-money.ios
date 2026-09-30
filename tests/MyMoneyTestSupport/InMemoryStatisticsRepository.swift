@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 
 /// 不連網路的統計與預算額度：資料由測試決定，並記下每一次查詢。
@@ -69,12 +70,32 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
         sample(month: CalendarMonth(CalendarDay.today()), transactions: transactions)
     }
 
+    /// 截圖巡覽用(`-uiTestingManyCategories`):16 種支出分類都有支出，圓餅圖才看得到「最多 8 塊、其餘併成灰色」(#100)。
+    /// 金額由大到小，交錯有專屬色與沒有專屬色的分類;其他跟 `sample` 一樣。
+    public static func sampleWithEveryCategoryForToday(transactions: InMemoryTransactionRepository) -> InMemoryStatisticsRepository {
+        sampleWithEveryCategory(month: CalendarMonth(CalendarDay.today()), transactions: transactions)
+    }
+
+    static func sampleWithEveryCategory(
+        month: CalendarMonth, transactions: InMemoryTransactionRepository? = nil
+    ) -> InMemoryStatisticsRepository {
+        let order = [
+            "購物", "保險稅費", "餐飲", "居家水電", "交通", "數位訂閱", "汽機車輛", "生活",
+            "社交人情", "娛樂", "旅行度假", "醫療", "美妝保養", "教育", "寵物毛孩", "其他",
+        ]
+        let spending = order.enumerated().map { index, name in
+            CategoryExpense(category: TransactionCategory(name), total: Money(Decimal(9000 - index * 500)))
+        }
+        return sample(month: month, transactions: transactions, spending: spending)
+    }
+
     /// 我記的:購物 880、交通 250、餐飲 120;家庭視角只有餐飲 120。
     /// 預算額度：餐飲 100(超支)、購物 1000(接近上限)。公帳代墊款：小明 6000、小美 4000。
     public static func sample(
-        month: CalendarMonth, shares: [HouseholdShare]? = nil, transactions: InMemoryTransactionRepository? = nil
+        month: CalendarMonth, shares: [HouseholdShare]? = nil, transactions: InMemoryTransactionRepository? = nil,
+        spending: [CategoryExpense]? = nil
     ) -> InMemoryStatisticsRepository {
-        let mine = [
+        let mine = spending ?? [
             CategoryExpense(category: TransactionCategory("購物"), total: Money(880)),
             CategoryExpense(category: TransactionCategory("交通"), total: Money(250)),
             CategoryExpense(category: .dining, total: Money(120)),
