@@ -14,12 +14,11 @@ struct BudgetEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("分類") {
+                    CategoryGrid(categories: BudgetEditorModel.categories, selection: $model.category)
+                }
+
                 Section {
-                    Picker("分類", selection: $model.category) {
-                        ForEach(BudgetEditorModel.categories, id: \.self) { category in
-                            Label(category.name, systemImage: category.symbolName).tag(category)
-                        }
-                    }
                     LabeledContent("\(model.monthTitle)的預算") {
                         AmountField(
                             "預算", text: $model.amountText, prompt: Text("例如：8000"),

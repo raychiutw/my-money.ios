@@ -50,11 +50,14 @@ struct TransactionFormView<Model: TransactionForm>: View {
                             focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
                         )
                     }
-                    Picker("分類", selection: $model.category) {
-                        ForEach(model.categories, id: \.self) { category in
-                            Label(category.name, systemImage: category.symbolName).tag(category)
-                        }
-                    }
+                }
+
+                // 分類攤開成格，點一下就選(ADR-0004、#89)。
+                Section("分類") {
+                    CategoryGrid(categories: model.categories, selection: $model.category)
+                }
+
+                Section {
                     AccountPicker(title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init))
                     DatePicker(
                         "日期",

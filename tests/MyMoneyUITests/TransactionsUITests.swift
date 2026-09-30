@@ -351,6 +351,47 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(accountRow().label.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().label)")
     }
 
+    /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
+    @MainActor
+    func testCategoryIsChosenInAGridWithOneTap() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        app.buttons["transactions.add"].tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開記一筆")
+
+        XCTAssertTrue(app.buttons["餐飲"].waitForExistence(timeout: 5), "分類不是攤開的格子")
+        XCTAssertTrue(app.buttons["餐飲"].isSelected, "預設分類不是餐飲")
+        for name in ["交通", "娛樂", "購物", "生活", "醫療", "教育", "其他"] {
+            XCTAssertTrue(app.buttons[name].exists, "分類格缺少「\(name)」")
+        }
+        app.buttons["交通"].tap()
+        XCTAssertTrue(app.buttons["交通"].isSelected, "點一下之後交通沒有被選起來")
+        XCTAssertFalse(app.buttons["餐飲"].isSelected, "選了交通，餐飲還是選取狀態")
+
+        let type = app.navigationBars.segmentedControls.firstMatch
+        type.buttons["收入"].tap()
+        for name in ["薪資", "獎金", "投資", "兼職"] {
+            XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 3), "收入的分類格缺少「\(name)」")
+        }
+        XCTAssertFalse(app.buttons["餐飲"].exists, "切到收入之後還看得到支出的分類")
+        type.buttons["支出"].tap()
+        XCTAssertTrue(app.buttons["餐飲"].waitForExistence(timeout: 3))
+        app.buttons["交通"].tap()
+
+        amount.tap()
+        amount.typeText("88")
+        app.buttons["quickEntry.save"].tap()
+        let added = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "交通", "支出 88 元")
+        ).firstMatch
+        XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有交通的支出 88 元")
+    }
+
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }
