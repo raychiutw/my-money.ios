@@ -259,8 +259,6 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
-    /// 導覽列副標題(`navigationSubtitle`)。
-    @MainActor
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要卡最下面的一列(ADR-0004、#87)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {
@@ -286,6 +284,8 @@ final class AccountsUITests: XCTestCase {
         XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在摘要的最後一列")
     }
 
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }

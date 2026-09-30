@@ -304,8 +304,6 @@ final class TransactionsUITests: XCTestCase {
         item.tap()
     }
 
-    /// 導覽列副標題(`navigationSubtitle`)。
-    @MainActor
     /// 工具列只有篩選、記一筆、頭像三顆，沒有系統自動收成的「…」;匯出 CSV 是列表最底下的一列(ADR-0004、#86)。
     @MainActor
     func testToolbarHasThreeButtonsAndExportIsTheLastRow() throws {
@@ -396,6 +394,8 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有交通的支出 88 元")
     }
 
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }
