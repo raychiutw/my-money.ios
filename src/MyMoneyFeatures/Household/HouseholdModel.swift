@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 「我的」 → 家庭(parity.md「家庭」)。
+/// 家庭 tab(parity.md「家庭」)。
 @MainActor
 @Observable
 public final class HouseholdModel {

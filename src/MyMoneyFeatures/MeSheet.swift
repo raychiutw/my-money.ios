@@ -18,7 +18,6 @@ private enum MePage: CaseIterable {
 ///
 /// **每次打開都先顯示「設定」，不記憶上次的分頁**:`page` 是這個 sheet 自己的狀態，sheet 關掉就丟掉。
 /// 設定有機器人記帳、外觀(三列打勾)、登出、版本;規劃有週期收支、儲蓄目標、現金流預測。
-/// 「家庭」入口暫時留在設定裡，等家庭升為 tab(#85)再移除。
 struct MeSheet: View {
     let screens: MainScreens
     @Environment(AppSession.self) private var session
@@ -91,10 +90,6 @@ struct MeSheet: View {
     private func settings(appearance: Binding<Appearance>) -> some View {
         Section {
             // UI 測試用 identifier 找入口，不依賴文字。
-            NavigationLink("家庭群組") {
-                HouseholdScreen(model: screens.household)
-            }
-            .accessibilityIdentifier("me.household")
             NavigationLink("機器人記帳") {
                 BotScreen(model: screens.bot)
             }

@@ -10,7 +10,7 @@ final class LoginFlowUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 登入後看到 4 個 tab(規劃不再是 tab);「我的」顯示名稱與 email,設定有機器人記帳,規劃列出三個項目，登出回到登入頁。
+    /// 登入後看到 5 個 tab(總覽、交易、帳戶、家庭、統計;規劃不再是 tab);「我的」顯示名稱與 email,設定有機器人記帳,規劃列出三個項目，登出回到登入頁。
     @MainActor
     func testSignInShowsTabShellAndSignOutReturnsToLogin() throws {
         let app = launch(resettingSession: true)
@@ -20,17 +20,16 @@ final class LoginFlowUITests: XCTestCase {
 
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "統計"] {
-            XCTAssertTrue(app.tabBars.buttons[tab].exists, "缺少「\(tab)」tab")
-        }
+        XCTAssertEqual(
+            app.tabBars.buttons.allElementsBoundByIndex.map(\.label), ["總覽", "交易", "帳戶", "家庭", "統計"],
+            "tab 的順序不是 總覽、交易、帳戶、家庭、統計"
+        )
         XCTAssertFalse(app.tabBars.buttons["規劃"].exists, "規劃不該還是 tab")
 
         app.openMe()
         XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["family@example.com"].exists)
-        // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被「我的」蓋住的總覽視角分段控制，
-        // 視角改進 toolbar 選單(#63)之後就找不到了。家庭升為 tab 之後(#85)這個入口會移除。
-        XCTAssertTrue(app.buttons["me.household"].exists, "「我的」沒有「家庭群組」")
+        XCTAssertFalse(app.buttons["me.household"].exists, "家庭已經升為 tab,「我的」不該還有它的入口")
         XCTAssertTrue(app.buttons["機器人記帳"].exists)
 
         app.segmentedControls["me.page"].buttons["規劃"].tap()

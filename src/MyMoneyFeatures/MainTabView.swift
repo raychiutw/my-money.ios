@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// 登入後的 tab。規劃已經收進「我的」(ADR-0004)。
+/// 登入後的 tab,依序是總覽、交易、帳戶、家庭、統計。規劃已經收進「我的」,家庭升為 tab(ADR-0004)。
 enum AppTab: Hashable {
     case overview
     case transactions
     case accounts
+    case household
     case statistics
 }
 
@@ -27,6 +28,9 @@ struct MainTabView: View {
             }
             Tab("帳戶", systemImage: "creditcard", value: .accounts) {
                 AccountsScreen(model: screens.accounts)
+            }
+            Tab("家庭", systemImage: "person.2", value: .household) {
+                HouseholdScreen(model: screens.household)
             }
             Tab("統計", systemImage: "chart.bar", value: .statistics) {
                 StatisticsScreen(model: screens.statistics)

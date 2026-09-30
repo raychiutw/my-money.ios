@@ -1,6 +1,6 @@
 import XCTest
 
-/// 每個 tab 主頁面右上角的頭像按鈕(ADR-0004、#83)。規劃在 #84 移出 tab,所以只剩 4 個 tab。
+/// 每個 tab 主頁面右上角的頭像按鈕(ADR-0004、#83)。規劃在 #84 移出 tab,家庭在 #85 升為 tab。
 ///
 /// 範例帳號的姓名是「小明」(MyMoneyTestSupport 的 `InMemoryAuthRepository.Member.sample`)。
 final class MeButtonUITests: XCTestCase {
@@ -16,7 +16,7 @@ final class MeButtonUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "統計"] {
+        for tab in ["總覽", "交易", "帳戶", "家庭", "統計"] {
             app.tabBars.buttons[tab].tap()
             let me = app.buttons["toolbar.me"]
             XCTAssertTrue(me.waitForExistence(timeout: 5), "「\(tab)」主頁面右上角沒有頭像按鈕")

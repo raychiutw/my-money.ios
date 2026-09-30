@@ -1,6 +1,6 @@
 import XCTest
 
-/// 「我的」 → 家庭。資料來自 MyMoneyTestSupport 的 `InMemoryHouseholdRepository`(一開始沒有家庭群組，不連網路)。
+/// 家庭 tab。資料來自 MyMoneyTestSupport 的 `InMemoryHouseholdRepository`(一開始沒有家庭群組，不連網路)。
 final class HouseholdUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -14,8 +14,7 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["toolbar.me"].tap()
-        app.buttons["me.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5), "沒有看到建立家庭")
         XCTAssertTrue(app.staticTexts["名稱"].exists, "家庭群組名稱欄沒有看得見的標籤")
@@ -74,8 +73,7 @@ final class HouseholdUITests: XCTestCase {
         app.buttons["accountEditor.save"].tap()
 
         app.tabBars.buttons["總覽"].tap()
-        app.buttons["toolbar.me"].tap()
-        app.buttons["me.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
@@ -110,8 +108,7 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["toolbar.me"].tap()
-        app.buttons["me.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()

@@ -23,7 +23,7 @@ public struct MainScreens {
     /// 規劃 → 現金流預測。
     public let forecast: ForecastModel
 
-    /// 「我的」 → 家庭。
+    /// 家庭 tab。
     public let household: HouseholdModel
 
     /// 「我的」 → 機器人記帳。

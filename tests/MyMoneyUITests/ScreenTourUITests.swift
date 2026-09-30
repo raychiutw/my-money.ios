@@ -31,12 +31,11 @@ final class ScreenTourUITests: XCTestCase {
         tour.push(app.buttons["login.register"], capturing: "register")
         tour.signIn()
 
-        // 總覽，以及從總覽打開的記一筆、「我的」sheet(家庭群組、機器人記帳、模擬對話)。
+        // 總覽，以及從總覽打開的記一筆、「我的」sheet(機器人記帳、模擬對話)。
         tour.captureScrolling("overview")
         tour.present(app.buttons["overview.add"], capturing: "quick-entry")
         tour.tap(app.buttons["toolbar.me"])
         tour.captureScrolling("me-settings")
-        tour.push(app.buttons["me.household"], capturing: "household")
         tour.push(app.buttons["機器人記帳"], capturing: "bot") {
             tour.push(app.buttons["模擬對話"], capturing: "bot-chat")
         }
@@ -59,6 +58,10 @@ final class ScreenTourUITests: XCTestCase {
         tour.push(app.buttons["accounts.card.sample-card"], capturing: "card-detail") {
             tour.present(app.buttons["cardDetail.pay"], menuItem: "全額結清", capturing: "card-payment")
         }
+
+        // 家庭(範例帳號沒有加入家庭，只拍得到建立和加入)。
+        tour.select(tab: "家庭")
+        tour.captureScrolling("household")
 
         // 統計。
         tour.select(tab: "統計")

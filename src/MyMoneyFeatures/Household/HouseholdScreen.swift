@@ -1,7 +1,9 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「我的」 → 家庭：建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」)。
+/// 「家庭」tab:建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」、ADR-0004)。
+///
+/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 只有頭像按鈕。
 struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
     @State private var isLeaveConfirming = false
@@ -9,10 +11,18 @@ struct HouseholdScreen: View {
     @State private var reimbursement: ReimbursementModel?
 
     var body: some View {
+        NavigationStack {
+            screen
+        }
+    }
+
+    private var screen: some View {
         content
             .skeletonTransition(value: model.phase)
-            .navigationTitle("家庭群組")
-            .inlineNavigationTitle()
+            .navigationTitle("家庭")
+            .toolbar {
+                AccountToolbarItem()
+            }
             .task { await model.load() }
             .sheet(item: $model.invitation) { invitation in
                 InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))

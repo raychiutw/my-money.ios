@@ -18,6 +18,7 @@ final class MeSheetUITests: XCTestCase {
         app.openMe()
         XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5), "「我的」沒有先顯示設定")
         XCTAssertTrue(app.buttons["me.bot"].exists, "設定沒有機器人記帳")
+        XCTAssertFalse(app.buttons["me.household"].exists, "家庭已經升為 tab,設定不該還有它的入口")
         XCTAssertFalse(app.buttons["週期收支"].exists, "設定分頁不該看到規劃的項目")
 
         app.segmentedControls["me.page"].buttons["規劃"].tap()
