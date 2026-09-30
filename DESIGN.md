@@ -224,7 +224,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - **信用卡精簡列的捷徑**(帳戶頁):長按選單有繳款(沒有對應欠款的項目隱藏)、出帳作業(有未出帳款才有)、編輯、刪除，每一項在詳細頁都找得到(HIG Context menus 的「Always make context menu items available in the main interface, too」);往左滑是刪除。總覽的精簡列只能點進詳細頁。現金錢包、銀行存款帳戶的列不變，點了照舊開編輯器。
 - 登入和註冊是全螢幕流程，不放在 tab 裡。
 - **「我的」**(ADR-0004、`CONTEXT.md`):每個 tab 主頁面 toolbar 最右邊都是頭像按鈕，打開同一個 sheet(自帶 NavigationStack)。
-  - 頭像取姓名的第一個字元(英文轉大寫)，姓名是空的就用 `person.crop.circle`;VoiceOver 念「我的，王小明」。
+  - 頭像取姓名的第一個字元(英文轉大寫)，姓名是空的就用 `person.crop.circle.fill`;VoiceOver 念「我的，王小明」。
   - 最上面是姓名(`headline`)與 email(`subheadline`)，下面是分頁控制「設定｜規劃」(分段控制)。每次打開都先顯示「設定」，不記憶上次的分頁。
   - 「設定」:機器人記帳、外觀(三列打勾)、登出、版本。登出不跳確認(parity「全域」)。版本寫成「版本 0.1.0（36707214745）」,取 `CFBundleShortVersionString` 和 `CFBundleVersion`,用 `footnote`;本機 Debug 建置的 build 是 1。
   - 「規劃」:週期收支、儲蓄目標、現金流預測，整列點進去 push。
@@ -235,7 +235,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   | 選項 | 做法 | 例 |
   |---|---|---|
   | 2～5 個 | 內嵌選擇列(`Picker` 的 `.pickerStyle(.inline)`):選項全部攤開，`body` 字級，右邊打勾 | 歸屬、新增資產帳戶的類型、週期收支的週期、外觀、篩選 sheet 的類型 |
-  | 6～12 個 | 攤開成格，一列 4 欄，大字級改 2 欄(`ViewThatFits`);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類 |
+  | 6～12 個 | 攤開成格，欄數由實際空間決定(`GridItem(.adaptive)`,最小欄寬用 `@ScaledMetric` 跟著字級放大:一般字級 4 欄，大字級自然變少，標籤不縮小也不截斷);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類 |
   | 不固定或很多 | 推入清單頁，選了自動返回 | 帳戶、結帳日、繳款日、扣款日、篩選 sheet 的分類 |
   | 動作 | pull-down 至少 3 項才用，1～2 項直接放按鈕 | 新增資產帳戶(3 項)、繳款(3 項) |
 
