@@ -16,10 +16,12 @@ final class RecurringUITests: XCTestCase {
 
         app.tabBars.buttons["規劃"].tap()
         app.buttons["週期收支"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 31,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
+        XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
+        XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 14,000 元").exists, "摘要的主數字不是週期支出的分攤平滑")
         XCTAssertTrue(element(in: app, labelContaining: "每年 15 號扣款").exists, "扣款日沒有依週期描述")
-        XCTAssertTrue(element(in: app, labelContaining: "年繳保費,週期支出 24,000 元").exists, "VoiceOver 沒有念出週期支出")
-        XCTAssertTrue(element(in: app, labelContaining: "分攤平滑 2,000 元 / 月").exists, "年繳項目沒有顯示分攤平滑")
+        XCTAssertTrue(element(in: app, labelContaining: "年繳保費，週期支出 24,000 元").exists, "VoiceOver 沒有把週期支出念成一句")
+        XCTAssertTrue(element(in: app, labelContaining: "分攤平滑每月 2,000 元").exists, "年繳項目沒有顯示分攤平滑")
+        XCTAssertFalse(element(in: app, labelContaining: "未指定關聯帳戶").exists, "沒設帳戶時不該顯示「未指定關聯帳戶」")
 
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
@@ -30,7 +32,7 @@ final class RecurringUITests: XCTestCase {
         amount.tap()
         amount.typeText("1000")
         app.buttons["recurringEditor.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 30,000 元").waitForExistence(timeout: 5), "新增後每月固定淨額沒有更新")
+        XCTAssertTrue(row("每月固定淨額", value: "30,000 元", in: app).waitForExistence(timeout: 5), "新增後每月固定淨額沒有更新")
 
         let rent = element(in: app, labelContaining: "房租")
         rent.swipeLeft()
@@ -51,7 +53,7 @@ final class RecurringUITests: XCTestCase {
 
         app.tabBars.buttons["規劃"].tap()
         app.buttons["週期收支"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 31,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
+        XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
 
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
@@ -69,7 +71,13 @@ final class RecurringUITests: XCTestCase {
         amount.tap()
         amount.typeText("1000")
         app.buttons["recurringEditor.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "每月固定淨額 32,000 元").waitForExistence(timeout: 5), "新增週期收入後每月固定淨額沒有增加")
+        XCTAssertTrue(row("每月固定淨額", value: "32,000 元", in: app).waitForExistence(timeout: 5), "新增週期收入後每月固定淨額沒有增加")
+    }
+
+    /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額。
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

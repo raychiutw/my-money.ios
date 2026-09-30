@@ -111,6 +111,22 @@ extension RecurringItem {
     public var showsMonthlyAmortization: Bool {
         type == .expense && cycle != .monthly
     }
+
+    /// 列的第 3 行：資產帳戶名稱，不加「關聯扣款帳戶：」前綴;沒設就不顯示(DESIGN.md「列與欄位」,#77)。
+    public var accountText: String? { accountName }
+
+    /// 金額下方的每月分攤平滑，例如「$2,000／月」;只有週期不是每月的週期支出才有。
+    public var amortizationText: String? {
+        showsMonthlyAmortization ? "\(monthlyAmortization.formatted())／月" : nil
+    }
+
+    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 15 號扣款，分攤平滑每月 2,000 元」。
+    public var spokenText: String {
+        var parts = [name, "\(type == .income ? "週期收入" : "週期支出") \(amount.spokenText)", scheduleText]
+        if let accountText { parts.append("帳戶 \(accountText)") }
+        if showsMonthlyAmortization { parts.append("分攤平滑每月 \(monthlyAmortization.spokenText)") }
+        return parts.joined(separator: "，")
+    }
 }
 
 extension RecurringCycle {

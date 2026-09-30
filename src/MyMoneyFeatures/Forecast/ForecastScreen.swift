@@ -101,9 +101,30 @@ struct ForecastScreen: View {
                         .accessibilityHidden(true)
                 }
             }
+            // x 軸用台灣時間(#77,洛杉磯時區的截圖證實):資料點是台灣時間的午夜，裝置在別的時區時，
+            // 刻度會偏到前一天，預設的日期標籤也照裝置時區格式化。刻度位置依 environment 的 calendar
+            // (曆法沿用系統設定，只換時區;只設 timeZone 沒有作用),標籤自己用台灣時間的日期。
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(model.dateText(CalendarDay(date: date)))
+                        }
+                    }
+                }
+            }
+            .environment(\.calendar, taipeiCalendar)
             .frame(height: 220)
             .padding(.vertical, 8)
         }
+    }
+
+    private var taipeiCalendar: Calendar {
+        var calendar = Calendar.current
+        calendar.timeZone = CalendarDay.timeZone
+        return calendar
     }
 
     private func eventsSection(_ forecast: CashFlowForecast) -> some View {

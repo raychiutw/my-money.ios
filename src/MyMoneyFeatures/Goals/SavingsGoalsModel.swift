@@ -116,6 +116,15 @@ extension SavingsGoal {
         let percent = min(savedAmount.amount / targetAmount.amount * 100, 100)
         return percent.percentText(fractionDigits: 0)
     }
+
+    /// VoiceOver 把整列念成一句，例如「沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%，截止日 2027年3月31日」。
+    /// 畫面上百分比交給進度條，不另外寫(#77)。
+    public func spokenText(deadline: String?) -> String {
+        var parts = [name, "已存 \(savedAmount.spokenText)", "目標 \(targetAmount.spokenText)", "達成 \(percentText)"]
+        if let deadline { parts.append("截止日 \(deadline)") }
+        if isAchieved { parts.append("已達成目標") }
+        return parts.joined(separator: "，")
+    }
 }
 
 /// 存入儲蓄目標的 sheet。存入**不會**動到任何資產帳戶。

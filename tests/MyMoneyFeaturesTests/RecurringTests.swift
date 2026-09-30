@@ -75,6 +75,32 @@ struct RecurringTests {
         #expect(!annualIncome.showsMonthlyAmortization)
     }
 
+    /// 一行一個欄位(DESIGN.md「列與欄位」,#77):帳戶不加前綴、沒設就不顯示;分攤平滑單獨寫成「$2,000／月」。
+    @Test("列的文字：帳戶不加前綴、沒設就不顯示，非每月的週期支出顯示每月分攤平滑，VoiceOver 念成一句")
+    func rowTexts() {
+        let annual = RecurringItem(
+            id: RecurringItemID("x"), name: "年繳保費", type: .expense, amount: Money(24000), cycle: .annual,
+            dayOfCycle: 15, accountID: nil, accountName: nil
+        )
+        let rent = RecurringItem(
+            id: RecurringItemID("y"), name: "房租", type: .expense, amount: Money(12000), cycle: .monthly,
+            dayOfCycle: 5, accountID: AccountID("a"), accountName: "iOS 測試存款"
+        )
+        let salary = RecurringItem(
+            id: RecurringItemID("z"), name: "薪水", type: .income, amount: Money(45000), cycle: .monthly,
+            dayOfCycle: 25, accountID: AccountID("a"), accountName: "iOS 測試存款"
+        )
+
+        #expect(annual.accountText == nil)
+        #expect(rent.accountText == "iOS 測試存款")
+        #expect(annual.amortizationText == "$2,000／月")
+        #expect(rent.amortizationText == nil)
+        #expect(salary.amortizationText == nil)
+        #expect(annual.spokenText == "年繳保費，週期支出 24,000 元，每年 15 號扣款，分攤平滑每月 2,000 元")
+        #expect(rent.spokenText == "房租，週期支出 12,000 元，每月 5 號扣款，帳戶 iOS 測試存款")
+        #expect(salary.spokenText == "薪水，週期收入 45,000 元，每月 25 號入帳，帳戶 iOS 測試存款")
+    }
+
     @Test("刪除後資料版本遞增;確認文字包含名稱")
     func deleteBumpsDataVersion() async throws {
         let dataVersion = DataVersion()

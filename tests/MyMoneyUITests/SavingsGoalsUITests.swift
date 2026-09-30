@@ -17,7 +17,11 @@ final class SavingsGoalsUITests: XCTestCase {
         app.tabBars.buttons["規劃"].tap()
         app.buttons["儲蓄目標"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "已存金額合計 4,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
-        XCTAssertTrue(element(in: app, labelContaining: "整體達成率 2.5%").exists)
+        XCTAssertTrue(row("整體達成率", value: "2.5%", in: app).exists, "整體達成率不是一般列")
+        XCTAssertTrue(
+            element(in: app, labelContaining: "沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%").exists,
+            "目標列沒有把已存、目標、達成百分比念成一句"
+        )
         XCTAssertTrue(element(in: app, labelContaining: "已達成目標").exists, "已達成的目標沒有標示")
 
         app.buttons["goals.deposit.sample-trip"].tap()
@@ -37,7 +41,13 @@ final class SavingsGoalsUITests: XCTestCase {
         target.tap()
         target.typeText("45000")
         app.buttons["goalEditor.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "目標金額合計 206,000 元").waitForExistence(timeout: 5), "建立後目標金額合計沒有更新")
+        XCTAssertTrue(row("目標金額合計", value: "206,000 元", in: app).waitForExistence(timeout: 5), "建立後目標金額合計沒有更新")
+    }
+
+    /// 摘要的一般列(`AmountRow` 或 `LabeledContent`):VoiceOver 念標籤，值是金額或百分比。
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor
