@@ -191,7 +191,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 總覽 toolbar        line.3.horizontal.decrease → 視角選單(全部、家庭公帳、個人);plus → 「記一筆」sheet
 交易 toolbar        line.3.horizontal.decrease → 「篩選」sheet(視角、起日、迄日、類型、分類);plus → 「記一筆」sheet
 統計 toolbar        line.3.horizontal.decrease → 視角選單
-帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭共同基金、個人私帳);plus → 新增資產帳戶選單
+帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭公用、個人私帳);plus → 新增資產帳戶選單
 家庭 toolbar        只有頭像
 帳戶、總覽的信用卡精簡列 → 信用卡詳細頁(push)
                     「繳款」選單 → 「信用卡扣款還款」sheet;toolbar「編輯」→ 資產帳戶編輯器 sheet
@@ -209,7 +209,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   - VoiceOver:篩選按鈕的標籤是「篩選」,值是副標題。
   - 頁面上只留搜尋欄(最上面，即時過濾)。打開畫面最上面是摘要：總收入、總支出、淨收支各一列(`LabeledContent`,金額單行);筆數寫在交易記錄的標題「交易記錄(N)」,放在第一天的分組標頭上面。
   - toolbar 是篩選、記一筆和頭像三顆。「匯出 CSV」(`ShareLink`)是交易記錄列表最底下的一列，匯出的是目前篩選的範圍。
-- **帳戶檢視範圍**(全部、家庭共同基金、個人私帳):帳戶頁放在 toolbar 的篩選按鈕，跟視角共用同一個元件(`ScopeFilter.swift`),點開是可勾選的選單;導覽列副標題一律顯示目前的範圍。清單最上面不放分段控制，依序是摘要(見「列與欄位」)、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態(標題加新增按鈕)。
+- **帳戶檢視範圍**(全部、家庭公用、個人私帳):帳戶頁放在 toolbar 的篩選按鈕，跟視角共用同一個元件(`ScopeFilter.swift`),點開是可勾選的選單;導覽列副標題一律顯示目前的範圍。清單最上面不放分段控制，依序是摘要(見「列與欄位」)、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態(標題加新增按鈕)。
   - VoiceOver:篩選按鈕的標籤是「帳戶檢視範圍」,值是目前的選擇。
   - toolbar 是篩選、新增資產帳戶和頭像三顆。
 - 「ATM 提款／轉帳」是 sheet:入口在帳戶頁摘要卡最下面的一列(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。

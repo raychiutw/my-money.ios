@@ -47,9 +47,10 @@ public final class AccountEditorModel {
     /// 信用卡專用的未出帳款欄。
     public var unbilledLabel: String { "未出帳款" }
 
-    /// 歸屬的兩個選項(web 的「帳戶屬性歸屬」),依序是個人私帳(預設)、家庭共同基金;所有類型都一樣，跟 web 相同。
+    /// 歸屬的兩個選項(web 的「帳戶屬性歸屬」),依序是個人私帳(預設)和家庭公用;
+    /// 家庭公用依類型稱呼:現金錢包與銀行存款帳戶是家庭共同基金，信用卡是家庭信用卡(上游 97f4789)。
     public var ownershipChoices: [(isJointFund: Bool, title: String)] {
-        [(false, "個人私帳"), (true, "家庭共同基金")]
+        [(false, "個人私帳"), (true, kind == .creditCard ? "家庭信用卡" : "家庭共同基金")]
     }
 
     public var canChangeKind: Bool { editingID == nil }

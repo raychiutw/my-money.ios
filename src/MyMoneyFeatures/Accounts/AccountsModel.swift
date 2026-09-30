@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭共同基金)、家庭共同基金、個人私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
