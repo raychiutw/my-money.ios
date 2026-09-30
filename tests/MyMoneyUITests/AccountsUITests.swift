@@ -158,7 +158,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["未設定"].exists, "日期清單頁沒有「未設定」")
         first.tap()
         XCTAssertTrue(statementRow().waitForExistence(timeout: 3), "選了日期之後沒有自動返回")
-        XCTAssertTrue(statementRow().label.contains("每月 1 號"), "返回之後結帳日不是每月 1 號:\(statementRow().label)")
+        XCTAssertTrue(statementRow().displayedText.contains("每月 1 號"), "返回之後結帳日不是每月 1 號:\(statementRow().displayedText)")
     }
 
     /// ATM 提款(#43):銀行存款帳戶轉到現金錢包，顯示後端的訊息，兩邊的餘額都更新。
@@ -273,7 +273,9 @@ final class AccountsUITests: XCTestCase {
         for id in ["accounts.scope", "accounts.add", "toolbar.me"] {
             XCTAssertTrue(toolbar.buttons[id].exists, "工具列缺少 \(id)")
         }
-        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕")
+        // 選單型的 toolbar 按鈕(檢視範圍、新增資產帳戶)旁邊，系統會多帶一個沒有名字的按鈕;只數有名字的。
+        let named = toolbar.buttons.allElementsBoundByIndex.filter { !$0.identifier.isEmpty || !$0.label.isEmpty }
+        XCTAssertEqual(named.count, 3, "工具列不是三顆按鈕:\(toolbar.buttonSummary)")
         XCTAssertFalse(toolbar.buttons["accounts.transfer"].exists, "ATM 提款／轉帳還在工具列")
 
         let transfer = app.buttons["accounts.transfer"]

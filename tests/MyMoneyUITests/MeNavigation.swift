@@ -14,3 +14,18 @@ extension XCUIApplication {
         segmentedControls["me.page"].buttons["規劃"].tap()
     }
 }
+
+extension XCUIElement {
+    /// 這個元素顯示的所有文字:label、value 與子孫的靜態文字。
+    /// 選擇列的值有時在 value、有時在子元素，只查 label 會漏掉。
+    var displayedText: String {
+        let value = (self.value as? String) ?? ""
+        let children = staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        return [label, value, children].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    /// 除錯用:列出這個元素底下所有按鈕的 identifier 與 label,失敗訊息裡看得到到底是哪幾顆。
+    var buttonSummary: String {
+        buttons.allElementsBoundByIndex.map { "\($0.identifier)|\($0.label)" }.joined(separator: ", ")
+    }
+}

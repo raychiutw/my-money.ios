@@ -104,7 +104,7 @@ final class RecurringUITests: XCTestCase {
         XCTAssertTrue(fifth.waitForExistence(timeout: 3), "點了扣款日沒有推入日期清單頁")
         fifth.tap()
         XCTAssertTrue(dayRow().waitForExistence(timeout: 3), "選了日期之後沒有自動返回")
-        XCTAssertTrue(dayRow().label.contains("5 號"), "返回之後扣款日不是 5 號:\(dayRow().label)")
+        XCTAssertTrue(dayRow().displayedText.contains("5 號"), "返回之後扣款日不是 5 號:\(dayRow().displayedText)")
     }
 
     /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額。

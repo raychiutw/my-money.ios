@@ -86,7 +86,10 @@ final class HouseholdUITests: XCTestCase {
         reimburseMei.tap()
         let submit = app.buttons["reimbursement.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
-        XCTAssertTrue(element(in: app, labelContaining: "小美薪轉").exists, "收款帳戶不是小美的可收款帳戶")
+        // 帳戶選擇列只顯示名稱，值在 value 或子元素裡(推入清單頁的選擇列，ADR-0004、#88)。
+        let receiving = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "收款帳戶")).firstMatch
+        XCTAssertTrue(receiving.exists, "撥款報銷沒有「收款帳戶」列")
+        XCTAssertTrue(receiving.displayedText.contains("小美薪轉"), "收款帳戶不是小美的可收款帳戶:\(receiving.displayedText)")
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "帳戶選擇列的值還帶著類型")
         XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).exists, "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
         submit.tap()

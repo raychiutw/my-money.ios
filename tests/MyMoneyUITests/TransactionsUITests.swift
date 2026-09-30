@@ -63,7 +63,7 @@ final class TransactionsUITests: XCTestCase {
             app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
             "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
         )
-        app.buttons["僅收入"].tap()
+        tapRevealing(app.buttons["僅收入"], in: app)
         sheet.buttons["完成"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
@@ -75,7 +75,7 @@ final class TransactionsUITests: XCTestCase {
         // 改成僅支出再按取消：清單和副標題都不變。
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
-        app.buttons["僅支出"].tap()
+        tapRevealing(app.buttons["僅支出"], in: app)
         sheet.buttons["取消"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
@@ -217,8 +217,12 @@ final class TransactionsUITests: XCTestCase {
         app.typeText("990")
         XCTAssertEqual(amount.value as? String, "990", "自動取得焦點時，輸入的數字沒有取代原值")
 
-        app.textFields["quickEntry.note"].tap()
+        // 表單變長之後(歸屬兩列、分類格)備註在鍵盤下面，不用備註欄搬焦點了:
+        // 按鍵盤上的「完成」收起鍵盤、清掉焦點，再點有值的金額欄，才是「點選」這條路徑。
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "按完成之後鍵盤沒有收起來")
         amount.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點金額欄之後沒有叫出鍵盤")
         amount.typeText("770")
         XCTAssertEqual(amount.value as? String, "770", "點選金額欄時，輸入的數字沒有取代原值")
 
@@ -318,7 +322,7 @@ final class TransactionsUITests: XCTestCase {
         for id in ["transactions.filter", "transactions.add", "toolbar.me"] {
             XCTAssertTrue(toolbar.buttons[id].exists, "工具列缺少 \(id)")
         }
-        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕")
+        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕:\(toolbar.buttonSummary)")
         XCTAssertFalse(toolbar.buttons["transactions.export"].exists, "匯出 CSV 還在工具列")
 
         let export = app.buttons["transactions.export"]
@@ -337,20 +341,22 @@ final class TransactionsUITests: XCTestCase {
 
         app.tabBars.buttons["交易"].tap()
         app.buttons["transactions.add"].tap()
+        // 只在記一筆的表單裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕。
         func accountRow() -> XCUIElement {
-            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+            app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
+                .buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
         }
         XCTAssertTrue(accountRow().waitForExistence(timeout: 5), "記一筆沒有「帳戶」列")
-        XCTAssertTrue(accountRow().label.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().label)")
+        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().displayedText)")
 
         accountRow().tap()
         let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試信用卡")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 3), "沒有推入帳戶清單頁")
-        XCTAssertTrue(card.label.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.label)")
+        XCTAssertTrue(card.displayedText.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.displayedText)")
 
         card.tap()
         XCTAssertTrue(accountRow().waitForExistence(timeout: 3), "選了帳戶之後沒有自動返回表單")
-        XCTAssertTrue(accountRow().label.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().label)")
+        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().displayedText)")
     }
 
     /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
@@ -392,6 +398,14 @@ final class TransactionsUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "交通", "支出 88 元")
         ).firstMatch
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有交通的支出 88 元")
+    }
+
+    /// 篩選 sheet 是 medium 高度時，下半部的列還沒被建出來：捲到點得到為止再點。
+    @MainActor
+    private func tapRevealing(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+        XCTAssertTrue(element.exists && element.isHittable, "捲動之後還是點不到「\(element.label)」")
+        element.tap()
     }
 
     /// 導覽列副標題(`navigationSubtitle`)。
