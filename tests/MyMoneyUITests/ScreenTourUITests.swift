@@ -31,16 +31,16 @@ final class ScreenTourUITests: XCTestCase {
         tour.push(app.buttons["login.register"], capturing: "register")
         tour.signIn()
 
-        // 總覽，以及從總覽打開的記一筆、帳號 sheet(家庭群組、機器人記帳、模擬對話)。
+        // 總覽，以及從總覽打開的記一筆、「我的」sheet(家庭群組、機器人記帳、模擬對話)。
         tour.captureScrolling("overview")
         tour.present(app.buttons["overview.add"], capturing: "quick-entry")
         tour.tap(app.buttons["toolbar.me"])
-        tour.captureScrolling("account-sheet")
-        tour.push(app.buttons["account.household"], capturing: "household")
+        tour.captureScrolling("me-settings")
+        tour.push(app.buttons["me.household"], capturing: "household")
         tour.push(app.buttons["機器人記帳"], capturing: "bot") {
             tour.push(app.buttons["模擬對話"], capturing: "bot-chat")
         }
-        tour.dismissSheet(titled: "帳號")
+        tour.dismissSheet(titled: "我的")
 
         // 交易，以及 toolbar 篩選按鈕打開的篩選 sheet(#74)。
         tour.select(tab: "交易")
@@ -64,9 +64,10 @@ final class ScreenTourUITests: XCTestCase {
         tour.select(tab: "統計")
         tour.captureScrolling("statistics")
 
-        // 規劃，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
-        tour.select(tab: "規劃")
-        tour.captureScrolling("planning")
+        // 「我的」的規劃分頁，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
+        tour.tap(app.buttons["toolbar.me"])
+        tour.tap(app.segmentedControls["me.page"].buttons["規劃"])
+        tour.captureScrolling("me-planning")
         tour.push(app.buttons["週期收支"], capturing: "recurring") {
             tour.present(app.buttons["recurring.add"], capturing: "recurring-editor")
         }
@@ -74,6 +75,7 @@ final class ScreenTourUITests: XCTestCase {
             tour.present(app.buttons["goals.add"], capturing: "goal-editor")
         }
         tour.push(app.buttons["現金流預測"], capturing: "forecast")
+        tour.dismissSheet(titled: "我的")
     }
 }
 
@@ -153,10 +155,10 @@ private struct Tour {
         XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "「\(screen)」按取消之後沒有關閉")
     }
 
-    /// 用導覽列的關閉鈕關掉沒有「取消」的 sheet(帳號 sheet)。
+    /// 用導覽列的關閉鈕關掉沒有「取消」的 sheet(「我的」)。
     ///
     /// 系統的關閉鈕(`Button(role: .close)`)沒有 identifier,標籤跟著模擬器的語言;找不到才改用下滑。
-    /// 下滑只在清單捲在頂端時有用：大字級時帳號 sheet 捲到底之後，在導覽列下滑只會捲動清單。
+    /// 下滑只在清單捲在頂端時有用：大字級時「我的」捲到底之後，在導覽列下滑只會捲動清單。
     func dismissSheet(titled title: String) {
         let bar = app.navigationBars[title]
         XCTAssertTrue(bar.waitForExistence(timeout: 5), "沒有看到「\(title)」sheet")

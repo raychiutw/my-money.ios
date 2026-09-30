@@ -14,7 +14,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["規劃"].tap()
+        app.openPlanning()
         app.buttons["週期收支"].tap()
         XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
         XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 14,000 元").exists, "摘要的主數字不是週期支出的分攤平滑")
@@ -52,7 +52,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["規劃"].tap()
+        app.openPlanning()
         app.buttons["週期收支"].tap()
         XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
 

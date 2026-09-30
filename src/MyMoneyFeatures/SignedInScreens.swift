@@ -23,10 +23,10 @@ public struct MainScreens {
     /// 規劃 → 現金流預測。
     public let forecast: ForecastModel
 
-    /// 帳號 sheet → 家庭。
+    /// 「我的」 → 家庭。
     public let household: HouseholdModel
 
-    /// 帳號 sheet → 機器人記帳。
+    /// 「我的」 → 機器人記帳。
     public let bot: BotModel
 
     /// 用同一份資料版本組出這個 session 的所有畫面 model。

@@ -8,7 +8,7 @@ final class RegisterFlowUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 註冊成功後直接進入 tab 外殼，帳號 sheet 顯示新帳號的名稱與 email。
+    /// 註冊成功後直接進入 tab 外殼，「我的」顯示新帳號的名稱與 email。
     @MainActor
     func testRegisterEntersTabShellWithNewAccount() throws {
         let app = launchResettingSession()

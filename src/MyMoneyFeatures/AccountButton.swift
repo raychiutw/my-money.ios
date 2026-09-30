@@ -54,20 +54,35 @@ struct AccountToolbarItem: ToolbarContent {
     }
 }
 
-/// 姓名第一個字的圓形頭像;沒有文字時是人像圖示。字用 `subheadline`,圓圈跟著字級放大，大字級不會裁掉字。
-private struct AvatarView: View {
+/// 姓名第一個字的圓形頭像;沒有文字時是人像圖示。字用 text style,圓圈跟著字級放大，大字級不會裁掉字。
+/// toolbar 上的小頭像和「我的」標頭的大頭像共用。
+struct AvatarView: View {
     let initial: String?
-    @ScaledMetric(relativeTo: .subheadline) private var size = 30
+    let font: Font
+    @ScaledMetric private var size: CGFloat
+
+    init(
+        initial: String?, baseSize: CGFloat = 30, font: Font = .subheadline.weight(.semibold),
+        relativeTo style: Font.TextStyle = .subheadline
+    ) {
+        self.initial = initial
+        self.font = font
+        _size = ScaledMetric(wrappedValue: baseSize, relativeTo: style)
+    }
 
     var body: some View {
         if let initial {
             Text(initial)
-                .font(.subheadline.weight(.semibold))
+                .font(font)
                 .foregroundStyle(.background)
                 .frame(width: size, height: size)
                 .background(Circle().fill(Color.accentColor))
         } else {
-            Image(systemName: "person.crop.circle")
+            Image(systemName: "person.crop.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+                .foregroundStyle(Color.accentColor)
         }
     }
 }

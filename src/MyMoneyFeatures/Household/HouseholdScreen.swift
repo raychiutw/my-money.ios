@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 帳號 sheet → 家庭：建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」)。
+/// 「我的」 → 家庭：建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」)。
 struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
     @State private var isLeaveConfirming = false

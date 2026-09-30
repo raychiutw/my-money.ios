@@ -1,6 +1,6 @@
 import XCTest
 
-/// 帳號 sheet → 機器人記帳。資料來自 MyMoneyTestSupport 的 `InMemoryBotRepository.sample()`(不連網路)。
+/// 「我的」 → 機器人記帳。資料來自 MyMoneyTestSupport 的 `InMemoryBotRepository.sample()`(不連網路)。
 final class BotUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false

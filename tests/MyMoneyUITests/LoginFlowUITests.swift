@@ -10,7 +10,7 @@ final class LoginFlowUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 登入後看到 5 個 tab,規劃列出三個項目，帳號 sheet 顯示名稱與 email,登出回到登入頁。
+    /// 登入後看到 4 個 tab(規劃不再是 tab);「我的」顯示名稱與 email,設定有機器人記帳,規劃列出三個項目，登出回到登入頁。
     @MainActor
     func testSignInShowsTabShellAndSignOutReturnsToLogin() throws {
         let app = launch(resettingSession: true)
@@ -20,24 +20,26 @@ final class LoginFlowUITests: XCTestCase {
 
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "統計", "規劃"] {
+        for tab in ["總覽", "交易", "帳戶", "統計"] {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "缺少「\(tab)」tab")
         }
-        app.tabBars.buttons["規劃"].tap()
+        XCTAssertFalse(app.tabBars.buttons["規劃"].exists, "規劃不該還是 tab")
+
+        app.openMe()
+        XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["family@example.com"].exists)
+        // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被「我的」蓋住的總覽視角分段控制，
+        // 視角改進 toolbar 選單(#63)之後就找不到了。家庭升為 tab 之後(#85)這個入口會移除。
+        XCTAssertTrue(app.buttons["me.household"].exists, "「我的」沒有「家庭群組」")
+        XCTAssertTrue(app.buttons["機器人記帳"].exists)
+
+        app.segmentedControls["me.page"].buttons["規劃"].tap()
         for item in ["週期收支", "儲蓄目標", "現金流預測"] {
             XCTAssertTrue(app.buttons[item].waitForExistence(timeout: 3), "規劃缺少「\(item)」")
         }
+        app.segmentedControls["me.page"].buttons["設定"].tap()
 
-        app.tabBars.buttons["總覽"].tap()
-        app.buttons["toolbar.me"].tap()
-        XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["family@example.com"].exists)
-        // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被帳號 sheet 蓋住的總覽視角分段控制，
-        // 視角改進 toolbar 選單(#63)之後就找不到了。
-        XCTAssertTrue(app.buttons["account.household"].exists, "帳號 sheet 沒有「家庭群組」")
-        XCTAssertTrue(app.buttons["機器人記帳"].exists)
-
-        app.buttons["account.signOut"].tap()
+        app.buttons["me.signOut"].tap()
 
         XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.tabBars.buttons["總覽"].exists)

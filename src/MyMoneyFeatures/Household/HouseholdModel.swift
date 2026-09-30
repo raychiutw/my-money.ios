@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 帳號 sheet → 家庭(parity.md「家庭」)。
+/// 「我的」 → 家庭(parity.md「家庭」)。
 @MainActor
 @Observable
 public final class HouseholdModel {

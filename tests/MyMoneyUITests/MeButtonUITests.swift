@@ -1,6 +1,6 @@
 import XCTest
 
-/// 每個 tab 主頁面右上角的頭像按鈕(ADR-0004、#83)。
+/// 每個 tab 主頁面右上角的頭像按鈕(ADR-0004、#83)。規劃在 #84 移出 tab,所以只剩 4 個 tab。
 ///
 /// 範例帳號的姓名是「小明」(MyMoneyTestSupport 的 `InMemoryAuthRepository.Member.sample`)。
 final class MeButtonUITests: XCTestCase {
@@ -8,7 +8,7 @@ final class MeButtonUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 依序切到每個 tab:主頁面右上角都有頭像按鈕，點了打開同一個帳號 sheet，關閉後回到原本的 tab。
+    /// 依序切到每個 tab:主頁面右上角都有頭像按鈕，點了打開同一個「我的」，關閉後回到原本的 tab。
     @MainActor
     func testEveryTabRootOpensAndClosesTheSameSheet() throws {
         let app = XCUIApplication()
@@ -16,17 +16,17 @@ final class MeButtonUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "統計", "規劃"] {
+        for tab in ["總覽", "交易", "帳戶", "統計"] {
             app.tabBars.buttons[tab].tap()
             let me = app.buttons["toolbar.me"]
             XCTAssertTrue(me.waitForExistence(timeout: 5), "「\(tab)」主頁面右上角沒有頭像按鈕")
 
             me.tap()
-            XCTAssertTrue(app.buttons["account.signOut"].waitForExistence(timeout: 5), "在「\(tab)」點頭像沒有打開帳號 sheet")
+            XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5), "在「\(tab)」點頭像沒有打開「我的」")
 
-            app.buttons["account.close"].tap()
-            XCTAssertTrue(app.buttons["account.signOut"].waitForNonExistence(timeout: 5), "在「\(tab)」關閉之後帳號 sheet 還在")
-            XCTAssertTrue(app.tabBars.buttons[tab].isSelected, "關閉帳號 sheet 之後沒有回到「\(tab)」")
+            app.buttons["me.close"].tap()
+            XCTAssertTrue(app.buttons["me.signOut"].waitForNonExistence(timeout: 5), "在「\(tab)」關閉之後「我的」還在")
+            XCTAssertTrue(app.tabBars.buttons[tab].isSelected, "關閉「我的」之後沒有回到「\(tab)」")
         }
     }
 

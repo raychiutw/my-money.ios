@@ -1,17 +1,16 @@
 import SwiftUI
 
-/// 登入後的 5 個 tab。
+/// 登入後的 tab。規劃已經收進「我的」(ADR-0004)。
 enum AppTab: Hashable {
     case overview
     case transactions
     case accounts
     case statistics
-    case planning
 }
 
 /// 登入後的 tab 外殼(ADR-0004、DESIGN.md「導覽」)。iPad 用 sidebar,入口跟 iPhone 同一套。
 ///
-/// 每個 tab 主頁面 toolbar 最右邊的頭像按鈕都呼叫同一個動作，由這裡打開同一個「帳號」sheet;
+/// 每個 tab 主頁面 toolbar 最右邊的頭像按鈕都呼叫同一個動作，由這裡打開同一個「我的」sheet;
 /// sheet 的 model 由這一層持有，各 tab 不必各自傳遞。
 struct MainTabView: View {
     let screens: MainScreens
@@ -32,39 +31,11 @@ struct MainTabView: View {
             Tab("統計", systemImage: "chart.bar", value: .statistics) {
                 StatisticsScreen(model: screens.statistics)
             }
-            Tab("規劃", systemImage: "calendar", value: .planning) {
-                PlanningScreen(screens: screens)
-            }
         }
         .tabViewStyle(.sidebarAdaptable)
         .environment(\.openAccount, OpenAccountAction { isAccountPresented = true })
         .sheet(isPresented: $isAccountPresented) {
-            AccountSheet(household: screens.household, bot: screens.bot)
-        }
-    }
-}
-
-/// 規劃：週期收支、儲蓄目標、現金流預測的列表。
-private struct PlanningScreen: View {
-    let screens: MainScreens
-
-    var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink("週期收支") {
-                    RecurringScreen(model: screens.recurring)
-                }
-                NavigationLink("儲蓄目標") {
-                    SavingsGoalsScreen(model: screens.goals)
-                }
-                NavigationLink("現金流預測") {
-                    ForecastScreen(model: screens.forecast)
-                }
-            }
-            .navigationTitle("規劃")
-            .toolbar {
-                AccountToolbarItem()
-            }
+            MeSheet(screens: screens)
         }
     }
 }

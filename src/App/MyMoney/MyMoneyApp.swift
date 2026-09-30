@@ -14,7 +14,7 @@ struct MyMoneyApp: App {
     private let login: LoginModel
     private let register: RegisterModel
     private let signedIn: SignedInScreens
-    /// 帳號 sheet 的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
+    /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
     private let suggestsStrongPasswords: Bool
@@ -104,6 +104,7 @@ struct MyMoneyApp: App {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
                 .environment(appearance)
+                .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
@@ -116,7 +117,7 @@ struct MyMoneyApp: App {
 
     /// 把外觀設在每個 window 上，登入頁、sheet 和 alert 都在 window 裡，一起跟著變。
     ///
-    /// 不用 `preferredColorScheme`:在 iOS 27 上，帳號 sheet 開著時切到深色，之後再切成淺色或跟隨系統，
+    /// 不用 `preferredColorScheme`:在 iOS 27 上，「我的」開著時切到深色，之後再切成淺色或跟隨系統，
     /// sheet 都停在深色(#62 的截圖驗證)。window 的 `.unspecified` 就是跟隨系統，系統依時間自動切換也會跟著變;
     /// 增強對比是另一個 trait,不受影響。
     private static func apply(_ appearance: Appearance) {
