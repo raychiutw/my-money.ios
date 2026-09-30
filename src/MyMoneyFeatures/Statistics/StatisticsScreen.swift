@@ -203,10 +203,7 @@ struct StatisticsScreen: View {
                         }
                     }
                 } label: {
-                    // 整列都點得開，不只文字的範圍。
-                    Label("新增預算額度", systemImage: "plus")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(.rect)
+                    AddBudgetMenuLabel()
                 }
                 .accessibilityIdentifier("budgets.add")
             }
@@ -237,6 +234,26 @@ private struct MonthSwitcher: View {
                 .labelStyle(.iconOnly)
         }
         .buttonStyle(.borderless)
+    }
+}
+
+/// 「新增預算額度」選單的 label:整列都點得開，不只文字的範圍。
+///
+/// 不用 `Label`:`Menu` 的 label 是 `Label` 時，AX5 字級折成兩行會被裁掉、圖示壓到文字(#76 的截圖),
+/// 改成自己排圖示和文字。圖示欄的寬度和間距跟 List 裡的 `Label` 差不多，文字對齊上面各列的分類名稱。
+private struct AddBudgetMenuLabel: View {
+    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: "plus")
+                .frame(width: iconWidth)
+                .accessibilityHidden(true)
+            Text("新增預算額度")
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .contentShape(.rect)
     }
 }
 
