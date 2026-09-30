@@ -4,7 +4,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("編輯交易紀錄")
+@Suite("編輯交易記錄")
 struct TransactionEditorTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let repository = InMemoryTransactionRepository(transactions: [])
@@ -29,7 +29,7 @@ struct TransactionEditorTests {
     func prefillsOriginalValues() async {
         let editor = await editor(for: headphones)
 
-        #expect(editor.title == "編輯交易紀錄")
+        #expect(editor.title == "編輯交易記錄")
         #expect(!editor.isShared)
         #expect(editor.type == .expense)
         #expect(editor.category == TransactionCategory("購物"))
@@ -70,7 +70,7 @@ struct TransactionEditorTests {
         #expect(dataVersion.value == 0)
     }
 
-    @Test("沒選資金帳戶時提示「請先建立並選擇帳戶」")
+    @Test("沒選資產帳戶時提示「請先建立並選擇帳戶」")
     func requiresAccount() async {
         let editor = await editor(for: headphones)
         editor.accountID = nil

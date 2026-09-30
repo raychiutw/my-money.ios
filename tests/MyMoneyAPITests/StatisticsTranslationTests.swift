@@ -71,7 +71,7 @@ struct StatisticsTranslationTests {
         #expect(try await repository.householdShares(month: september).isEmpty)
     }
 
-    @Test("分類預算：帶上已花與超支(後端算好)")
+    @Test("預算額度：帶上已花與超支(後端算好)")
     func budgets() async throws {
         try stub.reply(status: 200, fixture: "budgets-list.json")
 
@@ -85,14 +85,14 @@ struct StatisticsTranslationTests {
         ])
     }
 
-    @Test("這個月還沒有分類預算")
+    @Test("這個月還沒有預算額度")
     func budgetsEmpty() async throws {
         try stub.reply(status: 200, fixture: "budgets-list-empty.json")
 
         #expect(try await repository.budgets(month: september).isEmpty)
     }
 
-    @Test("設定分類預算：PUT /budgets {category, amount, month}")
+    @Test("設定預算額度：PUT /budgets {category, amount, month}")
     func setBudget() async throws {
         try stub.reply(status: 200, fixture: "budgets-put-update.json")
 

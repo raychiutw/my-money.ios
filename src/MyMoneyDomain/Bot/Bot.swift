@@ -46,6 +46,6 @@ public protocol BotRepository: Sendable {
 
     func unbind(_ id: BotBindingID) async throws
 
-    /// 模擬對話：送出一則自然語意指令，回傳機器人的回覆。**會寫入真的交易紀錄**。
+    /// 模擬對話：送出一則自然語言指令，回傳機器人的回覆。**會寫入真的交易記錄**。
     func simulate(_ text: String) async throws -> String
 }

@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 規劃 → 固定收支：三張統計卡、固定支出與固定收入兩區(parity.md「固定收支」)。
+/// 規劃 → 週期收支：摘要(一個主數字加一般列)、週期支出與週期收入兩區(parity.md「週期收支」)。
 struct RecurringScreen: View {
     @Bindable var model: RecurringModel
     @State private var editor: EditorSheet?
@@ -11,20 +11,20 @@ struct RecurringScreen: View {
     var body: some View {
         content
             .skeletonTransition(value: model.phase)
-            .navigationTitle("固定收支")
+            .navigationTitle("週期收支")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         editor = EditorSheet(model.makeEditor())
                     } label: {
-                        Label("新增固定收支", systemImage: "plus")
+                        Label("新增週期收支", systemImage: "plus")
                     }
                     .accessibilityIdentifier("recurring.add")
                 }
                 ToolbarItem(placement: .secondaryAction) {
                     ShareLink(
                         item: model.csvExport(),
-                        preview: SharePreview("固定收支 CSV", image: Image(systemName: "tablecells"))
+                        preview: SharePreview("週期收支 CSV", image: Image(systemName: "tablecells"))
                     ) {
                         Label("匯出 CSV", systemImage: "square.and.arrow.up")
                     }
@@ -37,7 +37,7 @@ struct RecurringScreen: View {
                 RecurringEditorView(model: sheet.model)
             }
             .confirmationDialog(
-                "刪除固定收支",
+                "刪除週期收支",
                 isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                 titleVisibility: .visible,
                 presenting: pendingDeletion
@@ -74,13 +74,20 @@ struct RecurringScreen: View {
         switch model.phase {
         case .loading:
             List {
-                SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
-                SkeletonSection(title: "固定支出", count: 3) { SkeletonItemRow() }
-                SkeletonSection(title: "固定收入", count: 1) { SkeletonItemRow() }
+                Section {
+                    SummaryRow(title: "週期支出的分攤平滑", amount: Skeleton.amount)
+                        .skeletonAnnouncement()
+                    ForEach(0..<2, id: \.self) { _ in
+                        AmountRow(title: "摘要數字", amount: Skeleton.amount)
+                            .skeletonRow()
+                    }
+                }
+                SkeletonSection(title: "週期支出", count: 3) { SkeletonItemRow() }
+                SkeletonSection(title: "週期收入", count: 1) { SkeletonItemRow() }
             }
         case .failed(let message):
             ContentUnavailableView {
-                Label("無法載入固定收支", systemImage: "exclamationmark.triangle")
+                Label("無法載入週期收支", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
@@ -91,18 +98,18 @@ struct RecurringScreen: View {
         case .loaded:
             List {
                 summarySection
-                Section("固定支出(\(model.expenses.count))") {
+                Section("週期支出(\(model.expenses.count))") {
                     if model.expenses.isEmpty {
-                        Text("尚未新增固定支出")
+                        Text("尚未新增週期支出")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(model.expenses) { item in
                         row(item)
                     }
                 }
-                Section("固定收入(\(model.incomes.count))") {
+                Section("週期收入(\(model.incomes.count))") {
                     if model.incomes.isEmpty {
-                        Text("尚未設定固定收入")
+                        Text("尚未設定週期收入")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(model.incomes) { item in
@@ -114,11 +121,12 @@ struct RecurringScreen: View {
         }
     }
 
+    /// 摘要：週期支出的分攤平滑是主數字，其餘是一般列(DESIGN.md「列與欄位」第 6 條，#77)。
     private var summarySection: some View {
         Section {
-            SummaryRow(title: "固定支出的週期攤提", amount: model.monthlyExpense, detail: "年繳、季繳換算成每月要預留的金額")
-            SummaryRow(title: "固定收入的週期攤提", amount: model.monthlyIncome, detail: "每月穩定入帳的金額")
-            SummaryRow(title: "每月固定淨額", amount: model.monthlyNet, detail: "固定收入減固定支出", warnsWhenNegative: true)
+            SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense)
+            AmountRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome)
+            AmountRow(title: "每月固定淨額", amount: model.monthlyNet, warnsWhenNegative: true)
         }
     }
 
@@ -146,47 +154,72 @@ struct RecurringScreen: View {
     }
 }
 
-/// 一項固定收支：名稱、扣款日或入帳日、關聯帳戶、(非每月的固定支出)週期攤提、每期金額。
+/// 一項週期收支，一行一個欄位(DESIGN.md「列與欄位」,#77):
+///
+/// - 第 1 行：名稱。
+/// - 第 2 行：週期與日期，例如「每月 5 號扣款」。
+/// - 第 3 行：資產帳戶名稱，不加前綴;沒設就不顯示。
+/// - trailing:帶正負號的每期金額，下面是非每月週期支出的每月分攤平滑，例如「$2,000／月」。
+///
+/// 放不下時(大字級)改成上下堆疊，金額一律單行。VoiceOver 把整列念成一句。
 private struct RecurringRow: View {
     let item: RecurringItem
 
+    /// 左右並列時，文字欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊(同 `TransactionRow`)。
+    @ScaledMetric(relativeTo: .body) private var minimumTextWidth: CGFloat = 120
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                texts
+                    .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .trailing, spacing: 4) {
+                    amounts
+                }
+            }
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.name)
-                    .font(.headline)
-                Text(item.scheduleText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(details)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                texts
+                amounts
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                // 金額一律帶正負號，收入綠色、支出紅色(DESIGN.md「顏色」)。
-                Text(item.type == .income ? "+\(item.amount.formatted())" : "-\(item.amount.formatted())")
-                    .monospacedDigit()
-                    .foregroundStyle(item.type == .income ? .green : .red)
-                Text("\(item.cycle.label)\(item.type == .income ? "收" : "繳")")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(item.name),\(item.type == .income ? "固定收入" : "固定支出") \(item.amount.spokenText),\(item.scheduleText),"
-                + details(spoken: true)
-        )
+        .accessibilityLabel(item.spokenText)
     }
 
-    private var details: String { details(spoken: false) }
+    @ViewBuilder
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.name)
+                .font(.headline)
+            Text(item.scheduleText)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if let account = item.accountText {
+                Text(account)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 
-    private func details(spoken: Bool) -> String {
-        let account = item.accountName.map { item.type == .income ? "入帳帳戶：\($0)" : "關聯扣款帳戶：\($0)" } ?? "未指定關聯帳戶"
-        guard item.showsMonthlyAmortization else { return account }
-        let amortization = spoken ? item.monthlyAmortization.spokenText : item.monthlyAmortization.formatted()
-        return "\(account) · 週期攤提 \(amortization) / 月"
+    /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
+    @ViewBuilder
+    private var amounts: some View {
+        // 金額一律帶正負號，收入綠色、支出紅色(DESIGN.md「顏色」)。
+        Text(item.type == .income ? "+\(item.amount.formatted())" : "-\(item.amount.formatted())")
+            .monospacedDigit()
+            .foregroundStyle(item.type == .income ? .green : .red)
+            .lineLimit(1)
+            .fixedSize()
+        if let amortization = item.amortizationText {
+            Text(amortization)
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
     }
 }

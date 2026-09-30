@@ -1,0 +1,162 @@
+import Foundation
+import MyMoneyDomain
+import Observation
+
+/// 信用卡詳細頁的 model(#73,parity.md「帳戶」)。從帳戶頁或總覽的信用卡精簡列 push 進來，由路由建立。
+///
+/// 繳款、出帳作業、校準未出帳、編輯都在這一頁;成功後資料版本遞增，這一頁、帳戶頁和總覽都重新取得。
+@MainActor
+@Observable
+public final class CreditCardDetailModel {
+    /// 目前的信用卡帳戶。
+    public private(set) var card: CreditCard
+
+    /// 信用卡扣款還款的扣款帳戶：跟打開這一頁的畫面同一個帳戶檢視範圍的銀行存款帳戶。
+    public private(set) var bankAccounts: [BankAccount]
+
+    @ObservationIgnored private let scope: AccountScope
+    @ObservationIgnored private let repository: any AccountRepository
+    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let today: () -> CalendarDay
+    /// 上一次取得時的資料版本;`nil` 是還沒取得過。
+    @ObservationIgnored private var loadedVersion: Int?
+
+    /// `card`、`bankAccounts` 是精簡列所在畫面剛載入的資料,`loadedVersion` 是那次載入的資料版本
+    /// (不是現在的：那個畫面可能還在重新載入);`scope` 是那個畫面的帳戶檢視範圍，重新取得時沿用。
+    public init(
+        card: CreditCard,
+        bankAccounts: [BankAccount],
+        loadedVersion: Int?,
+        scope: AccountScope,
+        repository: any AccountRepository,
+        dataVersion: DataVersion,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
+        self.card = card
+        self.bankAccounts = bankAccounts
+        self.scope = scope
+        self.repository = repository
+        self.dataVersion = dataVersion
+        self.today = today
+        self.loadedVersion = loadedVersion
+    }
+
+    /// 「繳款」選單的項目。
+    public var paymentPresets: [CardPaymentModel.Preset] {
+        card.paymentPresets
+    }
+
+    /// 有未出帳款才顯示「出帳作業」。
+    public var showsRollover: Bool {
+        card.canRollOver
+    }
+
+    /// 操作失敗時顯示的訊息(alert)。
+    public var alertMessage: String?
+
+    /// 操作成功時顯示的訊息(後端回傳的原文)。
+    public var noticeMessage: String?
+
+    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」(#56)。
+    public var rolloverConfirmation: String {
+        card.rolloverConfirmation
+    }
+
+    /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本(詳細頁、帳戶頁和總覽都重新取得)。
+    public func rollOver() async {
+        do {
+            noticeMessage = try await repository.rollOverStatement(card.id)
+            dataVersion.bump()
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    /// 正在校準未出帳;送出期間停用「校準未出帳」。
+    public private(set) var isReconciling = false
+
+    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退和還款。
+    /// 後端扣的是還款的全額，繳過已出帳待繳款的話未出帳款會被算少(onion523/my-money#27 第 1 項),
+    /// 所以最後提醒(parity 刻意偏離第 39 項)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
+    public var reconcileConfirmation: String {
+        let fallback = card.statementDay == nil ? "算這張卡所有的消費" : "從上一個結帳日起算"
+        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？"
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退和還款。"
+            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。"
+    }
+
+    /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
+    public func reconcile() async {
+        isReconciling = true
+        defer { isReconciling = false }
+        do {
+            noticeMessage = try await repository.reconcileUnbilled(card.id)
+            dataVersion.bump()
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    /// 信用卡扣款還款的 sheet(「繳款」選單的項目):扣款帳戶是同一個帳戶檢視範圍的銀行存款帳戶。
+    public func makePayment(_ preset: CardPaymentModel.Preset) -> CardPaymentModel {
+        CardPaymentModel(
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+        )
+    }
+
+    /// toolbar 的「編輯」:現有的資產帳戶編輯器。
+    public func makeEditor() -> AccountEditorModel {
+        AccountEditorModel(editing: .creditCard(card), repository: repository, dataVersion: dataVersion)
+    }
+
+    /// 重新取得時，這張卡已經不在這個帳戶檢視範圍(被刪除，或歸屬改了):畫面回到上一頁。
+    public private(set) var isGone = false
+
+    /// 資料版本在上一次取得之後改變過，才重新取得。剛打開時用精簡列的資料，不另外抓。
+    public func refreshIfStale() async {
+        guard loadedVersion != dataVersion.value else { return }
+        await load()
+    }
+
+    /// 重新取得這張卡和扣款帳戶。取得失敗時保留目前的內容，顯示錯誤。
+    public func load() async {
+        let version = dataVersion.value
+        do {
+            let accounts = try await repository.accounts(scope: scope)
+            guard !Task.isCancelled else { return }
+            let cards = accounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
+            guard let card = cards.first(where: { $0.id == self.card.id }) else {
+                isGone = true
+                return
+            }
+            self.card = card
+            bankAccounts = accounts.compactMap { if case .bank(let bank) = $0 { bank } else { nil } }
+            loadedVersion = version
+        } catch {
+            guard !Task.isCancelled else { return }
+            alertMessage = error.localizedDescription
+        }
+    }
+}
+
+extension CreditCard {
+    /// 有未出帳款就能做結帳日出帳作業，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
+    var canRollOver: Bool {
+        unbilledDebt > .zero
+    }
+
+    /// 出帳作業的確認。web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
+    var rolloverConfirmation: String {
+        "確定要將「\(name)」的未出帳款 \(unbilledDebt.formatted()) 轉入本期已出帳待繳款嗎？"
+    }
+
+    /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。
+    /// 詳細頁的「繳款」選單和帳戶頁的長按選單共用。
+    var paymentPresets: [CardPaymentModel.Preset] {
+        var presets: [CardPaymentModel.Preset] = []
+        if sharedDebt > .zero { presets.append(.shared) }
+        if personalDebt > .zero { presets.append(.personal) }
+        if totalDue > .zero { presets.append(.full) }
+        return presets
+    }
+}

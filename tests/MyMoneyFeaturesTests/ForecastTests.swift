@@ -50,10 +50,20 @@ struct ForecastTests {
         #expect(forecast(overdraft: overdraft, minDate: today).riskTitle == expected)
     }
 
-    @Test("最低餘額的發生日期;沒有變動時顯示「無變動」")
-    func minDateText() {
-        #expect(forecast(overdraft: false, minDate: CalendarDay(year: 2026, month: 10, day: 5)).minDateText == "2026/10/05")
-        #expect(forecast(overdraft: false, minDate: nil).minDateText == "無變動")
+    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「2026/10/05」。預測是未來 30 天，跨年時才寫年份。
+    @Test("最低餘額的發生日期、預定收支日是「10月5日」這種系統格式，不是今年的加上年份;沒有變動時顯示「無變動」")
+    func dateTexts() async throws {
+        let model = ForecastModel(
+            repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(),
+            locale: Locale(identifier: "zh_Hant_TW"), today: { today }
+        )
+        await model.load()
+        let loaded = try #require(model.forecast)
+
+        #expect(model.minDateText(of: loaded) == "10月5日")
+        #expect(loaded.events.map { model.dateText($0.date) } == ["10月5日", "10月25日"])
+        #expect(model.dateText(CalendarDay(year: 2027, month: 1, day: 3)) == "2027年1月3日")
+        #expect(model.minDateText(of: forecast(overdraft: false, minDate: nil)) == "無變動")
     }
 
     @Test("預定收支依後端的順序")
@@ -143,7 +153,7 @@ struct ForecastTests {
         #expect(model.purchaseCheck == nil)
     }
 
-    @Test("資料版本改變後重抓(固定收支、資金帳戶或儲蓄目標改了，預測就會變)")
+    @Test("資料版本改變後重抓(週期收支、資產帳戶或儲蓄目標改了，預測就會變)")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()
         let repository = InMemoryForecastRepository.sample(today: today)

@@ -1,6 +1,6 @@
 import MyMoneyDomain
 
-/// 不連網路的統計與分類預算：資料由測試決定，並記下每一次查詢。
+/// 不連網路的統計與預算額度：資料由測試決定，並記下每一次查詢。
 ///
 /// 分類支出依視角各給一份;視角的篩選是後端的規則，這裡不模擬(ADR-0001)。
 public actor InMemoryStatisticsRepository: StatisticsRepository {
@@ -41,7 +41,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     private let shares: [HouseholdShare]
     private var storedBudgets: [Budget]
     private var failure: RepositoryError?
-    /// 有設定時，收支趨勢改從這些交易紀錄算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
+    /// 有設定時，收支趨勢改從這些交易記錄算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
     private let transactions: InMemoryTransactionRepository?
 
     public private(set) var categoryQueries: [CategoryQuery] = []
@@ -70,7 +70,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     }
 
     /// 我記的:購物 880、交通 250、餐飲 120;家庭視角只有餐飲 120。
-    /// 分類預算：餐飲 100(超支)、購物 1000(接近上限)。公帳代墊款：小明 6000、小美 4000。
+    /// 預算額度：餐飲 100(超支)、購物 1000(接近上限)。公帳代墊款：小明 6000、小美 4000。
     public static func sample(
         month: CalendarMonth, shares: [HouseholdShare]? = nil, transactions: InMemoryTransactionRepository? = nil
     ) -> InMemoryStatisticsRepository {

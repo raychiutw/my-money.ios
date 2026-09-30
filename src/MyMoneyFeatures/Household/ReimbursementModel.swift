@@ -4,7 +4,7 @@ import Observation
 
 /// 從家庭共同基金撥款報銷代墊款的 sheet(web 的「從共同基金撥款報銷給 {名字}」)。
 ///
-/// 撥款帳戶是家庭公用的現金錢包或銀行存款帳戶(web 沒有排除家庭卡，parity 刻意偏離第 37 項);
+/// 撥款帳戶是家庭共同基金的現金錢包或銀行存款帳戶，不含家庭信用卡(web 在 `da82a11` 也排除了，parity 刻意偏離第 37 項);
 /// 收款帳戶是收款成員的可收款帳戶(後端 `b1382f4` 附在代墊統計裡，只有名稱和類型，不含餘額)。
 @MainActor
 @Observable
@@ -43,6 +43,11 @@ public final class ReimbursementModel {
         note = "家庭基金撥款報銷 \(advance.memberName) 代墊公帳"
     }
 
+    /// 可用餘額：撥款帳戶(家庭共同基金)的餘額，另起一列顯示(#78)。收款帳戶是其他成員的個人帳戶，餘額不公開。
+    public var availableBalance: Money? {
+        fundAccounts.first { $0.id == fromAccountID }?.fundsBalance
+    }
+
     public var title: String { "從共同基金撥款報銷給\(advance.memberName)" }
 
     /// 收款成員沒有可收款帳戶時的說明;這時不能送出。
@@ -60,7 +65,7 @@ public final class ReimbursementModel {
             errorMessage = error.localizedDescription
             return
         }
-        fromAccountID = (fundAccounts.first { (Self.balance(of: $0) ?? .zero) >= advance.pendingReimbursement } ?? fundAccounts.first)?.id
+        fromAccountID = (fundAccounts.first { ($0.fundsBalance ?? .zero) >= advance.pendingReimbursement } ?? fundAccounts.first)?.id
     }
 
     /// 送出;成功時回傳後端的訊息(畫面關閉 sheet 並顯示),並遞增資料版本讓其他畫面重抓。
@@ -87,14 +92,6 @@ public final class ReimbursementModel {
     }
 
     private static func holdsMoney(_ account: Account) -> Bool {
-        balance(of: account) != nil
-    }
-
-    private static func balance(of account: Account) -> Money? {
-        switch account {
-        case .cash(let wallet): wallet.balance
-        case .bank(let bank): bank.balance
-        case .creditCard: nil
-        }
+        account.fundsBalance != nil
     }
 }

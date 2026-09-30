@@ -2,7 +2,10 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「交易」tab:起迄日、視角、篩選、加總列、依日期分組的交易紀錄(parity.md「交易」)。
+/// 「交易」tab:搜尋、摘要、依日期分組的交易記錄(parity.md「交易」)。
+///
+/// 視角、起迄日、類型、分類收在 toolbar 篩選按鈕打開的「篩選」sheet(#74),目前的範圍一律顯示在導覽列副標題;
+/// 打開畫面最上面就是摘要和交易記錄。
 struct TransactionsScreen: View {
     @Bindable var model: TransactionsModel
     let quickEntry: QuickEntryModel
@@ -15,6 +18,7 @@ struct TransactionsScreen: View {
             content
                 .skeletonTransition(value: model.phase)
                 .navigationTitle("交易")
+                .navigationSubtitle(model.subtitle)
                 // 搜尋欄一直顯示在標題下方。iOS 26 起在 TabView 裡用預設位置時，CI 的 UI 階層裡找不到搜尋欄。
                 #if os(iOS)
                 .searchable(text: $model.keyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋備註、分類、帳戶或記帳人")
@@ -22,6 +26,18 @@ struct TransactionsScreen: View {
                 .searchable(text: $model.keyword, prompt: "搜尋備註、分類、帳戶或記帳人")
                 #endif
                 .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        // 跟其他頁的篩選按鈕(`ScopeFilter`)同一個 symbol。label 用 `Label` 時,toolbar 上的
+                        // `accessibilityValue` 會被丟掉，所以只放 symbol,標籤另外用 `accessibilityLabel` 補上。
+                        Button {
+                            model.editFilter()
+                        } label: {
+                            Image(systemName: "line.3.horizontal.decrease")
+                        }
+                        .accessibilityLabel("篩選")
+                        .accessibilityValue(model.subtitle)
+                        .accessibilityIdentifier("transactions.filter")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             isEntryPresented = true
@@ -33,15 +49,18 @@ struct TransactionsScreen: View {
                     ToolbarItem(placement: .secondaryAction) {
                         ShareLink(
                             item: model.csvExport(),
-                            preview: SharePreview("交易紀錄 CSV", image: Image(systemName: "tablecells"))
+                            preview: SharePreview("交易記錄 CSV", image: Image(systemName: "tablecells"))
                         ) {
                             Label("匯出 CSV", systemImage: "square.and.arrow.up")
                         }
                     }
                 }
-                // 起迄日、視角或資料版本任一改變就重抓;類型、分類、關鍵字只在本機過濾。
-                .task(id: QueryKey(from: model.from, to: model.to, scope: model.scope, version: model.dataVersion.value)) {
+                // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
+                .task(id: model.dataVersion.value) {
                     await model.load()
+                }
+                .sheet(isPresented: $model.isEditingFilter) {
+                    TransactionFilterView(model: model)
                 }
                 .sheet(isPresented: $isEntryPresented) {
                     TransactionFormView(model: quickEntry)
@@ -50,7 +69,7 @@ struct TransactionsScreen: View {
                     TransactionFormView(model: sheet.model)
                 }
                 .confirmationDialog(
-                    "刪除交易紀錄",
+                    "刪除交易記錄",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingDeletion
@@ -73,13 +92,6 @@ struct TransactionsScreen: View {
         }
     }
 
-    private struct QueryKey: Equatable {
-        let from: CalendarDay
-        let to: CalendarDay
-        let scope: ViewScope
-        let version: Int
-    }
-
     /// 編輯 sheet 需要 `Identifiable`。
     private struct EditorSheet: Identifiable {
         let id = UUID()
@@ -89,33 +101,11 @@ struct TransactionsScreen: View {
     @ViewBuilder
     private var content: some View {
         List {
-            Section {
-                Picker("視角", selection: $model.scope) {
-                    Text("全部").tag(ViewScope.all)
-                    Text("家庭").tag(ViewScope.household)
-                    Text("個人").tag(ViewScope.personal)
-                }
-                .pickerStyle(.segmented)
-                DatePicker("起日", selection: dayBinding(\.from), displayedComponents: .date)
-                    .calendarDayTimeZone()
-                DatePicker("迄日", selection: dayBinding(\.to), displayedComponents: .date)
-                    .calendarDayTimeZone()
-                Picker("類型", selection: $model.typeFilter) {
-                    Text("全部類型").tag(TransactionsModel.TypeFilter.all)
-                    Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
-                    Text("僅收入").tag(TransactionsModel.TypeFilter.income)
-                }
-                Picker("分類", selection: $model.categoryFilter) {
-                    Text("全部分類").tag(TransactionCategory?.none)
-                    ForEach(model.categoryOptions, id: \.self) { category in
-                        Label(category.name, systemImage: category.symbolName).tag(Optional(category))
-                    }
-                }
-            }
-
             switch model.phase {
             case .loading:
-                SkeletonSection(count: 1, announces: true) { SkeletonItemRow() }
+                SkeletonSection(count: 3, announces: true) {
+                    LabeledContent("總收入", value: Skeleton.amount.formatted())
+                }
                 SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
                 SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
             case .failed(let message):
@@ -125,20 +115,30 @@ struct TransactionsScreen: View {
                 }
             case .loaded:
                 totalsSection
-                if model.days.isEmpty {
+                let days = model.days
+                if days.isEmpty {
                     ContentUnavailableView {
-                        Label("沒有符合條件的交易紀錄", systemImage: "magnifyingglass")
+                        Label("沒有符合條件的交易記錄", systemImage: "magnifyingglass")
                     } actions: {
                         Button("記一筆") { isEntryPresented = true }
                     }
                 }
-                ForEach(model.days) { day in
+                ForEach(days) { day in
                     Section {
                         ForEach(day.transactions) { transaction in
                             row(transaction)
                         }
                     } header: {
-                        DayHeader(day: day)
+                        // 筆數寫在交易記錄的標題，放在第一天的標頭上面(#74);用粗一級的字，跟日期分得開。
+                        if day.id == days.first?.id {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("交易記錄(\(model.count))")
+                                    .font(.headline)
+                                DayHeader(day: day)
+                            }
+                        } else {
+                            DayHeader(day: day)
+                        }
                     }
                 }
             }
@@ -146,7 +146,7 @@ struct TransactionsScreen: View {
         .refreshable { await model.load() }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。「信用卡還款」只顯示鎖定標記。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄只顯示鎖定標記。
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
@@ -155,7 +155,7 @@ struct TransactionsScreen: View {
                     editor = EditorSheet(model: editorModel)
                 }
             } label: {
-                TransactionRow(transaction: transaction)
+                TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isOpenable: true)
             }
             .tint(.primary)
             .swipeActions {
@@ -174,103 +174,53 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            VStack(alignment: .leading, spacing: 4) {
-                TransactionRow(transaction: transaction)
-                Label("「\(transaction.category.name)」是系統內部平帳或轉帳的紀錄，受保護;金額有誤時請到帳戶頁校正餘額", systemImage: "lock.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
+            // 只放鎖定標記，不放說明文字(#63);點不開，所以不截斷。
+            TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isLocked: true)
         }
     }
 
+    /// 摘要：總收入、總支出、淨收支各一列(DESIGN.md「列與欄位」);筆數在交易記錄的標題。
     private var totalsSection: some View {
         Section {
-            HStack {
-                Text("\(model.count) 筆")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("總收入 +\(model.totalIncome.formatted())")
-                        .foregroundStyle(.green)
-                    Text("總支出 -\(model.totalExpense.formatted())")
-                        .foregroundStyle(.red)
-                    Text("淨收支 \(model.net.formatted())")
-                        .bold()
-                }
-                .font(.subheadline)
-                .monospacedDigit()
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                "\(model.count) 筆，總收入 \(model.totalIncome.spokenText),總支出 \(model.totalExpense.spokenText),淨收支 \(model.net.spokenText)"
-            )
+            AmountRow(title: "總收入", amount: model.totalIncome, text: "+\(model.totalIncome.formatted())", style: .green)
+            AmountRow(title: "總支出", amount: model.totalExpense, text: "-\(model.totalExpense.formatted())", style: .red)
+            AmountRow(title: "淨收支", amount: model.net, style: .primary)
+                .bold()
         }
-    }
-
-    /// DatePicker 用 `Date`;轉換一律以台灣時間計算。
-    private func dayBinding(_ keyPath: ReferenceWritableKeyPath<TransactionsModel, CalendarDay>) -> Binding<Date> {
-        Binding(
-            get: { model[keyPath: keyPath].startOfDay },
-            set: { model[keyPath: keyPath] = CalendarDay(date: $0) }
-        )
     }
 }
 
-/// 每天的標頭：日期(MM/DD,跟 web 一樣),以及大於 0 的當日收入與支出。
+/// 每天的標頭：日期(「9月29日週二」,DESIGN.md「日期」),以及大於 0 的當日收入與支出。
+/// 放不下時(大字級)改成上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
 private struct DayHeader: View {
     let day: TransactionDay
 
     var body: some View {
-        HStack {
-            Text(String(format: "%02d/%02d", day.date.month, day.date.day))
-            Spacer()
-            if day.income > .zero {
-                Text("+\(day.income.formatted())")
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                Text(day.title)
+                Spacer(minLength: 8)
+                amounts
             }
-            if day.expense > .zero {
-                Text("-\(day.expense.formatted())")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.title)
+                amounts
             }
         }
         .monospacedDigit()
     }
-}
 
-/// 一筆交易紀錄：分類圖示、分類與備註、家庭公帳或個人私帳、記帳人、帳戶、帶正負號的金額。
-struct TransactionRow: View {
-    let transaction: MyMoneyDomain.Transaction
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: transaction.category.symbolName)
-                .frame(width: 28)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                LedgerBadge(isShared: transaction.isShared)
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(transaction.signedAmountText)
-                .monospacedDigit()
-                .foregroundStyle(transaction.amountColor)
+    @ViewBuilder
+    private var amounts: some View {
+        if day.income > .zero {
+            Text("+\(day.income.formatted())")
+                .lineLimit(1)
+                .fixedSize()
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(transaction.spokenAmount),\(title),\(transaction.isShared ? "家庭公帳" : "個人私帳"),\(detail)"
-        )
-    }
-
-    private var title: String {
-        transaction.note.isEmpty ? transaction.category.name : "\(transaction.category.name) · \(transaction.note)"
-    }
-
-    private var detail: String {
-        let account = "帳戶：\(transaction.accountName ?? "預設帳戶")"
-        guard let recorder = transaction.recorderName else { return account }
-        return "\(account) · 記帳人：\(recorder)"
+        if day.expense > .zero {
+            Text("-\(day.expense.formatted())")
+                .lineLimit(1)
+                .fixedSize()
+        }
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 信用卡還款沖銷的 sheet(parity.md「帳戶」的信用卡還款沖銷)。
+/// 信用卡扣款還款的 sheet(parity.md「帳戶」的信用卡扣款還款)。
 @MainActor
 @Observable
 public final class CardPaymentModel {
@@ -19,6 +19,10 @@ public final class CardPaymentModel {
     public let bankAccounts: [BankAccount]
 
     public var bankAccountID: AccountID?
+    /// 可用餘額：扣款帳戶的餘額，另起一列顯示(#78)。
+    public var availableBalance: Money? {
+        bankAccounts.first { $0.id == bankAccountID }?.balance
+    }
     public var amountText: String
     public var date: CalendarDay
     public var note: String
@@ -31,18 +35,18 @@ public final class CardPaymentModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 從卡片的哪個按鈕打開(web 的 `handleOpenPay`)。
+    /// 從「繳款」選單的哪個項目打開(web 的 `handleOpenPay`;信用卡詳細頁和精簡列的長按選單，#73)。
     public enum Preset: Sendable {
         /// 「繳家庭代墊」:欠款裡家庭公帳的部分，家庭公帳。
         case shared
         /// 「繳個人私帳」:欠款裡個人私帳的部分，個人私帳。
         case personal
-        /// 「全額結清」:待繳卡費總額，家庭公帳。
+        /// 「全額結清」:信用卡待繳總額，家庭公帳。
         case full
     }
 
-    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的按鈕;
-    /// 今天;「繳納 {卡名} 卡費 (家庭代墊 / 個人私帳 / 全額)」。
+    /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的項目;
+    /// 今天;備註是「信用卡扣款還款「卡名」(家庭代墊／個人私帳／全額)」,不照抄 web 的疊字(parity 刻意偏離第 42 項)。
     public init(
         card: CreditCard,
         preset: Preset,
@@ -63,7 +67,7 @@ public final class CardPaymentModel {
         }
         amountText = amount > .zero ? "\(amount.amount)" : ""
         date = today()
-        note = "繳納 \(card.name) 卡費 (\(kind))"
+        note = "信用卡扣款還款「\(card.name)」(\(kind))"
         self.isShared = isShared
     }
 
@@ -80,7 +84,7 @@ public final class CardPaymentModel {
             return .invalid
         }
         if card.totalDue > .zero, card.totalDue < amount {
-            errorMessage = "繳款金額不可超過當前待繳總額 \(card.totalDue.formatted())"
+            errorMessage = "繳款金額不可超過信用卡待繳總額 \(card.totalDue.formatted())"
             return .invalid
         }
         if bank.balance < amount, !confirmedLowBalance {

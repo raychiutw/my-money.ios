@@ -102,11 +102,11 @@ public struct ReimbursementItem: Hashable, Sendable, Identifiable {
 
 /// 從家庭共同基金撥款報銷代墊款(`POST /households/reimburse`)。
 ///
-/// 後端建立兩筆「公帳代墊報銷」系統交易紀錄(共同基金一筆支出、收款帳戶一筆收入),不算家庭消費。
+/// 後端建立兩筆「公帳代墊報銷」系統交易記錄(共同基金一筆支出、收款帳戶一筆收入),不算家庭消費。
 public struct Reimbursement: Hashable, Sendable {
     /// 收款的成員。
     public let memberID: UserID
-    /// 撥款的家庭共同基金(家庭公用帳戶)。
+    /// 撥款的家庭共同基金(歸屬家庭共同基金的銀行存款帳戶或現金錢包)。
     public let fromAccountID: AccountID
     /// 收款成員的個人帳戶。
     public let toAccountID: AccountID

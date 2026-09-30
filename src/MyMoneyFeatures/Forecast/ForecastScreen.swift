@@ -6,7 +6,11 @@ import SwiftUI
 /// 規劃 → 現金流預測：透支風險、最低餘額、預定收支、30 天逐日餘額與購買力試算(parity.md「現金流預測」)。
 struct ForecastScreen: View {
     @Bindable var model: ForecastModel
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+    }
 
     var body: some View {
         content
@@ -15,7 +19,7 @@ struct ForecastScreen: View {
             .task(id: model.dataVersion.value) {
                 await model.refreshIfStale()
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDismissal(clearing: $focusedField)
             .onChange(of: model.purchaseError) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()
@@ -48,7 +52,7 @@ struct ForecastScreen: View {
             // 資料回來之前不顯示「安全」或 $0,改顯示骨架屏(parity 刻意偏離第 7 項)。
             List {
                 SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
-                SkeletonSection(title: "30 天逐日餘額", count: 1) { SkeletonChart() }
+                SkeletonSection(title: "未來 30 天逐日餘額", count: 1) { SkeletonChart() }
                 SkeletonSection(title: "預定收支", count: 3) { SkeletonItemRow() }
             }
         }
@@ -60,9 +64,12 @@ struct ForecastScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(forecast.riskTitle)
                         .font(.headline)
-                    Text(forecast.willOverdraft ? "預計餘額會跌破 0,請及早調整" : "排定的收支都發生後，餘額仍然大於 0")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    // 只留透支的警告;安全時不另外解釋(DESIGN.md「說明文字」第 2 類)。
+                    if forecast.willOverdraft {
+                        Text("預計餘額會跌破 0,請及早調整")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } icon: {
                 Image(systemName: forecast.willOverdraft ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
@@ -72,7 +79,7 @@ struct ForecastScreen: View {
             SummaryRow(
                 title: "最低餘額",
                 amount: forecast.minBalance,
-                detail: forecast.minDate == nil ? forecast.minDateText : "發生在 \(forecast.minDateText)",
+                detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))",
                 warnsWhenNegative: true
             )
             LabeledContent("未來 30 天的預定收支", value: "\(forecast.events.count) 筆")
@@ -80,13 +87,13 @@ struct ForecastScreen: View {
     }
 
     private func chartSection(_ forecast: CashFlowForecast) -> some View {
-        Section {
+        Section("未來 30 天逐日餘額") {
             Chart(forecast.dailyBalances, id: \.date) { day in
                 AreaMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
                     .foregroundStyle(.tint.opacity(0.2))
                     .accessibilityHidden(true)
                 LineMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
-                    .accessibilityLabel("\(day.date.month) 月 \(day.date.day) 日")
+                    .accessibilityLabel(model.dateText(day.date))
                     .accessibilityValue("餘額 \(day.balance.spokenText)")
                 if forecast.willOverdraft {
                     RuleMark(y: .value("零", 0))
@@ -94,13 +101,30 @@ struct ForecastScreen: View {
                         .accessibilityHidden(true)
                 }
             }
+            // x 軸用台灣時間(#77,洛杉磯時區的截圖證實):資料點是台灣時間的午夜，裝置在別的時區時，
+            // 刻度會偏到前一天，預設的日期標籤也照裝置時區格式化。刻度位置依 environment 的 calendar
+            // (曆法沿用系統設定，只換時區;只設 timeZone 沒有作用),標籤自己用台灣時間的日期。
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(model.dateText(CalendarDay(date: date)))
+                        }
+                    }
+                }
+            }
+            .environment(\.calendar, taipeiCalendar)
             .frame(height: 220)
             .padding(.vertical, 8)
-        } header: {
-            Text("未來 30 天逐日餘額")
-        } footer: {
-            Text("起始餘額是自己的現金錢包和銀行存款帳戶餘額合計，扣掉自己信用卡的待繳卡費總額;不含其他家庭成員的資金帳戶。")
         }
+    }
+
+    private var taipeiCalendar: Calendar {
+        var calendar = Calendar.current
+        calendar.timeZone = CalendarDay.timeZone
+        return calendar
     }
 
     private func eventsSection(_ forecast: CashFlowForecast) -> some View {
@@ -113,7 +137,7 @@ struct ForecastScreen: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.name)
-                        Text(event.date.slashText)
+                        Text(model.dateText(event.date))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
@@ -125,22 +149,22 @@ struct ForecastScreen: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    "\(event.name),\(event.date.month) 月 \(event.date.day) 日,\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"
+                    "\(event.name),\(model.dateText(event.date)),\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"
                 )
             }
         }
     }
 
     private var purchaseSection: some View {
-        Section {
+        Section("購買力試算") {
             LabeledContent("購買金額") {
                 AmountField(
                     "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
-                    focus: $isAmountFocused, equals: true, identifier: "forecast.purchaseAmount"
+                    focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
                 )
             }
             Button("進行購買力試算") {
-                isAmountFocused = false
+                focusedField = nil
                 Task { await model.checkPurchase() }
             }
             .disabled(model.isChecking)
@@ -163,10 +187,6 @@ struct ForecastScreen: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-        } header: {
-            Text("購買力試算")
-        } footer: {
-            Text("輸入打算花的金額，看它對未來 30 天現金流和儲蓄目標的影響。")
         }
     }
 

@@ -12,7 +12,7 @@ public struct MainScreens {
     /// 「記一筆」:每個 session 一份，讓下一筆沿用上一筆的選擇。
     public let quickEntry: QuickEntryModel
 
-    /// 規劃 → 固定收支。
+    /// 規劃 → 週期收支。
     public let recurring: RecurringModel
 
     /// 規劃 → 儲蓄目標。
@@ -30,8 +30,9 @@ public struct MainScreens {
     public let bot: BotModel
 
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
-    /// `defaults` 存總覽選過的視角。
+    /// `currentUser` 是登入的人(自己記的交易記錄不顯示記帳人);`defaults` 存總覽選過的視角。
     public init(
+        currentUser: UserID,
         accountRepository: any AccountRepository,
         transactionRepository: any TransactionRepository,
         recurringRepository: any RecurringRepository,
@@ -45,10 +46,12 @@ public struct MainScreens {
         let dataVersion = DataVersion()
         overview = OverviewModel(
             accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
-            goals: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults
+            goals: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults, currentUser: currentUser
         )
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
-        transactions = TransactionsModel(repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
+        transactions = TransactionsModel(
+            repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser
+        )
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion)
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
@@ -67,11 +70,11 @@ public struct MainScreens {
 public final class SignedInScreens {
     public private(set) var current: MainScreens?
 
-    @ObservationIgnored private let make: @MainActor () -> MainScreens
+    @ObservationIgnored private let make: @MainActor (User) -> MainScreens
     @ObservationIgnored private var userID: UserID?
 
-    /// `make` 建立一份畫面;每次換人登入時重建，不沿用上一個人的狀態。
-    public init(make: @escaping @MainActor () -> MainScreens) {
+    /// `make` 替登入的人建立一份畫面;每次換人登入時重建，不沿用上一個人的狀態。
+    public init(make: @escaping @MainActor (User) -> MainScreens) {
         self.make = make
     }
 
@@ -79,6 +82,6 @@ public final class SignedInScreens {
     public func update(for session: Session?) {
         guard session?.user.id != userID else { return }
         userID = session?.user.id
-        current = session.map { _ in make() }
+        current = session.map { make($0.user) }
     }
 }

@@ -1,4 +1,4 @@
-/// 交易紀錄的 ID,由後端產生。
+/// 交易記錄的 ID,由後端產生。
 public struct TransactionID: Hashable, Sendable {
     public let rawValue: String
 
@@ -13,7 +13,7 @@ public enum TransactionType: String, Hashable, Sendable {
     case expense
 }
 
-/// 交易紀錄的分類。固定清單是支出 8 種、收入 5 種，外加系統專用的「信用卡還款」;
+/// 交易記錄的分類。固定清單是支出 8 種、收入 5 種，外加系統專用的「信用卡還款」;
 /// 機器人記帳可能寫入清單以外的分類，所以用字串保存。
 public struct TransactionCategory: Hashable, Sendable {
     public let name: String
@@ -25,10 +25,10 @@ public struct TransactionCategory: Hashable, Sendable {
     public static let dining = TransactionCategory("餐飲")
     public static let salary = TransactionCategory("薪資")
 
-    /// 信用卡還款沖銷產生的交易紀錄;不能編輯或刪除，也不算進生活消費支出。
+    /// 信用卡扣款還款產生的交易記錄(銀行存款帳戶一筆支出、信用卡一筆收入);不能編輯或刪除，也不算進收支統計。
     public static let creditCardRepayment = TransactionCategory("信用卡還款")
 
-    /// 帳戶互轉(ATM 提款以外)產生的交易紀錄，一筆支出一筆收入(`POST /accounts/transfer`)。
+    /// 帳戶互轉(ATM 提款以外)產生的交易記錄，一筆支出一筆收入(`POST /accounts/transfer`)。
     public static let internalTransfer = TransactionCategory("內部轉帳")
 
     /// 從銀行存款帳戶轉到現金錢包的 ATM 提款。
@@ -46,17 +46,17 @@ public struct TransactionCategory: Hashable, Sendable {
     public static let incomeCategories = ["薪資", "獎金", "投資", "兼職", "其他"].map(TransactionCategory.init)
 }
 
-/// 視角：瀏覽交易紀錄與統計時的範圍(CONTEXT.md)。raw value 是後端的 `scope`。
+/// 視角：瀏覽交易記錄與統計時的範圍(CONTEXT.md)。raw value 是後端的 `scope`。
 public enum ViewScope: String, CaseIterable, Hashable, Sendable {
     /// 我的家庭公帳與個人私帳，加上家人的家庭公帳。
     case all
     /// 全家人的家庭公帳。
     case household
-    /// 我記的所有交易紀錄，包含家庭公帳與個人私帳。
+    /// 我記的所有交易記錄，包含家庭公帳與個人私帳。
     case personal
 }
 
-/// 交易紀錄(Transaction)。
+/// 交易記錄(Transaction)。
 public struct Transaction: Hashable, Sendable, Identifiable {
     public let id: TransactionID
     public let accountID: AccountID
@@ -73,6 +73,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 記帳人的名稱。
     public let recorderName: String?
 
+    /// 記帳人的 ID。用來判斷是不是自己記的：自己記的不顯示記帳人(#72)。
+    public let recorderID: UserID?
+
     public init(
         id: TransactionID,
         accountID: AccountID,
@@ -83,7 +86,8 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         note: String,
         date: CalendarDay,
         isShared: Bool,
-        recorderName: String?
+        recorderName: String?,
+        recorderID: UserID? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -95,6 +99,7 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         self.date = date
         self.isShared = isShared
         self.recorderName = recorderName
+        self.recorderID = recorderID
     }
 
     /// 系統內部平帳或轉帳的紀錄(4 種系統分類):後端禁止編輯和刪除，統計也都排除。

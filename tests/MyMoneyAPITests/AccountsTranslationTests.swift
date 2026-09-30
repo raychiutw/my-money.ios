@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("資金帳戶的翻譯(GET /accounts、GET /accounts/balance)")
+@Suite("資產帳戶的翻譯(GET /accounts、GET /accounts/balance)")
 struct AccountsTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")
@@ -26,7 +26,7 @@ struct AccountsTranslationTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
-    @Test("帳戶檢視範圍：家庭公用帶 scope=household,只回傳家庭公用的帳戶")
+    @Test("帳戶檢視範圍：家庭共同基金帶 scope=household,只回傳歸屬家庭共同基金的帳戶")
     func householdScopeListsJointAccounts() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-household.json")
 
@@ -38,7 +38,7 @@ struct AccountsTranslationTests {
         #expect(accounts.map(\.name) == ["iOS 家庭共同基金"])
     }
 
-    @Test("帳戶檢視範圍：個人私帳的餘額摘要帶 scope=personal,不含家庭公用帳戶")
+    @Test("帳戶檢視範圍：個人私帳的餘額摘要帶 scope=personal,不含歸屬家庭共同基金的帳戶")
     func personalScopeBalanceSummary() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-personal.json")
 
@@ -94,7 +94,7 @@ struct AccountsTranslationTests {
         )))
     }
 
-    @Test("信用卡帳戶的 balance 解讀成已出帳待繳金額，unbilled 是未出帳金額")
+    @Test("信用卡帳戶的 balance 解讀成已出帳待繳款，unbilled 是未出帳款")
     func creditCardBalanceIsBilledDebt() async throws {
         try stub.reply(status: 200, fixture: "accounts-list.json")
 
@@ -123,7 +123,7 @@ struct AccountsTranslationTests {
 
         try #require(accounts.count == 4)
         guard case .creditCard(let card) = accounts[1], case .bank(let joint) = accounts[3] else {
-            Issue.record("資金帳戶的類型不對")
+            Issue.record("資產帳戶的類型不對")
             return
         }
         #expect(card.sharedDebt == Money(3000))
@@ -132,7 +132,7 @@ struct AccountsTranslationTests {
         #expect(joint.isJointFund)
     }
 
-    @Test("信用卡還款沖銷:POST /accounts/pay-credit-card")
+    @Test("信用卡扣款還款:POST /accounts/pay-credit-card")
     func payCreditCard() async throws {
         try stub.reply(status: 200, fixture: "accounts-pay-credit-card.json")
 
@@ -158,7 +158,7 @@ struct AccountsTranslationTests {
         #expect(json["is_shared"] as? Int == 1)
     }
 
-    @Test("信用卡還款沖銷的錯誤原樣傳遞", arguments: [
+    @Test("信用卡扣款還款的錯誤原樣傳遞", arguments: [
         ("accounts-pay-credit-card-over.json", "繳款金額不可超過當前待繳總額 NT$ 16,380"),
         ("accounts-pay-credit-card-missing.json", "請填寫扣款帳戶、信用卡及正確繳費金額"),
     ])
@@ -217,10 +217,11 @@ struct AccountsTranslationTests {
         }
     }
 
-    @Test("結帳日出帳結轉：回傳後端的訊息;沒有未出帳金額時原樣傳遞錯誤")
+    @Test("結帳日出帳作業：回傳後端的訊息;沒有未出帳款時原樣傳遞錯誤")
     func rollOverStatement() async throws {
         let card = AccountID("70b75089-3652-40a3-8c47-c23d04aab28c")
 
+        // fixture 是後端 `da82a11` 改用字之前從 prod 錄的，訊息是錄製當時的原文(見 Fixtures README);iOS 原樣傳遞，不依文字判斷。
         try stub.reply(status: 200, fixture: "accounts-rollover-statement.json")
         let message = try await repository.rollOverStatement(card)
         #expect(message == "已將未出帳 NT$ 7,380 成功結轉為已出帳待繳！")
@@ -248,14 +249,14 @@ struct AccountsTranslationTests {
         }
     }
 
-    @Test("沒有任何資金帳戶時是空清單")
+    @Test("沒有任何資產帳戶時是空清單")
     func emptyList() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-empty.json")
 
         #expect(try await repository.accounts().isEmpty)
     }
 
-    @Test("GET /accounts/balance 的 camelCase 欄位解讀成淨可用資產等指標")
+    @Test("GET /accounts/balance 的 camelCase 欄位解讀成淨可用餘額等指標")
     func balanceSummaryDecodesCamelCase() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance.json")
 
@@ -275,7 +276,7 @@ struct AccountsTranslationTests {
         ))
     }
 
-    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用資產由後端算好(含現金)")
+    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用餘額由後端算好(含現金)")
     func balanceSummaryIncludesCashTotal() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-with-cash.json")
 

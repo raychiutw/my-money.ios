@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 信用卡還款沖銷的 sheet:待繳卡費總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
+/// 信用卡扣款還款的 sheet:信用卡待繳總額與欠款公私拆解、快捷帶入、扣款帳戶、金額、日期、備註、歸屬。
 struct CardPaymentView: View {
     @Bindable var model: CardPaymentModel
     @Environment(\.dismiss) private var dismiss
@@ -17,24 +17,23 @@ struct CardPaymentView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("待繳卡費總額", value: model.card.totalDue.formatted())
-                    LabeledContent("已出帳待繳金額", value: model.card.billedDebt.formatted())
-                    LabeledContent("未出帳金額", value: model.card.unbilledDebt.formatted())
+                    LabeledContent("信用卡待繳總額", value: model.card.totalDue.formatted())
+                    LabeledContent("已出帳待繳款", value: model.card.billedDebt.formatted())
+                    LabeledContent("未出帳款", value: model.card.unbilledDebt.formatted())
                     LabeledContent("家庭公帳", value: model.card.sharedDebt.formatted())
                     LabeledContent("個人私帳", value: model.card.personalDebt.formatted())
                 } header: {
                     Text(model.card.name)
-                } footer: {
-                    Text("先沖已出帳待繳金額，不足的部分再沖未出帳金額。會產生一筆「信用卡還款」交易紀錄。")
                 }
                 .monospacedDigit()
 
                 Section {
-                    Picker("扣款帳戶", selection: $model.bankAccountID) {
-                        Text("請選擇扣款帳戶").tag(AccountID?.none)
-                        ForEach(model.bankAccounts) { bank in
-                            Text("\(bank.name)(餘額 \(bank.balance.formatted()))").tag(AccountID?.some(bank.id))
-                        }
+                    AccountPicker(
+                        title: "扣款帳戶", selection: $model.bankAccountID, options: model.bankAccounts.map(AccountPicker.Option.init),
+                        noneTitle: "請選擇扣款帳戶"
+                    )
+                    if let balance = model.availableBalance {
+                        AmountRow(title: "可用餘額", amount: balance)
                     }
                     LabeledContent("繳款金額") {
                         AmountField(
@@ -50,11 +49,12 @@ struct CardPaymentView: View {
                     .calendarDayTimeZone()
                     TextField("備註", text: $model.note)
                         .focused($focusedField, equals: .note)
+                    // 表單裡一般的選擇列(#65)。
                     Picker("歸屬", selection: $model.isShared) {
                         Text("家庭公帳").tag(true)
                         Text("個人私帳").tag(false)
                     }
-                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("cardPayment.ownership")
                 }
 
                 if let message = model.errorMessage {
@@ -65,7 +65,7 @@ struct CardPaymentView: View {
                     }
                 }
             }
-            .navigationTitle("信用卡還款沖銷")
+            .navigationTitle("信用卡扣款還款")
             .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -77,7 +77,7 @@ struct CardPaymentView: View {
                         .accessibilityIdentifier("cardPayment.submit")
                 }
             }
-            .keyboardDoneButton { focusedField = nil }
+            .keyboardDismissal(clearing: $focusedField)
             .confirmationDialog(
                 "扣款帳戶餘額不足",
                 isPresented: $isLowBalanceConfirming,

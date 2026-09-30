@@ -6,16 +6,16 @@ public struct BalanceSummary: Hashable, Sendable {
     /// 所有銀行存款帳戶的餘額合計。
     public let bankBalanceTotal: Money
 
-    /// 所有信用卡帳戶的已出帳待繳金額合計。
+    /// 所有信用卡帳戶的已出帳待繳款合計。
     public let billedDebtTotal: Money
 
-    /// 所有信用卡帳戶的未出帳金額合計。
+    /// 所有信用卡帳戶的未出帳款合計。
     public let unbilledDebtTotal: Money
 
-    /// 淨可用資產(Available Balance):現金 + 銀行存款 − 信用卡待繳，後端算好。
+    /// 淨可用餘額(Available Balance):現金 + 銀行存款 − 信用卡待繳，後端算好。
     public let availableBalance: Money
 
-    /// 固定支出的週期攤提(每月)。
+    /// 週期支出的分攤平滑(每月)。
     public let monthlyAmortization: Money
 
     /// 儲蓄目標的每月預留合計。
@@ -44,7 +44,7 @@ public struct BalanceSummary: Hashable, Sendable {
         self.disposableCash = disposableCash
     }
 
-    /// 全部是 0(沒有任何資金帳戶時)。
+    /// 全部是 0(沒有任何資產帳戶時)。
     public static let zero = BalanceSummary(
         bankBalanceTotal: .zero,
         billedDebtTotal: .zero,

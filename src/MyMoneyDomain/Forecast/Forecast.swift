@@ -9,7 +9,7 @@ public struct DailyBalance: Hashable, Sendable {
     }
 }
 
-/// 預定收支：未來 30 天內，固定收支預計發生的一次。
+/// 預定收支：未來 30 天內，週期收支預計發生的一次。
 public struct ForecastEvent: Hashable, Sendable {
     public let date: CalendarDay
     public let name: String
@@ -24,7 +24,7 @@ public struct ForecastEvent: Hashable, Sendable {
     }
 }
 
-/// 現金流預測(後端算好的 `GET /forecast`):只算自己的資金帳戶與固定收支。
+/// 現金流預測(後端算好的 `GET /forecast`):只算自己的資產帳戶與週期收支。
 public struct CashFlowForecast: Hashable, Sendable {
     public let dailyBalances: [DailyBalance]
     public let minBalance: Money
@@ -47,7 +47,7 @@ public struct CashFlowForecast: Hashable, Sendable {
 public enum PurchaseVerdict: String, Hashable, Sendable {
     /// 放心購買。
     case safe
-    /// 審慎評估：不會透支，但扣掉這筆後的淨可用資產低於每月預留合計。
+    /// 審慎評估：不會透支，但扣掉這筆後的淨可用餘額低於每月預留合計。
     case caution
     /// 不建議購買：扣掉這筆後會有透支風險。
     case danger

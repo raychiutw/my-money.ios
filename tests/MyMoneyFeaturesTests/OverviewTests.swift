@@ -26,7 +26,7 @@ struct OverviewTests {
     private func model(dataVersion: DataVersion = DataVersion()) -> OverviewModel {
         OverviewModel(
             accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
-            dataVersion: dataVersion, defaults: defaults, today: { today }
+            dataVersion: dataVersion, defaults: defaults, today: { today }, locale: Locale(identifier: "zh_Hant_TW")
         )
     }
 
@@ -36,8 +36,53 @@ struct OverviewTests {
         return model
     }
 
-    @Test("帳戶一覽列出現金錢包;淨可用資產的組成是現金加銀行存款減待繳卡費(web 的 Dashboard 寫成「現金 + 活存 - 卡債」)")
-    func availableBreakdownIncludesCash() async {
+    /// 例如記了一筆信用卡支出，總覽還沒重新載入完就點進帳戶一覽的信用卡(code review)。
+    @Test("總覽的資料比目前的資料版本舊時，打開的信用卡詳細頁會重新取得")
+    func cardDetailFromStaleOverviewRefreshes() async throws {
+        let dataVersion = DataVersion()
+        let overview = await loaded(dataVersion: dataVersion)
+        dataVersion.bump()
+        let fetchesBefore = await accounts.fetchCount
+
+        let detail = overview.makeCardDetail(for: try #require(overview.creditCards.first))
+        await detail.refreshIfStale()
+
+        #expect(await accounts.fetchCount == fetchesBefore + 1)
+    }
+
+    /// 最近交易跟交易頁用同一種交易記錄列：記帳人只有不是自己記的才顯示(#72)。
+    /// 使用者決定照 web 在最近交易顯示日期(W:Dashboard.tsx@f32ff6c:462),日期獨立一行，用清單格式(#79)。
+    @Test("最近交易的日期：清單格式，跟今天同一年時省略年份")
+    func recentTransactionDate() async throws {
+        let model = await loaded()
+        let lunch = try #require(model.recentTransactions.first { $0.note == "午餐" })
+        let salary = try #require(model.recentTransactions.first { $0.category == .salary })
+
+        #expect(model.dateText(of: lunch) == "9月28日")
+        #expect(model.dateText(of: salary) == "9月1日")
+    }
+
+    @Test("最近交易的記帳人只有不是自己記的才顯示")
+    func recentRecorderOnlyForOthers() {
+        let me = InMemoryAuthRepository.Member.sample.user
+        let model = OverviewModel(
+            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
+            dataVersion: DataVersion(), defaults: defaults, currentUser: me.id, today: { today }
+        )
+        func recorded(by name: String, id: UserID) -> MyMoneyDomain.Transaction {
+            MyMoneyDomain.Transaction(
+                id: TransactionID("recorded-by-\(id.rawValue)"), accountID: SampleAccounts.savings.id,
+                accountName: SampleAccounts.savings.name, type: .expense, category: .dining, amount: Money(120),
+                note: "", date: today, isShared: true, recorderName: name, recorderID: id
+            )
+        }
+
+        #expect(model.recorderName(of: recorded(by: me.name, id: me.id)) == nil)
+        #expect(model.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
+    }
+
+    @Test("帳戶一覽列出現金錢包")
+    func accountsListIncludesCash() async {
         let model = OverviewModel(
             accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
             goals: goals, dataVersion: DataVersion(), defaults: defaults, today: { today }
@@ -46,19 +91,6 @@ struct OverviewTests {
         await model.load()
 
         #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
-        #expect(model.availableBreakdown == "現金 $1,500 + 銀行存款 $50,000 - 待繳卡費 $28,500")
-    }
-
-    @Test("帳戶一覽的信用卡：待繳卡費總額(已出帳加未出帳),下面是代墊／私帳拆解與未出帳、繳款日;結清時說明已結清")
-    func creditCardLines() {
-        #expect(SampleAccounts.card.totalDue == Money(15500))
-        #expect(OverviewModel.cardDetailLines(SampleAccounts.card) == ["代墊 $3,000 · 私帳 $12,500", "未出帳 $3,500 · 每月 5 日繳款"])
-
-        let settled = CreditCard(
-            id: AccountID("settled"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
-            creditLimit: nil, statementDay: 15, paymentDueDay: nil
-        )
-        #expect(OverviewModel.cardDetailLines(settled) == ["卡費已全數結清", "未出帳 $0"])
     }
 
     @Test("視角也套用在資金指標和帳戶一覽(web 的 Dashboard 在 82d9124 起帶同一個 scope)", arguments: [
@@ -76,7 +108,7 @@ struct OverviewTests {
 
     @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
         (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
-        (.household, "目前無家庭公用帳戶", "至帳戶管理將帳戶屬性設為「家庭公用」即可在此呈現"),
+        (.household, "目前無家庭共同基金帳戶", "至帳戶管理將帳戶屬性設為「家庭共同基金」即可在此呈現"),
         (.personal, "目前無個人私帳", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
     ])
     func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
@@ -115,7 +147,7 @@ struct OverviewTests {
         #expect(model().scope == .household)
     }
 
-    @Test("最近 6 筆交易紀錄不限日期，依目前的視角查詢")
+    @Test("最近 6 筆交易記錄不限日期，依目前的視角查詢")
     func recentTransactionsQuery() async throws {
         let model = model()
         model.scope = .personal
@@ -128,7 +160,7 @@ struct OverviewTests {
         #expect(query.limit == 6 && query.offset == 0)
     }
 
-    @Test("當月淨收支來自當月的收支趨勢(依視角),分類預算帶入明確的當月")
+    @Test("當月淨收支來自當月的收支趨勢(依視角),預算額度帶入明確的當月")
     func monthlyQueries() async {
         let model = model()
         model.scope = .household
@@ -139,8 +171,8 @@ struct OverviewTests {
         #expect(await statistics.budgetQueries == [CalendarMonth(year: 2026, month: 9)])
     }
 
-    @Test("三張統計卡：淨可用資產、真實可支配現金、當月淨收支")
-    func summaryCards() async throws {
+    @Test("摘要：淨可用餘額(主數字)、真實可支配現金、當月淨收支")
+    func summaryNumbers() async throws {
         let model = await loaded()
         let summary = try #require(model.summary)
 
@@ -184,6 +216,33 @@ struct OverviewTests {
         #expect(model.overBudgetTitle == "有 1 個分類支出已超出預算")
     }
 
+    /// 超支警告每個超支的分類一列(#75):分類名稱和超支金額(已花減預算額度),順序跟後端一樣;沒超支的分類不列。
+    @Test("超支警告每個超支的分類一列，顯示分類名稱和超支金額")
+    func overBudgetRows() async {
+        let transport = TransactionCategory("交通")
+        let statistics = InMemoryStatisticsRepository(
+            expensesByScope: [:], summaries: [], shares: [],
+            budgets: [
+                Budget(category: .dining, amount: Money(100), spent: Money(120), isOver: true),
+                Budget(category: TransactionCategory("購物"), amount: Money(1000), spent: Money(880), isOver: false),
+                Budget(category: transport, amount: Money(500), spent: Money(1250), isOver: true),
+            ]
+        )
+        let model = OverviewModel(
+            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
+            dataVersion: DataVersion(), defaults: defaults, today: { today }
+        )
+
+        await model.load()
+
+        #expect(model.overBudgets == [
+            OverBudget(category: .dining, overspent: Money(20)),
+            OverBudget(category: transport, overspent: Money(750)),
+        ])
+        #expect(model.overBudgets.map(\.category.name) == ["餐飲", "交通"])
+        #expect(model.overBudgetTitle == "有 2 個分類支出已超出預算")
+    }
+
     @Test("儲蓄目標只顯示前 3 個")
     func topGoals() async {
         let goals = InMemorySavingsGoalRepository(goals: InMemorySavingsGoalRepository.sampleGoals + InMemorySavingsGoalRepository.sampleGoals.map {
@@ -210,14 +269,6 @@ struct OverviewTests {
         #expect(OverviewModel.greeting(hour: hour, name: "小明") == "\(expected)，小明")
     }
 
-    @Test("家庭財務錦囊帶入週期攤提和每月預留合計")
-    func tip() async {
-        let model = await loaded()
-
-        #expect(model.tipText.contains(SampleAccounts.summary.monthlyAmortization.formatted()))
-        #expect(model.tipText.contains(SampleAccounts.summary.monthlySavingsReserve.formatted()))
-    }
-
     @Test("資料版本改變後重抓(例如從總覽記一筆之後)")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()
@@ -229,6 +280,19 @@ struct OverviewTests {
 
         dataVersion.bump()
         await model.refreshIfStale()
+        #expect(await transactions.queries.count > fetches)
+    }
+
+    /// 畫面用 `refreshIfStale()`:從信用卡詳細頁返回時不重抓，換了視角才重抓(code review)。
+    @Test("視角改變後重抓")
+    func refreshesOnScopeChange() async {
+        let model = await loaded()
+        let fetches = await transactions.queries.count
+
+        model.scope = .household
+        await model.refreshIfStale()
+
+        #expect(await transactions.queries.last?.scope == .household)
         #expect(await transactions.queries.count > fetches)
     }
 }

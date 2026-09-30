@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的交易紀錄：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
+/// 不連網路的交易記錄：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
 ///
 /// 視角的篩選是後端的規則，這裡不模擬(ADR-0001:不在 client 端重算規則)。
 public actor InMemoryTransactionRepository: TransactionRepository {
@@ -15,6 +15,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
 
     private var stored: [Transaction]
     private var failure: RepositoryError?
+    private var nextQueryGate: Gate?
 
     public struct ExportQuery: Equatable, Sendable {
         public let from: CalendarDay
@@ -39,10 +40,19 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         stored = transactions
     }
 
+    /// 下一次查詢停在 `gate`,直到測試放行;之後的查詢照常回應。用來重現「舊的查詢比新的晚回來」。
+    public func holdNextQuery(at gate: Gate) {
+        nextQueryGate = gate
+    }
+
     public func transactions(
         from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
     ) async throws -> [Transaction] {
         queries.append(Query(from: from, to: to, scope: scope, limit: limit, offset: offset))
+        if let gate = nextQueryGate {
+            nextQueryGate = nil
+            await gate.pass()
+        }
         if let failure { throw failure }
         // 跟後端一樣日期由新到舊;同一天後記的在前。
         let inPeriod = stored.enumerated()
@@ -67,7 +77,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             note: draft.note,
             date: draft.date,
             isShared: draft.isShared,
-            recorderName: InMemoryAuthRepository.Member.sample.user.name
+            recorderName: InMemoryAuthRepository.Member.sample.user.name,
+            recorderID: InMemoryAuthRepository.Member.sample.user.id
         ))
     }
 
@@ -86,7 +97,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
                 note: draft.note,
                 date: draft.date,
                 isShared: draft.isShared,
-                recorderName: transaction.recorderName
+                recorderName: transaction.recorderName,
+                recorderID: transaction.recorderID
             )
         }
     }
@@ -123,7 +135,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 }
 
-/// 畫面 model 測試與 UI 測試共用的交易紀錄。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
+/// 畫面 model 測試與 UI 測試共用的交易記錄。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
 public enum SampleTransactions {
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
     public static func makeForToday() -> [Transaction] {
@@ -177,7 +189,8 @@ public enum SampleTransactions {
             note: note,
             date: date,
             isShared: shared,
-            recorderName: InMemoryAuthRepository.Member.sample.user.name
+            recorderName: InMemoryAuthRepository.Member.sample.user.name,
+            recorderID: InMemoryAuthRepository.Member.sample.user.id
         )
     }
 }

@@ -1,13 +1,15 @@
 import SwiftUI
 
-/// 帳號 sheet:名稱與 email、家庭、機器人記帳、登出(ADR-0003)。
+/// 帳號 sheet:名稱與 email、家庭、機器人記帳、外觀、登出(ADR-0003)。
 struct AccountSheet: View {
     let household: HouseholdModel
     let bot: BotModel
     @Environment(AppSession.self) private var session
+    @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var appearance = appearanceSetting
         NavigationStack {
             List {
                 if let user = session.current?.user {
@@ -32,6 +34,15 @@ struct AccountSheet: View {
                     NavigationLink("機器人記帳") {
                         BotScreen(model: bot)
                     }
+                }
+
+                Section {
+                    Picker("外觀", selection: $appearance.appearance) {
+                        ForEach(Appearance.allCases, id: \.self) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+                    .accessibilityIdentifier("account.appearance")
                 }
 
                 Section {

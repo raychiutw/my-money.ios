@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「總覽」tab(parity.md「總覽」)。toolbar 有記一筆和帳號 sheet。
+/// 「總覽」tab(parity.md「總覽」)。toolbar 有視角的篩選按鈕(目前的選擇顯示在導覽列副標題)、記一筆和帳號 sheet。
 struct OverviewScreen: View {
     @Bindable var model: OverviewModel
     let quickEntry: QuickEntryModel
@@ -20,20 +20,14 @@ struct OverviewScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Picker("視角", selection: $model.scope) {
-                        Text("全部").tag(ViewScope.all)
-                        Text("家庭").tag(ViewScope.household)
-                        Text("個人").tag(ViewScope.personal)
-                    }
-                    .pickerStyle(.segmented)
-                }
                 content
             }
             .navigationTitle(greeting)
+            .navigationSubtitle(model.scope.title)
             .skeletonTransition(value: model.phase)
             .refreshable { await model.load() }
             .toolbar {
+                ScopeFilter("視角", scope: $model.scope, identifier: "overview.scope")
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isEntryPresented = true
@@ -51,9 +45,13 @@ struct OverviewScreen: View {
                     .accessibilityIdentifier("overview.account")
                 }
             }
-            // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後)。
+            // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後);從信用卡詳細頁返回時 task 會重跑，沒變就不重抓。
             .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
-                await model.load()
+                await model.refreshIfStale()
+            }
+            // 帳戶一覽的信用卡精簡列點進信用卡詳細頁;詳細頁的 model 由這裡(路由)建立(#73)。
+            .navigationDestination(for: CreditCard.self) { card in
+                CreditCardDetailScreen(model: model.makeCardDetail(for: card))
             }
             .sheet(isPresented: $isEntryPresented) {
                 TransactionFormView(model: quickEntry)
@@ -99,52 +97,44 @@ struct OverviewScreen: View {
             accountsSection
             recentSection
             goalsSection
-            Section("家庭財務錦囊") {
-                Label(model.tipText, systemImage: "lightbulb")
-                    .font(.subheadline)
-            }
         }
     }
 
+    /// 摘要(#75):淨可用餘額是主數字，真實可支配現金、當月淨收支是一般列。
+    /// 公式明細不寫：淨可用餘額的組成在帳戶頁，分攤平滑與每月預留在週期收支、儲蓄目標頁，當月收入與支出在統計頁。
     @ViewBuilder
     private var summarySection: some View {
         if let summary = model.summary {
             Section {
-                SummaryRow(
-                    title: "淨可用資產",
-                    amount: summary.availableBalance,
-                    detail: model.availableBreakdown ?? "",
-                    warnsWhenNegative: true
-                )
-                SummaryRow(
-                    title: "真實可支配現金",
-                    amount: summary.disposableCash,
-                    detail: "已扣掉週期攤提 \(summary.monthlyAmortization.formatted()) 與每月預留 \(summary.monthlySavingsReserve.formatted())",
-                    warnsWhenNegative: true
-                )
-                SummaryRow(
-                    title: model.netTitle,
-                    amount: model.monthNet,
-                    detail: "收入 \(model.monthIncome.formatted()) · 支出 \(model.monthExpense.formatted())",
-                    warnsWhenNegative: true
-                )
+                SummaryRow(title: "淨可用餘額", amount: summary.availableBalance, warnsWhenNegative: true)
+                AmountRow(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
+                AmountRow(title: model.netTitle, amount: model.monthNet, warnsWhenNegative: true)
             }
         }
     }
 
+    /// 超支警告(#75):標題是「有 N 個分類支出已超出預算」,每個超支的分類一列，顯示分類名稱和超支金額。
+    /// 已花和預算額度在統計頁的預算額度。
     private var overBudgetSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(model.overBudgetTitle, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.red)
-                ForEach(model.overBudgets, id: \.category) { budget in
-                    Text("\(budget.category.name):已花 \(budget.spent.formatted()) / 預算 \(budget.amount.formatted())(超支 \((budget.spent - budget.amount).formatted()))")
-                        .font(.subheadline)
+            ForEach(model.overBudgets) { item in
+                LabeledContent {
+                    Text("超支 \(item.overspent.formatted())")
+                        .foregroundStyle(.red)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                } label: {
+                    Label(item.category.name, systemImage: item.category.symbolName)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(item.category.name)
+                .accessibilityValue("超支 \(item.overspent.spokenText)")
             }
-            .accessibilityElement(children: .combine)
+        } header: {
+            Label(model.overBudgetTitle, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .textCase(nil)
         }
     }
 
@@ -177,32 +167,22 @@ struct OverviewScreen: View {
                     accountLabel(account.name, kind: "銀行存款帳戶", symbol: "building.columns", colorHex: account.colorHex)
                 }
             }
+            // 信用卡跟帳戶頁用同一種精簡列，點進信用卡詳細頁(#73)。
             ForEach(model.creditCards) { card in
-                LabeledContent {
-                    // 待繳卡費總額(已出帳加未出帳),有待繳時用紅色(web 的 Dashboard 在 82d9124 起)。
-                    Text(card.totalDue.formatted())
-                        .monospacedDigit()
-                        .foregroundStyle(card.totalDue > .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                } label: {
-                    accountLabel(card.name, kind: "信用卡", symbol: "creditcard", colorHex: card.colorHex, details: OverviewModel.cardDetailLines(card))
+                NavigationLink(value: card) {
+                    CreditCardSummaryRow(card: card, mark: .symbol)
                 }
+                .accessibilityIdentifier("overview.card.\(card.id.rawValue)")
             }
         } header: {
             header("帳戶一覽", action: "管理帳戶") { show(.accounts) }
         }
     }
 
-    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。`details` 是名稱下面的說明。
-    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String, details: [String] = []) -> some View {
+    /// 名稱、類型(symbol)和使用者選的代表色;VoiceOver 念類型的名稱，不念 symbol。
+    private func accountLabel(_ name: String, kind: String, symbol: String, colorHex: String) -> some View {
         Label {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                ForEach(details, id: \.self) { line in
-                    Text(line)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(name)
         } icon: {
             Image(systemName: symbol)
                 .foregroundStyle(Color(hex: colorHex) ?? .gray)
@@ -220,8 +200,12 @@ struct OverviewScreen: View {
                         .buttonStyle(.borderless)
                 }
             }
+            // 總覽的列點不開，所以不截斷;也沒有編輯，所以不放系統紀錄的鎖定標記。
             ForEach(model.recentTransactions) { transaction in
-                TransactionRow(transaction: transaction)
+                TransactionRow(
+                    transaction: transaction, recorder: model.recorderName(of: transaction),
+                    date: model.dateText(of: transaction)
+                )
             }
         } header: {
             header("最近交易", action: "查看全部") { show(.transactions) }
@@ -270,14 +254,14 @@ struct OverviewScreen: View {
     }
 }
 
-/// 首次載入的骨架屏：跟載入後一樣的三張統計卡、帳戶一覽、最近交易和儲蓄目標。
+/// 首次載入的骨架屏：跟載入後一樣的摘要(主數字加兩列)、帳戶一覽、最近交易和儲蓄目標。
 private struct OverviewSkeleton: View {
     var body: some View {
         Section {
-            SummaryRow(title: "淨可用資產", amount: Skeleton.amount, detail: Skeleton.text)
+            SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
                 .skeletonAnnouncement()
             ForEach(0..<2, id: \.self) { _ in
-                SummaryRow(title: "統計卡", amount: Skeleton.amount, detail: Skeleton.text)
+                AmountRow(title: "摘要數字", amount: Skeleton.amount)
                     .skeletonRow()
             }
         }

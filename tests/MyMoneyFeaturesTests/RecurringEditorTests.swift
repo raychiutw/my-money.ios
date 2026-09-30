@@ -4,7 +4,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("固定收支的新增與編輯")
+@Suite("週期收支的新增與編輯")
 struct RecurringEditorTests {
     private let repository = InMemoryRecurringRepository.sample()
     private let dataVersion = DataVersion()
@@ -17,18 +17,18 @@ struct RecurringEditorTests {
         return editor
     }
 
-    @Test("新增的預設值：固定支出、每月、1 號、第一個資金帳戶")
+    @Test("新增的預設值：週期支出、每月、1 號、第一個資產帳戶")
     func defaults() async {
         let editor = await adding()
 
-        #expect(editor.title == "新增固定收支")
+        #expect(editor.title == "新增週期收支")
         #expect(editor.type == .expense)
         #expect(editor.cycle == .monthly)
         #expect(editor.dayOfCycle == 1)
         #expect(editor.accountID == SampleAccounts.savings.id)
     }
 
-    @Test("資金帳戶載入之前就選了關聯帳戶時，不會被第一個資金帳戶蓋掉", .timeLimit(.minutes(1)))
+    @Test("資產帳戶載入之前就選了關聯帳戶時，不會被第一個資產帳戶蓋掉", .timeLimit(.minutes(1)))
     func prepareKeepsEarlyChoice() async {
         let gate = Gate()
         let editor = RecurringEditorModel(
@@ -90,7 +90,7 @@ struct RecurringEditorTests {
         )
         await editor.prepare()
 
-        #expect(editor.title == "編輯固定收支")
+        #expect(editor.title == "編輯週期收支")
         #expect(editor.name == "薪水")
         #expect(editor.type == .income)
         #expect(editor.amountText == "45000")

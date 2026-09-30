@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭共同基金)、家庭共同基金、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
@@ -27,7 +27,7 @@ public final class AccountsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
-    /// 操作成功時顯示的訊息(例如結帳日出帳結轉的結果)。
+    /// 操作成功時顯示的訊息(例如結帳日出帳作業的結果)。
     public var noticeMessage: String?
 
     @ObservationIgnored private let repository: any AccountRepository
@@ -44,21 +44,17 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 有未出帳金額就能結帳日出帳結轉，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
+    /// 有未出帳款就能做結帳日出帳作業(長按選單)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.unbilledDebt > .zero
+        card.canRollOver
     }
 
-    /// 例如「未出帳 $3,500,可結轉為本期已出帳待繳」。
-    public func rolloverReminder(for card: CreditCard) -> String {
-        "未出帳 \(card.unbilledDebt.formatted()),可結轉為本期已出帳待繳"
-    }
-
+    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」,跟詳細頁的一樣。
     public func rolloverConfirmation(for card: CreditCard) -> String {
-        "確定要將「\(card.name)」的未出帳金額 \(card.unbilledDebt.formatted()) 結轉為本期已出帳待繳嗎？"
+        card.rolloverConfirmation
     }
 
-    /// 結帳日出帳結轉;成功後顯示後端的訊息，並遞增資料版本。
+    /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
     public func rollOver(_ card: CreditCard) async {
         do {
             noticeMessage = try await repository.rollOverStatement(card.id)
@@ -68,33 +64,7 @@ public final class AccountsModel {
         }
     }
 
-    /// 正在校準未出帳的信用卡;送出期間停用它的「校準未出帳」。
-    public private(set) var reconcilingCardID: AccountID?
-
-    public func isReconciling(_ card: CreditCard) -> Bool {
-        reconcilingCardID == card.id
-    }
-
-    /// 第一句照 web 的確認文字;後端會把已結轉、已繳的消費重複算回未出帳(onion523/my-money#19),
-    /// 所以另外說明重算的期間和後果(parity 刻意偏離)。
-    public func reconcileConfirmation(for card: CreditCard) -> String {
-        let period = card.statementDay == nil ? "這張卡所有的消費" : "上一個結帳日之後的消費"
-        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳金額嗎？會重算\(period)，已經結轉或繳過的消費也會算回未出帳。"
-    }
-
-    /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
-    public func reconcile(_ card: CreditCard) async {
-        reconcilingCardID = card.id
-        defer { reconcilingCardID = nil }
-        do {
-            noticeMessage = try await repository.reconcileUnbilled(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
-    }
-
-    /// 信用卡還款沖銷的 sheet(從卡片的「繳家庭代墊」「繳個人私帳」「全額結清」打開):扣款帳戶只列出銀行存款帳戶。
+    /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
@@ -106,10 +76,10 @@ public final class AccountsModel {
     @ObservationIgnored private var loadedScope: AccountScope?
 
     public func deleteConfirmation(for account: Account) -> String {
-        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易紀錄也會一併刪除！"
+        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易記錄也會一併刪除！"
     }
 
-    /// 刪除資金帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
+    /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
     public func delete(_ account: Account) async {
         do {
             try await repository.delete(account.id)
@@ -130,6 +100,14 @@ public final class AccountsModel {
         TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredFrom: from, preferredTo: to)
     }
 
+    /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。
+    public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
+        CreditCardDetailModel(
+            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
+            dataVersion: dataVersion, today: today
+        )
+    }
+
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
         AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion)
     }
@@ -141,23 +119,16 @@ public final class AccountsModel {
     /// 現金錢包的餘額合計;還沒載入時是 `nil`。
     public var cashTotal: Money? { summary?.cashTotal }
 
-    public var cashWalletCountText: String { "\(cashWallets.count) 個現金錢包" }
-
     /// 銀行存款帳戶的餘額合計;還沒載入時是 `nil`。
     public var bankBalanceTotal: Money? { summary?.bankBalanceTotal }
 
-    public var bankAccountCountText: String { "\(bankAccounts.count) 個銀行存款帳戶" }
-
-    /// 所有信用卡帳戶的待繳卡費總額(已出帳待繳金額加未出帳金額)。
+    /// 所有信用卡帳戶的信用卡待繳總額(已出帳待繳款加未出帳款)。兩者各自的金額在信用卡詳細頁(#75)。
     public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
 
-    public var billedDebtTotal: Money? { summary?.billedDebtTotal }
-    public var unbilledDebtTotal: Money? { summary?.unbilledDebtTotal }
-
-    /// 淨可用資產(後端依帳戶檢視範圍計算)。
+    /// 淨可用餘額(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
 
-    /// 載入這個範圍的資金帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
+    /// 載入這個範圍的資產帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
         let version = dataVersion.value
         let scope = scope
@@ -183,7 +154,7 @@ public final class AccountsModel {
 }
 
 extension AccountKind {
-    /// 資金帳戶類型的名稱(CONTEXT.md)。
+    /// 資產帳戶類型的名稱(CONTEXT.md)。
     public var title: String {
         switch self {
         case .cash: "現金錢包"
@@ -194,24 +165,21 @@ extension AccountKind {
 }
 
 extension Account {
-    /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的固定收支把現金錢包標成「信用卡」,不照抄)。
-    public var menuTitle: String {
-        "\(name)(\(kind.title))"
-    }
+    /// 帳戶選單項目的副標題：類型，例如「現金錢包」。選擇列的值只放名稱，餘額另起一列「可用餘額」
+    /// (DESIGN.md「列與欄位」第 7 條，#78)。類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
+    public var menuSubtitle: String { kind.title }
 
-    /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。
-    public var menuTitleWithBalance: String {
+    /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有「餘額」,是 `nil`。
+    public var fundsBalance: Money? {
         switch self {
-        case .cash(let wallet): "\(name)(\(kind.title)，餘額 \(wallet.balance.formatted()))"
-        case .bank(let bank): "\(name)(\(kind.title)，餘額 \(bank.balance.formatted()))"
-        case .creditCard: menuTitle
+        case .cash(let wallet): wallet.balance
+        case .bank(let bank): bank.balance
+        case .creditCard: nil
         }
     }
 }
 
 extension ReceivingAccount {
-    /// 撥款報銷收款帳戶選單的文字：名稱加類型，不含餘額(其他成員個人私帳的餘額不公開)。
-    public var menuTitle: String {
-        "\(name)(\(kind.title))"
-    }
+    /// 撥款報銷收款帳戶選單項目的副標題：類型。不含餘額(其他成員個人私帳的餘額不公開)。
+    public var menuSubtitle: String { kind.title }
 }

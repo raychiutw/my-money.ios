@@ -6,14 +6,14 @@ import Testing
 @MainActor
 @Suite("帳戶頁(瀏覽)")
 struct AccountsTests {
-    @Test("帳戶選單標示正確的類型(web 的固定收支把現金錢包標成「信用卡」);轉帳和撥款報銷的選單另外帶餘額")
+    /// 選擇列的值只放名稱，類型放在選單項目的副標題，餘額另起一列「可用餘額」(DESIGN.md「列與欄位」第 7 條，#78)。
+    /// 類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
+    @Test("帳戶選單：標題只放名稱，副標題是正確的類型")
     func menuTitlesShowAccountKind() {
-        #expect(Account.cash(SampleAccounts.wallet).menuTitle == "iOS 測試皮夾(現金錢包)")
-        #expect(Account.bank(SampleAccounts.savings).menuTitle == "iOS 測試存款(銀行存款帳戶)")
-        #expect(Account.creditCard(SampleAccounts.card).menuTitle == "iOS 測試信用卡(信用卡)")
-        #expect(Account.cash(SampleAccounts.wallet).menuTitleWithBalance == "iOS 測試皮夾(現金錢包，餘額 $1,500)")
-        #expect(Account.bank(SampleAccounts.savings).menuTitleWithBalance == "iOS 測試存款(銀行存款帳戶，餘額 $50,000)")
-        #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuTitle == "小美薪轉(銀行存款帳戶)")
+        #expect(Account.cash(SampleAccounts.wallet).menuSubtitle == "現金錢包")
+        #expect(Account.bank(SampleAccounts.savings).menuSubtitle == "銀行存款帳戶")
+        #expect(Account.creditCard(SampleAccounts.card).menuSubtitle == "信用卡")
+        #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuSubtitle == "銀行存款帳戶")
     }
 
     @Test("載入後依類型分成銀行存款帳戶與信用卡帳戶兩區，順序跟後端一樣")
@@ -26,21 +26,18 @@ struct AccountsTests {
         #expect(model.creditCards.map(\.name) == ["iOS 測試信用卡", "iOS 測試小額卡"])
     }
 
-    @Test("三張統計卡：銀行存款帳戶餘額合計、待繳卡費總額、淨可用資產")
-    func summaryCards() async {
+    @Test("摘要：淨可用餘額(主數字),以及銀行存款帳戶餘額合計、信用卡待繳總額(已出帳待繳款加未出帳款)")
+    func summaryNumbers() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
 
         await model.load()
 
         #expect(model.bankBalanceTotal == Money(50000))
-        #expect(model.bankAccountCountText == "1 個銀行存款帳戶")
         #expect(model.totalCardDue == Money(28500))
-        #expect(model.billedDebtTotal == Money(20000))
-        #expect(model.unbilledDebtTotal == Money(8500))
         #expect(model.availableBalance == Money(21500))
     }
 
-    @Test("現金錢包自成一區，統計卡多一張現金錢包總額;淨可用資產照後端(含現金)")
+    @Test("現金錢包自成一區，摘要有現金錢包總額;淨可用餘額照後端(含現金)")
     func cashWalletsAreTheirOwnSection() async {
         let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
 
@@ -49,11 +46,10 @@ struct AccountsTests {
         #expect(model.cashWallets.map(\.name) == ["iOS 測試皮夾"])
         #expect(model.bankAccounts.map(\.name) == ["iOS 測試存款"])
         #expect(model.cashTotal == Money(1500))
-        #expect(model.cashWalletCountText == "1 個現金錢包")
         #expect(model.availableBalance == Money(23000))
     }
 
-    @Test("檢視範圍預設全部;切到家庭公用時，帳戶和資金指標都照這個範圍重新取得")
+    @Test("帳戶檢視範圍預設全部;切到家庭共同基金時，帳戶和資金指標都照這個範圍重新取得")
     func scopeAppliesToAccountsAndSummary() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = AccountsModel(repository: repository, dataVersion: DataVersion())
@@ -141,7 +137,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(0))
     }
 
-    @Test("沒有任何資金帳戶時，兩區都是空的")
+    @Test("沒有任何資產帳戶時，兩區都是空的")
     func emptyAccounts() async {
         let model = AccountsModel(repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion())
 
@@ -150,9 +146,8 @@ struct AccountsTests {
         #expect(model.phase == .loaded)
         #expect(model.bankAccounts.isEmpty)
         #expect(model.creditCards.isEmpty)
-        #expect(model.bankAccountCountText == "0 個銀行存款帳戶")
     }
-    @Test("刪除資金帳戶後資料版本遞增")
+    @Test("刪除資產帳戶後資料版本遞增")
     func deletingBumpsDataVersion() async {
         let repository = InMemoryAccountRepository.sample()
         let dataVersion = DataVersion()
@@ -180,12 +175,12 @@ struct AccountsTests {
         #expect(dataVersion.value == 0)
     }
 
-    @Test("刪除前的確認文字提醒交易紀錄會一併刪除")
+    @Test("刪除前的確認文字提醒交易記錄會一併刪除")
     func deleteConfirmationMessage() {
         let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
 
         #expect(model.deleteConfirmation(for: .bank(SampleAccounts.savings))
-            == "確定要刪除帳戶「iOS 測試存款」嗎？這個帳戶的交易紀錄也會一併刪除！")
+            == "確定要刪除帳戶「iOS 測試存款」嗎？這個帳戶的交易記錄也會一併刪除！")
     }
 
     @Test("資料版本改變後重新抓資料;沒變時不重抓")

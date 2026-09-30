@@ -21,9 +21,12 @@ struct SavingsGoalEditorView: View {
                 }
 
                 Section {
-                    TextField("名稱", text: $model.name, prompt: Text("例如：日本沖繩旅遊、緊急備用金"))
-                        .focused($focusedField, equals: .name)
-                        .accessibilityIdentifier("goalEditor.name")
+                    // 欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
+                    LabeledContent("名稱") {
+                        TextField("名稱", text: $model.name, prompt: Text("例如：日本沖繩旅遊、緊急備用金"))
+                            .focused($focusedField, equals: .name)
+                            .accessibilityIdentifier("goalEditor.name")
+                    }
                     amountRow("目標金額", text: $model.targetAmountText, field: .target, identifier: "goalEditor.target")
                     amountRow("每月預留(選填)", text: $model.monthlyReserveText, field: .reserve, identifier: "goalEditor.reserve")
                 }
@@ -64,7 +67,7 @@ struct SavingsGoalEditorView: View {
                     .accessibilityIdentifier("goalEditor.save")
                 }
             }
-            .keyboardDoneButton { focusedField = nil }
+            .keyboardDismissal(clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

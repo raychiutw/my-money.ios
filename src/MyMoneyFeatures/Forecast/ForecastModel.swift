@@ -24,10 +24,31 @@ public final class ForecastModel {
     @ObservationIgnored private let repository: any ForecastRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let today: () -> CalendarDay
 
-    public init(repository: any ForecastRepository, dataVersion: DataVersion) {
+    /// `locale` 決定日期的格式，預設跟著系統;`today` 決定日期要不要寫年份。
+    public init(
+        repository: any ForecastRepository,
+        dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.locale = locale
+        self.today = today
+    }
+
+    /// 預測裡的日期(預定收支日、逐日餘額),例如「10月5日」,不是今年的加上年份(DESIGN.md「日期」)。
+    public func dateText(_ day: CalendarDay) -> String {
+        day.text(today: today(), locale: locale)
+    }
+
+    /// 最低餘額發生的日期;沒有變動時是「無變動」。
+    public func minDateText(of forecast: CashFlowForecast) -> String {
+        guard let minDate = forecast.minDate else { return "無變動" }
+        return dateText(minDate)
     }
 
     public func load() async {
@@ -69,12 +90,6 @@ public final class ForecastModel {
 
 extension CashFlowForecast {
     public var riskTitle: String { willOverdraft ? "存在透支風險" : "現金流充裕安全" }
-
-    /// 最低餘額發生的日期，例如「2026/10/05」;沒有變動時是「無變動」。
-    public var minDateText: String {
-        guard let minDate else { return "無變動" }
-        return minDate.slashText
-    }
 }
 
 extension PurchaseCheck {

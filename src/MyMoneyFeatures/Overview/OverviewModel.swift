@@ -23,27 +23,20 @@ public final class OverviewModel {
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
 
-    /// 帳戶一覽裡信用卡的兩行說明(web 的 Dashboard):代墊／私帳拆解(沒有待繳時是「卡費已全數結清」),
-    /// 以及未出帳與繳款日。
-    public static func cardDetailLines(_ card: CreditCard) -> [String] {
-        let debt = card.totalDue > .zero
-            ? "代墊 \(card.sharedDebt.formatted()) · 私帳 \(card.personalDebt.formatted())"
-            : "卡費已全數結清"
-        let unbilled = "未出帳 \(card.unbilledDebt.formatted())"
-        return [debt, card.paymentDueDay.map { "\(unbilled) · 每月 \($0) 日繳款" } ?? unbilled]
-    }
-
-    /// 淨可用資產的組成(web 的 Dashboard 寫成「現金 + 活存 - 卡債」,iOS 用 CONTEXT 的詞):現金 + 銀行存款 - 待繳卡費(已出帳加未出帳)。數字都是後端算好的。
-    public var availableBreakdown: String? {
-        summary.map {
-            "現金 \($0.cashTotal.formatted()) + 銀行存款 \($0.bankBalanceTotal.formatted()) - 待繳卡費 \(($0.billedDebtTotal + $0.unbilledDebtTotal).formatted())"
-        }
+    /// 信用卡詳細頁(點帳戶一覽的信用卡精簡列 push,#73):跟帳戶一覽同一個帳戶檢視範圍。
+    public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
+        CreditCardDetailModel(
+            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope.accountScope,
+            repository: accountRepository,
+            dataVersion: dataVersion, today: today
+        )
     }
 
     public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
-    public private(set) var overBudgets: [Budget] = []
+    /// 超支警告：每個超支的分類一列(#75),順序跟後端一樣。
+    public private(set) var overBudgets: [OverBudget] = []
     public private(set) var topGoals: [SavingsGoal] = []
 
     @ObservationIgnored private let accountRepository: any AccountRepository
@@ -53,10 +46,14 @@ public final class OverviewModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: ViewScope?
 
     private static let scopeKey = "overview.scope"
 
+    /// `currentUser` 是登入的人：最近交易裡自己記的不顯示記帳人。
     public init(
         accounts: any AccountRepository,
         transactions: any TransactionRepository,
@@ -64,7 +61,9 @@ public final class OverviewModel {
         goals: any SavingsGoalRepository,
         dataVersion: DataVersion,
         defaults: UserDefaults,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+        currentUser: UserID? = nil,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() },
+        locale: Locale = .autoupdatingCurrent
     ) {
         accountRepository = accounts
         transactionRepository = transactions
@@ -72,11 +71,23 @@ public final class OverviewModel {
         goalRepository = goals
         self.dataVersion = dataVersion
         self.defaults = defaults
+        self.currentUser = currentUser
         self.today = today
+        self.locale = locale
         scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     public var monthNet: Money { monthIncome - monthExpense }
+
+    /// 最近交易的日期，例如「9月28日」(清單格式，不是今年的加上年份，#79)。
+    public func dateText(of transaction: MyMoneyDomain.Transaction) -> String {
+        transaction.date.text(today: today(), locale: locale)
+    }
+
+    /// 最近交易的記帳人：只有不是自己記的才顯示(#72)。
+    public func recorderName(of transaction: MyMoneyDomain.Transaction) -> String? {
+        transaction.recorderName(besides: currentUser)
+    }
 
     /// 標題隨視角改變;「個人」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
@@ -89,15 +100,6 @@ public final class OverviewModel {
 
     public var overBudgetTitle: String { "有 \(overBudgets.count) 個分類支出已超出預算" }
 
-    /// 家庭財務錦囊。
-    public var tipText: String {
-        let amortization = summary?.monthlyAmortization ?? .zero
-        let reserve = summary?.monthlySavingsReserve ?? .zero
-        return "固定支出的週期攤提每月 \(amortization.formatted()),已經從真實可支配現金扣除;"
-            + "儲蓄目標的每月預留合計 \(reserve.formatted()),建議每月先存起來。"
-            + "家庭公帳全家都看得到，個人私帳只有自己看得到。"
-    }
-
     /// 依裝置的當地時間問候(parity 刻意偏離第 21 項):5 點到中午前是早安，中午到 18 點前是午安，其餘是晚安。
     public nonisolated static func greeting(hour: Int, name: String) -> String {
         let greeting = switch hour {
@@ -108,7 +110,7 @@ public final class OverviewModel {
         return "\(greeting)，\(name)"
     }
 
-    /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);分類預算帶入明確的當月。
+    /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);預算額度帶入明確的當月。
     public func load() async {
         let version = dataVersion.value
         let scope = scope
@@ -132,9 +134,10 @@ public final class OverviewModel {
             let thisMonth = loadedSummaries.first { $0.month == month }
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
-            overBudgets = loadedBudgets.filter(\.isOver)
+            overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             topGoals = Array(loadedGoals.prefix(3))
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
@@ -143,16 +146,35 @@ public final class OverviewModel {
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
     }
 }
 
+/// 超支警告的一列：分類名稱和超支金額(#75)。已花、預算額度在統計頁的預算額度。
+public struct OverBudget: Identifiable, Hashable, Sendable {
+    public let category: TransactionCategory
+    /// 超支金額：已花減預算額度(web 的 Dashboard 也是這樣算)。
+    public let overspent: Money
+
+    public init(category: TransactionCategory, overspent: Money) {
+        self.category = category
+        self.overspent = overspent
+    }
+
+    /// 超支用後端的 `over` 判斷，這裡只算超出多少。
+    init(_ budget: Budget) {
+        self.init(category: budget.category, overspent: budget.spent - budget.amount)
+    }
+
+    public var id: String { category.name }
+}
+
 extension ViewScope {
-    /// 視角套用到淨可用資產和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
-    /// 所以「個人」視角(我記的全部交易紀錄)看的是我的個人私帳帳戶。
+    /// 視角套用到淨可用餘額和帳戶一覽時的帳戶檢視範圍：web 的總覽兩者帶同一個 `scope`,
+    /// 所以「個人」視角(我記的全部交易記錄)看的是我的個人私帳帳戶。
     var accountScope: AccountScope {
         switch self {
         case .all: .all
@@ -167,7 +189,7 @@ extension AccountScope {
     public var emptyAccountsTitle: String {
         switch self {
         case .all: "尚未建立帳戶"
-        case .household: "目前無家庭公用帳戶"
+        case .household: "目前無家庭共同基金帳戶"
         case .personal: "目前無個人私帳"
         }
     }
@@ -175,7 +197,7 @@ extension AccountScope {
     /// 空狀態的說明，附「前往帳戶管理」。
     public var emptyAccountsHint: String {
         switch self {
-        case .household: "至帳戶管理將帳戶屬性設為「家庭公用」即可在此呈現"
+        case .household: "至帳戶管理將帳戶屬性設為「家庭共同基金」即可在此呈現"
         case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
         }
     }

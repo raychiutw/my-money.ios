@@ -6,33 +6,109 @@ final class StatisticsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 公帳代墊款與分攤建議;個人視角時不顯示;超支標示;設定一個分類預算。
+    /// 公帳代墊款與分攤建議;從 toolbar 的篩選按鈕切到個人視角時不顯示，導覽列副標題跟著變(#63);超支標示。
     @MainActor
-    func testHouseholdSharesScopeAndBudget() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+    func testHouseholdSharesScopeAndOverBudget() throws {
+        let app = launchSignedIn()
 
         app.tabBars.buttons["統計"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額 10,000 元").waitForExistence(timeout: 5), "沒有看到公帳代墊款")
         XCTAssertTrue(element(in: app, labelContaining: "小美 轉 1,000 元 給 小明").exists, "沒有分攤建議")
 
-        app.buttons["個人"].tap()
+        let filter = app.buttons["statistics.scope"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 3), "toolbar 沒有視角的篩選按鈕")
+        XCTAssertEqual(filter.label, "視角", "篩選按鈕的 VoiceOver 標籤不是「視角」")
+        XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
+        XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的視角")
+
+        choose("個人", from: filter, in: app)
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額").waitForNonExistence(timeout: 5), "個人視角還看得到公帳代墊款")
+        XCTAssertTrue(subtitle("個人", in: app).waitForExistence(timeout: 3), "切換視角後導覽列副標題沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "個人", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
 
-        let dining = element(in: app, labelContaining: "超支")
-        for _ in 0..<5 where !dining.exists { app.swipeUp() }
-        XCTAssertTrue(dining.exists, "餐飲沒有標示超支")
+        // 範例的預算額度：餐飲 100,已花 120。
+        let dining = app.buttons["budgets.row.餐飲"]
+        scrollAboveTabBar(dining, in: app)
+        XCTAssertEqual(dining.label, "餐飲，預算 100 元，已花 120 元，超支 20 元", "餐飲沒有念出分類、預算、已花和超支")
+    }
 
-        let transport = app.buttons["budgets.edit.交通"]
-        for _ in 0..<5 where !transport.isHittable { app.swipeUp() }
+    /// 預算額度只列有預算或本月已花的分類(#76):範例是餐飲、交通、購物;點整列打開設定 sheet,不再有「設定／調整」按鈕。
+    @MainActor
+    func testAdjustBudgetByTappingRow() throws {
+        let app = launchSignedIn()
+        app.tabBars.buttons["統計"].tap()
+
+        let transport = app.buttons["budgets.row.交通"]
+        scrollAboveTabBar(transport, in: app)
+        XCTAssertTrue(transport.isHittable, "預算額度沒有交通這一列")
+        XCTAssertEqual(transport.label, "交通，預算未設定，已花 250 元", "沒有預算的列沒有念出「預算未設定」")
+        XCTAssertFalse(app.buttons["budgets.row.娛樂"].exists, "沒有預算也沒有已花的娛樂也列出來了")
+
         transport.tap()
         let amount = app.textFields["budgetEditor.amount"]
-        XCTAssertTrue(amount.waitForExistence(timeout: 3))
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "點整列沒有打開設定 sheet")
         XCTAssertEqual(amount.value as? String, "5000", "沒有預算時沒有預設 5000")
         app.buttons["budgetEditor.save"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "已花 $250 / 預算 $5,000").waitForExistence(timeout: 5), "設定後沒有顯示預算")
+
+        let updated = element(in: app, labelContaining: "交通，預算 5,000 元，已花 250 元")
+        XCTAssertTrue(updated.waitForExistence(timeout: 5), "設定後沒有顯示預算")
+    }
+
+    /// section 底部的「新增預算額度」選單列出其餘分類，選了打開同一個 sheet(#76)。
+    @MainActor
+    func testAddBudgetFromMenu() throws {
+        let app = launchSignedIn()
+        app.tabBars.buttons["統計"].tap()
+
+        let add = app.buttons["budgets.add"]
+        scrollAboveTabBar(add, in: app)
+        XCTAssertTrue(add.isHittable, "預算額度底部沒有「新增預算額度」")
+        XCTAssertEqual(add.label, "新增預算額度")
+
+        add.tap()
+        let entertainment = app.buttons["娛樂"]
+        XCTAssertTrue(entertainment.waitForExistence(timeout: 3), "選單裡沒有娛樂")
+        for listed in ["餐飲", "交通", "購物"] {
+            XCTAssertFalse(app.buttons[listed].exists, "選單裡有已經列出的「\(listed)」")
+        }
+        entertainment.tap()
+
+        XCTAssertTrue(app.navigationBars["設定 娛樂 的預算"].waitForExistence(timeout: 3), "選了娛樂沒有打開設定 sheet")
+        XCTAssertEqual(app.textFields["budgetEditor.amount"].value as? String, "5000", "沒有預算時沒有預設 5000")
+        app.buttons["budgetEditor.save"].tap()
+
+        let row = app.buttons["budgets.row.娛樂"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "設定後預算額度沒有多一列娛樂")
+        XCTAssertEqual(row.label, "娛樂，預算 5,000 元，已花 0 元", "新的一列沒有念出分類、預算和已花")
+
+        scrollAboveTabBar(add, in: app)
+        add.tap()
+        XCTAssertTrue(app.buttons["生活"].waitForExistence(timeout: 3), "選單沒有打開")
+        XCTAssertFalse(app.buttons["娛樂"].exists, "設定後選單裡還有娛樂")
+    }
+
+    /// 點 toolbar 的篩選按鈕打開選單，再點選項。
+    @MainActor
+    private func choose(_ option: String, from filter: XCUIElement, in app: XCUIApplication) {
+        filter.tap()
+        let item = app.buttons[option]
+        XCTAssertTrue(item.waitForExistence(timeout: 3), "視角選單裡沒有「\(option)」")
+        item.tap()
+    }
+
+    /// 往上捲到元素完整露出在 tab bar 上方再點(tab bar 浮在清單上)。
+    @MainActor
+    private func scrollAboveTabBar(_ element: XCUIElement, in app: XCUIApplication) {
+        let tabBar = app.tabBars.firstMatch
+        for _ in 0..<8 where !(element.exists && element.isHittable && element.frame.maxY < tabBar.frame.minY) {
+            app.swipeUp()
+        }
+    }
+
+    /// 導覽列副標題(`navigationSubtitle`)。
+    @MainActor
+    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.navigationBars.staticTexts[text]
     }
 
     @MainActor
@@ -41,7 +117,10 @@ final class StatisticsUITests: XCTestCase {
     }
 
     @MainActor
-    private func signIn(_ app: XCUIApplication) {
+    private func launchSignedIn() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
         let email = app.textFields["login.email"]
         XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
         email.tap()
@@ -51,5 +130,6 @@ final class StatisticsUITests: XCTestCase {
         password.typeText("secret123")
         app.buttons["login.submit"].tap()
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
+        return app
     }
 }

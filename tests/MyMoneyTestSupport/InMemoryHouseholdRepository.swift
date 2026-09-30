@@ -79,7 +79,8 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 receivingAccounts: advance.receivingAccounts
             )
         }
-        return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.amount) 給 \(name)！"
+        // 後端 `f32ff6c` 的原文(B:handlers/households.ts@f32ff6c:345)。
+        return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.backendText) 給 \(name)！"
     }
 
     /// 「我們家」:小明(管理員，就是登入的範例帳號)和小美(一般成員)。

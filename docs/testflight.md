@@ -32,8 +32,13 @@ workflow 會依序做這幾件事:
 
 ## 版本號與 build 號
 
-- **版本號**(`CFBundleShortVersionString`):專案 build settings 的 `MARKETING_VERSION`,要發新版時手動改。
-- **build 號**(`CFBundleVersion`):上傳時用 `GITHUB_RUN_ID` 覆寫。它全域唯一又遞增，所以同一個版本號可以重複上傳。專案裡的 `CURRENT_PROJECT_VERSION = 1` 只給本機建置用。
+- **版本號**(`CFBundleShortVersionString`):專案 build settings 的 `MARKETING_VERSION`,app target 和 UI 測試 target 的 Debug、Release 共 4 處，要一起改。
+  - 格式必須是三段整數 `[Major].[Minor].[Patch]`([Apple 文件](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleshortversionstring))。
+  - 正式版之前用 `0.y.z`,從 `0.1.0` 開始。
+  - **每次發佈到 TestFlight 都要遞增版號**,不要用同一個版號重複發佈:加功能遞增 minor(`0.1.0` → `0.2.0`),只修 bug 遞增 patch(`0.1.0` → `0.1.1`)。
+  - 上傳只發生在合併進 master 時，所以遞增版號的 commit 要包在要合併的那個 PR 裡;手動重發(`workflow_dispatch`)前也要先確認版號已經遞增。
+  - 正式版才到 `1.0.0`。
+- **build 號**(`CFBundleVersion`):上傳時用 `GITHUB_RUN_ID` 覆寫。它全域唯一又遞增，所以每次發佈都會自動更新，不用手動改。專案裡的 `CURRENT_PROJECT_VERSION = 1` 只給本機建置用。
 
 ## 內部測試者
 

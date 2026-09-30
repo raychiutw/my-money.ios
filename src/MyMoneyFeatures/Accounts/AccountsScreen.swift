@@ -2,13 +2,14 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「帳戶」tab:四張統計卡，現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
+/// 「帳戶」tab:摘要(淨可用餘額和它的組成),現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
+/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、ATM 提款／轉帳和新增資產帳戶。
+/// 信用卡是精簡列，點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
-    @State private var pendingReconcile: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
 
@@ -17,7 +18,9 @@ struct AccountsScreen: View {
             content
                 .skeletonTransition(value: model.phase)
                 .navigationTitle("帳戶")
+                .navigationSubtitle(model.scope.title)
                 .toolbar {
+                    ScopeFilter("帳戶檢視範圍", scope: $model.scope, identifier: "accounts.scope")
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             transfer = model.makeTransfer()
@@ -38,7 +41,7 @@ struct AccountsScreen: View {
                                 editor = EditorSheet(model.makeEditor(adding: .creditCard))
                             }
                         } label: {
-                            Label("新增資金帳戶", systemImage: "plus")
+                            Label("新增資產帳戶", systemImage: "plus")
                         }
                         .accessibilityIdentifier("accounts.add")
                     }
@@ -47,11 +50,15 @@ struct AccountsScreen: View {
                 .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
                     await model.refreshIfStale()
                 }
+                // 詳細頁的 model 由這裡(路由)建立，跟帳戶頁同一個帳戶檢視範圍。
+                .navigationDestination(for: CreditCard.self) { card in
+                    CreditCardDetailScreen(model: model.makeCardDetail(for: card))
+                }
                 .sheet(item: $editor) { sheet in
                     AccountEditorView(model: sheet.model)
                 }
                 .confirmationDialog(
-                    "刪除資金帳戶",
+                    "刪除資產帳戶",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingDeletion
@@ -70,30 +77,17 @@ struct AccountsScreen: View {
                     CardPaymentView(model: payment)
                 }
                 .confirmationDialog(
-                    "結帳日出帳結轉",
+                    "結帳日出帳作業",
                     isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingRollover
                 ) { card in
-                    Button("結轉") {
+                    Button("出帳作業") {
                         Task { await model.rollOver(card) }
                     }
                     Button("取消", role: .cancel) {}
                 } message: { card in
                     Text(model.rolloverConfirmation(for: card))
-                }
-                .confirmationDialog(
-                    "校準未出帳",
-                    isPresented: Binding(get: { pendingReconcile != nil }, set: { if !$0 { pendingReconcile = nil } }),
-                    titleVisibility: .visible,
-                    presenting: pendingReconcile
-                ) { card in
-                    Button("校準") {
-                        Task { await model.reconcile(card) }
-                    }
-                    Button("取消", role: .cancel) {}
-                } message: { card in
-                    Text(model.reconcileConfirmation(for: card))
                 }
                 .alert(
                     "無法完成",
@@ -172,24 +166,17 @@ struct AccountsScreen: View {
         switch model.phase {
         case .loading:
             List {
-                SkeletonSection(count: 1, announces: true) {
-                    Picker("檢視範圍", selection: .constant(0)) {
-                        Text("全部").tag(0)
-                        Text("家庭公用").tag(1)
-                        Text("個人私帳").tag(2)
+                Section {
+                    SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
+                        .skeletonAnnouncement()
+                    ForEach(0..<3, id: \.self) { _ in
+                        AmountRow(title: "摘要數字", amount: Skeleton.amount)
+                            .skeletonRow()
                     }
-                    .pickerStyle(.segmented)
                 }
-                SkeletonSection(count: 4) { SkeletonSummaryRow() }
                 SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
                 SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
-                SkeletonSection(title: "信用卡", count: 1) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SkeletonAccountRow()
-                        SkeletonItemRow()
-                        SkeletonItemRow()
-                    }
-                }
+                SkeletonSection(title: "信用卡", count: 1) { SkeletonAccountRow() }
             }
         case .failed(let message):
             ContentUnavailableView {
@@ -203,17 +190,6 @@ struct AccountsScreen: View {
             }
         case .loaded:
             List {
-                Section {
-                    Picker("檢視範圍", selection: $model.scope) {
-                        Text("全部").tag(AccountScope.all)
-                        Text("家庭公用").tag(AccountScope.household)
-                        Text("個人私帳").tag(AccountScope.personal)
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("accounts.scope")
-                } footer: {
-                    Text("其他成員的個人私帳和現金錢包一律不顯示。")
-                }
                 summarySection
                 cashSection
                 bankSection
@@ -223,29 +199,14 @@ struct AccountsScreen: View {
         }
     }
 
+    /// 摘要(#75):淨可用餘額是主數字，下面是它的組成，一項一列。
+    /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
     private var summarySection: some View {
         Section {
-            SummaryRow(
-                title: "現金錢包總額",
-                amount: model.cashTotal ?? .zero,
-                detail: model.cashWalletCountText
-            )
-            SummaryRow(
-                title: "銀行存款帳戶餘額合計",
-                amount: model.bankBalanceTotal ?? .zero,
-                detail: model.bankAccountCountText
-            )
-            SummaryRow(
-                title: "待繳卡費總額",
-                amount: model.totalCardDue ?? .zero,
-                detail: "已出帳待繳 \((model.billedDebtTotal ?? .zero).formatted()) · 未出帳 \((model.unbilledDebtTotal ?? .zero).formatted())"
-            )
-            SummaryRow(
-                title: "淨可用資產",
-                amount: model.availableBalance ?? .zero,
-                detail: "現金加銀行存款，扣掉所有信用卡的待繳卡費總額",
-                warnsWhenNegative: true
-            )
+            SummaryRow(title: "淨可用餘額", amount: model.availableBalance ?? .zero, warnsWhenNegative: true)
+            AmountRow(title: "現金錢包總額", amount: model.cashTotal ?? .zero)
+            AmountRow(title: "銀行存款帳戶餘額合計", amount: model.bankBalanceTotal ?? .zero)
+            AmountRow(title: "信用卡待繳總額", amount: model.totalCardDue ?? .zero)
         }
     }
 
@@ -254,13 +215,15 @@ struct AccountsScreen: View {
             if model.cashWallets.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無現金錢包",
-                    message: "建立你的個人隨身皮夾或客廳公用零用金盒，掌握實體現鈔流向！",
-                    actionTitle: "立即新增現金錢包", identifier: "accounts.emptyAdd.cash"
+                    actionTitle: "立即建立現金錢包", identifier: "accounts.emptyAdd.cash"
                 ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
             ForEach(model.cashWallets) { wallet in
                 accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
-                    CashWalletRow(wallet: wallet)
+                    FundAccountRow(
+                        name: wallet.name, colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
+                        balance: wallet.balance, balanceTitle: "現金錢包餘額"
+                    )
                 }
             }
         }
@@ -271,13 +234,15 @@ struct AccountsScreen: View {
             if model.bankAccounts.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無銀行存款帳戶",
-                    message: "新增個人薪轉或家庭共同基金帳戶，輕鬆追蹤儲蓄與扣款。",
                     actionTitle: "立即新增銀行存款帳戶", identifier: "accounts.emptyAdd.bank"
                 ) { editor = EditorSheet(model.makeEditor(adding: .bank)) }
             }
             ForEach(model.bankAccounts) { account in
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
-                    BankAccountRow(account: account)
+                    FundAccountRow(
+                        name: account.name, colorHex: account.colorHex, isJointFund: account.isJointFund,
+                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true
+                    )
                 }
             }
         }
@@ -288,22 +253,43 @@ struct AccountsScreen: View {
             if model.creditCards.isEmpty {
                 SectionEmptyState(
                     title: "目前此範圍無信用卡",
-                    message: "新增信用卡可掌握家庭公帳代墊與個人私帳刷卡分流，避免突襲式卡費！",
                     actionTitle: "立即新增信用卡", identifier: "accounts.emptyAdd.creditCard"
                 ) { editor = EditorSheet(model.makeEditor(adding: .creditCard)) }
             }
             ForEach(model.creditCards) { card in
-                accountRow(.creditCard(card)) { CreditCardRow(card: card) }
-                // 卡片本身點一下是編輯，所以欠款公私拆解、結帳日提醒與還款放在下一列，不把按鈕塞進按鈕裡。
-                CardSettlementRow(
-                    card: card,
-                    showsRollover: model.showsRollover(card),
-                    reminder: model.rolloverReminder(for: card),
-                    rollOver: { pendingRollover = card },
-                    isReconciling: model.isReconciling(card),
-                    reconcile: { pendingReconcile = card },
-                    pay: { preset in payment = model.makePayment(for: card, preset: preset) }
-                )
+                creditCardRow(card)
+            }
+        }
+    }
+
+    /// 信用卡精簡列(#73):整列是導覽連結，點進信用卡詳細頁。往左滑可以刪除;長按有繳款、出帳作業、編輯和刪除的捷徑，
+    /// 每一項在詳細頁都找得到(HIG Context menus)。沒有對應欠款的繳款項目、沒有未出帳款時的出帳作業都隱藏。
+    private func creditCardRow(_ card: CreditCard) -> some View {
+        NavigationLink(value: card) {
+            CreditCardSummaryRow(card: card, mark: .colorBar)
+        }
+        .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
+        .swipeActions {
+            Button("刪除", systemImage: "trash", role: .destructive) {
+                pendingDeletion = .creditCard(card)
+            }
+        }
+        .contextMenu {
+            Section {
+                ForEach(card.paymentPresets, id: \.self) { preset in
+                    Button(preset.title, systemImage: preset.systemImage) {
+                        payment = model.makePayment(for: card, preset: preset)
+                    }
+                }
+                if model.showsRollover(card) {
+                    Button("出帳作業", systemImage: "calendar.badge.clock") { pendingRollover = card }
+                }
+            }
+            Button("編輯", systemImage: "pencil") {
+                editor = EditorSheet(model.makeEditor(editing: .creditCard(card)))
+            }
+            Button("刪除", systemImage: "trash", role: .destructive) {
+                pendingDeletion = .creditCard(card)
             }
         }
     }
@@ -313,191 +299,46 @@ struct AccountsScreen: View {
 extension CardPaymentModel: Identifiable {}
 extension TransferModel: Identifiable {}
 
-/// 信用卡帳戶的負債性質拆解、結帳日出帳結轉與還款(web 在 `82d9124` 把三個還款按鈕移到卡片上)。
-private struct CardSettlementRow: View {
-    let card: CreditCard
-    let showsRollover: Bool
-    let reminder: String
-    let rollOver: () -> Void
-    let isReconciling: Bool
-    let reconcile: () -> Void
-    let pay: (CardPaymentModel.Preset) -> Void
+/// 現金錢包、銀行存款帳戶的列：色條、名稱(家庭共同基金多一行標記)和餘額。
+/// 用 `LabeledContent`:放不下同一行時(AX5)自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」第 5 條，#79)。
+private struct FundAccountRow: View {
+    let name: String
+    let colorHex: String
+    let isJointFund: Bool
+    let balance: Money
+    /// VoiceOver 在餘額前念的標籤，例如「現金錢包餘額」。
+    let balanceTitle: String
+    /// 負數用紅色(銀行存款帳戶)。
+    var warnsWhenNegative = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("負債性質拆解：家庭代墊公帳 \(card.sharedDebt.formatted()) · 個人私帳消費 \(card.personalDebt.formatted())")
-                .font(.subheadline)
+        LabeledContent {
+            Text(balance.formatted())
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(
-                    "負債性質拆解，家庭代墊公帳 \(card.sharedDebt.spokenText),個人私帳消費 \(card.personalDebt.spokenText)"
-                )
-            // 上下排，大字級時說明文字才不會被按鈕擠掉(Dynamic Type)。
-            VStack(alignment: .leading, spacing: 4) {
-                if showsRollover {
-                    Text(reminder)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                // 校準每張卡都有(web 的 b5cbe09);結轉只在有未出帳金額時出現。
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 16) { statementButtons }
-                    VStack(alignment: .leading, spacing: 8) { statementButtons }
-                }
-            }
-            if card.totalDue > .zero {
-                // List 的一列裡有好幾個按鈕：每個都要 borderless,不然點一個會全部觸發。大字級時改成直排。
-                // 跟 web 一樣三個按鈕一排(只放文字才放得下);大字級放不下時改成帶 icon 的直排。
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 16) { paymentButtons }
-                        .labelStyle(.titleOnly)
-                    VStack(alignment: .leading, spacing: 8) { paymentButtons }
-                }
-            } else {
-                Label("卡費已全數結清，無待繳款項", systemImage: "checkmark.circle")
-                    .font(.subheadline)
-                    .foregroundStyle(.green)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var statementButtons: some View {
-        if showsRollover {
-            Button("出帳結轉", systemImage: "calendar.badge.clock", action: rollOver)
-                .buttonStyle(.borderless)
-                .font(.subheadline.bold())
-                .accessibilityIdentifier("accounts.rollover.\(card.id.rawValue)")
-        }
-        Button(isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath", action: reconcile)
-            .buttonStyle(.borderless)
-            .font(.subheadline.bold())
-            .disabled(isReconciling)
-            .accessibilityLabel("校準「\(card.name)」的未出帳金額")
-            .accessibilityIdentifier("accounts.reconcile.\(card.id.rawValue)")
-    }
-
-    @ViewBuilder
-    private var paymentButtons: some View {
-        Button("繳家庭代墊", systemImage: "house.fill") { pay(.shared) }
-            .buttonStyle(.borderless)
-            .disabled(card.sharedDebt <= .zero)
-            .accessibilityIdentifier("accounts.payShared.\(card.id.rawValue)")
-        Button("繳個人私帳", systemImage: "person.fill") { pay(.personal) }
-            .buttonStyle(.borderless)
-            .disabled(card.personalDebt <= .zero)
-            .accessibilityIdentifier("accounts.payPersonal.\(card.id.rawValue)")
-        Button("全額結清", systemImage: "checkmark.seal") { pay(.full) }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier("accounts.payFull.\(card.id.rawValue)")
-    }
-}
-
-private struct CashWalletRow: View {
-    let wallet: CashWallet
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AccountColorMark(hex: wallet.colorHex)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(wallet.name)
-                if wallet.isJointFund {
-                    Label("家庭公用", systemImage: "house.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Text(wallet.balance.formatted())
-                .monospacedDigit()
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(wallet.name)\(wallet.isJointFund ? ",家庭公用" : ""),現金餘額 \(wallet.balance.spokenText)")
-    }
-}
-
-private struct BankAccountRow: View {
-    let account: BankAccount
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AccountColorMark(hex: account.colorHex)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.name)
-                if account.isJointFund {
-                    Label("家庭共同基金", systemImage: "house.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Text(account.balance.formatted())
-                .monospacedDigit()
-                .foregroundStyle(account.balance < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(account.name)\(account.isJointFund ? ",家庭共同基金" : ""),餘額 \(account.balance.spokenText)")
-    }
-}
-
-private struct CreditCardRow: View {
-    let card: CreditCard
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+                .foregroundStyle(warnsWhenNegative && balance < .zero ? Color.red : .primary)
+                .lineLimit(1)
+                .fixedSize()
+        } label: {
             HStack(spacing: 12) {
-                AccountColorMark(hex: card.colorHex)
+                AccountColorMark(hex: colorHex)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(card.name)
-                        .font(.headline)
-                    // web 的 bd0507b 一律標示家庭卡或個人卡。
-                    Label(card.isJointFund ? "家庭卡" : "個人卡", systemImage: card.isJointFund ? "house.fill" : "person.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    Text(name)
+                    if isJointFund {
+                        Label("家庭共同基金", systemImage: "house.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                Spacer()
-                if let limit = card.creditLimit {
-                    Text("額度 \(limit.formatted())")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-            LabeledContent("已出帳待繳金額", value: card.billedDebt.formatted())
-                .monospacedDigit()
-            LabeledContent("未出帳金額", value: card.unbilledDebt.formatted())
-                .monospacedDigit()
-            if let dates = billingDates {
-                Text(dates)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            // 有信用額度時才顯示，最小是 0(web 在 82d9124 拿掉了「額度不足」的警示)。
-            if let remaining = card.remainingCredit {
-                Text("剩餘額度 \(remaining.formatted())")
-                    .monospacedDigit()
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-    }
-
-    /// 例如「結帳日：每月 15 號 · 繳款日：每月 5 號」。
-    private var billingDates: String? {
-        let parts = [
-            card.statementDay.map { "結帳日：每月 \($0) 號" },
-            card.paymentDueDay.map { "繳款日：每月 \($0) 號" },
-        ].compactMap(\.self)
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)")
     }
 }
 
-/// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」),附新增的入口。
+/// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」):只有標題和新增的入口，web 的宣傳句不寫(DESIGN.md「說明文字」)。
 private struct SectionEmptyState: View {
     let title: String
-    let message: String
     let actionTitle: String
     let identifier: String
     let action: () -> Void
@@ -506,24 +347,13 @@ private struct SectionEmptyState: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button(actionTitle, action: action)
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier(identifier)
+            // 大字級折行時跟標題一樣靠左：加在 Text 上，加在 Button 上會被按鈕樣式的置中蓋掉(AX5 截圖)。
+            Button(action: action) {
+                Text(actionTitle)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier(identifier)
         }
-    }
-}
-
-/// 使用者選的資金帳戶代表色。只是輔助辨識，不是唯一的資訊(DESIGN.md「顏色」)。
-private struct AccountColorMark: View {
-    let hex: String
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Color(hex: hex) ?? .gray)
-            .frame(width: 6, height: 28)
-            .accessibilityHidden(true)
     }
 }

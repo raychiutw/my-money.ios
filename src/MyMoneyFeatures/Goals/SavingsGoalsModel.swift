@@ -21,10 +21,25 @@ public final class SavingsGoalsModel {
     @ObservationIgnored private let repository: any SavingsGoalRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let today: () -> CalendarDay
 
-    public init(repository: any SavingsGoalRepository, dataVersion: DataVersion) {
+    /// `locale` 決定日期的格式，預設跟著系統;`today` 決定截止日要不要寫年份。
+    public init(
+        repository: any SavingsGoalRepository,
+        dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.locale = locale
+        self.today = today
+    }
+
+    /// 截止日，例如「2027年3月31日」,今年的省略年份(DESIGN.md「日期」);沒有截止日是 `nil`。
+    public func deadlineText(of goal: SavingsGoal) -> String? {
+        goal.deadline?.text(today: today(), locale: locale)
     }
 
     public var datedGoals: [SavingsGoal] { goals.filter { $0.deadline != nil } }
@@ -101,9 +116,18 @@ extension SavingsGoal {
         let percent = min(savedAmount.amount / targetAmount.amount * 100, 100)
         return percent.percentText(fractionDigits: 0)
     }
+
+    /// VoiceOver 把整列念成一句，例如「沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%，截止日 2027年3月31日」。
+    /// 畫面上百分比交給進度條，不另外寫(#77)。
+    public func spokenText(deadline: String?) -> String {
+        var parts = [name, "已存 \(savedAmount.spokenText)", "目標 \(targetAmount.spokenText)", "達成 \(percentText)"]
+        if let deadline { parts.append("截止日 \(deadline)") }
+        if isAchieved { parts.append("已達成目標") }
+        return parts.joined(separator: "，")
+    }
 }
 
-/// 存入儲蓄目標的 sheet。存入**不會**動到任何資金帳戶。
+/// 存入儲蓄目標的 sheet。存入**不會**動到任何資產帳戶。
 @MainActor
 @Observable
 public final class SavingsGoalDepositModel {

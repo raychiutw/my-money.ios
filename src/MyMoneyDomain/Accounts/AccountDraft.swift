@@ -1,11 +1,11 @@
-/// 資金帳戶的三種類型。
+/// 資產帳戶的三種類型。
 public enum AccountKind: Hashable, Sendable {
     case cash
     case bank
     case creditCard
 }
 
-/// 新增或編輯時送出的資金帳戶內容。依類型分成不同形狀：現金錢包和銀行存款帳戶沒有信用額度與日期。
+/// 新增或編輯時送出的資產帳戶內容。依類型分成不同形狀：現金錢包和銀行存款帳戶沒有信用額度與日期。
 public enum AccountDraft: Hashable, Sendable {
     case cash(CashWalletDraft)
     case bank(BankAccountDraft)
@@ -17,7 +17,7 @@ public struct CashWalletDraft: Hashable, Sendable {
     public var colorHex: String
     public var balance: Money
 
-    /// 家庭公用的標記(預設個人私帳)。編輯時要保留原本的值(後端的 PUT 沒收到會寫成 0)。
+    /// 家庭共同基金的標記(預設個人私帳)。編輯時要保留原本的值(後端的 PUT 沒收到會寫成 0)。
     public var isJointFund: Bool
 
     public init(name: String, colorHex: String, balance: Money, isJointFund: Bool) {
@@ -53,7 +53,7 @@ public struct CreditCardDraft: Hashable, Sendable {
     public var statementDay: Int?
     public var paymentDueDay: Int?
 
-    /// 家庭卡的標記。
+    /// 家庭信用卡的標記。
     public var isJointFund: Bool
 
     public init(

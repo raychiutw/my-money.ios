@@ -1,4 +1,4 @@
-/// 資金帳戶的 ID,由後端產生。
+/// 資產帳戶的 ID,由後端產生。
 public struct AccountID: Hashable, Sendable {
     public let rawValue: String
 
@@ -7,7 +7,7 @@ public struct AccountID: Hashable, Sendable {
     }
 }
 
-/// 資金帳戶(Account):現金錢包、銀行存款帳戶或信用卡帳戶。欄位不同，所以各自一個型別。
+/// 資產帳戶(Account):現金錢包、銀行存款帳戶或信用卡帳戶。欄位不同，所以各自一個型別。
 public enum Account: Hashable, Sendable, Identifiable {
     case cash(CashWallet)
     case bank(BankAccount)
@@ -37,7 +37,7 @@ public enum Account: Hashable, Sendable, Identifiable {
         }
     }
 
-    /// 家庭公用(家庭共同基金、家庭卡)或個人私帳。
+    /// 歸屬家庭共同基金(信用卡叫家庭信用卡)或個人私帳。
     public var isJointFund: Bool {
         switch self {
         case .cash(let wallet): wallet.isJointFund
@@ -55,10 +55,10 @@ public struct CashWallet: Hashable, Sendable, Identifiable {
     /// 使用者選的代表色，例如 `#10B981`。
     public let colorHex: String
 
-    /// 目前的現金餘額。
+    /// 目前的餘額(帳戶頁叫「現金錢包餘額」)。
     public let balance: Money
 
-    /// 是否標記為家庭公用(例如客廳零用金盒)。預設是個人私帳。
+    /// 是否歸屬家庭共同基金(例如客廳零用金盒)。預設是個人私帳。
     public let isJointFund: Bool
 
     public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool) {
@@ -99,10 +99,10 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     public let name: String
     public let colorHex: String
 
-    /// 已出帳待繳金額(Billed Debt)。後端的欄位叫 `balance`。
+    /// 已出帳待繳款(Billed Debt)。後端的欄位叫 `balance`。
     public let billedDebt: Money
 
-    /// 未出帳金額(Unbilled Debt)。
+    /// 未出帳款(Unbilled Debt)。
     public let unbilledDebt: Money
 
     /// 信用額度;沒有設定時是 `nil`。
@@ -114,13 +114,13 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 繳款日(每月幾號);沒有設定時是 `nil`。
     public let paymentDueDay: Int?
 
-    /// 欠款公私拆解：待繳卡費總額裡估算屬於家庭公帳的部分(後端用這張卡最近 50 筆支出估算)。
+    /// 欠款公私拆解：信用卡待繳總額裡估算屬於家庭公帳的部分(後端用這張卡最近 50 筆支出估算)。
     public let sharedDebt: Money
 
-    /// 欠款公私拆解：待繳卡費總額裡估算屬於個人私帳的部分。
+    /// 欠款公私拆解：信用卡待繳總額裡估算屬於個人私帳的部分。
     public let personalDebt: Money
 
-    /// 是否標記為家庭卡(所有帳戶類型都能設歸屬)。
+    /// 是否歸屬家庭共同基金，也就是家庭信用卡(所有帳戶類型都能設歸屬)。
     public let isJointFund: Bool
 
     public init(
@@ -149,12 +149,12 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         self.personalDebt = personalDebt
     }
 
-    /// 待繳卡費總額：已出帳待繳金額加上未出帳金額。
+    /// 信用卡待繳總額：已出帳待繳款加上未出帳款。
     public var totalDue: Money {
         billedDebt + unbilledDebt
     }
 
-    /// 剩餘額度：信用額度扣掉待繳卡費總額，最小是 0;沒有信用額度(或額度是 0)時是 `nil`(web 在 `82d9124` 起的規則)。
+    /// 剩餘額度：信用額度扣掉信用卡待繳總額，最小是 0;沒有信用額度(或額度是 0)時是 `nil`(web 在 `82d9124` 起的規則)。
     public var remainingCredit: Money? {
         guard let creditLimit, creditLimit > .zero else { return nil }
         return max(creditLimit - totalDue, .zero)

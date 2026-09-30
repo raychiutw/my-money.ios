@@ -14,6 +14,8 @@ struct MyMoneyApp: App {
     private let login: LoginModel
     private let register: RegisterModel
     private let signedIn: SignedInScreens
+    /// 帳號 sheet 的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
+    private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
     private let suggestsStrongPasswords: Bool
     /// UI 測試拉長「已複製」的顯示時間(見 `copiedFeedbackDuration`);`nil` 是沿用預設值。
@@ -31,7 +33,7 @@ struct MyMoneyApp: App {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
             let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
-            // 總覽選過的視角也另外存，每個 UI 測試從預設值開始。
+            // 總覽選過的視角、外觀也另外存，每個 UI 測試從預設值開始。
             let defaultsSuite = "com.raychiu.mymoney.ui-testing"
             let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
             if arguments.contains("-resetSession") {
@@ -39,6 +41,7 @@ struct MyMoneyApp: App {
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
             session = AppSession(storage: storage)
+            appearance = AppearanceSetting(defaults: defaults)
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
@@ -54,8 +57,9 @@ struct MyMoneyApp: App {
                 advances: [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
             )
             let bot = InMemoryBotRepository.sample()
-            signedIn = SignedInScreens {
+            signedIn = SignedInScreens { user in
                 MainScreens(
+                    currentUser: user.id,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                     householdRepository: household, botRepository: bot, defaults: defaults
@@ -67,6 +71,7 @@ struct MyMoneyApp: App {
         }
         #endif
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
+        appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
         let auth = LiveAuthRepository(client: client)
@@ -82,8 +87,9 @@ struct MyMoneyApp: App {
         let bot = LiveBotRepository(client: client)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
-        signedIn = SignedInScreens {
+        signedIn = SignedInScreens { user in
             MainScreens(
+                currentUser: user.id,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                 householdRepository: household, botRepository: bot
@@ -97,10 +103,32 @@ struct MyMoneyApp: App {
         WindowGroup {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
+                .environment(appearance)
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
                 }
+                .onChange(of: appearance.appearance, initial: true) { _, selected in
+                    Self.apply(selected)
+                }
+        }
+    }
+
+    /// 把外觀設在每個 window 上，登入頁、sheet 和 alert 都在 window 裡，一起跟著變。
+    ///
+    /// 不用 `preferredColorScheme`:在 iOS 27 上，帳號 sheet 開著時切到深色，之後再切成淺色或跟隨系統，
+    /// sheet 都停在深色(#62 的截圖驗證)。window 的 `.unspecified` 就是跟隨系統，系統依時間自動切換也會跟著變;
+    /// 增強對比是另一個 trait,不受影響。
+    private static func apply(_ appearance: Appearance) {
+        let style: UIUserInterfaceStyle = switch appearance {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
         }
     }
 }
@@ -114,7 +142,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // 分段控制的字預設是 13pt(footnote 的大小),跟其他小字一樣往上一級到 subheadline(#43)。
         // ponytail: 啟動時取一次 Dynamic Type 的大小，執行中改字級要重開 app 才會跟著變。
-        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        // 上限 21pt(subheadline 在 xxxLarge 的大小):分段控制的高度固定，無障礙字級時字會超出控制項、上緣被切掉(#78,AX5 截圖)。
+        let font = UIFont.systemFont(ofSize: min(UIFont.preferredFont(forTextStyle: .subheadline).pointSize, 21))
         UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .normal)
         UISegmentedControl.appearance().setTitleTextAttributes(
             [.font: UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)],

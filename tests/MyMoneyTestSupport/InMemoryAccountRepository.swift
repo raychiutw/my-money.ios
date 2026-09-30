@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的資金帳戶:資料由測試決定，也可以指定失敗。
+/// 不連網路的資產帳戶:資料由測試決定，也可以指定失敗。
 public actor InMemoryAccountRepository: AccountRepository {
     private var storedAccounts: [Account]
     private var summary: BalanceSummary
@@ -11,10 +11,10 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 新增過的內容，依送出順序。
     public private(set) var createdDrafts: [AccountDraft] = []
 
-    /// 最後一次編輯的內容，依資金帳戶。
+    /// 最後一次編輯的內容，依資產帳戶。
     public private(set) var updatedDrafts: [AccountID: AccountDraft] = [:]
 
-    /// 刪除過的資金帳戶，依刪除順序。
+    /// 刪除過的資產帳戶，依刪除順序。
     public private(set) var deletedIDs: [AccountID] = []
 
     /// `accounts()` 被呼叫的次數，用來確認有沒有重抓。
@@ -34,7 +34,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 每次查詢帶的帳戶檢視範圍，依順序。
     public private(set) var requestedScopes: [AccountScope] = []
 
-    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭公用只留家庭公用，個人私帳只留個人私帳。
+    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭共同基金只留歸屬家庭共同基金的，個人私帳只留個人私帳。
     public func accounts(scope: AccountScope) async throws -> [Account] {
         await gate?.pass()
         try checkCancellationIfGated()
@@ -78,7 +78,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         storedAccounts.removeAll { $0.id == id }
     }
 
-    /// 後端建立或更新後的資金帳戶(不重算資金指標)。
+    /// 後端建立或更新後的資產帳戶(不重算資金指標)。
     private static func account(_ id: AccountID, from draft: AccountDraft) -> Account {
         switch draft {
         case .cash(let wallet):
@@ -104,13 +104,13 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
-    /// 信用卡還款沖銷送出過的內容，依送出順序。
+    /// 信用卡扣款還款送出過的內容，依送出順序。
     public private(set) var payments: [CardPayment] = []
 
-    /// 結帳日出帳結轉過的信用卡帳戶，依順序。
+    /// 做過結帳日出帳作業的信用卡帳戶，依順序。
     public private(set) var rolledOverIDs: [AccountID] = []
 
-    /// 跟後端一樣：從銀行存款帳戶扣款，先沖已出帳待繳金額，不足的部分再沖未出帳金額(不重算資金指標與欠款公私拆解)。
+    /// 跟後端一樣：從銀行存款帳戶扣款，先沖已出帳待繳款，不足的部分再沖未出帳款(不重算資金指標與欠款公私拆解)。
     public func payCreditCard(_ payment: CardPayment) async throws {
         if let failure { throw failure }
         payments.append(payment)
@@ -131,23 +131,25 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
-    /// 跟後端一樣把未出帳金額移到已出帳待繳金額;沒有未出帳金額時拒絕。
+    /// 跟後端一樣把未出帳款移到已出帳待繳款;沒有未出帳款時拒絕。
     public func rollOverStatement(_ id: AccountID) async throws -> String {
         if let failure { throw failure }
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }), card.unbilledDebt > .zero else {
-            throw RepositoryError.rejected("目前無未出帳金額需結轉")
+            // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:262):後端的訊息還沒改用正名，照抄。
+            throw RepositoryError.rejected("目前無未出帳金額需出帳作業")
         }
         rolledOverIDs.append(id)
         storedAccounts = storedAccounts.map {
             $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
         }
-        return "已將未出帳 \(card.unbilledDebt.amount.formatted(.currency(code: "TWD").precision(.fractionLength(0)).locale(Locale(identifier: "zh_Hant_TW")))) 成功結轉為已出帳待繳！"
+        // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:274),疊字已回報 onion523/my-money#27。
+        return "已將未出帳 NT$ \(card.unbilledDebt.backendText) 成功出帳作業為已出帳待繳款！"
     }
 
     /// 校準過未出帳的信用卡，依順序。
     public private(set) var reconciledIDs: [AccountID] = []
 
-    /// 後端是從交易紀錄重算未出帳金額;這裡拿不到交易紀錄，未出帳金額維持原值，只回傳跟後端同格式的訊息。
+    /// 後端是從交易記錄重算未出帳款;這裡拿不到交易記錄，未出帳款維持原值，只回傳跟後端同格式的訊息。
     public func reconcileUnbilled(_ id: AccountID) async throws -> String {
         await gate?.pass()
         if let failure { throw failure }
@@ -155,7 +157,8 @@ public actor InMemoryAccountRepository: AccountRepository {
             throw RepositoryError.rejected("信用卡不存在或無權限")
         }
         reconciledIDs.append(id)
-        return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.amount.formatted(.number.locale(Locale(identifier: "en_US"))))"
+        // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:387):後端的訊息還沒改用正名，照抄。
+        return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.backendText)"
     }
 
     private static func card(_ card: CreditCard, billed: Money, unbilled: Money) -> CreditCard {
@@ -183,7 +186,8 @@ public actor InMemoryAccountRepository: AccountRepository {
             throw RepositoryError.rejected("找不到轉出帳戶或無權限操作")
         }
         if let balance = Self.balance(of: from), balance < transfer.amount {
-            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.amount)）")
+            // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:466、491)。
+            throw RepositoryError.rejected("轉出帳戶餘額不足（目前餘額：NT$ \(balance.backendText)）")
         }
         transfers.append(transfer)
         storedAccounts = storedAccounts.map { account in
@@ -193,7 +197,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
         let isATM: Bool
         if case .bank = from, case .cash = to { isATM = true } else { isATM = false }
-        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.amount) (\(from.name) ➡️ \(to.name))"
+        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.backendText) (\(from.name) ➡️ \(to.name))"
     }
 
     /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
@@ -205,7 +209,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
-    /// 跟後端一樣直接加減 `balance`(信用卡的 `balance` 是已出帳待繳金額)。
+    /// 跟後端一樣直接加減 `balance`(信用卡的 `balance` 是已出帳待繳款)。
     private static func adding(_ amount: Money, to account: Account) -> Account {
         switch account {
         case .cash(let wallet):
@@ -235,6 +239,13 @@ public actor InMemoryAccountRepository: AccountRepository {
     }
 }
 
+extension Money {
+    /// 後端訊息裡的金額：`toLocaleString()` 加上千分位，例如「NT$ 50,000」的 `50,000`。
+    var backendText: String {
+        amount.formatted(.number.locale(Locale(identifier: "en_US")))
+    }
+}
+
 extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個銀行存款帳戶、兩張信用卡帳戶。
     public static func sample(gate: Gate? = nil) -> InMemoryAccountRepository {
@@ -249,7 +260,7 @@ extension InMemoryAccountRepository {
     }
 }
 
-/// 畫面 model 測試與 UI 測試共用的資金帳戶。
+/// 畫面 model 測試與 UI 測試共用的資產帳戶。
 public enum SampleAccounts {
     public static let savings = BankAccount(
         id: AccountID("sample-bank"),
@@ -291,7 +302,7 @@ public enum SampleAccounts {
         id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
     )
 
-    /// 含現金錢包的資金指標：淨可用資產 = 1,500 + 50,000 − 28,500(後端算好的值)。
+    /// 含現金錢包的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
     public static let summaryWithCash = BalanceSummary(
         cashTotal: Money(1500),
         bankBalanceTotal: Money(50000),

@@ -36,14 +36,14 @@ struct MainTabView: View {
     }
 }
 
-/// 規劃：固定收支、儲蓄目標、現金流預測的列表。
+/// 規劃：週期收支、儲蓄目標、現金流預測的列表。
 private struct PlanningScreen: View {
     let screens: MainScreens
 
     var body: some View {
         NavigationStack {
             List {
-                NavigationLink("固定收支") {
+                NavigationLink("週期收支") {
                     RecurringScreen(model: screens.recurring)
                 }
                 NavigationLink("儲蓄目標") {

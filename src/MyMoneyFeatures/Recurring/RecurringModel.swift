@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 固定收支頁的 model(parity.md「固定收支」)。
+/// 週期收支頁的 model(parity.md「週期收支」)。
 @MainActor
 @Observable
 public final class RecurringModel {
@@ -40,14 +40,14 @@ public final class RecurringModel {
     public var expenses: [RecurringItem] { items.filter { $0.type == .expense } }
     public var incomes: [RecurringItem] { items.filter { $0.type == .income } }
 
-    /// 固定支出的週期攤提合計(後端算好)。
+    /// 週期支出的分攤平滑合計(後端算好)。
     public var monthlyExpense: Money { amortization.monthlyExpense }
-    /// 固定收入的週期攤提合計(後端算好)。
+    /// 週期收入的分攤平滑合計(後端算好)。
     public var monthlyIncome: Money { amortization.monthlyIncome }
-    /// 每月固定淨額：固定收入減固定支出。
+    /// 每月固定淨額：週期收入減週期支出。
     public var monthlyNet: Money { monthlyIncome - monthlyExpense }
 
-    /// 載入固定收支與週期攤提。任一個失敗都顯示載入失敗，不把週期攤提當成 0
+    /// 載入週期收支與分攤平滑。任一個失敗都顯示載入失敗，不把分攤平滑當成 0
     /// (web 用 `.catch(() => null)` 顯示 $0,parity 刻意偏離第 27 項)。重新載入時保留舊資料。
     public func load() async {
         let version = dataVersion.value
@@ -71,7 +71,7 @@ public final class RecurringModel {
     }
 
     public func deleteConfirmation(for item: RecurringItem) -> String {
-        "確定要刪除固定收支「\(item.name)」嗎？"
+        "確定要刪除週期收支「\(item.name)」嗎？"
     }
 
     /// 刪除;成功後遞增資料版本。
@@ -92,7 +92,7 @@ public final class RecurringModel {
         RecurringEditorModel(editing: item, repository: repository, accounts: accountRepository, dataVersion: dataVersion)
     }
 
-    /// 固定收支的 CSV,檔名跟 web 一樣是 `recurring-今天.csv`。
+    /// 週期收支的 CSV,檔名跟 web 一樣是 `recurring-今天.csv`。
     public func csvExport() -> CSVExport {
         let repository = repository
         return CSVExport(fileName: "recurring-\(today().iso).csv") {
@@ -107,9 +107,25 @@ extension RecurringItem {
         "\(cycle.label) \(dayOfCycle) 號\(type == .expense ? "扣款" : "入帳")"
     }
 
-    /// 週期不是每月的固定支出才顯示週期攤提;固定收入不顯示。
+    /// 週期不是每月的週期支出才顯示分攤平滑;週期收入不顯示。
     public var showsMonthlyAmortization: Bool {
         type == .expense && cycle != .monthly
+    }
+
+    /// 列的第 3 行：資產帳戶名稱，不加「關聯扣款帳戶：」前綴;沒設就不顯示(DESIGN.md「列與欄位」,#77)。
+    public var accountText: String? { accountName }
+
+    /// 金額下方的每月分攤平滑，例如「$2,000／月」;只有週期不是每月的週期支出才有。
+    public var amortizationText: String? {
+        showsMonthlyAmortization ? "\(monthlyAmortization.formatted())／月" : nil
+    }
+
+    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 15 號扣款，分攤平滑每月 2,000 元」。
+    public var spokenText: String {
+        var parts = [name, "\(type == .income ? "週期收入" : "週期支出") \(amount.spokenText)", scheduleText]
+        if let accountText { parts.append("帳戶 \(accountText)") }
+        if showsMonthlyAmortization { parts.append("分攤平滑每月 \(monthlyAmortization.spokenText)") }
+        return parts.joined(separator: "，")
     }
 }
 

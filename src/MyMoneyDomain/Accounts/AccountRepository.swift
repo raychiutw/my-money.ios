@@ -1,14 +1,14 @@
-/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員的家庭公用」,家庭公用是全體成員的家庭公用帳戶，
-/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易紀錄的視角(`ViewScope`)是兩件事。
+/// 帳戶檢視範圍(CONTEXT.md):全部是「本人全部 + 其他成員歸屬家庭共同基金的帳戶」,家庭共同基金是全體成員歸屬家庭共同基金的帳戶，
+/// 個人私帳是本人的個人私帳。其他成員的個人私帳一律看不到(後端 `bd0507b`)。跟交易記錄的視角(`ViewScope`)是兩件事。
 public enum AccountScope: String, Sendable, CaseIterable {
     case all
     case household
     case personal
 }
 
-/// 資金帳戶(`/accounts`)。
+/// 資產帳戶(`/accounts`)。
 public protocol AccountRepository: Sendable {
-    /// 這個範圍的資金帳戶，順序照後端(建立時間由舊到新)。
+    /// 這個範圍的資產帳戶，順序照後端(建立時間由舊到新)。
     func accounts(scope: AccountScope) async throws -> [Account]
 
     /// 這個範圍的資金指標。
@@ -16,19 +16,20 @@ public protocol AccountRepository: Sendable {
 
     func create(_ draft: AccountDraft) async throws
 
-    /// 編輯時不能改類型:`draft` 的類型必須跟原本的資金帳戶一樣。
+    /// 編輯時不能改類型:`draft` 的類型必須跟原本的資產帳戶一樣。
     func update(_ id: AccountID, with draft: AccountDraft) async throws
 
-    /// 刪除資金帳戶。這個帳戶的交易紀錄會被後端一併刪除。
+    /// 刪除資產帳戶。這個帳戶的交易記錄會被後端一併刪除。
     func delete(_ id: AccountID) async throws
 
-    /// 信用卡還款沖銷。
+    /// 信用卡扣款還款。
     func payCreditCard(_ payment: CardPayment) async throws
 
-    /// 結帳日出帳結轉：把未出帳金額一次移到已出帳待繳金額。回傳後端的訊息。
+    /// 結帳日出帳作業：把未出帳款一次轉入已出帳待繳款，後端並記錄這次出帳作業的時間點(`da82a11` 起)。回傳後端的訊息。
     func rollOverStatement(_ id: AccountID) async throws -> String
 
-    /// 信用卡未出帳自動校準(後端 `b5cbe09`):把未出帳金額重算成上一個結帳日之後的消費合計。回傳後端的訊息。
+    /// 信用卡未出帳自動校準(後端 `b5cbe09`,`da82a11` 改了算法):把未出帳款覆寫成上一次結帳日出帳作業之後的消費合計，
+    /// 扣掉同一段期間的刷退和還款。回傳後端的訊息。
     func reconcileUnbilled(_ id: AccountID) async throws -> String
 
     /// ATM 提款／帳戶互轉。回傳後端的訊息。
@@ -36,7 +37,7 @@ public protocol AccountRepository: Sendable {
 }
 
 extension AccountRepository {
-    /// 全部範圍(本人全部 + 家庭公用),給只需要選帳戶的畫面用，例如記一筆、固定收支。
+    /// 全部範圍(本人全部 + 家庭共同基金),給只需要選帳戶的畫面用，例如記一筆、週期收支。
     public func accounts() async throws -> [Account] {
         try await accounts(scope: .all)
     }

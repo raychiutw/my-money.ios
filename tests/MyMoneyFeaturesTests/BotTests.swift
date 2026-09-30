@@ -23,11 +23,13 @@ struct BotTests {
         BotModel(repository: repository, dataVersion: dataVersion, now: { [clock] in clock.now })
     }
 
-    @Test("綁定驗證碼每秒倒數「M 分 S 秒」,歸零時隱藏")
+    @Test("綁定驗證碼每秒倒數「M 分 S 秒」,歸零時隱藏;過期後綁定區仍有一列(顯示已過期，不是空白列)")
     func pairingCountdown() async {
         let model = model()
+        #expect(!model.hasPairingCode)
 
         await model.generatePairingCode()
+        #expect(model.hasPairingCode)
         #expect(model.visiblePairingCode == "AB12CD")
         #expect(model.countdownText == "10 分 0 秒")
 
@@ -37,6 +39,7 @@ struct BotTests {
 
         clock.advance(539)
         #expect(model.visiblePairingCode == nil)
+        #expect(model.hasPairingCode)
     }
 
     @Test("「複製指令」複製的內容是「綁定 {綁定驗證碼}」")
@@ -110,7 +113,7 @@ struct BotTests {
         #expect(BotModel.examples == ["午餐 120", "一蘭拉麵 320 現金", "薪水 65000 銀行", "查帳"])
     }
 
-    @Test("送出後附上機器人的回覆，清掉輸入框，資料版本遞增(寫入的是真的交易紀錄)")
+    @Test("送出後附上機器人的回覆，清掉輸入框，資料版本遞增(寫入的是真的交易記錄)")
     func send() async throws {
         let repository = InMemoryBotRepository.sample()
         let model = model(repository)
@@ -170,7 +173,7 @@ struct BotTests {
     }
 
     /// web 的網址多了 /api,網域也不對(parity 刻意偏離第 8 項)。
-    @Test("Webhook 說明的網址")
+    @Test("Webhook 網址")
     func webhookURLs() {
         #expect(BotModel.lineWebhook == "https://my-money-api.onion523.workers.dev/bot/webhook/line")
         #expect(BotModel.telegramWebhook == "https://my-money-api.onion523.workers.dev/bot/webhook/telegram")

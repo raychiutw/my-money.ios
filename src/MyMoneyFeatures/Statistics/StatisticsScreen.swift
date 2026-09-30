@@ -3,7 +3,8 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「統計」tab:月份與視角、公帳代墊款與分攤建議、支出分類、收支趨勢、分類預算(parity.md「統計與預算」)。
+/// 「統計」tab:月份、公帳代墊款與分攤建議、支出分類、收支趨勢、預算額度(parity.md「統計與預算」)。
+/// 視角在 toolbar 的篩選按鈕，目前的選擇顯示在導覽列副標題。
 struct StatisticsScreen: View {
     @Bindable var model: StatisticsModel
     @State private var budgetEditor: BudgetEditorModel?
@@ -12,18 +13,16 @@ struct StatisticsScreen: View {
         NavigationStack {
             List {
                 Section {
-                    MonthSwitcher(month: $model.month)
-                    Picker("視角", selection: $model.scope) {
-                        Text("全部").tag(ViewScope.all)
-                        Text("家庭").tag(ViewScope.household)
-                        Text("個人").tag(ViewScope.personal)
-                    }
-                    .pickerStyle(.segmented)
+                    MonthSwitcher(month: $model.month, title: model.monthTitle)
                 }
                 content
             }
             .skeletonTransition(value: model.phase)
             .navigationTitle("統計")
+            .navigationSubtitle(model.scope.title)
+            .toolbar {
+                ScopeFilter("視角", scope: $model.scope, identifier: "statistics.scope")
+            }
             .refreshable { await model.load() }
             // 月份、視角或資料版本任一改變就重抓。
             .task(id: QueryKey(month: model.month, scope: model.scope, version: model.dataVersion.value)) {
@@ -47,7 +46,7 @@ struct StatisticsScreen: View {
         case .loading:
             SkeletonSection(title: "支出分類", count: 1, announces: true) { SkeletonChart() }
             SkeletonSection(title: "收支趨勢", count: 1) { SkeletonChart(height: 160) }
-            SkeletonSection(title: "預算", count: 4) { SkeletonItemRow() }
+            SkeletonSection(title: "預算額度", count: 4) { SkeletonItemRow() }
         case .failed(let message):
             Section {
                 ContentUnavailableView {
@@ -112,6 +111,8 @@ struct StatisticsScreen: View {
         return "\(perPerson),\(transfer.from) 轉 \(text(transfer.amount)) 給 \(transfer.to)"
     }
 
+    /// 圓餅圖和下方清單共用同一份「分類 → 顏色」對照(`chartColor`),清單每列前緣的圓點就是圖例;
+    /// 分類名稱照舊顯示，不只靠顏色(研究 §10,#76)。
     private var categorySection: some View {
         Section("支出分類") {
             if model.categoryExpenses.isEmpty {
@@ -124,6 +125,10 @@ struct StatisticsScreen: View {
                         .accessibilityLabel(expense.category.name)
                         .accessibilityValue(expense.total.spokenText)
                 }
+                .chartForegroundStyleScale(
+                    domain: model.categoryExpenses.map(\.category.name),
+                    range: model.categoryExpenses.map(\.category.chartColor)
+                )
                 .chartLegend(.hidden)
                 .frame(height: 220)
                 .padding(.vertical, 8)
@@ -132,7 +137,13 @@ struct StatisticsScreen: View {
                         Text(expense.total.formatted())
                             .monospacedDigit()
                     } label: {
-                        Label(expense.category.name, systemImage: expense.category.symbolName)
+                        Label {
+                            Text(expense.category.name)
+                        } icon: {
+                            Image(systemName: "circle.fill")
+                                .imageScale(.small)
+                                .foregroundStyle(expense.category.chartColor)
+                        }
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(expense.category.name) \(expense.total.spokenText)")
@@ -145,9 +156,9 @@ struct StatisticsScreen: View {
     }
 
     private var trendSection: some View {
-        Section("\(String(model.month.year)) 年收支趨勢") {
+        Section("\(model.yearTitle)收支趨勢") {
             if model.monthlySummaries.isEmpty {
-                Text("\(String(model.month.year)) 年尚無收支紀錄")
+                Text("\(model.yearTitle)尚無收支紀錄")
                     .foregroundStyle(.secondary)
             } else {
                 Chart(model.monthlySummaries, id: \.month) { summary in
@@ -169,17 +180,33 @@ struct StatisticsScreen: View {
         }
     }
 
+    /// 只列有預算或本月已花的分類，整列點開設定 sheet;其餘分類在底部的「新增預算額度」選單，
+    /// 選了打開同一個 sheet,全部都列出時不顯示(HIG Pull-down buttons 的「An Add button could present a menu」,
+    /// 研究 §5,#76)。
     private var budgetSection: some View {
-        Section {
+        Section("預算額度") {
             ForEach(model.budgetRows) { row in
-                BudgetRowView(row: row) {
-                    budgetEditor = model.makeBudgetEditor(for: row)
+                Button {
+                    budgetEditor = model.makeBudgetEditor(for: row.category)
+                } label: {
+                    BudgetRowView(row: row)
                 }
+                .tint(.primary)
+                .accessibilityLabel(row.spokenText)
+                .accessibilityIdentifier("budgets.row.\(row.category.name)")
             }
-        } header: {
-            Text("分類預算")
-        } footer: {
-            Text("已花是這個月我記的支出，包含家庭公帳與個人私帳，不隨視角改變。")
+            if !model.addableBudgetCategories.isEmpty {
+                Menu {
+                    ForEach(model.addableBudgetCategories, id: \.self) { category in
+                        Button(category.name, systemImage: category.symbolName) {
+                            budgetEditor = model.makeBudgetEditor(for: category)
+                        }
+                    }
+                } label: {
+                    AddBudgetMenuLabel()
+                }
+                .accessibilityIdentifier("budgets.add")
+            }
         }
     }
 
@@ -191,13 +218,15 @@ struct StatisticsScreen: View {
 /// 上一個月、下一個月。
 private struct MonthSwitcher: View {
     @Binding var month: CalendarMonth
+    /// 所選的月份(畫面 model 依系統格式產生)。
+    let title: String
 
     var body: some View {
         HStack {
             Button("上一個月", systemImage: "chevron.left") { month = month.previous }
                 .labelStyle(.iconOnly)
             Spacer()
-            Text("\(String(month.year)) 年 \(month.month) 月")
+            Text(title)
                 .font(.headline)
                 .monospacedDigit()
             Spacer()
@@ -208,29 +237,45 @@ private struct MonthSwitcher: View {
     }
 }
 
-/// 一個支出分類的已花與分類預算;超支與接近上限用 symbol 加文字，不只靠顏色。
+/// 「新增預算額度」選單的 label:整列都點得開，不只文字的範圍。
+///
+/// 不用 `Label`:`Menu` 的 label 是 `Label` 時，AX5 字級折成兩行會被裁掉、圖示壓到文字(#76 的截圖),
+/// 改成自己排圖示和文字。圖示欄的寬度和間距跟 List 裡的 `Label` 差不多，文字對齊上面各列的分類名稱。
+private struct AddBudgetMenuLabel: View {
+    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: "plus")
+                .frame(width: iconWidth)
+                .accessibilityHidden(true)
+            Text("新增預算額度")
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .contentShape(.rect)
+    }
+}
+
+/// 預算額度的一列(#76,DESIGN.md「列與欄位」):分類;已花、預算各一列(沒有預算時是「未設定」);
+/// 有預算時是進度;超支與接近上限用 symbol 加文字，不只靠顏色。整列是按鈕，VoiceOver 念 `spokenText`。
 private struct BudgetRowView: View {
     let row: BudgetRow
-    let edit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label(row.category.name, systemImage: row.category.symbolName)
-                Spacer()
-                Button(row.budget == nil ? "設定" : "調整", action: edit)
-                    .buttonStyle(.borderless)
-                    .accessibilityIdentifier("budgets.edit.\(row.category.name)")
-            }
-            Text(amountText)
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            Label(row.category.name, systemImage: row.category.symbolName)
+            field("已花", value: row.spent.formatted())
             if let budget = row.budget {
+                field("預算", value: budget.amount.formatted())
+                // 超支時進度卡在 100%,VoiceOver 改念 `spokenText` 裡的超支金額。
                 ProgressView(value: budget.amount > .zero ? min(row.spent.chartValue / budget.amount.chartValue, 1) : 1)
                     .tint(tint)
+                    .accessibilityHidden(true)
+            } else {
+                field("預算", value: "未設定", isPlaceholder: true)
             }
-            if let statusText {
+            if let statusText = row.statusText(spoken: false) {
                 Label(statusText, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline.bold())
                     .foregroundStyle(tint)
@@ -239,16 +284,21 @@ private struct BudgetRowView: View {
         .padding(.vertical, 2)
     }
 
-    private var amountText: String {
-        guard let budget = row.budget else { return "已花 \(row.spent.formatted())(未設定預算)" }
-        return "已花 \(row.spent.formatted()) / 預算 \(budget.amount.formatted())"
-    }
-
-    private var statusText: String? {
-        switch row.status {
-        case .over(let amount): "超支 \(amount.formatted())"
-        case .nearLimit: "接近上限"
-        case .unset, .normal: nil
+    /// 已花、預算各一列：標籤在左、金額在右，大字級放不下時自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
+    /// 字級直接設在 `Text` 上：設在外層時，List 裡的 `LabeledContent` 仍是 `body`(#76 的截圖)。
+    /// `isPlaceholder`:沒有值(「未設定」)時用次要文字色，跟金額區分。
+    private func field(_ title: String, value: String, isPlaceholder: Bool = false) -> some View {
+        LabeledContent {
+            Text(value)
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(isPlaceholder ? .secondary : .primary)
+                .lineLimit(1)
+                .fixedSize()
+        } label: {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -257,6 +307,46 @@ private struct BudgetRowView: View {
         case .over: .red
         case .nearLimit: .orange
         case .unset, .normal: .accentColor
+        }
+    }
+}
+
+extension BudgetRow {
+    /// 例如「餐飲，預算 100 元，已花 120 元，超支 20 元」「交通，預算未設定，已花 250 元」。
+    fileprivate var spokenText: String {
+        var parts = [
+            category.name,
+            budget.map { "預算 \($0.amount.spokenText)" } ?? "預算未設定",
+            "已花 \(spent.spokenText)",
+        ]
+        if let status = statusText(spoken: true) { parts.append(status) }
+        return parts.joined(separator: "，")
+    }
+
+    fileprivate func statusText(spoken: Bool) -> String? {
+        switch status {
+        case .over(let amount): "超支 \(spoken ? amount.spokenText : amount.formatted())"
+        case .nearLimit: "接近上限"
+        case .unset, .normal: nil
+        }
+    }
+}
+
+extension TransactionCategory {
+    /// 支出分類圖表的顏色：圓餅圖和清單的圓點共用，跟著分類固定，不隨排序或月份改變(DESIGN.md「顏色」)。
+    /// 用系統色，深色和增強對比由系統調整。挑的 8 色在淺色、深色下任兩色都分得開(一般色覺 OKLab ΔE ≥ 15);
+    /// 紅色留給支出和超支，不用。
+    /// 「其他」和不在清單中的分類(例如機器人記帳寫入的)是灰色。
+    fileprivate var chartColor: Color {
+        switch name {
+        case "餐飲": .orange
+        case "交通": .blue
+        case "娛樂": .purple
+        case "購物": .pink
+        case "生活": .green
+        case "醫療": .cyan
+        case "教育": .yellow
+        default: .gray
         }
     }
 }

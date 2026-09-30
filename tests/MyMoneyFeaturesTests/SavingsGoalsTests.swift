@@ -34,6 +34,22 @@ struct SavingsGoalsTests {
         #expect(model.totalMonthlyReserve == Money(5200))
     }
 
+    /// 已存、目標分開顯示，百分比交給進度條;VoiceOver 念百分比(#77)。
+    @Test("目標列 VoiceOver 念成一句：名稱、已存、目標、達成百分比、截止日，已達成時加註")
+    func goalSpokenText() {
+        let trip = SavingsGoal(
+            id: SavingsGoalID("t"), name: "沖繩旅遊", emoji: "✈️", targetAmount: Money(60000),
+            savedAmount: Money(3000), monthlyReserve: Money(5000), deadline: CalendarDay(year: 2027, month: 3, day: 31)
+        )
+        let done = SavingsGoal(
+            id: SavingsGoalID("d"), name: "iOS 小目標", emoji: "🎒", targetAmount: Money(1000),
+            savedAmount: Money(1000), monthlyReserve: .zero, deadline: nil
+        )
+
+        #expect(trip.spokenText(deadline: "2027年3月31日") == "沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%，截止日 2027年3月31日")
+        #expect(done.spokenText(deadline: nil) == "iOS 小目標，已存 1,000 元，目標 1,000 元，達成 100%，已達成目標")
+    }
+
     @Test("沒有任何目標時，整體達成率顯示 0%")
     func overallRateWithoutGoals() async {
         let model = await loaded(InMemorySavingsGoalRepository(goals: []))
@@ -48,6 +64,20 @@ struct SavingsGoalsTests {
 
         #expect(model.datedGoals.map(\.name) == ["沖繩旅遊", "iOS 小目標"])
         #expect(model.undatedGoals.map(\.name) == ["緊急備用金"])
+    }
+
+    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「2027/03/31」。跟今天同一年時省略年份。
+    @Test("截止日是「2027年3月31日」這種系統格式，今年的省略年份")
+    func deadlineText() async throws {
+        let model = SavingsGoalsModel(
+            repository: InMemorySavingsGoalRepository.sample(), dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"),
+            today: { CalendarDay(year: 2026, month: 9, day: 28) }
+        )
+        await model.load()
+
+        #expect(model.datedGoals.map { model.deadlineText(of: $0) } == ["2027年3月31日", "12月31日"])
+        let undated = try #require(model.undatedGoals.first)
+        #expect(model.deadlineText(of: undated) == nil)
     }
 
     /// 已存金額可能超過目標金額：編輯時把目標金額調低，後端的 PUT 不會重新卡上限。

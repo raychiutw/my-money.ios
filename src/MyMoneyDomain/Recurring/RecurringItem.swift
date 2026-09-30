@@ -1,6 +1,6 @@
 import Foundation
 
-/// 固定收支項目的 ID,由後端產生。
+/// 週期收支項目的 ID,由後端產生。
 public struct RecurringItemID: Hashable, Sendable {
     public let rawValue: String
 
@@ -9,7 +9,7 @@ public struct RecurringItemID: Hashable, Sendable {
     }
 }
 
-/// 固定收支的週期。raw value 是後端的 `cycle`。
+/// 週期收支的週期。raw value 是後端的 `cycle`。
 public enum RecurringCycle: String, CaseIterable, Hashable, Sendable {
     case monthly
     case bimonthly
@@ -29,7 +29,7 @@ public enum RecurringCycle: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// 固定收支(RecurringItem):只是提醒與估算，**不會**自動產生交易紀錄。只有自己的項目。
+/// 週期收支(RecurringItem):只是提醒與估算，**不會**自動產生交易記錄。只有自己的項目。
 public struct RecurringItem: Hashable, Sendable, Identifiable {
     public let id: RecurringItemID
     public let name: String
@@ -63,13 +63,13 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
         self.accountName = accountName
     }
 
-    /// 週期攤提：每期金額平均到每個月(跟 web 一樣是 `amount / 月數`)。
+    /// 分攤平滑：每期金額平均到每個月(跟 web 一樣是 `amount / 月數`)。
     public var monthlyAmortization: Money {
         Money(amount.amount / Decimal(cycle.months))
     }
 }
 
-/// 新增或編輯固定收支時送出的內容。
+/// 新增或編輯週期收支時送出的內容。
 public struct RecurringDraft: Hashable, Sendable {
     public let name: String
     public let type: TransactionType
@@ -88,7 +88,7 @@ public struct RecurringDraft: Hashable, Sendable {
     }
 }
 
-/// 固定支出與固定收入各自的週期攤提合計(後端算好的 `GET /recurring/amortize`)。
+/// 週期支出與週期收入各自的分攤平滑合計(後端算好的 `GET /recurring/amortize`)。
 public struct RecurringAmortization: Hashable, Sendable {
     public let monthlyExpense: Money
     public let monthlyIncome: Money
@@ -101,9 +101,9 @@ public struct RecurringAmortization: Hashable, Sendable {
     public static let zero = RecurringAmortization(monthlyExpense: .zero, monthlyIncome: .zero)
 }
 
-/// 固定收支(`/recurring`)。
+/// 週期收支(`/recurring`)。
 public protocol RecurringRepository: Sendable {
-    /// 自己的固定收支，帶上關聯帳戶的名稱。
+    /// 自己的週期收支，帶上關聯帳戶的名稱。
     func items() async throws -> [RecurringItem]
 
     func amortization() async throws -> RecurringAmortization
@@ -114,6 +114,6 @@ public protocol RecurringRepository: Sendable {
 
     func delete(_ id: RecurringItemID) async throws
 
-    /// 自己的固定收支的 CSV(`GET /export/recurring`,UTF-8 加 BOM),原樣回傳。
+    /// 自己的週期收支的 CSV(`GET /export/recurring`,UTF-8 加 BOM),原樣回傳。
     func exportCSV() async throws -> Data
 }

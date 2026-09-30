@@ -4,7 +4,11 @@ import SwiftUI
 struct SavingsGoalDepositView: View {
     @Bindable var model: SavingsGoalDepositModel
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isAmountFocused: Bool
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case amount
+    }
 
     var body: some View {
         NavigationStack {
@@ -15,11 +19,9 @@ struct SavingsGoalDepositView: View {
                     LabeledContent("本次存入金額") {
                         AmountField(
                             "本次存入金額", text: $model.amountText, prompt: Text("例如：3000"),
-                            focus: $isAmountFocused, equals: true, identifier: "goalDeposit.amount"
+                            focus: $focusedField, equals: .amount, identifier: "goalDeposit.amount"
                         )
                     }
-                } footer: {
-                    Text("存入只記在儲蓄目標上，不會動到任何資金帳戶。")
                 }
 
                 if let message = model.errorMessage {
@@ -46,7 +48,7 @@ struct SavingsGoalDepositView: View {
                     .accessibilityIdentifier("goalDeposit.save")
                 }
             }
-            .keyboardDoneButton { isAmountFocused = false }
+            .keyboardDismissal(clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

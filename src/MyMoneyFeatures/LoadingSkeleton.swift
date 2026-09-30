@@ -84,7 +84,7 @@ struct SkeletonSummaryRow: View {
     }
 }
 
-/// 資金帳戶一列的佔位：代表色、名稱、金額。
+/// 資產帳戶一列的佔位：代表色、名稱、金額。
 struct SkeletonAccountRow: View {
     var body: some View {
         HStack(spacing: 12) {
@@ -99,7 +99,7 @@ struct SkeletonAccountRow: View {
     }
 }
 
-/// 兩行項目的佔位：名稱、說明、金額(固定收支、預定收支、已綁定的帳號)。
+/// 兩行項目的佔位：名稱、說明、金額(週期收支、預定收支、已綁定的帳號)。
 struct SkeletonItemRow: View {
     var body: some View {
         HStack {

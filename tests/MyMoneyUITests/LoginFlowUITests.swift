@@ -24,7 +24,7 @@ final class LoginFlowUITests: XCTestCase {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "缺少「\(tab)」tab")
         }
         app.tabBars.buttons["規劃"].tap()
-        for item in ["固定收支", "儲蓄目標", "現金流預測"] {
+        for item in ["週期收支", "儲蓄目標", "現金流預測"] {
             XCTAssertTrue(app.buttons[item].waitForExistence(timeout: 3), "規劃缺少「\(item)」")
         }
 
@@ -32,7 +32,9 @@ final class LoginFlowUITests: XCTestCase {
         app.buttons["overview.account"].tap()
         XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["family@example.com"].exists)
-        XCTAssertTrue(app.buttons["家庭"].exists)
+        // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被帳號 sheet 蓋住的總覽視角分段控制，
+        // 視角改進 toolbar 選單(#63)之後就找不到了。
+        XCTAssertTrue(app.buttons["account.household"].exists, "帳號 sheet 沒有「家庭群組」")
         XCTAssertTrue(app.buttons["機器人記帳"].exists)
 
         app.buttons["account.signOut"].tap()

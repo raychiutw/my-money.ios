@@ -61,6 +61,9 @@ public final class BotModel {
     /// 還沒過期的綁定驗證碼;過期或還沒產生時是 `nil`。
     public var visiblePairingCode: String? { remainingSeconds > 0 ? pairingCode : nil }
 
+    /// 產生過綁定驗證碼(過期了也算):綁定區用它決定要不要放那一列，過期時顯示「已過期」(#79)。
+    public var hasPairingCode: Bool { pairingCode != nil }
+
     /// 剩下的時間，例如「9 分 59 秒」。畫面每秒重算一次。
     public var countdownText: String { "\(remainingSeconds / 60) 分 \(remainingSeconds % 60) 秒" }
 
@@ -108,7 +111,7 @@ public final class BotModel {
         await load()
     }
 
-    /// 送出一則訊息。寫入的是真的交易紀錄，所以成功後資料版本遞增;錯誤以一則訊息泡泡呈現。
+    /// 送出一則訊息。寫入的是真的交易記錄，所以成功後資料版本遞增;錯誤以一則訊息泡泡呈現。
     public func send() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isThinking else { return }

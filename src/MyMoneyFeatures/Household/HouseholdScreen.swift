@@ -15,7 +15,7 @@ struct HouseholdScreen: View {
             .inlineNavigationTitle()
             .task { await model.load() }
             .sheet(item: $model.invitation) { invitation in
-                InvitationSheet(invitation: invitation)
+                InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))
             }
             .confirmationDialog(
                 "離開家庭群組",
@@ -96,33 +96,36 @@ struct HouseholdScreen: View {
 
     private var notJoined: some View {
         Form {
-            Section {
-                TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
-                    .accessibilityIdentifier("household.createName")
-                Button("建立家庭群組") {
+            // 建立和加入是兩條互斥的路，各一個 Section、一個欄位、一顆按鈕。欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
+            // 按鈕用 bordered prominent:停用時仍然看得出是按鈕，不會跟欄位的 placeholder 一樣只剩灰字(研究 §9)。
+            Section("建立家庭群組") {
+                LabeledContent("名稱") {
+                    TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
+                        .accessibilityIdentifier("household.createName")
+                }
+                Button("建立") {
                     Task { await model.create() }
                 }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
-            } header: {
-                Text("建立家庭群組")
-            } footer: {
-                Text("建立之後，你是這個家庭群組的管理員，可以邀請家庭成員加入。")
             }
 
-            Section {
-                TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("household.joinCode")
-                Button("加入家庭群組") {
+            // 邀請碼的格式只放在 placeholder,不另外寫說明(parity 刻意偏離第 14、43 項)。
+            Section("用邀請碼加入") {
+                LabeledContent("邀請碼") {
+                    TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("household.joinCode")
+                }
+                Button("加入") {
                     Task { await model.join() }
                 }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .disabled(!model.canJoin)
                 .accessibilityIdentifier("household.join")
-            } header: {
-                Text("用邀請碼加入")
-            } footer: {
-                Text("輸入家庭成員分享的邀請碼，格式是 FAM-XXXX。")
             }
         }
     }
@@ -149,7 +152,7 @@ struct HouseholdScreen: View {
 
             Section("家庭成員名冊") {
                 ForEach(household.members) { member in
-                    MemberRow(member: member)
+                    MemberRow(member: member, joined: model.joinedDateText(of: member))
                         .swipeActions {
                             if model.canRemove(member) {
                                 Button("移除", systemImage: "person.badge.minus", role: .destructive) {
@@ -180,7 +183,7 @@ struct HouseholdScreen: View {
 extension HouseholdScreen {
     /// 家庭公帳代墊與報銷(web 的「家庭公帳代墊與報銷中心」):每位成員一列，明細就地展開，可以同時展開多位。
     private var advancesSection: some View {
-        Section {
+        Section("家庭公帳代墊與報銷") {
             if model.advances.isEmpty {
                 Text("暫無公帳代墊款紀錄")
                     .foregroundStyle(.secondary)
@@ -196,7 +199,7 @@ extension HouseholdScreen {
                 }
                 .accessibilityIdentifier("household.advanceDetails")
                 if model.isShowingDetails(of: advance.memberID) {
-                    AdvanceDetails(advance: advance)
+                    AdvanceDetails(advance: advance, dateText: model.dateText)
                 }
                 if model.canReimburse(advance) {
                     Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
@@ -206,10 +209,6 @@ extension HouseholdScreen {
                     .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
                 }
             }
-        } header: {
-            Text("家庭公帳代墊與報銷")
-        } footer: {
-            Text("只有用個人帳戶(個人私帳、私卡或個人現金錢包)付的家庭公帳支出才算代墊;由家庭共同基金直接付的不算。")
         }
     }
 }
@@ -255,6 +254,8 @@ private struct AdvanceSummaryRow: View {
 /// 就地展開的兩份明細：個人代墊消費明細、共同基金撥款沖帳紀錄。
 private struct AdvanceDetails: View {
     let advance: HouseholdAdvance
+    /// 明細的日期(畫面 model 依系統格式產生)。
+    let dateText: (CalendarDay) -> String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -293,7 +294,7 @@ private struct AdvanceDetails: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                Text("\(date.slashText) · \(account)")
+                Text("\(dateText(date)) · \(account)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -303,7 +304,7 @@ private struct AdvanceDetails: View {
                 .foregroundStyle(isIncome ? .green : .red)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(date.slashText),\(account)")
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date)),\(account)")
     }
 }
 
@@ -312,6 +313,8 @@ extension ReimbursementModel: Identifiable {}
 /// 名冊的一個人：名稱開頭字、名稱、角色、email、加入日期。
 private struct MemberRow: View {
     let member: HouseholdMember
+    /// 加入日期(畫面 model 依系統格式產生)。
+    let joined: String
 
     var body: some View {
         HStack(spacing: 12) {
@@ -330,7 +333,7 @@ private struct MemberRow: View {
                 Text(member.email)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text("加入日期 \(member.joinedDateText())")
+                Text("加入日期 \(joined)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -339,12 +342,12 @@ private struct MemberRow: View {
     }
 }
 
-/// 剛產生的邀請碼：邀請碼、有效期限(當地格式)與「複製」。
+/// 剛產生的邀請碼：邀請碼、有效期限(系統格式，台灣時間)與「複製」。
 private struct InvitationSheet: View {
     let invitation: HouseholdInvitation
+    /// 有效期限(畫面 model 依系統格式產生，台灣時間)。
+    let expiry: String
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.copiedFeedbackDuration) private var copiedFeedbackDuration
-    @State private var isCopied = false
 
     var body: some View {
         NavigationStack {
@@ -355,17 +358,11 @@ private struct InvitationSheet: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("household.invitationCode")
-                    Button(isCopied ? "已複製" : "複製", systemImage: isCopied ? "checkmark" : "doc.on.doc") {
-                        copyToPasteboard(invitation.code)
-                        isCopied = true
-                        Task {
-                            try? await Task.sleep(for: copiedFeedbackDuration)
-                            isCopied = false
-                        }
-                    }
-                    .accessibilityIdentifier("household.copy")
+                    CopyButton(text: invitation.code)
+                        .accessibilityIdentifier("household.copy")
                 } footer: {
-                    Text("有效期限：\(invitation.expiresAt.formatted(date: .long, time: .shortened))。請家庭成員登入後，在「帳號 → 家庭群組」輸入這組邀請碼(格式是 FAM-XXXX)。")
+                    // 只留有效期限(資料);怎麼使用邀請碼不另外說明(DESIGN.md「說明文字」)。
+                    Text("有效期限：\(expiry)")
                 }
             }
             .navigationTitle("邀請家庭成員")
