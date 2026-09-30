@@ -80,6 +80,9 @@ public final class StatisticsModel {
     /// 預算額度清單：有預算或本月已花的支出分類，依支出分類的固定順序。
     public private(set) var budgetRows: [BudgetRow] = []
 
+    /// 支出分類圓餅圖:最多 8 塊，金額最大的幾種各用固定色，其餘併成灰色(#100)。
+    public var expenseChart: ExpenseChart { ExpenseChart(expenses: categoryExpenses) }
+
     /// 清單沒列出的支出分類，依固定順序;全部都列出時是空的，不顯示「新增預算額度」。
     public var addableBudgetCategories: [TransactionCategory] {
         let listed = Set(budgetRows.map(\.category))

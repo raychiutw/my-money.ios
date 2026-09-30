@@ -112,23 +112,25 @@ struct StatisticsScreen: View {
         return "\(perPerson),\(transfer.from) 轉 \(text(transfer.amount)) 給 \(transfer.to)"
     }
 
-    /// 圓餅圖和下方清單共用同一份「分類 → 顏色」對照(`chartColor`),清單每列前緣的圓點就是圖例;
+    /// 圓餅圖最多 8 塊:金額最大的幾種用各自固定的顏色，其餘(含沒有專屬色的分類)併成 1 塊灰色(`ExpenseChart`,#100)。
+    /// 下方清單列出全部分類，每列前緣的圓點顏色跟圖一致(合併進灰色的，圓點也是灰色)，當圖例用;
     /// 分類名稱照舊顯示，不只靠顏色(研究 §10,#76)。
     private var categorySection: some View {
-        Section("支出分類") {
+        let chart = model.expenseChart
+        return Section("支出分類") {
             if model.categoryExpenses.isEmpty {
                 Text("此視角本月尚無支出")
                     .foregroundStyle(.secondary)
             } else {
-                Chart(model.categoryExpenses, id: \.category) { expense in
-                    SectorMark(angle: .value("金額", expense.total.chartValue), innerRadius: .ratio(0.6), angularInset: 1)
-                        .foregroundStyle(by: .value("分類", expense.category.name))
-                        .accessibilityLabel(expense.category.name)
-                        .accessibilityValue(expense.total.spokenText)
+                Chart(chart.slices) { slice in
+                    SectorMark(angle: .value("金額", slice.total.chartValue), innerRadius: .ratio(0.6), angularInset: 1)
+                        .foregroundStyle(by: .value("分類", slice.name))
+                        .accessibilityLabel(slice.spokenName)
+                        .accessibilityValue(slice.total.spokenText)
                 }
                 .chartForegroundStyleScale(
-                    domain: model.categoryExpenses.map(\.category.name),
-                    range: model.categoryExpenses.map(\.category.chartColor)
+                    domain: chart.slices.map(\.name),
+                    range: chart.slices.map(\.color.color)
                 )
                 .chartLegend(.hidden)
                 .frame(height: 220)
@@ -143,7 +145,7 @@ struct StatisticsScreen: View {
                         } icon: {
                             Image(systemName: "circle.fill")
                                 .imageScale(.small)
-                                .foregroundStyle(expense.category.chartColor)
+                                .foregroundStyle(chart.color(for: expense.category).color)
                         }
                     }
                     .accessibilityElement(children: .ignore)
@@ -329,21 +331,22 @@ extension BudgetRow {
     }
 }
 
-extension TransactionCategory {
-    /// 支出分類圖表的顏色：圓餅圖和清單的圓點共用，跟著分類固定，不隨排序或月份改變(DESIGN.md「顏色」)。
-    /// 用系統色，深色和增強對比由系統調整。挑的 8 色在淺色、深色下任兩色都分得開(一般色覺 OKLab ΔE ≥ 15);
-    /// 紅色留給支出和超支，不用。
-    /// 「其他」和不在清單中的分類(例如機器人記帳寫入的)是灰色。
-    fileprivate var chartColor: Color {
-        switch name {
-        case "餐飲": .orange
-        case "交通": .blue
-        case "娛樂": .purple
-        case "購物": .pink
-        case "生活": .green
-        case "醫療": .cyan
-        case "教育": .yellow
-        default: .gray
+extension CategoryChartColor {
+    /// 系統色，深色和增強對比由系統調整(DESIGN.md「顏色」)。
+    fileprivate var color: Color {
+        switch self {
+        case .orange: .orange
+        case .blue: .blue
+        case .purple: .purple
+        case .pink: .pink
+        case .green: .green
+        case .cyan: .cyan
+        case .yellow: .yellow
+        case .indigo: .indigo
+        case .teal: .teal
+        case .mint: .mint
+        case .brown: .brown
+        case .gray: .gray
         }
     }
 }
