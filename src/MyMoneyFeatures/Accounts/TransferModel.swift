@@ -40,12 +40,12 @@ public final class TransferModel {
         self.preferredTo = preferredTo
     }
 
-    /// 轉入的選項：不含已選的轉出帳戶。
     /// 可用餘額：轉出帳戶的餘額，另起一列顯示(#78)。
     public var availableBalance: Money? {
         candidates.first { $0.id == fromAccountID }?.fundsBalance
     }
 
+    /// 轉入的選項：不含已選的轉出帳戶。
     public var toCandidates: [Account] {
         candidates.filter { $0.id != fromAccountID }
     }

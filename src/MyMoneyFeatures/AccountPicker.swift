@@ -38,8 +38,9 @@ struct AccountPicker: View {
         }
     }
 
+    /// 已選的帳戶還不在選項裡(例如帳戶還沒載入完)時留白，不能顯示成「無特定帳戶」。
     private var selectedName: String {
-        options.first { $0.id == selection }?.name ?? noneTitle ?? ""
+        options.first { $0.id == selection }?.name ?? (selection == nil ? noneTitle : nil) ?? ""
     }
 }
 
