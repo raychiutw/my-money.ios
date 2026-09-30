@@ -104,7 +104,9 @@ struct SavingsGoalsScreen: View {
                     SummaryRow(title: "已存金額合計", amount: model.totalSaved)
                     AmountRow(title: "目標金額合計", amount: model.totalTarget)
                     LabeledContent("整體達成率") {
+                        // 值用主要文字色，跟同一區 `AmountRow` 的金額一致(`LabeledContent` 預設是次要文字色)。
                         Text(model.overallRateText)
+                            .foregroundStyle(.primary)
                             .monospacedDigit()
                             .lineLimit(1)
                             .fixedSize()
@@ -173,18 +175,15 @@ private struct SavingsGoalRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text(goal.emoji)
-                    .font(.title)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(goal.name)
-                        .font(.headline)
-                    if let deadline {
-                        Text("截止日 \(deadline)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+            // emoji 和名稱並排放不下時(大字級)改成上下堆疊，截止日才不會被擠成好幾行。
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    emoji
+                    titles
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    emoji
+                    titles
                 }
             }
             ViewThatFits(in: .horizontal) {
@@ -216,6 +215,24 @@ private struct SavingsGoalRow: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(goal.spokenText(deadline: deadline))
+    }
+
+    private var emoji: some View {
+        Text(goal.emoji)
+            .font(.title)
+            .accessibilityHidden(true)
+    }
+
+    private var titles: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(goal.name)
+                .font(.headline)
+            if let deadline {
+                Text("截止日 \(deadline)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var saved: some View {
