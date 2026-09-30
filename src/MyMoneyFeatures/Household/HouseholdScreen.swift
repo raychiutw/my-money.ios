@@ -96,24 +96,34 @@ struct HouseholdScreen: View {
 
     private var notJoined: some View {
         Form {
+            // 建立和加入是兩條互斥的路，各一個 Section、一個欄位、一顆按鈕。欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
+            // 按鈕用 bordered prominent:停用時仍然看得出是按鈕，不會跟欄位的 placeholder 一樣只剩灰字(研究 §9)。
             Section("建立家庭群組") {
-                TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
-                    .accessibilityIdentifier("household.createName")
-                Button("建立家庭群組") {
+                LabeledContent("名稱") {
+                    TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
+                        .accessibilityIdentifier("household.createName")
+                }
+                Button("建立") {
                     Task { await model.create() }
                 }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
             }
 
             // 邀請碼的格式只放在 placeholder,不另外寫說明(parity 刻意偏離第 14、43 項)。
             Section("用邀請碼加入") {
-                TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("household.joinCode")
-                Button("加入家庭群組") {
+                LabeledContent("邀請碼") {
+                    TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("household.joinCode")
+                }
+                Button("加入") {
                     Task { await model.join() }
                 }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .disabled(!model.canJoin)
                 .accessibilityIdentifier("household.join")
             }

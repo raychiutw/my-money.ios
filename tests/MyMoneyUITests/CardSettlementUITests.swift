@@ -71,6 +71,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertEqual(ownership.staticTexts.firstMatch.label, "家庭公帳", "「繳家庭代墊」的歸屬不是家庭公帳")
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
         XCTAssertEqual(form.segmentedControls.count, 0, "信用卡扣款還款的表單裡還有分段控制")
+        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "信用卡扣款還款沒有另起一列顯示扣款帳戶的可用餘額")
         // 點金額欄全選後重打一次，直接取代原值(#32)。
         amount.tap()
         amount.typeText("3000")
@@ -129,6 +130,12 @@ final class CardSettlementUITests: XCTestCase {
     @MainActor
     private func field(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
         app.staticTexts["\(label)、\(value)"]
+    }
+
+    /// 一般列(`AmountRow`):VoiceOver 念標籤，值是金額。
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

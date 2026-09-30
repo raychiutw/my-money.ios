@@ -32,6 +32,17 @@ struct TransferTests {
         #expect(model.amountText == "")
     }
 
+    @Test("可用餘額：顯示轉出帳戶的餘額，換轉出帳戶就跟著換;沒選轉出帳戶時沒有(#78)")
+    func availableBalance() async {
+        let model = await loaded()
+
+        #expect(model.availableBalance == SampleAccounts.savings.balance)
+        model.fromAccountID = SampleAccounts.wallet.id
+        #expect(model.availableBalance == SampleAccounts.wallet.balance)
+        model.fromAccountID = nil
+        #expect(model.availableBalance == nil)
+    }
+
     @Test("從現金錢包的「ATM 提款」打開：轉入是這個現金錢包;從銀行存款帳戶的「轉帳／提款」打開：轉出是這個帳戶")
     func openedFromAnAccount() async {
         let fromWallet = await loaded(to: SampleAccounts.wallet.id)

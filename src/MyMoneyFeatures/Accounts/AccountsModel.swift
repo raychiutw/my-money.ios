@@ -164,24 +164,21 @@ extension AccountKind {
 }
 
 extension Account {
-    /// 帳戶選單的文字：名稱加類型，例如「我的皮夾(現金錢包)」(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
-    public var menuTitle: String {
-        "\(name)(\(kind.title))"
-    }
+    /// 帳戶選單項目的副標題：類型，例如「現金錢包」。選擇列的值只放名稱，餘額另起一列「可用餘額」
+    /// (DESIGN.md「列與欄位」第 7 條，#78)。類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
+    public var menuSubtitle: String { kind.title }
 
-    /// 轉帳和撥款報銷的選單另外帶餘額，例如「我的皮夾(現金錢包，餘額 $1,500)」。這兩個選單沒有信用卡。
-    public var menuTitleWithBalance: String {
+    /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有「餘額」,是 `nil`。
+    public var fundsBalance: Money? {
         switch self {
-        case .cash(let wallet): "\(name)(\(kind.title)，餘額 \(wallet.balance.formatted()))"
-        case .bank(let bank): "\(name)(\(kind.title)，餘額 \(bank.balance.formatted()))"
-        case .creditCard: menuTitle
+        case .cash(let wallet): wallet.balance
+        case .bank(let bank): bank.balance
+        case .creditCard: nil
         }
     }
 }
 
 extension ReceivingAccount {
-    /// 撥款報銷收款帳戶選單的文字：名稱加類型，不含餘額(其他成員個人私帳的餘額不公開)。
-    public var menuTitle: String {
-        "\(name)(\(kind.title))"
-    }
+    /// 撥款報銷收款帳戶選單項目的副標題：類型。不含餘額(其他成員個人私帳的餘額不公開)。
+    public var menuSubtitle: String { kind.title }
 }

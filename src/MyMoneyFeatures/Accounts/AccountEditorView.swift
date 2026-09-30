@@ -27,9 +27,12 @@ struct AccountEditorView: View {
                         }
                         .accessibilityIdentifier("accountEditor.kind")
                     }
-                    TextField("名稱", text: $model.name, prompt: Text(namePrompt))
-                        .focused($focusedField, equals: .name)
-                        .accessibilityIdentifier("accountEditor.name")
+                    // 欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
+                    LabeledContent("名稱") {
+                        TextField("名稱", text: $model.name, prompt: Text(namePrompt))
+                            .focused($focusedField, equals: .name)
+                            .accessibilityIdentifier("accountEditor.name")
+                    }
                     if model.showsAmountField {
                         amountRow(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
                     }
@@ -182,8 +185,10 @@ private struct ColorChoices: View {
                 .fill(Color(hex: color.hex) ?? .gray)
                 .overlay {
                     if selection == color.hex {
+                        // 圓固定 32pt,打勾的字級設上限，大字級時才不會超出圓(#78,AX5 截圖)。
                         Image(systemName: "checkmark")
                             .font(.footnote.bold())
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .foregroundStyle(.black.opacity(0.7))
                     }
                 }

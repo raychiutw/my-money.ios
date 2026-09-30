@@ -55,11 +55,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                             Label(category.name, systemImage: category.symbolName).tag(category)
                         }
                     }
-                    Picker("帳戶", selection: $model.accountID) {
-                        ForEach(model.accounts) { account in
-                            Text(account.menuTitle).tag(Optional(account.id))
-                        }
-                    }
+                    AccountPicker(title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init))
                     DatePicker(
                         "日期",
                         selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),

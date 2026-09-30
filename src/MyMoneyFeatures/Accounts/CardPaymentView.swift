@@ -28,11 +28,12 @@ struct CardPaymentView: View {
                 .monospacedDigit()
 
                 Section {
-                    Picker("扣款帳戶", selection: $model.bankAccountID) {
-                        Text("請選擇扣款帳戶").tag(AccountID?.none)
-                        ForEach(model.bankAccounts) { bank in
-                            Text("\(bank.name)(餘額 \(bank.balance.formatted()))").tag(AccountID?.some(bank.id))
-                        }
+                    AccountPicker(
+                        title: "扣款帳戶", selection: $model.bankAccountID, options: model.bankAccounts.map(AccountPicker.Option.init),
+                        noneTitle: "請選擇扣款帳戶"
+                    )
+                    if let balance = model.availableBalance {
+                        AmountRow(title: "可用餘額", amount: balance)
                     }
                     LabeledContent("繳款金額") {
                         AmountField(

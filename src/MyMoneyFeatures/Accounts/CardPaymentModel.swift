@@ -19,6 +19,10 @@ public final class CardPaymentModel {
     public let bankAccounts: [BankAccount]
 
     public var bankAccountID: AccountID?
+    /// 可用餘額：扣款帳戶的餘額，另起一列顯示(#78)。
+    public var availableBalance: Money? {
+        bankAccounts.first { $0.id == bankAccountID }?.balance
+    }
     public var amountText: String
     public var date: CalendarDay
     public var note: String

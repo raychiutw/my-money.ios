@@ -142,7 +142,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // 分段控制的字預設是 13pt(footnote 的大小),跟其他小字一樣往上一級到 subheadline(#43)。
         // ponytail: 啟動時取一次 Dynamic Type 的大小，執行中改字級要重開 app 才會跟著變。
-        let font = UIFont.preferredFont(forTextStyle: .subheadline)
+        // 上限 21pt(subheadline 在 xxxLarge 的大小):分段控制的高度固定，無障礙字級時字會超出控制項、上緣被切掉(#78,AX5 截圖)。
+        let font = UIFont.systemFont(ofSize: min(UIFont.preferredFont(forTextStyle: .subheadline).pointSize, 21))
         UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .normal)
         UISegmentedControl.appearance().setTitleTextAttributes(
             [.font: UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)],

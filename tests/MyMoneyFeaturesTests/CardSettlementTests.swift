@@ -138,6 +138,17 @@ struct CardPaymentTests {
         )
     }
 
+    @Test("可用餘額：顯示扣款帳戶的餘額，換扣款帳戶就跟著換;沒選時沒有(#78)")
+    func availableBalance() {
+        let model = payment(card())
+
+        #expect(model.availableBalance == salary.balance)
+        model.bankAccountID = joint.id
+        #expect(model.availableBalance == joint.balance)
+        model.bankAccountID = nil
+        #expect(model.availableBalance == nil)
+    }
+
     @Test("從「繳款」的三個項目打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay)", arguments: [
         (CardPaymentModel.Preset.shared, "3000", true, "信用卡扣款還款「iOS 測試信用卡」(家庭代墊)"),
         (CardPaymentModel.Preset.personal, "16380", false, "信用卡扣款還款「iOS 測試信用卡」(個人私帳)"),

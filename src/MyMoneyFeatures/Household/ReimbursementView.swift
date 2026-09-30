@@ -17,17 +17,18 @@ struct ReimbursementView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("撥款公帳(家庭共同基金)", selection: $model.fromAccountID) {
-                        ForEach(model.fundAccounts) { account in
-                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
-                        }
+                    AccountPicker(
+                        title: "撥款公帳(家庭共同基金)", selection: $model.fromAccountID,
+                        options: model.fundAccounts.map(AccountPicker.Option.init)
+                    )
+                    if let balance = model.availableBalance {
+                        AmountRow(title: "可用餘額", amount: balance)
                     }
                     // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
-                    Picker("收款帳戶(\(model.advance.memberName)的個人帳戶)", selection: $model.toAccountID) {
-                        ForEach(model.receivingAccounts) { account in
-                            Text(account.menuTitle).tag(Optional(account.id))
-                        }
-                    }
+                    AccountPicker(
+                        title: "收款帳戶(\(model.advance.memberName)的個人帳戶)", selection: $model.toAccountID,
+                        options: model.receivingAccounts.map(AccountPicker.Option.init)
+                    )
                     .disabled(model.receivingAccounts.isEmpty)
                 } footer: {
                     // 只留無法撥款的原因(DESIGN.md「說明文字」第 3 類)。

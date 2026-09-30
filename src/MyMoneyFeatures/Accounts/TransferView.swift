@@ -26,16 +26,15 @@ struct TransferView: View {
                 }
 
                 Section {
-                    Picker("轉出帳戶", selection: $model.fromAccountID) {
-                        ForEach(model.candidates) { account in
-                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
-                        }
+                    AccountPicker(
+                        title: "轉出帳戶", selection: $model.fromAccountID, options: model.candidates.map(AccountPicker.Option.init)
+                    )
+                    if let balance = model.availableBalance {
+                        AmountRow(title: "可用餘額", amount: balance)
                     }
-                    Picker("轉入帳戶", selection: $model.toAccountID) {
-                        ForEach(model.toCandidates) { account in
-                            Text(account.menuTitleWithBalance).tag(Optional(account.id))
-                        }
-                    }
+                    AccountPicker(
+                        title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init)
+                    )
                 }
 
                 Section {

@@ -16,13 +16,16 @@ struct RecurringEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(
-                        "名稱",
-                        text: $model.name,
-                        prompt: Text(model.type == .expense ? "例如：房租、電信費、健身房月費" : "例如：每月薪資、租金收益")
-                    )
-                    .focused($focusedField, equals: .name)
-                    .accessibilityIdentifier("recurringEditor.name")
+                    // 欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
+                    LabeledContent("名稱") {
+                        TextField(
+                            "名稱",
+                            text: $model.name,
+                            prompt: Text(model.type == .expense ? "例如：房租、電信費、健身房月費" : "例如：每月薪資、租金收益")
+                        )
+                        .focused($focusedField, equals: .name)
+                        .accessibilityIdentifier("recurringEditor.name")
+                    }
                     LabeledContent("每期金額") {
                         AmountField(
                             "每期金額", text: $model.amountText, prompt: Text("例如：15000"),
@@ -42,12 +45,10 @@ struct RecurringEditorView: View {
                             Text("\(day) 號").tag(day)
                         }
                     }
-                    Picker("關聯帳戶", selection: $model.accountID) {
-                        Text("無特定帳戶").tag(AccountID?.none)
-                        ForEach(model.accounts) { account in
-                            Text(account.menuTitle).tag(AccountID?.some(account.id))
-                        }
-                    }
+                    AccountPicker(
+                        title: "關聯帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
+                        noneTitle: "無特定帳戶"
+                    )
                 }
 
                 if let message = model.errorMessage {

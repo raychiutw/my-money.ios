@@ -26,6 +26,7 @@ final class RecurringUITests: XCTestCase {
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["名稱"].exists, "週期收支編輯器的名稱欄沒有看得見的標籤")
         name.tap()
         name.typeText("網路費")
         let amount = app.textFields["recurringEditor.amount"]

@@ -92,6 +92,7 @@ final class AccountsUITests: XCTestCase {
         app.buttons["accounts.emptyAdd.cash"].tap()
         let name = app.textFields["accountEditor.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["名稱"].exists, "資產帳戶表單的名稱欄沒有看得見的標籤")
         name.tap()
         name.typeText("UI 測試皮夾")
         let amount = app.textFields["accountEditor.amount"]
@@ -157,6 +158,8 @@ final class AccountsUITests: XCTestCase {
         app.buttons["accounts.transfer"].tap()
         let amount = app.textFields["transfer.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開轉帳")
+        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "轉帳沒有另起一列顯示轉出帳戶的可用餘額")
+        XCTAssertFalse(element(in: app, labelContaining: "餘額 $").exists, "帳戶選擇列還把餘額塞在選項文字裡")
         amount.tap()
         amount.typeText("500")
         app.buttons["transfer.submit"].tap()

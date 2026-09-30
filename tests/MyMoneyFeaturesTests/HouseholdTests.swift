@@ -95,6 +95,20 @@ struct HouseholdTests {
         #expect(reimbursement.date == today)
     }
 
+    @Test("撥款報銷的可用餘額：顯示撥款帳戶(家庭共同基金)的餘額;收款帳戶是其他成員的個人帳戶，餘額不公開(#78)")
+    func reimbursementAvailableBalance() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance]), accounts: accountsForReimbursement())
+        let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
+
+        await reimbursement.load()
+
+        #expect(reimbursement.availableBalance == Money(8000))
+        reimbursement.fromAccountID = AccountID("small-fund")
+        #expect(reimbursement.availableBalance == Money(100))
+        reimbursement.fromAccountID = nil
+        #expect(reimbursement.availableBalance == nil)
+    }
+
     @Test("撥款報銷：送出後回傳後端的訊息、資料版本遞增;金額不是正整數時不送出")
     func submitsReimbursement() async {
         let repository = InMemoryHouseholdRepository.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance])

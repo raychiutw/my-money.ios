@@ -35,6 +35,7 @@ final class SavingsGoalsUITests: XCTestCase {
         app.buttons["goals.add"].tap()
         let name = app.textFields["goalEditor.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["名稱"].exists, "儲蓄目標編輯器的名稱欄沒有看得見的標籤")
         name.tap()
         name.typeText("買新筆電")
         let target = app.textFields["goalEditor.target"]
