@@ -98,7 +98,8 @@ xcrun simctl status_bar "$udid" override --time "9:41" --batteryState charged --
 echo "建置 app 與 UI 測試(log:$work/build.log)"
 if ! xcodebuild build-for-testing -project "$project" -scheme MyMoney \
   -destination "id=$udid" -derivedDataPath "$derived" > "$work/build.log" 2>&1; then
-  grep -E "error:|\*\* " "$work/build.log" | tail -20 >&2
+  grep -E "error:|\*\* " "$work/build.log" | tail -20 >&2 || true
+  failed+=(build) # 留下 build.log(cleanup 只在沒有失敗時刪掉工作目錄)
   exit 1
 fi
 
@@ -116,7 +117,10 @@ run_tour() {
       if ((waited > EXIT_GRACE_SECONDS)); then
         echo "  xcodebuild 在結果檔寫好後 ${EXIT_GRACE_SECONDS} 秒還沒結束，砍掉"
         kill "$pid" 2>/dev/null || true
-        break
+        wait "$pid" 2>/dev/null || true
+        # 砍掉之後 exit status 是 143,成敗改看 log 裡的測試結果。
+        grep -qE "^Test Suite '(All|Selected) tests' passed" "$log"
+        return
       fi
     fi
     sleep 5
