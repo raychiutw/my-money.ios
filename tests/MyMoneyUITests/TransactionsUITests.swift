@@ -302,6 +302,29 @@ final class TransactionsUITests: XCTestCase {
 
     /// 導覽列副標題(`navigationSubtitle`)。
     @MainActor
+    /// 工具列只有篩選、記一筆、頭像三顆，沒有系統自動收成的「…」;匯出 CSV 是列表最底下的一列(ADR-0004、#86)。
+    @MainActor
+    func testToolbarHasThreeButtonsAndExportIsTheLastRow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        XCTAssertTrue(app.buttons["transactions.filter"].waitForExistence(timeout: 5), "沒有篩選按鈕")
+        let toolbar = app.navigationBars.firstMatch
+        for id in ["transactions.filter", "transactions.add", "toolbar.me"] {
+            XCTAssertTrue(toolbar.buttons[id].exists, "工具列缺少 \(id)")
+        }
+        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕")
+        XCTAssertFalse(toolbar.buttons["transactions.export"].exists, "匯出 CSV 還在工具列")
+
+        let export = app.buttons["transactions.export"]
+        for _ in 0..<12 where !(export.exists && export.isHittable) { app.swipeUp() }
+        XCTAssertTrue(export.exists && export.isHittable, "列表最底下沒有「匯出 CSV」")
+        XCTAssertEqual(export.label, "匯出 CSV")
+    }
+
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }

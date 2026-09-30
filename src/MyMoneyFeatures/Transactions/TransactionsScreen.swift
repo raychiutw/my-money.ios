@@ -5,6 +5,7 @@ import SwiftUI
 /// 「交易」tab:搜尋、摘要、依日期分組的交易記錄(parity.md「交易」)。
 ///
 /// 視角、起迄日、類型、分類收在 toolbar 篩選按鈕打開的「篩選」sheet(#74),目前的範圍一律顯示在導覽列副標題;
+/// toolbar 只有篩選、記一筆和頭像三顆,匯出 CSV 是列表最底下的一列(ADR-0004);
 /// 打開畫面最上面就是摘要和交易記錄。
 struct TransactionsScreen: View {
     @Bindable var model: TransactionsModel
@@ -47,14 +48,6 @@ struct TransactionsScreen: View {
                         .accessibilityIdentifier("transactions.add")
                     }
                     AccountToolbarItem()
-                    ToolbarItem(placement: .secondaryAction) {
-                        ShareLink(
-                            item: model.csvExport(),
-                            preview: SharePreview("交易記錄 CSV", image: Image(systemName: "tablecells"))
-                        ) {
-                            Label("匯出 CSV", systemImage: "square.and.arrow.up")
-                        }
-                    }
                 }
                 // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
                 .task(id: model.dataVersion.value) {
@@ -142,9 +135,24 @@ struct TransactionsScreen: View {
                         }
                     }
                 }
+                exportSection
             }
         }
         .refreshable { await model.load() }
+    }
+
+    /// 匯出 CSV:列表最底下的一列(ADR-0004、#86),匯出目前篩選範圍的交易記錄。
+    /// 沒有交易記錄時也照樣顯示，跟以前工具列上的匯出按鈕一樣。
+    private var exportSection: some View {
+        Section {
+            ShareLink(
+                item: model.csvExport(),
+                preview: SharePreview("交易記錄 CSV", image: Image(systemName: "tablecells"))
+            ) {
+                Label("匯出 CSV", systemImage: "square.and.arrow.up")
+            }
+            .accessibilityIdentifier("transactions.export")
+        }
     }
 
     /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄只顯示鎖定標記。
