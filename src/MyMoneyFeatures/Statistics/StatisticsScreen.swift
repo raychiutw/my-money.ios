@@ -181,9 +181,8 @@ struct StatisticsScreen: View {
         }
     }
 
-    /// 只列有預算或本月已花的分類，整列點開設定 sheet;其餘分類在底部的「新增預算額度」選單，
-    /// 選了打開同一個 sheet,全部都列出時不顯示(HIG Pull-down buttons 的「An Add button could present a menu」,
-    /// 研究 §5,#76)。
+    /// 只列有預算或本月已花的分類，整列點開設定 sheet;其餘分類由底部的「新增預算額度」直接打開同一個 sheet,
+    /// 分類在 sheet 裡用分類格選(不再先列出最多 15 項的選單);全部都列出時不顯示。
     private var budgetSection: some View {
         Section("預算額度") {
             ForEach(model.budgetRows) { row in
@@ -196,15 +195,12 @@ struct StatisticsScreen: View {
                 .accessibilityLabel(row.spokenText)
                 .accessibilityIdentifier("budgets.row.\(row.category.name)")
             }
-            if !model.addableBudgetCategories.isEmpty {
-                Menu {
-                    ForEach(model.addableBudgetCategories, id: \.self) { category in
-                        Button(category.name, systemImage: category.symbolName) {
-                            budgetEditor = model.makeBudgetEditor(for: category)
-                        }
-                    }
+            // 直接打開編輯，不再先列出最多 15 項的選單;分類在編輯裡用分類格選(ADR-0004、#101)。
+            if model.makeNewBudgetEditor() != nil {
+                Button {
+                    budgetEditor = model.makeNewBudgetEditor()
                 } label: {
-                    AddBudgetMenuLabel()
+                    AddBudgetLabel()
                 }
                 .accessibilityIdentifier("budgets.add")
             }
@@ -238,11 +234,11 @@ private struct MonthSwitcher: View {
     }
 }
 
-/// 「新增預算額度」選單的 label:整列都點得開，不只文字的範圍。
+/// 「新增預算額度」的 label:整列都點得開，不只文字的範圍。
 ///
-/// 不用 `Label`:`Menu` 的 label 是 `Label` 時，AX5 字級折成兩行會被裁掉、圖示壓到文字(#76 的截圖),
+/// 不用 `Label`:AX5 字級折成兩行會被裁掉、圖示壓到文字(#76 的截圖),
 /// 改成自己排圖示和文字。圖示欄的寬度和間距跟 List 裡的 `Label` 差不多，文字對齊上面各列的分類名稱。
-private struct AddBudgetMenuLabel: View {
+private struct AddBudgetLabel: View {
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
 
     var body: some View {

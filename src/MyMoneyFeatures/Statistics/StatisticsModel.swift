@@ -80,7 +80,7 @@ public final class StatisticsModel {
     /// 預算額度清單：有預算或本月已花的支出分類，依支出分類的固定順序。
     public private(set) var budgetRows: [BudgetRow] = []
 
-    /// 「新增預算額度」選單：清單沒列出的支出分類，依固定順序;全部都列出時是空的，不顯示選單。
+    /// 清單沒列出的支出分類，依固定順序;全部都列出時是空的，不顯示「新增預算額度」。
     public var addableBudgetCategories: [TransactionCategory] {
         let listed = Set(budgetRows.map(\.category))
         return BudgetEditorModel.categories.filter { !listed.contains($0) }
@@ -188,7 +188,13 @@ public final class StatisticsModel {
         await load()
     }
 
-    /// 設定預算額度的 sheet:點整列和從「新增預算額度」選單選分類都用它，已有預算時帶入原值。
+    /// 「新增預算額度」直接打開的編輯:預設選第一個還沒列出的支出分類，其他分類由編輯裡的分類格選(ADR-0004、#101)。
+    /// 每個支出分類都已經列出時是 `nil`(畫面不顯示「新增預算額度」)。
+    public func makeNewBudgetEditor() -> BudgetEditorModel? {
+        addableBudgetCategories.first.map(makeBudgetEditor(for:))
+    }
+
+    /// 設定預算額度的 sheet:點整列和「新增預算額度」都用它，已有預算時帶入原值。
     public func makeBudgetEditor(for category: TransactionCategory) -> BudgetEditorModel {
         BudgetEditorModel(
             category: category, existing: budgetRows.first { $0.category == category }?.budget, month: month,

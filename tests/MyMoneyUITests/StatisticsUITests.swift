@@ -54,9 +54,9 @@ final class StatisticsUITests: XCTestCase {
         XCTAssertTrue(updated.waitForExistence(timeout: 5), "設定後沒有顯示預算")
     }
 
-    /// section 底部的「新增預算額度」選單列出其餘分類，選了打開同一個 sheet(#76)。
+    /// section 底部的「新增預算額度」直接打開設定 sheet(#101):預設選第一個還沒列出的分類，其他分類在 sheet 的分類格裡選。
     @MainActor
-    func testAddBudgetFromMenu() throws {
+    func testAddBudgetOpensEditorDirectly() throws {
         let app = launchSignedIn()
         app.tabBars.buttons["統計"].tap()
 
@@ -66,25 +66,20 @@ final class StatisticsUITests: XCTestCase {
         XCTAssertEqual(add.label, "新增預算額度")
 
         add.tap()
-        let entertainment = app.buttons["娛樂"]
-        XCTAssertTrue(entertainment.waitForExistence(timeout: 3), "選單裡沒有娛樂")
-        for listed in ["餐飲", "交通", "購物"] {
-            XCTAssertFalse(app.buttons[listed].exists, "選單裡有已經列出的「\(listed)」")
-        }
-        entertainment.tap()
-
-        XCTAssertTrue(app.navigationBars["設定 娛樂 的預算"].waitForExistence(timeout: 3), "選了娛樂沒有打開設定 sheet")
+        // 直接打開編輯，不先跳選單;預設是第一個還沒列出的支出分類(範例資料已列出餐飲、交通、購物)。
+        XCTAssertTrue(app.navigationBars["設定 汽機車輛 的預算"].waitForExistence(timeout: 3), "沒有直接打開預設分類的設定 sheet")
         XCTAssertEqual(app.textFields["budgetEditor.amount"].value as? String, "5000", "沒有預算時沒有預設 5000")
+
+        // 在 sheet 的分類格裡改選娛樂。
+        let entertainment = app.buttons["娛樂"]
+        XCTAssertTrue(entertainment.waitForExistence(timeout: 3), "分類格裡沒有娛樂")
+        entertainment.tap()
+        XCTAssertTrue(app.navigationBars["設定 娛樂 的預算"].waitForExistence(timeout: 3), "選了娛樂標題沒有跟著變")
         app.buttons["budgetEditor.save"].tap()
 
         let row = app.buttons["budgets.row.娛樂"]
         XCTAssertTrue(row.waitForExistence(timeout: 5), "設定後預算額度沒有多一列娛樂")
         XCTAssertEqual(row.label, "娛樂，預算 5,000 元，已花 0 元", "新的一列沒有念出分類、預算和已花")
-
-        scrollAboveTabBar(add, in: app)
-        add.tap()
-        XCTAssertTrue(app.buttons["生活"].waitForExistence(timeout: 3), "選單沒有打開")
-        XCTAssertFalse(app.buttons["娛樂"].exists, "設定後選單裡還有娛樂")
     }
 
     /// 點 toolbar 的篩選按鈕打開選單，再點選項。
