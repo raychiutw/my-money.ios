@@ -6,9 +6,9 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 - **系統外觀優先**:背景、surface、文字、分隔線全部用系統語意色(`systemGroupedBackground`、`secondarySystemGroupedBackground`、`label`、`secondaryLabel`……),字型只用系統 text style。
 - **Liquid Glass 只出現在導覽層和控制層**,也就是 tab bar、toolbar、sheet 這些標準元件自帶的玻璃效果。內容層(帳戶卡、交易列、預算、圖表)不使用玻璃，也不自己刻玻璃效果。
-- **外觀三選一，預設跟隨系統**:帳號 sheet 的「外觀」選擇列可選跟隨系統、淺色、深色。沒動過設定時跟隨系統的淺色／深色，包括系統依時間自動切換。
+- **外觀三選一，預設跟隨系統**:「我的」的「外觀」選擇列可選跟隨系統、淺色、深色，三列打勾、點一下就選。沒動過設定時跟隨系統的淺色／深色，包括系統依時間自動切換。
   - 選擇只記在這台裝置(composition root 注入的 UserDefaults),不送後端。
-  - 由 composition root 設在 window 的 `overrideUserInterfaceStyle`,登入頁、所有 sheet 和 alert 立即一起變。不用 `preferredColorScheme`:帳號 sheet 開著時切到深色，之後再切成淺色或跟隨系統，sheet 都停在深色(#62 的截圖驗證)。
+  - 由 composition root 設在 window 的 `overrideUserInterfaceStyle`,登入頁、所有 sheet 和 alert 立即一起變。不用 `preferredColorScheme`:「我的」sheet 開著時切到深色，之後再切成淺色或跟隨系統，sheet 都停在深色(#62 的截圖驗證)。
   - 啟動畫面由系統顯示，照系統外觀，不受這個設定影響。
   - **跟 HIG 的出入**:HIG Dark Mode 建議「Avoid offering an app-specific appearance setting」。理由：家人明確要求在 app 裡固定淺色或深色，web 也有主題切換鈕(parity 刻意偏離第 16 項)。預設維持跟隨系統，沒動過設定的人不受影響。
 - 增強對比、減少透明度、減少動態效果都要能正常呈現。強制淺色或深色時，增強對比照樣生效，`AccentColor` 的四個變體照常套用。
@@ -45,8 +45,8 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
   更次要的註記才用 `footnote`;`caption` 只留給聊天泡泡下的時間這類附屬標記，不用 `caption2`。
   `body` 以上的字級不動。
 - 分段控制的字也是 `subheadline`(預設是 13pt,在 composition root 用 appearance 設定)。
-  分段控制只用在記一筆、週期收支編輯器導覽列中間的支出／收入，以及交易頁篩選 sheet 裡的視角(#74),用系統預設的高度，不再用 `.controlSize(.large)` 加高(#65);
-  表單裡的其他選擇用表單選擇列，字級是 `body`(見「元件對照」)。
+  分段控制只用在記一筆、週期收支編輯器導覽列中間的支出／收入，交易頁篩選 sheet 裡的視角(#74),以及「我的」頂部的「設定｜規劃」(ADR-0004),用系統預設的高度，不再用 `.controlSize(.large)` 加高(#65);
+  表單裡的其他選擇一律是 `body` 字級:2～5 個選項用內嵌選擇列，分類這類 6 個以上的攤開成格，不固定或很多的推入清單頁(見「導覽」的「選擇控制項」)。
 - 金額加上 `.monospacedDigit()`。
 - 新台幣的顯示跟 web 一致：例如 `$1,234` 和 `-$1,500`,0 位小數，捨入規則是 away from zero。
 
@@ -165,7 +165,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 | 用途 | 寫法 | 例 |
 |---|---|---|
-| 清單裡的日期：儲蓄目標的截止日、現金流預測的最低餘額發生日和預定收支日、家庭群組的代墊明細和加入日期 | `.year().month().day()`;跟今天同一年時省略年份(`.month().day()`) | 2027年3月31日、10月5日 |
+| 清單裡的日期：儲蓄目標的截止日、現金流預測的最低餘額發生日和預定收支日、家庭的代墊明細和加入日期 | `.year().month().day()`;跟今天同一年時省略年份(`.month().day()`) | 2027年3月31日、10月5日 |
 | 交易頁的分組標頭 | `.month().day().weekday()`;不是今年的加上年份 | 9月29日週二、2025年12月31日週三 |
 | 日期加時間：邀請碼的有效期限 | 清單的日期加 `.hour().minute()` | 10月6日 下午3:00 |
 | 月份、年份：統計頁的月份、預算額度 sheet、收支趨勢 | `.year().month()`、`.year()` | 2026年9月、2026年 |
@@ -176,41 +176,43 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 聊天泡泡下的時間只有時刻，照裝置的時區。
 - 跟 web 的差異見 parity 刻意偏離第 45 項。
 
-## 導覽(ADR-0003)
+## 導覽(ADR-0004)
 
 ```text
 Tab bar(iPad 用 .sidebarAdaptable)
   總覽   house
   交易   list.bullet.rectangle
   帳戶   creditcard
+  家庭   person.2
   統計   chart.bar            ← 含預算
-  規劃   calendar             → 週期收支 / 儲蓄目標 / 現金流預測(列表 push)
-總覽 toolbar 右上  person.crop.circle → 帳號 sheet(自帶 NavigationStack)
-                   名稱與 email、家庭、機器人記帳、外觀、登出
-總覽、交易 toolbar  plus → 「記一筆」sheet
-總覽、統計 toolbar  line.3.horizontal.decrease → 視角選單(全部、家庭、個人)
-交易 toolbar        line.3.horizontal.decrease → 「篩選」sheet(視角、起日、迄日、類型、分類)
-帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭共同基金、個人私帳)
-                    arrow.left.arrow.right → 「ATM 提款／轉帳」sheet;plus → 新增資產帳戶選單
+每個 tab 主頁面 toolbar 最右  頭像 → 「我的」sheet(自帶 NavigationStack)
+                   分頁「設定｜規劃」:設定 = 機器人記帳、外觀、登出、版本;
+                   規劃 = 週期收支 / 儲蓄目標 / 現金流預測(列表 push)
+總覽 toolbar        line.3.horizontal.decrease → 視角選單(全部、家庭公帳、個人);plus → 「記一筆」sheet
+交易 toolbar        line.3.horizontal.decrease → 「篩選」sheet(視角、起日、迄日、類型、分類);plus → 「記一筆」sheet
+統計 toolbar        line.3.horizontal.decrease → 視角選單
+帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭共同基金、個人私帳);plus → 新增資產帳戶選單
+家庭 toolbar        只有頭像
 帳戶、總覽的信用卡精簡列 → 信用卡詳細頁(push)
                     「繳款」選單 → 「信用卡扣款還款」sheet;toolbar「編輯」→ 資產帳戶編輯器 sheet
 ```
 
-- **視角**(全部、家庭、個人):總覽、統計頁放在 toolbar 的篩選按鈕(`line.3.horizontal.decrease`),點開是可勾選的選單(`ScopeFilter.swift`);導覽列副標題(`navigationSubtitle`)一律顯示目前的視角，不用打開選單就知道現在看的範圍。清單最上面不放分段控制，打開畫面最上面就是資料。
+- **視角**(全部、家庭公帳、個人):總覽、統計頁放在 toolbar 的篩選按鈕(`line.3.horizontal.decrease`),點開是可勾選的選單(`ScopeFilter.swift`);導覽列副標題(`navigationSubtitle`)一律顯示目前的視角，不用打開選單就知道現在看的範圍。清單最上面不放分段控制，打開畫面最上面就是資料。
   - VoiceOver:篩選按鈕的標籤是「視角」,值是目前的選擇。
-  - HIG 依據:pull-down button 適合三個以上的選項;toolbar 的項目要精選，加上篩選按鈕之後，每頁的 toolbar 不超過三組。
+  - **每頁 toolbar 最多 3 顆按鈕(含頭像)，不放「…」**(ADR-0004)。放不下的動作搬進列表，不藏進選單。HIG 依據:pull-down button 至少 3 項才值得，1～2 項改用按鈕或開關(Pull-down buttons);主要動作不要藏在 pull-down 裡;More 選單「only add this menu if you really need it」(Toolbars)。
+  - 視角只有 3 個選項卻不用分段控制:選過的視角會記住(parity 第 30 項)，平常不必切換，而且清單最上面留給資料(#63、#64)。
   - 交易頁例外：視角跟起迄日、類型、分類一起放在篩選 sheet,見下一條。
 - **交易頁的篩選**(#74):toolbar 的篩選按鈕(`line.3.horizontal.decrease`,跟其他頁的篩選按鈕同一個 symbol)打開「篩選」sheet。日期區間要用 DatePicker,一個選單放不下，所以用 sheet(HIG Sheets 的「scoped task」,研究 §6)。
-  - sheet 有 medium／large 兩種高度和 grabber。內容是視角(分段控制，section 標題「視角」當看得見的標籤)、起日、迄日(迄日不早於起日;起日改到迄日之後，迄日跟著改)、「重設為本月」(只改起迄日)、類型、分類(表單選擇列)。沒有文字欄位，所以不用 `keyboardDismissal`。
+  - sheet 有 medium／large 兩種高度和 grabber。內容是視角(分段控制，section 標題「視角」當看得見的標籤)、起日、迄日(迄日不早於起日;起日改到迄日之後，迄日跟著改)、「重設為本月」(只改起迄日)、類型(3 個選項，內嵌選擇列)、分類(含「全部分類」，推入清單頁)。沒有文字欄位，所以不用 `keyboardDismissal`。
   - 改的是畫面 model 裡的一份草稿：按「完成」才套用，視角或起迄日改了才查詢，而且只查詢一次;按「取消」或往下滑關掉都不變，下次打開從目前套用的篩選開始。
-  - 導覽列副標題一律顯示目前的範圍：視角・起日–迄日，有篩選時加上類型與分類，例如「家庭・9月1日–9月30日・支出・餐飲」;預設是「全部・9月1日–9月29日」。日期是清單的格式(見「日期」),由畫面 model 產生。
+  - 導覽列副標題一律顯示目前的範圍：視角・起日–迄日，有篩選時加上類型與分類，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設是「全部・9月1日–9月29日」。日期是清單的格式(見「日期」),由畫面 model 產生。
   - VoiceOver:篩選按鈕的標籤是「篩選」,值是副標題。
   - 頁面上只留搜尋欄(最上面，即時過濾)。打開畫面最上面是摘要：總收入、總支出、淨收支各一列(`LabeledContent`,金額單行);筆數寫在交易記錄的標題「交易記錄(N)」,放在第一天的分組標頭上面。
-  - toolbar 是篩選、記一筆和「更多」(匯出 CSV)三個按鈕。
+  - toolbar 是篩選、記一筆和頭像三顆。「匯出 CSV」(`ShareLink`)是交易記錄列表最底下的一列，匯出的是目前篩選的範圍。
 - **帳戶檢視範圍**(全部、家庭共同基金、個人私帳):帳戶頁放在 toolbar 的篩選按鈕，跟視角共用同一個元件(`ScopeFilter.swift`),點開是可勾選的選單;導覽列副標題一律顯示目前的範圍。清單最上面不放分段控制，依序是摘要(見「列與欄位」)、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態(標題加新增按鈕)。
   - VoiceOver:篩選按鈕的標籤是「帳戶檢視範圍」,值是目前的選擇。
-  - toolbar 是篩選、ATM 提款／轉帳、新增資產帳戶三組。
-- 「ATM 提款／轉帳」是 sheet:入口在帳戶頁 toolbar(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
+  - toolbar 是篩選、新增資產帳戶和頭像三顆。
+- 「ATM 提款／轉帳」是 sheet:入口在帳戶頁摘要卡最下面的一列(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
 - **信用卡詳細頁**(#73):帳戶頁和總覽「帳戶一覽」的信用卡是精簡列(見「列與欄位」),整列點進去 push 詳細頁，標題是卡名。依 HIG Lists and tables 的「list item titles only, letting people choose an item to reveal its content in a detail view」(研究 §4)。
   - 每個欄位一列(`LabeledContent`):`Section`「卡費」是信用卡待繳總額、已出帳待繳款、未出帳款、家庭代墊公帳、個人私帳消費;`Section`「設定」是信用額度、剩餘額度(有信用額度才有)、結帳日「每月 15 日」、繳款日「每月 5 日」,沒有設定的顯示「未設定」。
   - `Section`「操作」:
@@ -221,6 +223,23 @@ Tab bar(iPad 用 .sidebarAdaptable)
   - 繳款、出帳作業、校準、編輯成功後遞增資料版本，詳細頁、帳戶頁和總覽都重新取得。重新取得時這張卡已經不在這個範圍(被刪除，或歸屬改了),詳細頁回到上一頁。
 - **信用卡精簡列的捷徑**(帳戶頁):長按選單有繳款(沒有對應欠款的項目隱藏)、出帳作業(有未出帳款才有)、編輯、刪除，每一項在詳細頁都找得到(HIG Context menus 的「Always make context menu items available in the main interface, too」);往左滑是刪除。總覽的精簡列只能點進詳細頁。現金錢包、銀行存款帳戶的列不變，點了照舊開編輯器。
 - 登入和註冊是全螢幕流程，不放在 tab 裡。
+- **「我的」**(ADR-0004、`CONTEXT.md`):每個 tab 主頁面 toolbar 最右邊都是頭像按鈕，打開同一個 sheet(自帶 NavigationStack)。
+  - 頭像取姓名的第一個字元(英文轉大寫)，姓名是空的就用 `person.crop.circle`;VoiceOver 念「我的，王小明」。
+  - 最上面是姓名(`headline`)與 email(`subheadline`)，下面是分頁控制「設定｜規劃」(分段控制)。每次打開都先顯示「設定」，不記憶上次的分頁。
+  - 「設定」:機器人記帳、外觀(三列打勾)、登出、版本。登出不跳確認(parity「全域」)。版本寫成「版本 0.1.0（36707214745）」,取 `CFBundleShortVersionString` 和 `CFBundleVersion`,用 `footnote`;本機 Debug 建置的 build 是 1。
+  - 「規劃」:週期收支、儲蓄目標、現金流預測，整列點進去 push。
+  - 字級全部沿用現有 text style，不新增。
+- **家庭 tab**(ADR-0004、ADR-0005):tab 標籤和畫面標題都叫「家庭」，永遠顯示(HIG:不要隱藏 tab)。還沒加入家庭時是建立與加入。破壞性動作的確認訊息帶家庭名稱，例如「確定要退出「溫馨小家庭」嗎？退出後將無法查看這個家庭的家庭公帳。」「確定要將「王小明」移出「溫馨小家庭」嗎？」。
+- **選擇控制項:選單是最後選項**(ADR-0004)。依選項數挑控制項，目標是點一下就選、字級不縮小:
+
+  | 選項 | 做法 | 例 |
+  |---|---|---|
+  | 2～5 個 | 內嵌選擇列(`Picker` 的 `.pickerStyle(.inline)`):選項全部攤開，`body` 字級，右邊打勾 | 歸屬、新增資產帳戶的類型、週期收支的週期、外觀、篩選 sheet 的類型 |
+  | 6～12 個 | 攤開成格，一列 4 欄，大字級改 2 欄(`ViewThatFits`);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類 |
+  | 不固定或很多 | 推入清單頁，選了自動返回 | 帳戶、結帳日、繳款日、扣款日、篩選 sheet 的分類 |
+  | 動作 | pull-down 至少 3 項才用，1～2 項直接放按鈕 | 新增資產帳戶(3 項)、繳款(3 項) |
+
+  分類攤開成格是**刻意偏離** HIG(超過約 5 個選項建議用 pop-up button),理由是少一次點擊。視角和帳戶檢視範圍維持 toolbar 選單，見上面「視角」。
 
 ## 元件對照(web → iOS)
 
@@ -230,15 +249,15 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo |
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
-| 主題切換鈕(淺色／深色兩段式) | 帳號 sheet 的「外觀」選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
+| 主題切換鈕(淺色／深色兩段式) | 「我的」的「外觀」內嵌選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
 | 信用卡卡片(名稱、已出帳待繳款、未出帳款、負債性質拆解、結帳日、剩餘額度，加上校準、出帳作業、三個還款按鈕，全部在卡片上) | 精簡列加上信用卡詳細頁(#73,見「導覽」和「列與欄位」):列上只有代表色、名稱、歸屬、信用卡待繳總額和一項次要資訊，其餘欄位和動作都在詳細頁;三個還款入口收進詳細頁的「繳款」選單 |
 | 下載 CSV | `ShareLink` 分享檔案 |
 | `navigator.clipboard` 複製 | `UIPasteboard`,按鈕文字暫時改成「已複製」 |
-| `<select>` | `Picker` |
-| 帳戶下拉(選項是「類型 - 名稱」加餘額) | `AccountPicker`(#78):選擇值只放名稱(`currentValueLabel`),選單項目的副標題是類型;餘額另起一列「可用餘額」(`AmountRow`),只顯示自己看得到的帳戶(轉出、扣款、撥款帳戶),收款帳戶的餘額不公開 |
+| `<select>` | 依選項數選控制項：內嵌選擇列、格狀或推入清單頁(見「導覽」的「選擇控制項」) |
+| 帳戶下拉(選項是「類型 - 名稱」加餘額) | `AccountPicker`(#78、ADR-0004):列上的值只放名稱，點了推入清單頁(帳戶數量不固定)，清單頁每列的副標題是類型;餘額另起一列「可用餘額」(`AmountRow`),只顯示自己看得到的帳戶(轉出、扣款、撥款帳戶),收款帳戶的餘額不公開 |
 | 文字欄位上方的標籤 | `LabeledContent("名稱") { TextField(…) }`:`Form` 裡的 `TextField` 會把 label 當成 placeholder,打字後就看不到;包一層才有一直看得到的標籤，placeholder 只放範例(#78,研究 §7) |
-| 表單裡的主要動作按鈕(家庭群組的建立、加入) | `.buttonStyle(.borderedProminent)`,停用時仍保有按鈕外形，不會跟 placeholder 一樣只剩灰字(#78,研究 §9);Section 標題已經說明是什麼動作時，按鈕只寫動詞，例如「建立」「加入」 |
-| 家庭公帳／個人私帳、支出／收入等切換鈕 | **支出／收入：導覽列中間的分段控制**。記一筆和週期收支編輯器放在 sheet 導覽列中間(`.principal` 的 segmented `Picker`),不另外佔表單一列(HIG 分段控制一節舉的行事曆「新增事件」)。**其他選擇：表單選擇列**。記一筆和信用卡扣款還款的歸屬、資產帳戶的歸屬、新增資產帳戶的類型，都是 `Form` 裡一般的 `Picker`(選單樣式):標籤在左、值在右，`body` 字級，跟著 Dynamic Type(#65)。唯一的例外是交易頁篩選 sheet 裡的視角(分段控制，#74,見「導覽」) |
+| 表單裡的主要動作按鈕(家庭的建立、加入) | `.buttonStyle(.borderedProminent)`,停用時仍保有按鈕外形，不會跟 placeholder 一樣只剩灰字(#78,研究 §9);Section 標題已經說明是什麼動作時，按鈕只寫動詞，例如「建立」「加入」 |
+| 家庭公帳／個人私帳、支出／收入等切換鈕 | **支出／收入：導覽列中間的分段控制**。記一筆和週期收支編輯器放在 sheet 導覽列中間(`.principal` 的 segmented `Picker`),不另外佔表單一列(HIG 分段控制一節舉的行事曆「新增事件」)。**其他選擇：內嵌選擇列**(ADR-0004)。記一筆和信用卡扣款還款的歸屬、資產帳戶的歸屬、新增資產帳戶的類型，都是 `Form` 裡的 `Picker(.inline)`:選項全部攤開，`body` 字級，右邊打勾，點一下就選，跟著 Dynamic Type(字級不縮小，沿用 #65 的取捨，比原本的下拉選單少一次點擊)。分段控制只在「字型與數字」列出的四個地方(交易頁篩選 sheet 的視角見 #74,「導覽」) |
 | `<input type=date>` | `DatePicker(.compact)` |
 | 日期文字(`09/29`、`2026/09/28`、`2026-10-05`) | `Date.FormatStyle` 的系統格式，時區固定台灣(見「日期」) |
 | `<input type=month>` | 月份 `Picker`(年、月) |
@@ -286,13 +305,13 @@ Tab bar(iPad 用 .sidebarAdaptable)
   - 檔名是「外觀-字級-畫面-序號.png」,例如 `dark-ax5-accounts-03.png`。
   - 外觀是 `light`、`dark`;字級是 `default`、`xxl`、`ax5`。
 - **範圍**:
-  - 登入、註冊、五個 tab(規劃底下的週期收支、儲蓄目標、現金流預測)。
-  - 帳號 sheet、家庭群組、機器人記帳、模擬對話。
+  - 登入、註冊、五個 tab;週期收支、儲蓄目標、現金流預測從「我的」的「規劃」進去。
+  - 我的(設定、規劃兩個分頁)、家庭、機器人記帳、模擬對話。
   - 記一筆、新增資產帳戶(現金錢包、銀行存款帳戶、信用卡)、ATM 提款／轉帳、新增週期收支、建立儲蓄目標。
   - 信用卡詳細頁(`card-detail`),以及從詳細頁「繳款」選單的「全額結清」打開的信用卡扣款還款(`card-payment`)。
   - 交易頁 toolbar 篩選按鈕打開的篩選 sheet(`transaction-filter`):先拍 medium 高度，往上拖會拉到 large。
   - 可以捲的畫面捲到底，每一屏拍一張(往上拖半個畫面，上下兩張會重疊)。
-  - 範例帳號沒有加入家庭群組，家庭群組只拍得到建立和加入。
+  - 範例帳號沒有加入家庭，家庭只拍得到建立和加入。
 - **只看不改**:只開畫面、捲動、按「取消」或系統的返回，不按任何儲存或送出。登入用 in-memory 的範例帳號，repo 裡沒有真實帳號或密碼。
 - **版面票的 PR**:改之前先跑一次，用 `-o` 存到另一個目錄;改完再跑一次，附上改前改後。
 - **維護**:新增畫面或改了入口(例如「+」改成選單)時，一起更新 `tests/MyMoneyUITests/ScreenTourUITests.swift`。

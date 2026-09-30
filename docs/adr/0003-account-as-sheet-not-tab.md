@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0004
 ---
 
 # 帳號走 sheet,家庭與機器人記帳不占 tab
