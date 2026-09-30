@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("家庭群組的翻譯(/households)")
+@Suite("家庭的翻譯(/households)")
 struct HouseholdTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")
@@ -72,7 +72,7 @@ struct HouseholdTranslationTests {
         #expect(mine.receivingAccounts.map(\.name) == ["iOS 測試存款"])
     }
 
-    @Test("代墊統計：沒有家庭群組時是空的")
+    @Test("代墊統計：沒有家庭時是空的")
     func advancesWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-advances-no-household.json")
 
@@ -117,7 +117,7 @@ struct HouseholdTranslationTests {
         }
     }
 
-    @Test("還沒加入家庭群組時是 nil")
+    @Test("還沒加入家庭時是 nil")
     func currentWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-current-none.json")
 
@@ -125,7 +125,7 @@ struct HouseholdTranslationTests {
         #expect(stub.requests.first?.url == stub.baseURL.appending(path: "households/current"))
     }
 
-    @Test("家庭群組：名稱、我的角色、成員名冊(加入時間是 UTC)")
+    @Test("家庭：名稱、我的角色、成員名冊(加入時間是 UTC)")
     func currentHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-current.json")
 
@@ -142,7 +142,7 @@ struct HouseholdTranslationTests {
         )])
     }
 
-    @Test("建立家庭群組:POST /households {name}")
+    @Test("建立家庭:POST /households {name}")
     func create() async throws {
         try stub.reply(status: 201, fixture: "households-create.json")
 
@@ -177,7 +177,7 @@ struct HouseholdTranslationTests {
         ))
     }
 
-    @Test("離開家庭群組:DELETE 只回 {success, message}")
+    @Test("離開家庭:DELETE 只回 {success, message}")
     func leave() async throws {
         try stub.reply(status: 200, fixture: "households-leave.json")
 

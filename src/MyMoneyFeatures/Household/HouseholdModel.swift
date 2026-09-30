@@ -95,10 +95,18 @@ public final class HouseholdModel {
 
     public var memberCountText: String { "\(household?.members.count ?? 0) 位成員" }
 
-    public let leaveConfirmation = "確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。"
+    /// 離開與移除成員的確認訊息帶家庭名稱:「離開家庭」在中文裡像離開真正的家人，語氣比較重，
+    /// 有名稱才看得出是 app 裡的家庭(ADR-0005)。家庭還沒載入時退回「這個家庭」。
+    public var leaveConfirmation: String {
+        "確定要退出\(familyNameForConfirmation)嗎？退出後將無法查看這個家庭的家庭公帳。"
+    }
 
     public func removeConfirmation(for member: HouseholdMember) -> String {
-        "確定要將「\(member.name)」移出家庭群組嗎？"
+        "確定要將「\(member.name)」移出\(familyNameForConfirmation)嗎？"
+    }
+
+    private var familyNameForConfirmation: String {
+        household.map { "「\($0.name)」" } ?? "這個家庭"
     }
 
     /// 只有管理員看得到「移除」,而且只出現在一般成員上。

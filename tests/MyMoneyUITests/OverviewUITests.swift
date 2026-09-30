@@ -119,15 +119,15 @@ final class OverviewUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
         XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的視角")
 
-        choose("家庭", from: filter, in: app)
+        choose("家庭公帳", from: filter, in: app)
         XCTAssertTrue(element(in: app, labelContaining: "當月淨收支(家庭)").waitForExistence(timeout: 5), "切到家庭視角後，當月淨收支的標題沒有跟著變")
-        XCTAssertTrue(subtitle("家庭", in: app).exists, "切換視角後導覽列副標題沒有跟著變")
-        XCTAssertEqual(filter.value as? String, "家庭", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
+        XCTAssertTrue(subtitle("家庭公帳", in: app).exists, "切換視角後導覽列副標題沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "家庭公帳", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
         app.terminate()
 
         // 不帶 `-resetSession`:session 和選過的視角都還在。
         let relaunched = launch(resettingSession: false)
-        XCTAssertTrue(subtitle("家庭", in: relaunched).waitForExistence(timeout: 5), "重開 app 之後沒有沿用選過的視角")
+        XCTAssertTrue(subtitle("家庭公帳", in: relaunched).waitForExistence(timeout: 5), "重開 app 之後沒有沿用選過的視角")
     }
 
     /// 點 toolbar 的篩選按鈕打開選單，再點選項。

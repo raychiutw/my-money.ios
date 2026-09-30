@@ -1,4 +1,4 @@
-/// 家庭群組的資金指標(`GET /accounts/balance`),全部由後端算好。
+/// 家庭的資金指標(`GET /accounts/balance`),全部由後端算好。
 public struct BalanceSummary: Hashable, Sendable {
     /// 所有現金錢包的餘額合計。
     public let cashTotal: Money

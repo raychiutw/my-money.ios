@@ -11,7 +11,7 @@ extension ViewScope: ScopeFilterOption {
     var title: String {
         switch self {
         case .all: "全部"
-        case .household: "家庭"
+        case .household: "家庭公帳"
         case .personal: "個人"
         }
     }

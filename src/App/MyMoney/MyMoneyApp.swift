@@ -51,7 +51,7 @@ struct MyMoneyApp: App {
             let goals = InMemorySavingsGoalRepository.sample()
             let statistics = InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
             let forecast = InMemoryForecastRepository.sampleForToday()
-            // 建立家庭群組之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
+            // 建立家庭之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
             let household = InMemoryHouseholdRepository(
                 household: nil,
                 advances: [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]

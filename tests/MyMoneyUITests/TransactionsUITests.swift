@@ -57,7 +57,7 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         let sheet = app.navigationBars["篩選"]
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "點篩選按鈕沒有打開「篩選」sheet")
-        XCTAssertTrue(app.segmentedControls.buttons["家庭"].exists, "篩選 sheet 裡沒有視角的分段控制")
+        XCTAssertTrue(app.segmentedControls.buttons["家庭公帳"].exists, "篩選 sheet 裡沒有視角的分段控制")
         // 迄日的 DatePicker 是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertTrue(
             app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,

@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的家庭群組，記下建立、加入、邀請、移除、離開。
+/// 不連網路的家庭，記下建立、加入、邀請、移除、離開。
 public actor InMemoryHouseholdRepository: HouseholdRepository {
     private var stored: Household?
     private var failure: RepositoryError?
@@ -13,7 +13,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     public private(set) var inviteCount = 0
     public private(set) var leaveCount = 0
 
-    /// 有家庭群組時回傳的代墊統計(後端一律每位成員一筆)。
+    /// 有家庭時回傳的代墊統計(後端一律每位成員一筆)。
     private var storedAdvances: [HouseholdAdvance]
 
     /// 撥款報銷送出過的內容，依送出順序。

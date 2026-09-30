@@ -2,7 +2,7 @@ import Foundation
 
 /// 一個日曆日(沒有時間)。wire 上是 `YYYY-MM-DD`。
 ///
-/// 「今天」一律用台灣時間(Asia/Taipei)計算，跟家庭群組的其他成員一致(CLAUDE.md「規則」)。
+/// 「今天」一律用台灣時間(Asia/Taipei)計算，跟家庭的其他成員一致(CLAUDE.md「規則」)。
 public struct CalendarDay: Hashable, Comparable, Sendable {
     public let year: Int
     public let month: Int

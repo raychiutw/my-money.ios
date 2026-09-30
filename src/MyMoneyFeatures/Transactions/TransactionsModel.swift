@@ -113,7 +113,7 @@ public final class TransactionsModel {
         isEditingFilter = false
     }
 
-    /// 導覽列副標題：目前套用的範圍，例如「家庭・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
+    /// 導覽列副標題：目前套用的範圍，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
     /// 日期用系統格式(DESIGN.md「日期」)。
     public var subtitle: String {
         let today = today()
