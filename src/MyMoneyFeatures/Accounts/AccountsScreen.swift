@@ -349,6 +349,8 @@ private struct SectionEmptyState: View {
                 .font(.headline)
             Button(actionTitle, action: action)
                 .buttonStyle(.borderless)
+                // 大字級折行時跟標題一樣靠左(按鈕的文字預設置中)。
+                .multilineTextAlignment(.leading)
                 .accessibilityIdentifier(identifier)
         }
     }

@@ -6,6 +6,7 @@ import SwiftUI
 struct BotScreen: View {
     @Bindable var model: BotModel
     @State private var pendingUnbind: BotBinding?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         List {
@@ -125,9 +126,13 @@ struct BotScreen: View {
         }
     }
 
-    /// 網址單行、從中間截斷，看得到網域和結尾的平台(#79);要完整的網址就按「複製」。
+    /// 網址單行、從中間截斷，看得到網域和結尾的平台(#79);要完整的網址就按「複製」(只有圖示，VoiceOver 念「複製」)。
+    /// 無障礙字級時「複製」放到網址下面，網址用滿整列的寬度，才看得到網域(AX5 截圖)。
     private func webhookRow(_ platform: BotPlatform, url: String) -> some View {
-        HStack {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             VStack(alignment: .leading, spacing: 4) {
                 Text(platform.title)
                 Text(url)
@@ -136,12 +141,14 @@ struct BotScreen: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             CopyButton(text: url)
+                .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
-                .fixedSize()
                 .accessibilityIdentifier("bot.copyWebhook.\(platform.rawValue)")
         }
+        // 分隔線從文字的起點開始，不是從「複製」開始。
+        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
     }
 }
 
