@@ -48,7 +48,9 @@ jobs:
     name: App 與 UI 測試(xcodebuild test)
     runs-on: xcode-27
     # 2026-09-28 實測 28 到 35 分鐘，慢的 runner 超過 45 分鐘被取消(run 36399342873)。
-    timeout-minutes: 60
+    # 2026-09-30 UI 測試增加到 45 個：建置加第一次啟動當掉約 18 分鐘，重跑的 45 個全部通過但花了 37 分鐘，
+    # 結果檔還沒寫完就碰到 60 分鐘被取消(run 36688941727)。
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
