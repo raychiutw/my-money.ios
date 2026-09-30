@@ -33,7 +33,11 @@ final class ScreenTourUITests: XCTestCase {
 
         // 總覽，以及從總覽打開的記一筆、「我的」sheet(機器人記帳、模擬對話)。
         tour.captureScrolling("overview")
-        tour.present(app.buttons["overview.add"], capturing: "quick-entry")
+        // 記一筆:歸屬是內嵌選擇列、分類是格狀;帳戶點進去是清單頁(ADR-0004)。
+        tour.present(app.buttons["overview.add"], capturing: "quick-entry") {
+            let account = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+            tour.push(account, capturing: "quick-entry-account")
+        }
         tour.tap(app.buttons["toolbar.me"])
         tour.captureScrolling("me-settings")
         tour.push(app.buttons["機器人記帳"], capturing: "bot") {
@@ -144,8 +148,8 @@ private struct Tour {
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "從「\(screen)」返回失敗")
     }
 
-    /// 點入口(選單的話再點 `menuItem`)打開表單 sheet,拍完按導覽列的「取消」。
-    func present(_ entry: XCUIElement, menuItem: String? = nil, capturing screen: String) {
+    /// 點入口(選單的話再點 `menuItem`)打開表單 sheet,拍完(以及 `inside` 裡的動作)按導覽列的「取消」。
+    func present(_ entry: XCUIElement, menuItem: String? = nil, capturing screen: String, inside: () -> Void = {}) {
         reveal(entry)
         tap(entry)
         if let menuItem {
@@ -154,6 +158,7 @@ private struct Tour {
         let cancel = app.navigationBars.buttons["取消"].firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 5), "沒有打開「\(screen)」")
         captureScrolling(screen)
+        inside()
         cancel.tap()
         XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "「\(screen)」按取消之後沒有關閉")
     }
