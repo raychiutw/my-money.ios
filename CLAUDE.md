@@ -16,7 +16,8 @@ swift test --explicit-target-dependency-import-check error     # package 全部�
 swift test --filter MyMoneyAPITests                             # 單一 test target
 xcodebuild test -project src/App/MyMoney.xcodeproj -scheme MyMoney \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  -derivedDataPath .derivedData -parallel-testing-enabled NO    # app + UI 測試(不平行，避免複製模擬器)
+  -derivedDataPath .derivedData -parallel-testing-enabled NO \
+  -only-testing:MyMoneyUITests/TransactionsUITests              # UI 測試:本機跑，只跑有修改到的類別(CI 不做);不加 -only-testing 是全部(不平行，避免複製模擬器)
 xcodebuild build -scheme MyMoney-Package -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .derivedData/package SWIFT_TREAT_WARNINGS_AS_ERRORS=YES  # 以 iOS 編譯 package
 scripts/record-fixture.sh <檔名> <METHOD> <path> [body]         # 從 prod 錄 fixture,見 Fixtures/README.md
@@ -32,7 +33,7 @@ warning 當 error 有三道：`Package.swift` 的 `treatAllWarnings`(只對 macO
 
 - **一律走 Matt Pocock skill 工作流**:`/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement`。單一 session 做得完的小功能，grill 完可以直接 `/implement`。忘記該用哪個 skill 就問 `/ask-matt`。
 - **TDD 紅綠重構**:任何 production code 變更都先寫失敗測試，而且要**真的跑出紅燈並留下輸出**。修 bug 先寫重現測試。
-- **完成定義**:`swift test` 和 `xcodebuild test` 全部通過，而且零 warning(`-warnings-as-errors`)。**UI 測試不在 CI 跑**(太久)，提交 PR 之前要在本機跑一次 `xcodebuild test`;CI 只編譯 app 與 UI 測試、跑 package 測試。
+- **完成定義**:`swift test` 和 `xcodebuild test` 全部通過，而且零 warning(`-warnings-as-errors`)。**CI 不做 UI 測試**(太久);UI 測試在本機跑，**只跑有修改到的**(用 `-only-testing:MyMoneyUITests/類別名`),不必每次跑全部。CI 只編譯 app、跑 package 測試。
 - **不直接 commit 到 `master`**:開 feature branch,push 後開 PR,合併時用 **merge commit**,不用 squash。
 - 文件、註解、commit message 一律用繁體中文(台灣用語),技術名詞保留英文。
 - 詞彙在 `CONTEXT.md`,UI 規範在 `DESIGN.md`,功能對等清單在 `docs/parity.md`,難以逆轉的決策在 `docs/adr/`,一手來源研究在 `docs/research/`。

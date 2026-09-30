@@ -27,9 +27,9 @@ workflow 會依序做這幾件事:
 ## CI
 
 - 只在 PR 上跑(`ci.yml`),`master` 不另外跑。
-- 兩個 job 平行跑，各約幾分鐘：`package`(`swift test` 加以 iOS 編譯 package)、`app`(`build-for-testing`:編譯 app 與 UI 測試、零 warning，不啟動模擬器)。
-- **UI 測試不在 CI 跑**：56 個 UI 測試在 CI 上要 34 分鐘，加上建置和收集診斷逾時，整個 job 要 49 分鐘，太久了。
-  UI 測試改成提交 PR 之前在本機跑一次(`xcodebuild test`,見 `CLAUDE.md`「常用指令」)，CI 只保證 UI 測試編得過。
+- 兩個 job 平行跑，各約幾分鐘：`package`(`swift test` 加以 iOS 編譯 package)、`app`(`xcodebuild build`:編譯 app、零 warning，不啟動模擬器)。
+- **CI 完全不做 UI 測試**(連編譯都不做):56 個 UI 測試在 CI 上要 34 分鐘，加上建置和收集診斷逾時，整個 job 要 49 分鐘，太久了。
+  UI 測試在本機跑，而且只跑有修改到的(見 `CLAUDE.md`「常用指令」)。
 
 ## 版本號與 build 號
 

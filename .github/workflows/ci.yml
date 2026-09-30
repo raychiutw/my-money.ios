@@ -44,11 +44,11 @@ jobs:
           -derivedDataPath .derivedData/package
           SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
-  # UI 測試不在 CI 跑:實測要 49 分鐘(建置 5 分、56 個 UI 測試 34 分、收集診斷逾時再等 10 分),
-  # 太久了。UI 測試改成提交 PR 之前在本機跑一次(`xcodebuild test`,見 CLAUDE.md「常用指令」)。
-  # CI 只保證 app 和 UI 測試的程式碼編得過、零 warning,幾分鐘就好。
+  # CI 完全不做 UI 測試(連編譯都不做):實測要 49 分鐘(建置 5 分、56 個 UI 測試 34 分、收集診斷逾時再等 10 分),
+  # 太久了。UI 測試在本機跑，而且只跑有修改到的(見 CLAUDE.md「常用指令」)。
+  # CI 只保證 app 編得過、零 warning,幾分鐘就好。
   app:
-    name: App 與 UI 測試編譯(build-for-testing)
+    name: App 編譯(xcodebuild build)
     runs-on: xcode-27
     timeout-minutes: 30
     steps:
@@ -57,10 +57,10 @@ jobs:
       - name: 工具鏈版本
         run: xcodebuild -version
 
-      # 只編譯、不啟動模擬器也不跑測試。warning 當 error 設在專案的 build settings。
-      - name: xcodebuild build-for-testing
+      # 只編譯 app,不編譯也不跑 UI 測試,不啟動模擬器。warning 當 error 設在專案的 build settings。
+      - name: xcodebuild build
         run: >
-          xcodebuild build-for-testing
+          xcodebuild build
           -project src/App/MyMoney.xcodeproj
           -scheme MyMoney
           -destination 'generic/platform=iOS Simulator'
