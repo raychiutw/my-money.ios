@@ -126,7 +126,7 @@ struct RecurringScreen: View {
         Section {
             SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense)
             AmountRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome)
-            AmountRow(title: "每月固定淨額", amount: model.monthlyNet, warnsWhenNegative: true)
+            AmountRow(title: "每月週期淨額", amount: model.monthlyNet, warnsWhenNegative: true)
         }
     }
 
