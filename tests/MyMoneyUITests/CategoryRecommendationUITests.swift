@@ -16,6 +16,7 @@ final class CategoryRecommendationUITests: XCTestCase {
         app.tabBars.buttons["交易"].tap()
 
         app.buttons["transactions.add"].tap()
+        // 備註在金額正下方、分類格上面:打完金額就是備註，推薦提示緊貼在備註下面。
         let note = app.textFields["quickEntry.note"]
         XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開記一筆")
         note.tap()
@@ -39,6 +40,7 @@ final class CategoryRecommendationUITests: XCTestCase {
         )
 
         // 再改備註:分類不被覆蓋。
+        for _ in 0..<4 where !(note.exists && note.isHittable) { app.swipeDown() }
         note.tap()
         note.typeText(" Netflix")
         app.buttons["完成"].tap()

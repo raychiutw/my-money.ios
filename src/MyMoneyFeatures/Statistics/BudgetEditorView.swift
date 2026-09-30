@@ -14,10 +14,6 @@ struct BudgetEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("分類") {
-                    CategoryGrid(categories: BudgetEditorModel.categories, selection: $model.category)
-                }
-
                 Section {
                     LabeledContent("\(model.monthTitle)的預算") {
                         AmountField(
@@ -28,6 +24,11 @@ struct BudgetEditorView: View {
                 } footer: {
                     // 只留警告(DESIGN.md「說明文字」第 2 類)。
                     Text("設定後無法刪除。")
+                }
+
+                // 分類格放在金額下面:16 個分類的格子很高，sheet 預設只有半高，金額欄放在格子上面才看得到、填得到。
+                Section("分類") {
+                    CategoryGrid(categories: BudgetEditorModel.categories, selection: $model.category)
                 }
 
                 if let message = model.errorMessage {

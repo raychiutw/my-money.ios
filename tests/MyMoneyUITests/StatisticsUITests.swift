@@ -70,9 +70,10 @@ final class StatisticsUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["設定 汽機車輛 的預算"].waitForExistence(timeout: 3), "沒有直接打開預設分類的設定 sheet")
         XCTAssertEqual(app.textFields["budgetEditor.amount"].value as? String, "5000", "沒有預算時沒有預設 5000")
 
-        // 在 sheet 的分類格裡改選娛樂。
+        // 在 sheet 的分類格裡改選娛樂。金額在格子上面，格子在下面:sheet 預設半高，要往上捲才看得到。
         let entertainment = app.buttons["娛樂"]
-        XCTAssertTrue(entertainment.waitForExistence(timeout: 3), "分類格裡沒有娛樂")
+        for _ in 0..<6 where !(entertainment.exists && entertainment.isHittable) { app.swipeUp() }
+        XCTAssertTrue(entertainment.exists && entertainment.isHittable, "分類格裡找不到娛樂")
         entertainment.tap()
         XCTAssertTrue(app.navigationBars["設定 娛樂 的預算"].waitForExistence(timeout: 3), "選了娛樂標題沒有跟著變")
         app.buttons["budgetEditor.save"].tap()

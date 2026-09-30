@@ -62,6 +62,21 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
+                // 備註放在金額正下方、分類格上面:金額欄一打開就對焦，數字鍵盤蓋住下半部，16 格分類很高，
+                // 備註放在格子下面就看不到也捲不到;放這裡，打完金額就是備註，推薦提示緊貼在備註下面，
+                // 分類格就在下面跟著變(#99)。
+                Section {
+                    TextField("備註(選填)", text: $model.note)
+                        .focused($focusedField, equals: .note)
+                        .accessibilityIdentifier("quickEntry.note")
+                } footer: {
+                    // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。
+                    if let hint = model.categoryHintText {
+                        Label(hint, systemImage: "sparkles")
+                            .accessibilityIdentifier("quickEntry.categoryHint")
+                    }
+                }
+
                 // 分類攤開成格，點一下就選(ADR-0004、#89)。
                 Section("分類") {
                     CategoryGrid(
@@ -78,15 +93,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         displayedComponents: .date
                     )
                     .calendarDayTimeZone()
-                    TextField("備註(選填)", text: $model.note)
-                        .focused($focusedField, equals: .note)
-                        .accessibilityIdentifier("quickEntry.note")
-                } footer: {
-                    // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。
-                    if let hint = model.categoryHintText {
-                        Label(hint, systemImage: "sparkles")
-                            .accessibilityIdentifier("quickEntry.categoryHint")
-                    }
                 }
 
                 if let message = model.errorMessage {
