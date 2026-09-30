@@ -176,10 +176,14 @@ public final class TransactionsModel {
         let version = dataVersion.value
         let query = filter.query
         do {
-            loaded = try await repository.allTransactions(from: query.from, to: query.to, scope: query.scope)
+            let transactions = try await repository.allTransactions(from: query.from, to: query.to, scope: query.scope)
+            // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
+            guard query == filter.query else { return }
+            loaded = transactions
             loadedVersion = version
             phase = .loaded
         } catch {
+            guard query == filter.query else { return }
             phase = .failed(error.localizedDescription)
         }
     }

@@ -15,6 +15,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
 
     private var stored: [Transaction]
     private var failure: RepositoryError?
+    private var nextQueryGate: Gate?
 
     public struct ExportQuery: Equatable, Sendable {
         public let from: CalendarDay
@@ -39,10 +40,19 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         stored = transactions
     }
 
+    /// 下一次查詢停在 `gate`,直到測試放行;之後的查詢照常回應。用來重現「舊的查詢比新的晚回來」。
+    public func holdNextQuery(at gate: Gate) {
+        nextQueryGate = gate
+    }
+
     public func transactions(
         from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
     ) async throws -> [Transaction] {
         queries.append(Query(from: from, to: to, scope: scope, limit: limit, offset: offset))
+        if let gate = nextQueryGate {
+            nextQueryGate = nil
+            await gate.pass()
+        }
         if let failure { throw failure }
         // 跟後端一樣日期由新到舊;同一天後記的在前。
         let inPeriod = stored.enumerated()

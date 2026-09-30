@@ -48,6 +48,28 @@ struct TransactionFilterTests {
         #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
     }
 
+    /// 篩選改成 sheet 之後，套用篩選的查詢跟第一次載入是各自的 Task,不會取消舊的(code review)。
+    @Test("舊的查詢比套用篩選的查詢晚回來時，清單維持新篩選的結果", .timeLimit(.minutes(1)))
+    func staleQueryDoesNotOverwriteAppliedFilter() async {
+        let repository = InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today))
+        let gate = Gate()
+        await repository.holdNextQuery(at: gate)
+        let list = TransactionsModel(repository: repository, dataVersion: DataVersion(), today: { today })
+        let firstLoad = Task { await list.load() }
+        await gate.waitUntilReached()
+
+        list.editFilter()
+        list.filterDraft.from = today
+        await list.applyFilter()
+        let applied = list.days.flatMap(\.transactions).map(\.id)
+
+        await gate.open()
+        await firstLoad.value
+
+        #expect(list.filter.from == today)
+        #expect(list.days.flatMap(\.transactions).map(\.id) == applied, "本月的舊查詢蓋掉了只查今天的結果")
+    }
+
     @Test("只改類型或分類時，按「完成」不重新查詢(只在本機過濾)")
     func applyingLocalFilterDoesNotQuery() async {
         let (list, repository) = await loadedList()
