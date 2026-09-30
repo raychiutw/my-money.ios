@@ -325,6 +325,32 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(export.label, "匯出 CSV")
     }
 
+    /// 記一筆的「帳戶」列只顯示名稱，點了推入清單頁;清單每列有名稱與類型，選了自動返回(ADR-0004、#88)。
+    @MainActor
+    func testAccountIsChosenOnAPushedListPage() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        app.buttons["transactions.add"].tap()
+        func accountRow() -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        }
+        XCTAssertTrue(accountRow().waitForExistence(timeout: 5), "記一筆沒有「帳戶」列")
+        XCTAssertTrue(accountRow().label.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().label)")
+
+        accountRow().tap()
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試信用卡")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 3), "沒有推入帳戶清單頁")
+        XCTAssertTrue(card.label.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.label)")
+
+        card.tap()
+        XCTAssertTrue(accountRow().waitForExistence(timeout: 3), "選了帳戶之後沒有自動返回表單")
+        XCTAssertTrue(accountRow().label.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().label)")
+    }
+
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }
