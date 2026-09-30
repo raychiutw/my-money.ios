@@ -156,7 +156,7 @@ struct TransactionFilterTests {
         #expect(list.subtitle == "全部・9月1日–9月28日", "還沒按完成，副標題就變了")
         await list.applyFilter()
 
-        #expect(list.subtitle == "家庭・9月1日–9月30日・支出・餐飲")
+        #expect(list.subtitle == "家庭公帳・9月1日–9月30日・支出・餐飲")
     }
 
     @Test("只看收入時，列表與加總都只算收入")

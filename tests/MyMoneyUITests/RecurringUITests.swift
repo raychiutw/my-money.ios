@@ -14,7 +14,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["規劃"].tap()
+        app.openPlanning()
         app.buttons["週期收支"].tap()
         XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
         XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 14,000 元").exists, "摘要的主數字不是週期支出的分攤平滑")
@@ -52,7 +52,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["規劃"].tap()
+        app.openPlanning()
         app.buttons["週期收支"].tap()
         XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
 
@@ -73,6 +73,38 @@ final class RecurringUITests: XCTestCase {
         amount.typeText("1000")
         app.buttons["recurringEditor.save"].tap()
         XCTAssertTrue(row("每月固定淨額", value: "32,000 元", in: app).waitForExistence(timeout: 5), "新增週期收入後每月固定淨額沒有增加")
+    }
+
+    /// 週期是內嵌選擇列(5 列，點一下就選);扣款日(1～31 號)推入清單頁，選了自動返回(ADR-0004、#91)。
+    @MainActor
+    func testCycleIsInlineAndDayIsAPushedList() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.openPlanning()
+        app.buttons["週期收支"].tap()
+        app.buttons["recurring.add"].tap()
+        XCTAssertTrue(app.textFields["recurringEditor.name"].waitForExistence(timeout: 3), "沒有打開週期收支編輯器")
+
+        XCTAssertTrue(app.buttons["每月"].exists, "週期缺少「每月」這一列")
+        XCTAssertTrue(app.buttons["每月"].isSelected, "新增週期收支預設的週期不是每月")
+        let quarterly = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "每季")).firstMatch
+        XCTAssertTrue(quarterly.exists, "週期缺少「每季」這一列")
+        quarterly.tap()
+        XCTAssertTrue(quarterly.isSelected, "點一下每季之後沒有選起來")
+
+        func dayRow() -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款日")).firstMatch
+        }
+        XCTAssertTrue(dayRow().exists, "沒有「扣款日」列")
+        dayRow().tap()
+        let fifth = app.buttons["5 號"]
+        XCTAssertTrue(fifth.waitForExistence(timeout: 3), "點了扣款日沒有推入日期清單頁")
+        fifth.tap()
+        XCTAssertTrue(dayRow().waitForExistence(timeout: 3), "選了日期之後沒有自動返回")
+        XCTAssertTrue(dayRow().displayedText.contains("5 號"), "返回之後扣款日不是 5 號:\(dayRow().displayedText)")
     }
 
     /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額。

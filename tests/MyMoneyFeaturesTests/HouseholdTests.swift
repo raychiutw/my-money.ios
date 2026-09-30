@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("家庭群組")
+@Suite("家庭")
 struct HouseholdTests {
     private let dataVersion = DataVersion()
 
@@ -32,7 +32,7 @@ struct HouseholdTests {
     /// 小美替家裡墊了 600,還沒報銷。
     private let meiAdvance = InMemoryHouseholdRepository.meiPendingAdvance
 
-    @Test("有家庭群組時一起載入代墊統計;沒有家庭群組時是空的")
+    @Test("有家庭時一起載入代墊統計;沒有家庭時是空的")
     func loadsAdvances() async {
         let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
         #expect(model.advances.map(\.memberName) == ["小明", "小美"])
@@ -162,7 +162,7 @@ struct HouseholdTests {
         #expect(await reimbursement.submit() == nil)
     }
 
-    @Test("還沒加入家庭群組")
+    @Test("還沒加入家庭")
     func withoutHousehold() async {
         let model = await loaded(InMemoryHouseholdRepository(household: nil))
 
@@ -170,7 +170,7 @@ struct HouseholdTests {
         #expect(model.household == nil)
     }
 
-    @Test("建立家庭群組：名稱必填")
+    @Test("建立家庭：名稱必填")
     func createRequiresName() async {
         let repository = InMemoryHouseholdRepository(household: nil)
         let model = await loaded(repository)
@@ -182,7 +182,7 @@ struct HouseholdTests {
         #expect(await repository.createdNames.isEmpty)
     }
 
-    @Test("建立成功後資料版本遞增，並顯示新的家庭群組(我是管理員)")
+    @Test("建立成功後資料版本遞增，並顯示新的家庭(我是管理員)")
     func create() async throws {
         let repository = InMemoryHouseholdRepository(household: nil)
         let model = await loaded(repository)
@@ -279,12 +279,23 @@ struct HouseholdTests {
         #expect(!model.isInviting)
     }
 
-    @Test("移除與離開的確認文字")
-    func confirmations() async {
+    @Test("移除與離開的確認文字帶家庭名稱，一眼看得出是 app 裡的家庭(ADR-0005)")
+    func confirmationsNameTheFamily() async {
         let model = await loaded(InMemoryHouseholdRepository.sample())
 
-        #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出家庭群組嗎？")
-        #expect(model.leaveConfirmation == "確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。")
+        #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出「我們家」嗎？")
+        #expect(model.leaveConfirmation == "確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。")
+    }
+
+    @Test("家庭還沒載入時，確認文字退回「這個家庭」，不留下空的引號")
+    func confirmationsFallBackBeforeTheFamilyLoads() {
+        let model = HouseholdModel(
+            repository: InMemoryHouseholdRepository.sample(), accounts: InMemoryAccountRepository.sample(),
+            dataVersion: dataVersion, today: { today }
+        )
+
+        #expect(model.leaveConfirmation == "確定要退出這個家庭嗎？退出後將無法查看這個家庭的家庭公帳。")
+        #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出這個家庭嗎？")
     }
 
     @Test("移除成員後資料版本遞增")

@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 帳號 sheet → 機器人記帳：綁定驗證碼、已綁定的帳號、模擬對話、Webhook 網址(parity.md「機器人記帳」)。
+/// 「我的」 → 機器人記帳：綁定驗證碼、已綁定的帳號、模擬對話、Webhook 網址(parity.md「機器人記帳」)。
 /// 不顯示假的「已連線」狀態(parity 刻意偏離第 22 項);LINE／Telegram 的設定步驟不顯示(刻意偏離第 43 項)。
 struct BotScreen: View {
     @Bindable var model: BotModel

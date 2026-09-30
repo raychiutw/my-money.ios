@@ -60,7 +60,7 @@ public protocol StatisticsRepository: Sendable {
     /// 一整年每個月的收入與支出，依月份排序;沒有紀錄的月份不會出現。
     func monthlySummaries(year: Int, scope: ViewScope) async throws -> [MonthlySummary]
 
-    /// 當月每位家庭成員的公帳代墊款，由多到少;沒有家庭群組時是空的。不隨視角改變。
+    /// 當月每位家庭成員的公帳代墊款，由多到少;沒有家庭時是空的。不隨視角改變。
     func householdShares(month: CalendarMonth) async throws -> [HouseholdShare]
 
     /// 當月設定過的預算額度。

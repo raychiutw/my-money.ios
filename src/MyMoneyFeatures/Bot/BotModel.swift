@@ -16,7 +16,7 @@ public struct ChatMessage: Identifiable, Sendable {
     public let isError: Bool
 }
 
-/// 帳號 sheet → 機器人記帳(parity.md「機器人記帳」)。
+/// 「我的」 → 機器人記帳(parity.md「機器人記帳」)。
 @MainActor
 @Observable
 public final class BotModel {

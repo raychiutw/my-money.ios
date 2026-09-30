@@ -14,7 +14,7 @@ final class ForecastUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["規劃"].tap()
+        app.openPlanning()
         app.buttons["現金流預測"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "現金流充裕安全").waitForExistence(timeout: 5), "沒有看到透支風險")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").exists, "沒有看到最低餘額")

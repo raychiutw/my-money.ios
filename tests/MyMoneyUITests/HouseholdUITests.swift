@@ -1,6 +1,6 @@
 import XCTest
 
-/// 帳號 sheet → 家庭。資料來自 MyMoneyTestSupport 的 `InMemoryHouseholdRepository`(一開始沒有家庭群組，不連網路)。
+/// 家庭 tab。資料來自 MyMoneyTestSupport 的 `InMemoryHouseholdRepository`(一開始沒有家庭，不連網路)。
 final class HouseholdUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -14,18 +14,17 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["overview.account"].tap()
-        app.buttons["account.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5), "沒有看到建立家庭")
-        XCTAssertTrue(app.staticTexts["名稱"].exists, "家庭群組名稱欄沒有看得見的標籤")
+        XCTAssertTrue(app.staticTexts["名稱"].exists, "家庭名稱欄沒有看得見的標籤")
         XCTAssertTrue(app.staticTexts["邀請碼"].exists, "邀請碼欄沒有看得見的標籤")
         XCTAssertFalse(app.buttons["household.create"].isEnabled, "名稱還沒填就能建立")
         name.tap()
         name.typeText("我們家")
         app.buttons["household.create"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "我的角色：管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭群組")
+        XCTAssertTrue(element(in: app, labelContaining: "我的角色：管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭")
 
         app.buttons["household.invite"].tap()
         XCTAssertTrue(app.staticTexts["household.invitationCode"].waitForExistence(timeout: 3), "沒有顯示邀請碼")
@@ -33,19 +32,19 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        // 「離開家庭群組」在代墊與報銷區塊下面;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        // 「離開家庭」在代墊與報銷區塊下面;List 還沒捲到的列不在 UI 階層裡，先捲下去。
         let leave = app.buttons["household.leave"]
         for _ in 0..<5 where !(leave.exists && leave.isHittable) { app.swipeUp() }
         leave.tap()
         XCTAssertTrue(
-            app.staticTexts["確定要退出這個家庭群組嗎？退出後將無法查看這個家庭群組的家庭公帳。"].waitForExistence(timeout: 3),
+            app.staticTexts["確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。"].waitForExistence(timeout: 3),
             "沒有先確認就離開"
         )
         app.buttons["離開"].firstMatch.tap()
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開後沒有回到建立的畫面")
     }
 
-    /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭群組後，小明和小美都有待報銷
+    /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭後，小明和小美都有待報銷
     /// (InMemoryHouseholdRepository.myPendingAdvance、meiPendingAdvance),從共同基金撥給小美的可收款帳戶。
     @MainActor
     func testReimburseAnotherMembersAdvance() throws {
@@ -65,17 +64,15 @@ final class HouseholdUITests: XCTestCase {
         let fundAmount = app.textFields["accountEditor.amount"]
         fundAmount.tap()
         fundAmount.typeText("5000")
-        // 歸屬選「家庭共同基金」(所有類型都一樣，跟 web 一樣)。sheet 底下帳戶檢視範圍的分段控制也有一個
-        // 「家庭共同基金」,所以只找選單裡的選項(直接放在 cell 裡的按鈕)。
-        app.buttons["accountEditor.jointFund"].tap()
-        let jointFund = app.cells.children(matching: .button)["家庭共同基金"]
+        // 歸屬選「家庭共同基金」(所有類型都一樣，跟 web 一樣)。歸屬是內嵌選擇列，只在編輯表單裡找這一列。
+        let form = app.collectionViews.containing(.textField, identifier: "accountEditor.name").firstMatch
+        let jointFund = form.buttons["家庭共同基金"]
         XCTAssertTrue(jointFund.waitForExistence(timeout: 3), "歸屬沒有「家庭共同基金」這個選項")
         jointFund.tap()
         app.buttons["accountEditor.save"].tap()
 
         app.tabBars.buttons["總覽"].tap()
-        app.buttons["overview.account"].tap()
-        app.buttons["account.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
@@ -89,7 +86,10 @@ final class HouseholdUITests: XCTestCase {
         reimburseMei.tap()
         let submit = app.buttons["reimbursement.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
-        XCTAssertTrue(element(in: app, labelContaining: "小美薪轉").exists, "收款帳戶不是小美的可收款帳戶")
+        // 帳戶選擇列只顯示名稱，值在 value 或子元素裡(推入清單頁的選擇列，ADR-0004、#88)。
+        let receiving = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "收款帳戶")).firstMatch
+        XCTAssertTrue(receiving.exists, "撥款報銷沒有「收款帳戶」列")
+        XCTAssertTrue(receiving.displayedText.contains("小美薪轉"), "收款帳戶不是小美的可收款帳戶:\(receiving.displayedText)")
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "帳戶選擇列的值還帶著類型")
         XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).exists, "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
         submit.tap()
@@ -102,7 +102,7 @@ final class HouseholdUITests: XCTestCase {
     }
 
     /// 撥款報銷：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
-    /// 範例帳號建立家庭群組後，自己就有待報銷(InMemoryHouseholdRepository.myPendingAdvance)。
+    /// 範例帳號建立家庭後，自己就有待報銷(InMemoryHouseholdRepository.myPendingAdvance)。
     @MainActor
     func testDoneOnReimbursementNoteDismissesKeyboard() throws {
         let app = XCUIApplication()
@@ -110,8 +110,7 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["overview.account"].tap()
-        app.buttons["account.household"].tap()
+        app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()

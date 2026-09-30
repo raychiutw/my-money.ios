@@ -7,7 +7,7 @@ public struct UserID: Hashable, Sendable {
     }
 }
 
-/// 登入的人:名稱與 email 會顯示在帳號 sheet。
+/// 登入的人:名稱與 email 會顯示在「我的」。
 public struct User: Equatable, Sendable {
     public let id: UserID
     public let email: String

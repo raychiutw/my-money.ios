@@ -57,13 +57,13 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         let sheet = app.navigationBars["篩選"]
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "點篩選按鈕沒有打開「篩選」sheet")
-        XCTAssertTrue(app.segmentedControls.buttons["家庭"].exists, "篩選 sheet 裡沒有視角的分段控制")
+        XCTAssertTrue(app.segmentedControls.buttons["家庭公帳"].exists, "篩選 sheet 裡沒有視角的分段控制")
         // 迄日的 DatePicker 是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertTrue(
             app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
             "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
         )
-        choose("僅收入", from: app.buttons["transactionFilter.type"], in: app)
+        tapRevealing(app.buttons["僅收入"], in: app)
         sheet.buttons["完成"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
@@ -75,7 +75,7 @@ final class TransactionsUITests: XCTestCase {
         // 改成僅支出再按取消：清單和副標題都不變。
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
-        choose("僅支出", from: app.buttons["transactionFilter.type"], in: app)
+        tapRevealing(app.buttons["僅支出"], in: app)
         sheet.buttons["取消"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
@@ -116,7 +116,7 @@ final class TransactionsUITests: XCTestCase {
     /// 記一筆的支出／收入在 sheet 導覽列中間(分段控制);歸屬是表單裡一般的選擇列，表單裡沒有分段控制(#65)。
     /// 切到收入、歸屬選個人私帳，記一筆 250 元後，列表上是一筆個人私帳的收入。
     @MainActor
-    func testQuickEntryTypeInNavigationBarAndOwnershipRow() throws {
+    func testQuickEntryTypeInNavigationBarAndOwnershipChoice() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -133,7 +133,10 @@ final class TransactionsUITests: XCTestCase {
 
         let form = app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
         XCTAssertEqual(form.segmentedControls.count, 0, "記一筆的表單裡還有分段控制")
-        choose("個人私帳", from: app.buttons["quickEntry.ownership"], in: app)
+        // 歸屬是內嵌選擇列:兩列都攤開，預設選在家庭公帳，點一下就換(ADR-0004、#90)。
+        XCTAssertTrue(app.buttons["家庭公帳"].isSelected, "記一筆的歸屬預設不是家庭公帳")
+        app.buttons["個人私帳"].tap()
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "點一下個人私帳之後沒有選起來")
 
         amount.tap()
         amount.typeText("250")
@@ -158,9 +161,10 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         headphones.tap()
-        let ownership = app.buttons["quickEntry.ownership"]
-        XCTAssertTrue(ownership.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選擇列")
-        choose("家庭公帳", from: ownership, in: app)
+        let shared = app.buttons["家庭公帳"]
+        XCTAssertTrue(shared.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選項")
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "編輯的是個人私帳，歸屬卻沒有選在個人私帳")
+        shared.tap()
         app.buttons["quickEntry.save"].tap()
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
@@ -213,8 +217,12 @@ final class TransactionsUITests: XCTestCase {
         app.typeText("990")
         XCTAssertEqual(amount.value as? String, "990", "自動取得焦點時，輸入的數字沒有取代原值")
 
-        app.textFields["quickEntry.note"].tap()
+        // 表單變長之後(歸屬兩列、分類格)備註在鍵盤下面，不用備註欄搬焦點了:
+        // 按鍵盤上的「完成」收起鍵盤、清掉焦點，再點有值的金額欄，才是「點選」這條路徑。
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "按完成之後鍵盤沒有收起來")
         amount.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點金額欄之後沒有叫出鍵盤")
         amount.typeText("770")
         XCTAssertEqual(amount.value as? String, "770", "點選金額欄時，輸入的數字沒有取代原值")
 
@@ -298,6 +306,106 @@ final class TransactionsUITests: XCTestCase {
         let item = app.cells.children(matching: .button)[option]
         XCTAssertTrue(item.waitForExistence(timeout: 3), "選單裡沒有「\(option)」")
         item.tap()
+    }
+
+    /// 工具列只有篩選、記一筆、頭像三顆，沒有系統自動收成的「…」;匯出 CSV 是列表最底下的一列(ADR-0004、#86)。
+    @MainActor
+    func testToolbarHasThreeButtonsAndExportIsTheLastRow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        XCTAssertTrue(app.buttons["transactions.filter"].waitForExistence(timeout: 5), "沒有篩選按鈕")
+        let toolbar = app.navigationBars.firstMatch
+        for id in ["transactions.filter", "transactions.add", "toolbar.me"] {
+            XCTAssertTrue(toolbar.buttons[id].exists, "工具列缺少 \(id)")
+        }
+        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕:\(toolbar.buttonSummary)")
+        XCTAssertFalse(toolbar.buttons["transactions.export"].exists, "匯出 CSV 還在工具列")
+
+        let export = app.buttons["transactions.export"]
+        for _ in 0..<12 where !(export.exists && export.isHittable) { app.swipeUp() }
+        XCTAssertTrue(export.exists && export.isHittable, "列表最底下沒有「匯出 CSV」")
+        XCTAssertEqual(export.label, "匯出 CSV")
+    }
+
+    /// 記一筆的「帳戶」列只顯示名稱，點了推入清單頁;清單每列有名稱與類型，選了自動返回(ADR-0004、#88)。
+    @MainActor
+    func testAccountIsChosenOnAPushedListPage() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        app.buttons["transactions.add"].tap()
+        // 只在記一筆的表單裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕。
+        func accountRow() -> XCUIElement {
+            app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
+                .buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        }
+        XCTAssertTrue(accountRow().waitForExistence(timeout: 5), "記一筆沒有「帳戶」列")
+        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().displayedText)")
+
+        accountRow().tap()
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試信用卡")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 3), "沒有推入帳戶清單頁")
+        XCTAssertTrue(card.displayedText.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.displayedText)")
+
+        card.tap()
+        XCTAssertTrue(accountRow().waitForExistence(timeout: 3), "選了帳戶之後沒有自動返回表單")
+        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().displayedText)")
+    }
+
+    /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
+    @MainActor
+    func testCategoryIsChosenInAGridWithOneTap() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["交易"].tap()
+        app.buttons["transactions.add"].tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開記一筆")
+
+        XCTAssertTrue(app.buttons["餐飲"].waitForExistence(timeout: 5), "分類不是攤開的格子")
+        XCTAssertTrue(app.buttons["餐飲"].isSelected, "預設分類不是餐飲")
+        for name in ["交通", "娛樂", "購物", "生活", "醫療", "教育", "其他"] {
+            XCTAssertTrue(app.buttons[name].exists, "分類格缺少「\(name)」")
+        }
+        app.buttons["交通"].tap()
+        XCTAssertTrue(app.buttons["交通"].isSelected, "點一下之後交通沒有被選起來")
+        XCTAssertFalse(app.buttons["餐飲"].isSelected, "選了交通，餐飲還是選取狀態")
+
+        let type = app.navigationBars.segmentedControls.firstMatch
+        type.buttons["收入"].tap()
+        for name in ["薪資", "獎金", "投資", "兼職"] {
+            XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 3), "收入的分類格缺少「\(name)」")
+        }
+        XCTAssertFalse(app.buttons["餐飲"].exists, "切到收入之後還看得到支出的分類")
+        type.buttons["支出"].tap()
+        XCTAssertTrue(app.buttons["餐飲"].waitForExistence(timeout: 3))
+        app.buttons["交通"].tap()
+
+        amount.tap()
+        amount.typeText("88")
+        app.buttons["quickEntry.save"].tap()
+        let added = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "交通", "支出 88 元")
+        ).firstMatch
+        XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有交通的支出 88 元")
+    }
+
+    /// 篩選 sheet 是 medium 高度時，下半部的列還沒被建出來：捲到點得到為止再點。
+    @MainActor
+    private func tapRevealing(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+        XCTAssertTrue(element.exists && element.isHittable, "捲動之後還是點不到「\(element.label)」")
+        element.tap()
     }
 
     /// 導覽列副標題(`navigationSubtitle`)。

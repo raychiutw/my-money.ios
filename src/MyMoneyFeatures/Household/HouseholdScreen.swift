@@ -1,7 +1,9 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 帳號 sheet → 家庭：建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」)。
+/// 「家庭」tab:建立或用邀請碼加入;已加入時是家庭資訊、邀請、成員名冊、離開(parity.md「家庭」、ADR-0004)。
+///
+/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 只有頭像按鈕。
 struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
     @State private var isLeaveConfirming = false
@@ -9,16 +11,24 @@ struct HouseholdScreen: View {
     @State private var reimbursement: ReimbursementModel?
 
     var body: some View {
+        NavigationStack {
+            screen
+        }
+    }
+
+    private var screen: some View {
         content
             .skeletonTransition(value: model.phase)
-            .navigationTitle("家庭群組")
-            .inlineNavigationTitle()
+            .navigationTitle("家庭")
+            .toolbar {
+                AccountToolbarItem()
+            }
             .task { await model.load() }
             .sheet(item: $model.invitation) { invitation in
                 InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))
             }
             .confirmationDialog(
-                "離開家庭群組",
+                "離開家庭",
                 isPresented: $isLeaveConfirming,
                 titleVisibility: .visible
             ) {
@@ -77,7 +87,7 @@ struct HouseholdScreen: View {
             }
         case .failed(let message):
             ContentUnavailableView {
-                Label("無法載入家庭群組", systemImage: "exclamationmark.triangle")
+                Label("無法載入家庭", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
@@ -98,9 +108,9 @@ struct HouseholdScreen: View {
         Form {
             // 建立和加入是兩條互斥的路，各一個 Section、一個欄位、一顆按鈕。欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
             // 按鈕用 bordered prominent:停用時仍然看得出是按鈕，不會跟欄位的 placeholder 一樣只剩灰字(研究 §9)。
-            Section("建立家庭群組") {
+            Section("建立家庭") {
                 LabeledContent("名稱") {
-                    TextField("家庭群組名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
+                    TextField("家庭名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
                         .accessibilityIdentifier("household.createName")
                 }
                 Button("建立") {
@@ -171,7 +181,7 @@ struct HouseholdScreen: View {
             }
 
             Section {
-                Button("離開家庭群組", role: .destructive) {
+                Button("離開家庭", role: .destructive) {
                     isLeaveConfirming = true
                 }
                 .accessibilityIdentifier("household.leave")

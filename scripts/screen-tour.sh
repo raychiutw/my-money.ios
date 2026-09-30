@@ -74,7 +74,7 @@ if [[ -z "$udid" ]]; then
   udid="$(xcrun simctl list devices available -j |
     jq -r --arg name "$SIMULATOR_NAME" '[.devices[][] | select(.name == $name)][0].udid // empty')"
   if [[ -z "$udid" ]]; then
-    echo "建立模擬器「$SIMULATOR_NAME」($DEVICE_TYPE)"
+    echo "建立模擬器「${SIMULATOR_NAME}」($DEVICE_TYPE)"
     udid="$(xcrun simctl create "$SIMULATOR_NAME" "$DEVICE_TYPE")"
   fi
 fi

@@ -118,7 +118,7 @@ struct TransactionsListTests {
         )
     }
 
-    /// 家庭群組裡家人記的家庭公帳也看得到;自己記的不用再顯示自己的名字(#72)。用 ID 判斷，家人可能同名。
+    /// 家庭裡家人記的家庭公帳也看得到;自己記的不用再顯示自己的名字(#72)。用 ID 判斷，家人可能同名。
     @Test("記帳人只有不是自己記的才顯示")
     func recorderOnlyForOthers() {
         let me = InMemoryAuthRepository.Member.sample.user

@@ -74,6 +74,18 @@ extension View {
     }
 }
 
+extension Picker {
+    /// 列上顯示目前的值，點了推入清單頁(選項多或不固定的選擇，ADR-0004)。`.navigationLink` 樣式 macOS 沒有;
+    /// 為了讓 package 在 macOS 上也能編譯測試，macOS 維持預設樣式。
+    func navigationLinkStyle() -> some View {
+        #if os(iOS)
+        pickerStyle(.navigationLink)
+        #else
+        self
+        #endif
+    }
+}
+
 /// 複製到系統剪貼簿。
 @MainActor
 func copyToPasteboard(_ text: String) {

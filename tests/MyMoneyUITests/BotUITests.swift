@@ -1,6 +1,6 @@
 import XCTest
 
-/// 帳號 sheet → 機器人記帳。資料來自 MyMoneyTestSupport 的 `InMemoryBotRepository.sample()`(不連網路)。
+/// 「我的」 → 機器人記帳。資料來自 MyMoneyTestSupport 的 `InMemoryBotRepository.sample()`(不連網路)。
 final class BotUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -15,7 +15,7 @@ final class BotUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         app.buttons["機器人記帳"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "小明的 LINE").waitForExistence(timeout: 5), "沒有看到已綁定的帳號")
         // 綁定區的第一列就是「產生綁定驗證碼」,上面沒有空白列(#79):跟區塊標題的距離不到一列的高度。

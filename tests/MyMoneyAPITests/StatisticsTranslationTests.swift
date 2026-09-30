@@ -64,7 +64,7 @@ struct StatisticsTranslationTests {
         )])
     }
 
-    @Test("沒有家庭群組時沒有公帳代墊款")
+    @Test("沒有家庭時沒有公帳代墊款")
     func householdSharesWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "stats-household-shares-empty.json")
 

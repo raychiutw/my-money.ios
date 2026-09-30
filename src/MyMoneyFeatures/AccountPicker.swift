@@ -1,7 +1,8 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 帳戶選擇列(DESIGN.md「列與欄位」第 7 條，#78):選擇值只放帳戶名稱，選單項目的副標題是類型。
+/// 帳戶選擇列(DESIGN.md「列與欄位」第 7 條，#78):列上的值只放帳戶名稱，點了推入清單頁(ADR-0004、#88),
+/// 清單頁每一列是名稱加類型副標題，目前的選擇打勾，選了自動返回。帳戶的數量不固定，所以不用下拉選單。
 /// 餘額不放進選項，需要時由表單另起一列「可用餘額」。原本的「名稱(類型，餘額 $X)」在大字級會被從中間截斷。
 struct AccountPicker: View {
     struct Option: Identifiable {
@@ -27,6 +28,8 @@ struct AccountPicker: View {
                     Text(option.name)
                     if let subtitle = option.subtitle {
                         Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .tag(AccountID?.some(option.id))
@@ -36,6 +39,7 @@ struct AccountPicker: View {
         } currentValueLabel: {
             Text(selectedName)
         }
+        .navigationLinkStyle()
     }
 
     /// 已選的帳戶還不在選項裡(例如帳戶還沒載入完)時留白，不能顯示成「無特定帳戶」。

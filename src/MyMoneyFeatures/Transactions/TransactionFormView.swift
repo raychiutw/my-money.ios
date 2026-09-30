@@ -37,24 +37,31 @@ struct TransactionFormView<Model: TransactionForm>: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    // 表單裡一般的選擇列(#65):標籤在左、值在右，跟著 Dynamic Type。
+                // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
+                Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
                         Text("家庭公帳").tag(true)
                         Text("個人私帳").tag(false)
                     }
-                    .accessibilityIdentifier("quickEntry.ownership")
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+
+                Section {
                     LabeledContent("金額") {
                         AmountField(
                             "金額", text: $model.amountText, prompt: Text(verbatim: "0"),
                             focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
                         )
                     }
-                    Picker("分類", selection: $model.category) {
-                        ForEach(model.categories, id: \.self) { category in
-                            Label(category.name, systemImage: category.symbolName).tag(category)
-                        }
-                    }
+                }
+
+                // 分類攤開成格，點一下就選(ADR-0004、#89)。
+                Section("分類") {
+                    CategoryGrid(categories: model.categories, selection: $model.category)
+                }
+
+                Section {
                     AccountPicker(title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init))
                     DatePicker(
                         "日期",

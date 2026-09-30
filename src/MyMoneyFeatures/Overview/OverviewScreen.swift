@@ -2,20 +2,15 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「總覽」tab(parity.md「總覽」)。toolbar 有視角的篩選按鈕(目前的選擇顯示在導覽列副標題)、記一筆和帳號 sheet。
+/// 「總覽」tab(parity.md「總覽」)。toolbar 有視角的篩選按鈕(目前的選擇顯示在導覽列副標題)、記一筆和頭像按鈕。
 struct OverviewScreen: View {
     @Bindable var model: OverviewModel
     let quickEntry: QuickEntryModel
-    /// 帳號 sheet 裡的「家庭」。
-    let household: HouseholdModel
-    /// 帳號 sheet 裡的「機器人記帳」。
-    let bot: BotModel
     /// 「管理帳戶」「查看全部」切到其他 tab。
     let show: (AppTab) -> Void
 
     @Environment(AppSession.self) private var session
     @State private var isEntryPresented = false
-    @State private var isAccountSheetPresented = false
 
     var body: some View {
         NavigationStack {
@@ -36,14 +31,7 @@ struct OverviewScreen: View {
                     }
                     .accessibilityIdentifier("overview.add")
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isAccountSheetPresented = true
-                    } label: {
-                        Label("帳號", systemImage: "person.crop.circle")
-                    }
-                    .accessibilityIdentifier("overview.account")
-                }
+                AccountToolbarItem()
             }
             // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後);從信用卡詳細頁返回時 task 會重跑，沒變就不重抓。
             .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
@@ -55,9 +43,6 @@ struct OverviewScreen: View {
             }
             .sheet(isPresented: $isEntryPresented) {
                 TransactionFormView(model: quickEntry)
-            }
-            .sheet(isPresented: $isAccountSheetPresented) {
-                AccountSheet(household: household, bot: bot)
             }
         }
     }

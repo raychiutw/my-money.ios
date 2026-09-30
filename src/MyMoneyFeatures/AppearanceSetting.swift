@@ -16,7 +16,7 @@ public enum Appearance: String, CaseIterable, Sendable {
     }
 }
 
-/// 帳號 sheet 的「外觀」設定，由 composition root 建立，用 `Environment` 往下傳，並由 composition root 套到整個 app。
+/// 「我的」的「外觀」設定，由 composition root 建立，用 `Environment` 往下傳，並由 composition root 套到整個 app。
 ///
 /// 只記在這台裝置(composition root 注入的 UserDefaults),不送後端;沒動過設定時是跟隨系統。
 @MainActor
