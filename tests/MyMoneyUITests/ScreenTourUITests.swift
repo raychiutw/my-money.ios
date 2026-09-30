@@ -34,7 +34,7 @@ final class ScreenTourUITests: XCTestCase {
         // 總覽，以及從總覽打開的記一筆、帳號 sheet(家庭群組、機器人記帳、模擬對話)。
         tour.captureScrolling("overview")
         tour.present(app.buttons["overview.add"], capturing: "quick-entry")
-        tour.tap(app.buttons["overview.account"])
+        tour.tap(app.buttons["toolbar.me"])
         tour.captureScrolling("account-sheet")
         tour.push(app.buttons["account.household"], capturing: "household")
         tour.push(app.buttons["機器人記帳"], capturing: "bot") {

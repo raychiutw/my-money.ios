@@ -33,7 +33,7 @@ final class AppearanceUITests: XCTestCase {
     /// 打開帳號 sheet,回傳「外觀」選擇列。
     @MainActor
     private func openAppearance(in app: XCUIApplication) -> XCUIElement {
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         let appearance = app.buttons["account.appearance"]
         XCTAssertTrue(appearance.waitForExistence(timeout: 3), "帳號 sheet 沒有「外觀」選擇列")
         return appearance

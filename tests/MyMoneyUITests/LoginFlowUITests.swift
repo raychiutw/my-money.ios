@@ -29,7 +29,7 @@ final class LoginFlowUITests: XCTestCase {
         }
 
         app.tabBars.buttons["總覽"].tap()
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         XCTAssertTrue(app.staticTexts["小明"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["family@example.com"].exists)
         // 用 identifier 找「家庭群組」。以前找的是「家庭」,其實是被帳號 sheet 蓋住的總覽視角分段控制，

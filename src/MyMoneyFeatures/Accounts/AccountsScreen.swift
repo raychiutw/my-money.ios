@@ -45,6 +45,7 @@ struct AccountsScreen: View {
                         }
                         .accessibilityIdentifier("accounts.add")
                     }
+                    AccountToolbarItem()
                 }
                 // 第一次出現時載入;之後檢視範圍或資料版本改變(任何畫面新增、修改、刪除成功)就重抓。
                 .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {

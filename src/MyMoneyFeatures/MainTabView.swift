@@ -9,15 +9,19 @@ enum AppTab: Hashable {
     case planning
 }
 
-/// 登入後的 tab 外殼(ADR-0003、DESIGN.md「導覽」)。iPad 用 sidebar,入口跟 iPhone 同一套。
+/// 登入後的 tab 外殼(ADR-0004、DESIGN.md「導覽」)。iPad 用 sidebar,入口跟 iPhone 同一套。
+///
+/// 每個 tab 主頁面 toolbar 最右邊的頭像按鈕都呼叫同一個動作，由這裡打開同一個「帳號」sheet;
+/// sheet 的 model 由這一層持有，各 tab 不必各自傳遞。
 struct MainTabView: View {
     let screens: MainScreens
     @State private var selection = AppTab.overview
+    @State private var isAccountPresented = false
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("總覽", systemImage: "house", value: .overview) {
-                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry, household: screens.household, bot: screens.bot) { selection = $0 }
+                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry) { selection = $0 }
             }
             Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
@@ -33,6 +37,10 @@ struct MainTabView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        .environment(\.openAccount, OpenAccountAction { isAccountPresented = true })
+        .sheet(isPresented: $isAccountPresented) {
+            AccountSheet(household: screens.household, bot: screens.bot)
+        }
     }
 }
 
@@ -54,6 +62,9 @@ private struct PlanningScreen: View {
                 }
             }
             .navigationTitle("規劃")
+            .toolbar {
+                AccountToolbarItem()
+            }
         }
     }
 }

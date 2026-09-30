@@ -22,6 +22,7 @@ struct StatisticsScreen: View {
             .navigationSubtitle(model.scope.title)
             .toolbar {
                 ScopeFilter("視角", scope: $model.scope, identifier: "statistics.scope")
+                AccountToolbarItem()
             }
             .refreshable { await model.load() }
             // 月份、視角或資料版本任一改變就重抓。

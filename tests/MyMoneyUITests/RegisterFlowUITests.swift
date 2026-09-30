@@ -24,7 +24,7 @@ final class RegisterFlowUITests: XCTestCase {
         app.buttons["register.submit"].tap()
 
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "註冊後沒有進入 tab 外殼")
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         XCTAssertTrue(app.staticTexts["小美"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["mei@example.com"].exists)
     }

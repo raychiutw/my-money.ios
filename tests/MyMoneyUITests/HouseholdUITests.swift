@@ -14,7 +14,7 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         app.buttons["account.household"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5), "沒有看到建立家庭")
@@ -74,7 +74,7 @@ final class HouseholdUITests: XCTestCase {
         app.buttons["accountEditor.save"].tap()
 
         app.tabBars.buttons["總覽"].tap()
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         app.buttons["account.household"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
@@ -110,7 +110,7 @@ final class HouseholdUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.buttons["overview.account"].tap()
+        app.buttons["toolbar.me"].tap()
         app.buttons["account.household"].tap()
         let name = app.textFields["household.createName"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))

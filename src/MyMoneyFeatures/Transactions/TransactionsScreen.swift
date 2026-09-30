@@ -46,6 +46,7 @@ struct TransactionsScreen: View {
                         }
                         .accessibilityIdentifier("transactions.add")
                     }
+                    AccountToolbarItem()
                     ToolbarItem(placement: .secondaryAction) {
                         ShareLink(
                             item: model.csvExport(),

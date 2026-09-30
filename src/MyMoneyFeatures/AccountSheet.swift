@@ -59,6 +59,7 @@ struct AccountSheet: View {
                     Button(role: .close) {
                         dismiss()
                     }
+                    .accessibilityIdentifier("account.close")
                 }
             }
         }
