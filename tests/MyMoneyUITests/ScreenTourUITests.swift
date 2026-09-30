@@ -35,7 +35,9 @@ final class ScreenTourUITests: XCTestCase {
         tour.captureScrolling("overview")
         // 記一筆:歸屬是內嵌選擇列、分類是格狀;帳戶點進去是清單頁(ADR-0004)。
         tour.present(app.buttons["overview.add"], capturing: "quick-entry") {
-            let account = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+            // 只在記一筆的表單裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕。
+            let form = app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
+            let account = form.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
             tour.push(account, capturing: "quick-entry-account")
         }
         tour.tap(app.buttons["toolbar.me"])
