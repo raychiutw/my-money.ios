@@ -34,17 +34,25 @@ struct RecurringEditorView: View {
                     }
                 }
 
-                Section {
+                // 週期只有 5 個選項:內嵌選擇列，點一下就選(ADR-0004、#91)。
+                Section("週期") {
                     Picker("週期", selection: $model.cycle) {
                         ForEach(RecurringCycle.allCases, id: \.self) { cycle in
                             Text(cycle.pickerLabel).tag(cycle)
                         }
                     }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+
+                Section {
+                    // 1～31 號有 31 個選項:推入清單頁，選了自動返回。
                     Picker(model.type == .expense ? "扣款日" : "入帳日", selection: $model.dayOfCycle) {
                         ForEach(1...31, id: \.self) { day in
                             Text("\(day) 號").tag(day)
                         }
                     }
+                    .navigationLinkStyle()
                     AccountPicker(
                         title: "關聯帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
                         noneTitle: "無特定帳戶"

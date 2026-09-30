@@ -33,19 +33,26 @@ struct TransactionFilterView: View {
                 }
                 .calendarDayTimeZone()
 
-                Section {
+                // 類型只有 3 個選項:內嵌選擇列，點一下就選(ADR-0004、#91)。
+                Section("類型") {
                     Picker("類型", selection: $model.filterDraft.type) {
                         Text("全部類型").tag(TransactionsModel.TypeFilter.all)
                         Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
                         Text("僅收入").tag(TransactionsModel.TypeFilter.income)
                     }
-                    .accessibilityIdentifier("transactionFilter.type")
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+
+                // 分類(含「全部分類」)的選項多:推入清單頁，選了自動返回。
+                Section {
                     Picker("分類", selection: $model.filterDraft.category) {
                         Text("全部分類").tag(TransactionCategory?.none)
                         ForEach(model.filterDraft.categoryOptions, id: \.self) { category in
                             Label(category.name, systemImage: category.symbolName).tag(Optional(category))
                         }
                     }
+                    .navigationLinkStyle()
                     .accessibilityIdentifier("transactionFilter.category")
                 }
             }

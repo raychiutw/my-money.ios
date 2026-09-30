@@ -120,12 +120,14 @@ struct AccountEditorView: View {
     }
 
     private func dayPicker(_ label: String, selection: Binding<Int?>) -> some View {
+        // 未設定加 1～31 號:推入清單頁，選了自動返回(ADR-0004、#91)。
         Picker(label, selection: selection) {
             Text("未設定").tag(Int?.none)
             ForEach(1...31, id: \.self) { day in
                 Text("每月 \(day) 號").tag(Int?.some(day))
             }
         }
+        .navigationLinkStyle()
     }
 }
 

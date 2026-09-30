@@ -63,7 +63,7 @@ final class TransactionsUITests: XCTestCase {
             app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
             "迄日不是台灣時間的今天(\(Self.taipeiToday()))"
         )
-        choose("僅收入", from: app.buttons["transactionFilter.type"], in: app)
+        app.buttons["僅收入"].tap()
         sheet.buttons["完成"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
@@ -75,7 +75,7 @@ final class TransactionsUITests: XCTestCase {
         // 改成僅支出再按取消：清單和副標題都不變。
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
-        choose("僅支出", from: app.buttons["transactionFilter.type"], in: app)
+        app.buttons["僅支出"].tap()
         sheet.buttons["取消"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")

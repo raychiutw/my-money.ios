@@ -133,6 +133,34 @@ final class AccountsUITests: XCTestCase {
         XCTAssertFalse(app.textFields["accountEditor.amount"].exists, "切成信用卡之後還有餘額欄")
     }
 
+    /// 信用卡的結帳日、繳款日(未設定加 1～31 號)推入清單頁，選了自動返回(ADR-0004、#91)。
+    @MainActor
+    func testStatementDayIsAPushedList() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+
+        app.buttons["accounts.add"].tap()
+        app.buttons["新增信用卡"].tap()
+        XCTAssertTrue(app.textFields["accountEditor.name"].waitForExistence(timeout: 3), "沒有打開新增信用卡")
+
+        func statementRow() -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "結帳日")).firstMatch
+        }
+        for _ in 0..<6 where !(statementRow().exists && statementRow().isHittable) { app.swipeUp() }
+        XCTAssertTrue(statementRow().exists, "信用卡表單沒有「結帳日」列")
+        statementRow().tap()
+        let first = app.buttons["每月 1 號"]
+        XCTAssertTrue(first.waitForExistence(timeout: 3), "點了結帳日沒有推入日期清單頁")
+        XCTAssertTrue(app.buttons["未設定"].exists, "日期清單頁沒有「未設定」")
+        first.tap()
+        XCTAssertTrue(statementRow().waitForExistence(timeout: 3), "選了日期之後沒有自動返回")
+        XCTAssertTrue(statementRow().label.contains("每月 1 號"), "返回之後結帳日不是每月 1 號:\(statementRow().label)")
+    }
+
     /// ATM 提款(#43):銀行存款帳戶轉到現金錢包，顯示後端的訊息，兩邊的餘額都更新。
     @MainActor
     func testATMWithdrawalMovesMoneyIntoWallet() throws {
