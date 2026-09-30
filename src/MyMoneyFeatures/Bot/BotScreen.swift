@@ -127,7 +127,7 @@ struct BotScreen: View {
     }
 
     /// 網址單行、從中間截斷，看得到網域和結尾的平台(#79);要完整的網址就按「複製」(只有圖示，VoiceOver 念「複製」)。
-    /// 無障礙字級時「複製」放到網址下面，網址用滿整列的寬度，才看得到網域(AX5 截圖)。
+    /// 無障礙字級時單行只放得下十幾個字、看不到網域(AX5 截圖):改成不截斷、完整折行，「複製」放到網址下面。
     private func webhookRow(_ platform: BotPlatform, url: String) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
@@ -138,7 +138,7 @@ struct BotScreen: View {
                 Text(url)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .truncationMode(.middle)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

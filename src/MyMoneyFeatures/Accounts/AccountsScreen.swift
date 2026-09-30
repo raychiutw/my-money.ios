@@ -347,11 +347,13 @@ private struct SectionEmptyState: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            Button(actionTitle, action: action)
-                .buttonStyle(.borderless)
-                // 大字級折行時跟標題一樣靠左(按鈕的文字預設置中)。
-                .multilineTextAlignment(.leading)
-                .accessibilityIdentifier(identifier)
+            // 大字級折行時跟標題一樣靠左：加在 Text 上，加在 Button 上會被按鈕樣式的置中蓋掉(AX5 截圖)。
+            Button(action: action) {
+                Text(actionTitle)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier(identifier)
         }
     }
 }
