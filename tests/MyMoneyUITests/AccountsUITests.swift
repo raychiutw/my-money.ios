@@ -235,6 +235,31 @@ final class AccountsUITests: XCTestCase {
 
     /// 導覽列副標題(`navigationSubtitle`)。
     @MainActor
+    /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要卡最下面的一列(ADR-0004、#87)。
+    @MainActor
+    func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(app.buttons["accounts.scope"].waitForExistence(timeout: 5), "沒有檢視範圍按鈕")
+        let toolbar = app.navigationBars.firstMatch
+        for id in ["accounts.scope", "accounts.add", "toolbar.me"] {
+            XCTAssertTrue(toolbar.buttons[id].exists, "工具列缺少 \(id)")
+        }
+        XCTAssertEqual(toolbar.buttons.count, 3, "工具列不是三顆按鈕")
+        XCTAssertFalse(toolbar.buttons["accounts.transfer"].exists, "ATM 提款／轉帳還在工具列")
+
+        let transfer = app.buttons["accounts.transfer"]
+        XCTAssertTrue(transfer.waitForExistence(timeout: 3), "摘要卡裡沒有「ATM 提款／轉帳」")
+        XCTAssertEqual(transfer.label, "ATM 提款／轉帳")
+        let cardDebt = element(in: app, labelContaining: "信用卡待繳總額")
+        XCTAssertTrue(cardDebt.exists)
+        XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在摘要的最後一列")
+    }
+
     private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.navigationBars.staticTexts[text]
     }

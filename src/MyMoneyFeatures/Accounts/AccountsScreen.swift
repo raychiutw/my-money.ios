@@ -3,7 +3,8 @@ import MyMoneyDomain
 import SwiftUI
 
 /// 「帳戶」tab:摘要(淨可用餘額和它的組成),現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
-/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、ATM 提款／轉帳和新增資產帳戶。
+/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、新增資產帳戶和頭像三顆;
+/// ATM 提款／轉帳是摘要卡最下面的一列(ADR-0004)。
 /// 信用卡是精簡列，點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
@@ -21,14 +22,6 @@ struct AccountsScreen: View {
                 .navigationSubtitle(model.scope.title)
                 .toolbar {
                     ScopeFilter("帳戶檢視範圍", scope: $model.scope, identifier: "accounts.scope")
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            transfer = model.makeTransfer()
-                        } label: {
-                            Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
-                        }
-                        .accessibilityIdentifier("accounts.transfer")
-                    }
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button("新增現金錢包", systemImage: "wallet.bifold") {
@@ -208,6 +201,13 @@ struct AccountsScreen: View {
             AmountRow(title: "現金錢包總額", amount: model.cashTotal ?? .zero)
             AmountRow(title: "銀行存款帳戶餘額合計", amount: model.bankBalanceTotal ?? .zero)
             AmountRow(title: "信用卡待繳總額", amount: model.totalCardDue ?? .zero)
+            // ATM 提款／轉帳:摘要卡最下面的一列(ADR-0004、#87);現金錢包列、銀行存款帳戶列的滑動捷徑照舊。
+            Button {
+                transfer = model.makeTransfer()
+            } label: {
+                Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
+            }
+            .accessibilityIdentifier("accounts.transfer")
         }
     }
 
