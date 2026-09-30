@@ -26,7 +26,8 @@ public final class OverviewModel {
     /// 信用卡詳細頁(點帳戶一覽的信用卡精簡列 push,#73):跟帳戶一覽同一個帳戶檢視範圍。
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: bankAccounts, scope: scope.accountScope, repository: accountRepository,
+            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope.accountScope,
+            repository: accountRepository,
             dataVersion: dataVersion, today: today
         )
     }

@@ -46,7 +46,7 @@ struct CreditCardDetailTests {
         repository: InMemoryAccountRepository = InMemoryAccountRepository.sample()
     ) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: [SampleAccounts.savings], scope: scope, repository: repository,
+            card: card, bankAccounts: [SampleAccounts.savings], loadedVersion: dataVersion.value, scope: scope, repository: repository,
             dataVersion: dataVersion, today: { today }
         )
     }
@@ -123,6 +123,21 @@ struct CreditCardDetailTests {
         #expect(model.card.billedDebt == Money(13000))
         #expect(model.card.unbilledDebt == .zero)
         #expect(!model.showsRollover)
+    }
+
+    /// 例如在總覽記了一筆信用卡支出，帳戶頁還沒重新載入完就點進信用卡(code review)。
+    @Test("帳戶頁的資料比目前的資料版本舊時，打開的詳細頁會重新取得")
+    func refreshesWhenOpenedFromStaleAccounts() async {
+        let repository = InMemoryAccountRepository.sample()
+        let accounts = AccountsModel(repository: repository, dataVersion: dataVersion)
+        await accounts.load()
+        dataVersion.bump()
+        let fetchesBefore = await repository.fetchCount
+
+        let model = accounts.makeCardDetail(for: SampleAccounts.card)
+        await model.refreshIfStale()
+
+        #expect(await repository.fetchCount == fetchesBefore + 1)
     }
 
     @Test("資料版本沒變時不重新取得(剛打開時用精簡列的資料)")

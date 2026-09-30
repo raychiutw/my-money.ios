@@ -103,7 +103,8 @@ public final class AccountsModel {
     /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: bankAccounts, scope: scope, repository: repository, dataVersion: dataVersion, today: today
+            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
+            dataVersion: dataVersion, today: today
         )
     }
 

@@ -36,6 +36,20 @@ struct OverviewTests {
         return model
     }
 
+    /// 例如記了一筆信用卡支出，總覽還沒重新載入完就點進帳戶一覽的信用卡(code review)。
+    @Test("總覽的資料比目前的資料版本舊時，打開的信用卡詳細頁會重新取得")
+    func cardDetailFromStaleOverviewRefreshes() async throws {
+        let dataVersion = DataVersion()
+        let overview = await loaded(dataVersion: dataVersion)
+        dataVersion.bump()
+        let fetchesBefore = await accounts.fetchCount
+
+        let detail = overview.makeCardDetail(for: try #require(overview.creditCards.first))
+        await detail.refreshIfStale()
+
+        #expect(await accounts.fetchCount == fetchesBefore + 1)
+    }
+
     /// 最近交易跟交易頁用同一種交易記錄列：記帳人只有不是自己記的才顯示(#72)。
     /// 使用者決定照 web 在最近交易顯示日期(W:Dashboard.tsx@f32ff6c:462),日期獨立一行，用清單格式(#79)。
     @Test("最近交易的日期：清單格式，跟今天同一年時省略年份")

@@ -18,13 +18,15 @@ public final class CreditCardDetailModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
-    /// 上一次取得時的資料版本。
-    @ObservationIgnored private var loadedVersion: Int
+    /// 上一次取得時的資料版本;`nil` 是還沒取得過。
+    @ObservationIgnored private var loadedVersion: Int?
 
-    /// `card`、`bankAccounts` 是精簡列所在畫面剛載入的資料;`scope` 是那個畫面的帳戶檢視範圍，重新取得時沿用。
+    /// `card`、`bankAccounts` 是精簡列所在畫面剛載入的資料,`loadedVersion` 是那次載入的資料版本
+    /// (不是現在的：那個畫面可能還在重新載入);`scope` 是那個畫面的帳戶檢視範圍，重新取得時沿用。
     public init(
         card: CreditCard,
         bankAccounts: [BankAccount],
+        loadedVersion: Int?,
         scope: AccountScope,
         repository: any AccountRepository,
         dataVersion: DataVersion,
@@ -36,7 +38,7 @@ public final class CreditCardDetailModel {
         self.repository = repository
         self.dataVersion = dataVersion
         self.today = today
-        loadedVersion = dataVersion.value
+        self.loadedVersion = loadedVersion
     }
 
     /// 「繳款」選單的項目。

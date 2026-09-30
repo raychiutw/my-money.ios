@@ -53,7 +53,8 @@ struct ReconcileUnbilledTests {
     /// 校準只在信用卡詳細頁(#73),帳戶頁的長按選單沒有。
     private func detail(_ card: CreditCard, repository: InMemoryAccountRepository) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: [SampleAccounts.savings], scope: .all, repository: repository, dataVersion: dataVersion
+            card: card, bankAccounts: [SampleAccounts.savings], loadedVersion: dataVersion.value, scope: .all,
+            repository: repository, dataVersion: dataVersion
         )
     }
 
