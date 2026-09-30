@@ -121,6 +121,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 第 1 行是分類(圖示加名稱);已花、預算各一列(`LabeledContent`,`subheadline`,標籤是次要文字色，金額單行),沒有預算時預算是次要文字色的「未設定」;有預算時是進度;超支、接近上限用 `exclamationmark.triangle.fill` 加文字，顏色是 `systemRed`、`systemOrange`。
 - 整列是按鈕，點了開設定 sheet,不放「設定／調整」按鈕。
 - section 底部是「新增預算額度」選單(`Menu`,整列都點得開),列出其餘的支出分類，選了打開同一個 sheet;全部都列出時不顯示(HIG Pull-down buttons 的「An Add button could present a menu」)。
+  - 選單的 label 自己排圖示和文字，不用 `Label`:`Menu` 的 label 是 `Label` 時，AX5 折成兩行會被裁掉、圖示壓到文字(#76 的截圖)。其他會折行的 `Menu` label 也照這樣做。
 - VoiceOver:整列一個元素，依序念分類、預算、已花和狀態，例如「餐飲，預算 100 元，已花 120 元，超支 20 元」「交通，預算未設定，已花 250 元」;進度條不另外念(超支時卡在 100%)。
 
 **摘要**(總覽、帳戶頁，#75;第 6 條，研究 §3):
