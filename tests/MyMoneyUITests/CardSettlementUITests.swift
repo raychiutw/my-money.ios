@@ -64,12 +64,10 @@ final class CardSettlementUITests: XCTestCase {
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "「繳款」選單沒有打開信用卡扣款還款")
         XCTAssertEqual(amount.value as? String, "3000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
-        // 歸屬是表單裡一般的選擇列，表單裡沒有分段控制(#65)。選單樣式的 `Picker` 沒有 accessibility value,
-        // 值是選擇列裡唯一的文字。
-        let ownership = app.buttons["cardPayment.ownership"]
-        XCTAssertTrue(ownership.exists, "信用卡扣款還款的歸屬不是表單選擇列")
-        XCTAssertEqual(ownership.staticTexts.firstMatch.label, "家庭公帳", "「繳家庭代墊」的歸屬不是家庭公帳")
+        // 歸屬是內嵌選擇列(2 列，點一下就選)，表單裡沒有分段控制(#65、ADR-0004、#90)。
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
+        XCTAssertTrue(form.buttons["個人私帳"].exists, "信用卡扣款還款的歸屬缺少「個人私帳」這一列")
+        XCTAssertTrue(form.buttons["家庭公帳"].isSelected, "「繳家庭代墊」的歸屬不是家庭公帳")
         XCTAssertEqual(form.segmentedControls.count, 0, "信用卡扣款還款的表單裡還有分段控制")
         XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "信用卡扣款還款沒有另起一列顯示扣款帳戶的可用餘額")
         // 點金額欄全選後重打一次，直接取代原值(#32)。

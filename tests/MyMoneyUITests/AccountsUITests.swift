@@ -105,10 +105,10 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 800 元").waitForExistence(timeout: 5), "新增後沒有出現在現金錢包區塊")
     }
 
-    /// 新增資產帳戶的類型是表單裡一般的選擇列，表單裡沒有分段控制(#65)。
+    /// 新增資產帳戶的類型是內嵌選擇列(3 列，點一下就選)，表單裡沒有分段控制(#65、ADR-0004、#90)。
     /// 從現金錢包切成信用卡之後，出現信用卡的未出帳款欄，餘額欄不見。
     @MainActor
-    func testAccountKindIsAPickerRow() throws {
+    func testAccountKindIsAnInlineChoice() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -120,17 +120,15 @@ final class AccountsUITests: XCTestCase {
         app.buttons["新增現金錢包"].tap()
         let name = app.textFields["accountEditor.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 3), "沒有打開新增資產帳戶")
-        // 選單樣式的 `Picker` 沒有 accessibility value,值是選擇列裡唯一的文字。
-        let kind = app.buttons["accountEditor.kind"]
-        XCTAssertTrue(kind.exists, "資產帳戶的類型不是表單選擇列")
-        XCTAssertEqual(kind.staticTexts.firstMatch.label, "現金錢包", "從「新增現金錢包」打開，類型不是現金錢包")
         let form = app.collectionViews.containing(.textField, identifier: "accountEditor.name").firstMatch
+        for option in ["現金錢包", "銀行存款帳戶", "信用卡"] {
+            XCTAssertTrue(form.buttons[option].exists, "資產帳戶的類型缺少「\(option)」這一列")
+        }
+        XCTAssertTrue(form.buttons["現金錢包"].isSelected, "從「新增現金錢包」打開，類型不是現金錢包")
         XCTAssertEqual(form.segmentedControls.count, 0, "資產帳戶表單裡還有分段控制")
 
-        kind.tap()
-        let creditCard = app.cells.children(matching: .button)["信用卡"]
-        XCTAssertTrue(creditCard.waitForExistence(timeout: 3), "類型選單裡沒有「信用卡」")
-        creditCard.tap()
+        form.buttons["信用卡"].tap()
+        XCTAssertTrue(form.buttons["信用卡"].isSelected, "點一下信用卡之後沒有選起來")
         XCTAssertTrue(app.textFields["accountEditor.unbilled"].waitForExistence(timeout: 3), "切成信用卡之後沒有未出帳款欄")
         XCTAssertFalse(app.textFields["accountEditor.amount"].exists, "切成信用卡之後還有餘額欄")
     }

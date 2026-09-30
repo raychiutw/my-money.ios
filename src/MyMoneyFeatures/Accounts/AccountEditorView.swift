@@ -17,16 +17,20 @@ struct AccountEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    // 新增時可以切換類型，用表單裡一般的選擇列(#65):選項字不會像分段控制一樣被壓小。
-                    if model.canChangeKind {
+                // 新增時可以切換類型:3 個選項用內嵌選擇列，點一下就選，選項字不會像分段控制一樣被壓小(#65、ADR-0004、#90)。
+                if model.canChangeKind {
+                    Section("類型") {
                         Picker("類型", selection: $model.kind) {
                             Text("現金錢包").tag(AccountKind.cash)
                             Text("銀行存款帳戶").tag(AccountKind.bank)
                             Text("信用卡").tag(AccountKind.creditCard)
                         }
-                        .accessibilityIdentifier("accountEditor.kind")
+                        .pickerStyle(.inline)
+                        .labelsHidden()
                     }
+                }
+
+                Section {
                     // 欄位要有看得見的標籤，placeholder 只放範例(DESIGN.md「列與欄位」第 8 條，#78)。
                     LabeledContent("名稱") {
                         TextField("名稱", text: $model.name, prompt: Text(namePrompt))
@@ -39,13 +43,14 @@ struct AccountEditorView: View {
                 }
 
                 // 所有類型都能設歸屬，選項都是個人私帳、家庭共同基金(web 的「帳戶屬性歸屬」);預設個人私帳。
-                Section {
+                Section("歸屬") {
                     Picker("歸屬", selection: $model.isJointFund) {
                         ForEach(model.ownershipChoices, id: \.isJointFund) { choice in
                             Text(choice.title).tag(choice.isJointFund)
                         }
                     }
-                    .accessibilityIdentifier("accountEditor.jointFund")
+                    .pickerStyle(.inline)
+                    .labelsHidden()
                 }
 
                 if model.kind == .creditCard {

@@ -116,7 +116,7 @@ final class TransactionsUITests: XCTestCase {
     /// 記一筆的支出／收入在 sheet 導覽列中間(分段控制);歸屬是表單裡一般的選擇列，表單裡沒有分段控制(#65)。
     /// 切到收入、歸屬選個人私帳，記一筆 250 元後，列表上是一筆個人私帳的收入。
     @MainActor
-    func testQuickEntryTypeInNavigationBarAndOwnershipRow() throws {
+    func testQuickEntryTypeInNavigationBarAndOwnershipChoice() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -133,7 +133,10 @@ final class TransactionsUITests: XCTestCase {
 
         let form = app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
         XCTAssertEqual(form.segmentedControls.count, 0, "記一筆的表單裡還有分段控制")
-        choose("個人私帳", from: app.buttons["quickEntry.ownership"], in: app)
+        // 歸屬是內嵌選擇列:兩列都攤開，預設選在家庭公帳，點一下就換(ADR-0004、#90)。
+        XCTAssertTrue(app.buttons["家庭公帳"].isSelected, "記一筆的歸屬預設不是家庭公帳")
+        app.buttons["個人私帳"].tap()
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "點一下個人私帳之後沒有選起來")
 
         amount.tap()
         amount.typeText("250")
@@ -158,9 +161,10 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         headphones.tap()
-        let ownership = app.buttons["quickEntry.ownership"]
-        XCTAssertTrue(ownership.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選擇列")
-        choose("家庭公帳", from: ownership, in: app)
+        let shared = app.buttons["家庭公帳"]
+        XCTAssertTrue(shared.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選項")
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "編輯的是個人私帳，歸屬卻沒有選在個人私帳")
+        shared.tap()
         app.buttons["quickEntry.save"].tap()
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
