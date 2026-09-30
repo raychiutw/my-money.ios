@@ -49,6 +49,7 @@ public final class OverviewModel {
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: ViewScope?
 
     private static let scopeKey = "overview.scope"
 
@@ -136,6 +137,7 @@ public final class OverviewModel {
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             topGoals = Array(loadedGoals.prefix(3))
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
@@ -144,9 +146,9 @@ public final class OverviewModel {
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
     }
 }

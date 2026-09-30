@@ -45,9 +45,9 @@ struct OverviewScreen: View {
                     .accessibilityIdentifier("overview.account")
                 }
             }
-            // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後)。
+            // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後);從信用卡詳細頁返回時 task 會重跑，沒變就不重抓。
             .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
-                await model.load()
+                await model.refreshIfStale()
             }
             // 帳戶一覽的信用卡精簡列點進信用卡詳細頁;詳細頁的 model 由這裡(路由)建立(#73)。
             .navigationDestination(for: CreditCard.self) { card in
