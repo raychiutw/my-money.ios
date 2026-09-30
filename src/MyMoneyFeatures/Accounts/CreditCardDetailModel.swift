@@ -75,14 +75,13 @@ public final class CreditCardDetailModel {
     /// 正在校準未出帳;送出期間停用「校準未出帳」。
     public private(set) var isReconciling = false
 
-    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退和還款。
-    /// 後端扣的是還款的全額，繳過已出帳待繳款的話未出帳款會被算少(onion523/my-money#27 第 1 項),
-    /// 所以最後提醒(parity 刻意偏離第 39 項)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
+    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退，以及還款實際沖到未出帳款的部分。
+    /// 後端在上游 `97f4789` 之前已改成只扣還款沖到未出帳款的部分(`unbilled_offset`),不再有「繳過已出帳待繳款就被算少」的問題,
+    /// 所以不提醒(parity 刻意偏離第 39 項已刪除)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
     public var reconcileConfirmation: String {
         let fallback = card.statementDay == nil ? "算這張卡所有的消費" : "從上一個結帳日起算"
         return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退和還款。"
-            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。"
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。"
     }
 
     /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。

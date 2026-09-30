@@ -82,7 +82,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(billed.waitForExistence(timeout: 5), "還款後詳細頁的已出帳待繳款沒有更新")
     }
 
-    /// 校準未出帳(#48):從詳細頁，先確認(說明重算的期間、會扣掉刷退和還款，以及未出帳款可能被算少),完成後顯示後端的訊息。
+    /// 校準未出帳(#48):從詳細頁，先確認(說明重算的期間、會扣掉刷退和還款實際沖到未出帳款的部分),完成後顯示後端的訊息。
     @MainActor
     func testReconcileUnbilled() throws {
         let app = launchSignedIn()
@@ -92,8 +92,8 @@ final class CardSettlementUITests: XCTestCase {
         reveal(reconcile, in: app)
         reconcile.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "這段期間繳過已出帳待繳款的話，未出帳款會被算少。").waitForExistence(timeout: 3),
-            "確認時沒有提醒未出帳款會被算少"
+            element(in: app, labelContaining: "還款實際沖到未出帳款的部分").waitForExistence(timeout: 3),
+            "確認時沒有說明會扣掉還款實際沖到未出帳款的部分"
         )
         app.buttons["校準"].firstMatch.tap()
 
