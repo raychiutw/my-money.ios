@@ -17,7 +17,7 @@ struct RecurringEditorTests {
         return editor
     }
 
-    @Test("新增的預設值：週期支出、每月、1 號、第一個資產帳戶")
+    @Test("新增的預設值：週期支出、每月、1 號、關聯帳戶是「無特定帳戶」(上游 ADR 0011 的選填欄位，#110)")
     func defaults() async {
         let editor = await adding()
 
@@ -25,10 +25,23 @@ struct RecurringEditorTests {
         #expect(editor.type == .expense)
         #expect(editor.cycle == .monthly)
         #expect(editor.dayOfCycle == 1)
-        #expect(editor.accountID == SampleAccounts.savings.id)
+        #expect(editor.accountID == nil, "不該自動綁第一個資產帳戶")
     }
 
-    @Test("資產帳戶載入之前就選了關聯帳戶時，不會被第一個資產帳戶蓋掉", .timeLimit(.minutes(1)))
+    @Test("關聯帳戶是選填:可以選特定帳戶，也可以改回「無特定帳戶」，不選也能儲存")
+    func accountIsOptional() async {
+        let editor = await adding()
+        editor.name = "房租"
+        editor.amountText = "12000"
+
+        editor.accountID = SampleAccounts.card.id
+        editor.accountID = nil
+
+        #expect(await editor.save())
+        #expect(await repository.createdDrafts.last?.accountID == nil)
+    }
+
+    @Test("資產帳戶載入之前就選了關聯帳戶時，選擇會保留", .timeLimit(.minutes(1)))
     func prepareKeepsEarlyChoice() async {
         let gate = Gate()
         let editor = RecurringEditorModel(
