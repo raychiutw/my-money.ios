@@ -40,8 +40,11 @@ final class ScreenTourUITests: XCTestCase {
             let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
             tour.push(account, capturing: "quick-entry-account")
             // 依備註預選分類的提示(#99):輸入「中油加油」,分類預選汽機車輛，提示出現在備註欄下面。
+            // 大字級時備註欄可能被推到畫面外或沒拿到焦點:先捲回來，點了還沒焦點就再點一次。
             let note = app.textFields["quickEntry.note"]
+            for _ in 0..<3 where !(note.exists && note.isHittable) { app.swipeDown() }
             tour.tap(note)
+            if !(note.value(forKey: "hasKeyboardFocus") as? Bool ?? false) { note.tap() }
             note.typeText("中油加油")
             tour.captureScrolling("quick-entry-recommended")
         }
