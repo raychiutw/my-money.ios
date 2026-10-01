@@ -79,7 +79,7 @@ struct HouseholdTests {
         ], summary: .zero)
     }
 
-    @Test("撥款報銷的預設值：金額是待報銷總額、撥款帳戶是第一個餘額夠的共同基金、收款帳戶是收款成員的第一個可收款帳戶")
+    @Test("撥款報銷的預設值：金額是待報銷總額;撥款帳戶與收款帳戶都是空的，不預選(上游 ADR 0011，#113)")
     func reimbursementDefaults() async {
         let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance]), accounts: accountsForReimbursement())
         let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
@@ -88,8 +88,8 @@ struct HouseholdTests {
 
         #expect(reimbursement.fundAccounts.map(\.name) == ["零用公基金", "家庭共同基金"])
         #expect(reimbursement.receivingAccounts.map(\.name) == ["iOS 測試存款", "iOS 測試皮夾"])
-        #expect(reimbursement.fromAccountID == AccountID("fund"))
-        #expect(reimbursement.toAccountID == SampleAccounts.savings.id)
+        #expect(reimbursement.fromAccountID == nil, "不該預選餘額夠付的共同基金")
+        #expect(reimbursement.toAccountID == nil, "不該預選收款成員的第一個可收款帳戶")
         #expect(reimbursement.amountText == "250")
         #expect(reimbursement.note == "家庭基金撥款報銷 小明 代墊公帳")
         #expect(reimbursement.date == today)
@@ -102,6 +102,8 @@ struct HouseholdTests {
 
         await reimbursement.load()
 
+        #expect(reimbursement.availableBalance == nil, "還沒選撥款帳戶，不該有可用餘額")
+        reimbursement.fromAccountID = AccountID("fund")
         #expect(reimbursement.availableBalance == Money(8000))
         reimbursement.fromAccountID = AccountID("small-fund")
         #expect(reimbursement.availableBalance == Money(100))
@@ -116,9 +118,17 @@ struct HouseholdTests {
         let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
         await reimbursement.load()
 
+        reimbursement.amountText = "250"
+        #expect(await reimbursement.submit() == nil)
+        #expect(reimbursement.errorMessage == "請選擇家庭共同基金帳戶")
+        reimbursement.fromAccountID = AccountID("fund")
+        #expect(await reimbursement.submit() == nil)
+        #expect(reimbursement.errorMessage == "請選擇收款個人帳戶")
+        reimbursement.toAccountID = SampleAccounts.savings.id
+
         reimbursement.amountText = "0"
         #expect(await reimbursement.submit() == nil)
-        #expect(reimbursement.errorMessage == "請選擇撥款公帳、收款帳戶並輸入大於 0 的金額")
+        #expect(reimbursement.errorMessage == "請輸入大於 0 的金額")
 
         reimbursement.amountText = "250"
         let message = await reimbursement.submit()
@@ -139,7 +149,9 @@ struct HouseholdTests {
         await reimbursement.load()
 
         #expect(reimbursement.receivingAccounts.map(\.name) == ["小美薪轉"])
-        #expect(reimbursement.toAccountID == AccountID("mei-bank"))
+        #expect(reimbursement.toAccountID == nil, "收款帳戶不預選，要自己選")
+        reimbursement.fromAccountID = AccountID("fund")
+        reimbursement.toAccountID = AccountID("mei-bank")
         #expect(reimbursement.canSubmit)
         _ = await reimbursement.submit()
 

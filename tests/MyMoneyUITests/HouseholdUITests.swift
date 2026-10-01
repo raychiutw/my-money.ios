@@ -88,10 +88,28 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
         // 帳戶選擇列只顯示名稱，值在 value 或子元素裡(推入清單頁的選擇列，ADR-0004、#88)。
         let receiving = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "收款帳戶")).firstMatch
+        let funding = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "撥款公帳")).firstMatch
         XCTAssertTrue(receiving.exists, "撥款報銷沒有「收款帳戶」列")
+        // 撥款帳戶與收款帳戶都是空的(上游 ADR 0011、#113):顯示佔位文字;選了撥款帳戶之後才顯示可用餘額。
+        XCTAssertTrue(funding.displayedText.contains("請選擇家庭共同基金帳戶"), "撥款帳戶沒有顯示佔位文字:\(funding.displayedText)")
+        XCTAssertTrue(receiving.displayedText.contains("請選擇收款個人帳戶"), "收款帳戶沒有顯示佔位文字:\(receiving.displayedText)")
+        XCTAssertFalse(row("可用餘額", value: "5,000 元", in: app).exists, "還沒選撥款帳戶就顯示了可用餘額")
+        // 沒選就送出:提示缺哪一個，不送出。
+        submit.tap()
+        XCTAssertTrue(element(in: app, labelContaining: "請選擇家庭共同基金帳戶").waitForExistence(timeout: 3), "沒選撥款帳戶就送出，沒有提示")
+        XCTAssertTrue(submit.exists, "沒選撥款帳戶就送出，撥款報銷被關掉了")
+
+        funding.tap()
+        let fund = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "家庭共同基金")).firstMatch
+        XCTAssertTrue(fund.waitForExistence(timeout: 3), "沒有推入撥款帳戶清單頁")
+        fund.tap()
+        receiving.tap()
+        let meiBank = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "小美薪轉")).firstMatch
+        XCTAssertTrue(meiBank.waitForExistence(timeout: 3), "沒有推入收款帳戶清單頁")
+        meiBank.tap()
         XCTAssertTrue(receiving.displayedText.contains("小美薪轉"), "收款帳戶不是小美的可收款帳戶:\(receiving.displayedText)")
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "帳戶選擇列的值還帶著類型")
-        XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).exists, "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
+        XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).waitForExistence(timeout: 3), "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
         submit.tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "成功從共同基金撥款報銷 NT$ 600 給 小美").waitForExistence(timeout: 5), "沒有顯示撥款報銷的結果")

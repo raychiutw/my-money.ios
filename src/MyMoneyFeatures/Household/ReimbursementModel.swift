@@ -37,7 +37,8 @@ public final class ReimbursementModel {
         self.accounts = accounts
         self.dataVersion = dataVersion
         receivingAccounts = advance.receivingAccounts
-        toAccountID = advance.receivingAccounts.first?.id
+        // 收款帳戶不預選收款成員的第一個可收款帳戶:要使用者自己選(上游 ADR 0011，#113)。
+        toAccountID = nil
         amountText = "\(advance.pendingReimbursement.amount)"
         date = today()
         note = "家庭基金撥款報銷 \(advance.memberName) 代墊公帳"
@@ -57,7 +58,7 @@ public final class ReimbursementModel {
 
     public var canSubmit: Bool { !receivingAccounts.isEmpty && !isSaving }
 
-    /// 載入撥款帳戶，預設第一個餘額夠付待報銷金額的共同基金，沒有就用第一個(web 的 openReimburseModal)。
+    /// 載入撥款帳戶(家庭共同基金)。撥款帳戶與收款帳戶**都不預選**(上游 ADR 0011「顯式帳戶選取」，#113)，要使用者自己選。
     public func load() async {
         do {
             fundAccounts = try await accounts.accounts(scope: .household).filter(Self.holdsMoney)
@@ -65,14 +66,21 @@ public final class ReimbursementModel {
             errorMessage = error.localizedDescription
             return
         }
-        fromAccountID = (fundAccounts.first { ($0.fundsBalance ?? .zero) >= advance.pendingReimbursement } ?? fundAccounts.first)?.id
     }
 
     /// 送出;成功時回傳後端的訊息(畫面關閉 sheet 並顯示),並遞增資料版本讓其他畫面重抓。
     public func submit() async -> String? {
         errorMessage = nil
-        guard let fromAccountID, let toAccountID, let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請選擇撥款公帳、收款帳戶並輸入大於 0 的金額"
+        guard let fromAccountID else {
+            errorMessage = "請選擇家庭共同基金帳戶"
+            return nil
+        }
+        guard let toAccountID else {
+            errorMessage = "請選擇收款個人帳戶"
+            return nil
+        }
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
+            errorMessage = "請輸入大於 0 的金額"
             return nil
         }
         isSaving = true

@@ -19,7 +19,8 @@ struct ReimbursementView: View {
                 Section {
                     AccountPicker(
                         title: "撥款公帳(家庭共同基金)", selection: $model.fromAccountID,
-                        options: model.fundAccounts.map(AccountPicker.Option.init)
+                        options: model.fundAccounts.map(AccountPicker.Option.init),
+                        placeholder: "請選擇家庭共同基金帳戶"
                     )
                     if let balance = model.availableBalance {
                         AmountRow(title: "可用餘額", amount: balance)
@@ -27,7 +28,8 @@ struct ReimbursementView: View {
                     // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
                     AccountPicker(
                         title: "收款帳戶(\(model.advance.memberName)的個人帳戶)", selection: $model.toAccountID,
-                        options: model.receivingAccounts.map(AccountPicker.Option.init)
+                        options: model.receivingAccounts.map(AccountPicker.Option.init),
+                        placeholder: "請選擇收款個人帳戶"
                     )
                     .disabled(model.receivingAccounts.isEmpty)
                 } footer: {
