@@ -21,7 +21,7 @@ final class ScreenTourUITests: XCTestCase {
             throw XCTSkip("截圖巡覽只由 scripts/screen-tour.sh 執行(沒有設 SCREEN_TOUR_CONTENT_SIZE)")
         }
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingManyCategories", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
+        app.launchArguments = ["-uiTesting", "-uiTestingManyCategories", "-uiTestingOverdraftForecast", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
         app.launch()
         let tour = Tour(app: app, testCase: self)
 

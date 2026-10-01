@@ -53,7 +53,10 @@ struct MyMoneyApp: App {
             let statistics = arguments.contains("-uiTestingManyCategories")
                 ? InMemoryStatisticsRepository.sampleWithEveryCategoryForToday(transactions: transactions)
                 : InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
-            let forecast = InMemoryForecastRepository.sampleForToday()
+            // 截圖巡覽要看走勢圖跨過零線的紅色段落，其他 UI 測試用不透支的預設範例。
+            let forecast = arguments.contains("-uiTestingOverdraftForecast")
+                ? InMemoryForecastRepository.overdraftSampleForToday()
+                : InMemoryForecastRepository.sampleForToday()
             // 建立家庭之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
             let household = InMemoryHouseholdRepository(
                 household: nil,

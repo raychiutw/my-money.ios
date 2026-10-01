@@ -78,13 +78,14 @@ struct ForecastTrendChart: View {
     }
 
     /// 線的顏色:有跨過零線時，零線以上一般色、以下紅色(漸層在零線的位置硬切);全在零以下整條紅色。
+    /// 一般色用主要文字色而不是主題色:這個 app 的主題色是品牌紅，跟警示紅分不出來。
     private var lineStyle: AnyShapeStyle {
         if trend.isEntirelyBelowZero { return AnyShapeStyle(.red) }
-        guard let zero = trend.zeroFraction else { return AnyShapeStyle(Color.accentColor) }
+        guard let zero = trend.zeroFraction else { return AnyShapeStyle(Color.primary) }
         return AnyShapeStyle(
             LinearGradient(
                 stops: [
-                    .init(color: .accentColor, location: 0), .init(color: .accentColor, location: zero),
+                    .init(color: .primary, location: 0), .init(color: .primary, location: zero),
                     .init(color: .red, location: zero), .init(color: .red, location: 1),
                 ],
                 startPoint: .top, endPoint: .bottom
