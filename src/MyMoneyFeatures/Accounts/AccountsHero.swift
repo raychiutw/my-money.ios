@@ -15,7 +15,8 @@ struct AccountsHero: View {
                 CompositionBar(segments: segments, summary: summary ?? "")
             }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 }
 

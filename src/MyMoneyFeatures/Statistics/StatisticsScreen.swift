@@ -51,8 +51,10 @@ struct StatisticsScreen: View {
                 VStack(alignment: .leading, spacing: 16) {
                     BigNumber(title: "支出", amount: Skeleton.amount)
                 }
-                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .skeletonAnnouncement()
+                .clearListRow()
             }
             SkeletonSection(title: "支出分類", count: 1) { SkeletonChart() }
             SkeletonSection(title: "收支趨勢", count: 1) { SkeletonChart(height: 160) }
@@ -72,7 +74,9 @@ struct StatisticsScreen: View {
         case .loaded:
             Section {
                 BigNumber(title: model.expenseTitle, amount: model.totalCategoryExpense, warnsWhenNegative: false)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .clearListRow()
             }
             if model.showsHouseholdShares {
                 householdSection

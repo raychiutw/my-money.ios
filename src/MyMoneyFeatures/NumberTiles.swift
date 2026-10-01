@@ -17,9 +17,9 @@ extension Color {
     }
 }
 
-/// 大數字(#116、#118):全 app 唯一放大的字級(DESIGN.md「字型與數字」)。小標題加 52pt 的粗圓體金額，
-/// `@ScaledMetric` 跟著 Dynamic Type 放大;單行，放不下時縮小，不折行也不截斷。
-/// 整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
+/// 大數字(#116、#118、#124):全 app 唯一放大的字級(DESIGN.md「字型與數字」)。小標題加 88pt 的粗體金額，
+/// 開頭的符號與貨幣(「$」「-$」)縮小成灰色，數字本身最大(設計稿);`@ScaledMetric` 跟著 Dynamic Type 放大，
+/// 單行，放不下時縮小，不折行也不截斷。整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
 struct BigNumber: View {
     let title: String
     let amount: Money
@@ -28,23 +28,36 @@ struct BigNumber: View {
     /// 負數用紅色。
     var warnsWhenNegative = true
 
-    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 52
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 88
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(text ?? amount.formatted())
-                .font(.system(size: size, weight: .bold, design: .rounded))
-                .monospacedDigit()
+            number
                 .lineLimit(1)
-                .minimumScaleFactor(0.4)
+                .minimumScaleFactor(0.3)
                 .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(amount.spokenText)
+    }
+
+    /// 開頭的符號與貨幣(第一個數字之前，例如「$」「-$」)是小的灰字，數字本身是大字。
+    private var number: Text {
+        let full = text ?? amount.formatted()
+        let digitsStart = full.firstIndex(where: \.isNumber) ?? full.startIndex
+        let symbol = Text(String(full[..<digitsStart]))
+            .font(.system(size: size * 0.48, weight: .semibold))
+            .foregroundStyle(.secondary)
+        let digits = Text(String(full[digitsStart...]))
+            .font(.system(size: size, weight: .bold))
+            .monospacedDigit()
+            .tracking(-size * 0.02)
+        // `Text + Text` 在 iOS 26 已棄用:改用 Text 的字串插值組合不同字級的片段。
+        return Text("\(symbol)\(digits)")
     }
 }
 
@@ -75,7 +88,7 @@ struct NumberTile: View {
                 .font(.title3.bold())
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -95,7 +108,8 @@ struct NumberTile: View {
 /// 一排數字磚:每格至少要有 `minimumTileWidth`(跟著字級變大)，放得下就並排、等寬等高，放不下就上下堆疊。
 /// 只看實際可用的寬度，不看裝置或字級屬性(#117)。
 struct NumberTileRow<Content: View>: View {
-    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 100
+    /// 設計稿是三格橫排:到 XXL 都還並排(數字單行縮小)，更大的字級(無障礙字級)才上下堆疊(#124)。
+    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 84
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -163,6 +177,8 @@ struct NumberCard: View {
     /// 警示狀態(例如信用卡有待繳):金額用紅色。
     var isWarning = false
     var caption: String?
+    /// 金額同一行右邊的小字(總覽信用卡的「5 日繳」，設計稿);放不下時金額先縮小。
+    var trailingText: String?
     /// VoiceOver 念的整句。
     let spokenText: String
 
@@ -177,12 +193,22 @@ struct NumberCard: View {
                 Image(systemName: symbol)
                     .foregroundStyle(symbolColor)
             }
-            Text(amount.formatted())
-                .font(.title3.bold())
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(amount.formatted())
+                    .font(.title3.bold())
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                if let trailingText {
+                    Spacer(minLength: 4)
+                    Text(trailingText)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
             if let caption {
                 Text(caption)
                     .font(.footnote)
@@ -201,7 +227,8 @@ struct NumberCard: View {
 /// 卡片網格:欄數由實際可用寬度決定(每欄至少 `minimumWidth`,跟著字級變大，大字級自然變一欄)，
 /// 每一排的卡片一樣高。卡片不多(總覽最多 6 張)，所以不用 `LazyVGrid`。
 struct NumberCardGrid<Content: View>: View {
-    @ScaledMetric(relativeTo: .body) private var minimumWidth: CGFloat = 150
+    /// 設計稿是兩欄:到 XXL 都還是兩欄，更大的字級才變單欄(#124)。
+    @ScaledMetric(relativeTo: .body) private var minimumWidth: CGFloat = 136
     @ViewBuilder var content: () -> Content
 
     var body: some View {

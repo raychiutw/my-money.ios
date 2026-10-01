@@ -87,8 +87,10 @@ struct HouseholdScreen: View {
                         BigNumber(title: "分攤建議", amount: Skeleton.amount)
                         SkeletonChart(height: 160)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .skeletonAnnouncement()
+                    .clearListRow()
                 }
                 Section {
                     NumberTileRow {
@@ -167,7 +169,10 @@ struct HouseholdScreen: View {
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
+                .padding(.horizontal, 8)
+                .clearListRow()
                 HouseholdHero(model: model)
+                    .clearListRow()
             }
             .compactSectionSpacing()
 

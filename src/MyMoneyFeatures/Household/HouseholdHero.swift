@@ -20,7 +20,8 @@ struct HouseholdHero: View {
                 MemberShareChart(shares: model.shares, average: model.averageShare)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 
     /// 轉帳金額是大數字，下面是誰轉給誰;兩人一樣多時大數字是每人負擔，下面是「不用轉帳」。

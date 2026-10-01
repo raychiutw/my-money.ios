@@ -95,8 +95,13 @@ final class HouseholdUITests: XCTestCase {
         name.typeText("我們家")
         app.buttons["household.create"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "小明,有待請款代墊").waitForExistence(timeout: 5), "沒有顯示我的代墊款")
-        XCTAssertTrue(app.buttons["household.reimburse.in-memory-member-1"].exists, "自己的代墊款沒有報銷入口")
+        // 成員在大數字、長條圖與數字磚下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let mine = element(in: app, labelContaining: "小明,有待請款代墊")
+        for _ in 0..<8 where !mine.exists { app.swipeUp() }
+        XCTAssertTrue(mine.exists, "沒有顯示我的代墊款")
+        let reimburseMine = app.buttons["household.reimburse.in-memory-member-1"]
+        for _ in 0..<8 where !reimburseMine.exists { app.swipeUp() }
+        XCTAssertTrue(reimburseMine.exists, "自己的代墊款沒有報銷入口")
         let reimburseMei = app.buttons["household.reimburse.sample-mei"]
         for _ in 0..<5 where !reimburseMei.isHittable { app.swipeUp() }
         reimburseMei.tap()
@@ -151,9 +156,11 @@ final class HouseholdUITests: XCTestCase {
         name.typeText("我們家")
         app.buttons["household.create"].tap()
 
+        // 報銷入口在大數字、長條圖與數字磚下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
         let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
-        XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "自己的代墊款沒有報銷入口")
-        for _ in 0..<5 where !reimburse.isHittable { app.swipeUp() }
+        _ = reimburse.waitForExistence(timeout: 5)
+        for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
+        XCTAssertTrue(reimburse.exists, "自己的代墊款沒有報銷入口")
         reimburse.tap()
         let note = app.textFields["reimbursement.note"]
         XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開撥款報銷")
