@@ -55,7 +55,9 @@ public final class TransferModel {
         firstBank != nil && firstWallet != nil
     }
 
-    /// 載入可選的帳戶並套用預設值(web 的 openTransferModal)。
+    /// 載入可選的帳戶。**轉出與轉入都不預選**(上游 ADR 0011「顯式帳戶選取」，#111):頂端入口兩側都空;
+    /// 從某個帳戶列的捷徑進來時，只帶入那一側(銀行存款帳戶的「轉帳／提款」是轉出，現金錢包的「ATM 提款」是轉入)，
+    /// 另一側仍是空的。開窗時如果兩側是同一個帳戶，轉入清成空(上游開窗時的處理)。
     public func load() async {
         do {
             candidates = try await repository.accounts().filter {
@@ -68,10 +70,10 @@ public final class TransferModel {
             errorMessage = error.localizedDescription
             return
         }
-        fromAccountID = preferredFrom ?? firstBank?.id ?? candidates.first?.id
-        toAccountID = preferredTo ?? firstWallet?.id ?? candidates.dropFirst().first?.id
-        if toAccountID == fromAccountID {
-            toAccountID = candidates.first { $0.id != fromAccountID }?.id
+        fromAccountID = preferredFrom
+        toAccountID = preferredTo
+        if fromAccountID != nil, toAccountID == fromAccountID {
+            toAccountID = nil
         }
     }
 
@@ -94,8 +96,16 @@ public final class TransferModel {
     /// 送出;成功時回傳後端的訊息(畫面關閉 sheet 並顯示),並遞增資料版本讓其他畫面重抓。
     public func submit() async -> String? {
         errorMessage = nil
-        guard let fromAccountID, let toAccountID, let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請選擇轉出、轉入帳戶，並輸入大於 0 的金額"
+        guard let fromAccountID else {
+            errorMessage = "請選擇轉出帳戶"
+            return nil
+        }
+        guard let toAccountID else {
+            errorMessage = "請選擇轉入帳戶"
+            return nil
+        }
+        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
+            errorMessage = "請輸入大於 0 的金額"
             return nil
         }
         guard fromAccountID != toAccountID else {

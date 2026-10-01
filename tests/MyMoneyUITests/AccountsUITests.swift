@@ -180,10 +180,15 @@ final class AccountsUITests: XCTestCase {
         app.buttons["accountEditor.save"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金錢包餘額 800 元").waitForExistence(timeout: 5))
 
-        // 預設轉出是第一個銀行存款帳戶、轉入是第一個現金錢包。
+        // 轉出與轉入都是空的(上游 ADR 0011、#111):頂端入口不預選;按快捷情境「ATM 提款至皮夾」(使用者主動按的輔助)
+        // 才帶入第一個銀行存款帳戶與第一個現金錢包。
         app.buttons["accounts.transfer"].tap()
         let amount = app.textFields["transfer.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開轉帳")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.exists, "轉出帳戶沒有顯示佔位文字")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉入帳戶")).firstMatch.exists, "轉入帳戶沒有顯示佔位文字")
+        XCTAssertFalse(row("可用餘額", value: "50,000 元", in: app).exists, "還沒選轉出帳戶就顯示了可用餘額")
+        app.buttons["transfer.atm"].tap()
         XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "轉帳沒有另起一列顯示轉出帳戶的可用餘額")
         XCTAssertFalse(element(in: app, labelContaining: "餘額 $").exists, "帳戶選擇列還把餘額塞在選項文字裡")
         amount.tap()
@@ -197,6 +202,29 @@ final class AccountsUITests: XCTestCase {
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 49,500 元")
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists, "銀行存款帳戶的餘額沒有減少")
+    }
+
+    /// 銀行存款帳戶列往右滑的「轉帳／提款」只帶入轉出，轉入是空的(上游 ADR 0011、#111)。
+    @MainActor
+    func testBankRowShortcutFillsOnlyTheFromAccount() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+
+        let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
+        _ = bank.waitForExistence(timeout: 5)
+        for _ in 0..<6 where !(bank.exists && bank.isHittable) { app.swipeUp() }
+        XCTAssertTrue(bank.exists, "帳戶頁沒有 iOS 測試存款這一列")
+        bank.swipeRight()
+        app.buttons["轉帳／提款"].firstMatch.tap()
+
+        XCTAssertTrue(app.textFields["transfer.amount"].waitForExistence(timeout: 3), "沒有打開轉帳")
+        let from = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "轉出帳戶")).firstMatch
+        let to = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "轉入帳戶")).firstMatch
+        XCTAssertTrue(from.displayedText.contains("iOS 測試存款"), "從銀行存款帳戶列進來，轉出沒有帶入這個帳戶:\(from.displayedText)")
+        XCTAssertTrue(to.displayedText.contains("請選擇轉入帳戶"), "轉入應該是空的，顯示佔位文字:\(to.displayedText)")
     }
 
     /// 轉帳：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。

@@ -21,12 +21,12 @@ struct TransferTests {
         return model
     }
 
-    @Test("預設轉出是第一個銀行存款帳戶、轉入是第一個現金錢包;信用卡不在可選的帳戶裡")
+    @Test("從帳戶頁最上面的入口打開:轉出與轉入都是空的(上游 ADR 0011，#111);信用卡不在可選的帳戶裡")
     func defaults() async {
         let model = await loaded()
 
-        #expect(model.fromAccountID == SampleAccounts.savings.id)
-        #expect(model.toAccountID == SampleAccounts.wallet.id)
+        #expect(model.fromAccountID == nil, "不該預選第一個銀行存款帳戶")
+        #expect(model.toAccountID == nil, "不該預選第一個現金錢包")
         #expect(model.candidates.map(\.name) == ["iOS 測試皮夾", "iOS 測試存款"])
         #expect(model.date == today)
         #expect(model.amountText == "")
@@ -36,6 +36,8 @@ struct TransferTests {
     func availableBalance() async {
         let model = await loaded()
 
+        #expect(model.availableBalance == nil, "還沒選轉出帳戶，不該有可用餘額")
+        model.fromAccountID = SampleAccounts.savings.id
         #expect(model.availableBalance == SampleAccounts.savings.balance)
         model.fromAccountID = SampleAccounts.wallet.id
         #expect(model.availableBalance == SampleAccounts.wallet.balance)
@@ -43,20 +45,28 @@ struct TransferTests {
         #expect(model.availableBalance == nil)
     }
 
-    @Test("從現金錢包的「ATM 提款」打開：轉入是這個現金錢包;從銀行存款帳戶的「轉帳／提款」打開：轉出是這個帳戶")
+    @Test("從現金錢包的「ATM 提款」打開：只帶入轉入(這個現金錢包)，轉出是空的;從銀行存款帳戶的「轉帳／提款」打開：只帶入轉出，轉入是空的")
     func openedFromAnAccount() async {
         let fromWallet = await loaded(to: SampleAccounts.wallet.id)
         #expect(fromWallet.toAccountID == SampleAccounts.wallet.id)
-        #expect(fromWallet.fromAccountID == SampleAccounts.savings.id)
+        #expect(fromWallet.fromAccountID == nil)
 
         let fromBank = await loaded(from: SampleAccounts.savings.id)
         #expect(fromBank.fromAccountID == SampleAccounts.savings.id)
-        #expect(fromBank.toAccountID == SampleAccounts.wallet.id)
+        #expect(fromBank.toAccountID == nil)
+    }
+
+    @Test("開窗時轉出與轉入是同一個帳戶:轉入清成空(上游開窗時的處理)")
+    func sameAccountOnOpenClearsTheTarget() async {
+        let model = await loaded(from: SampleAccounts.wallet.id, to: SampleAccounts.wallet.id)
+
+        #expect(model.fromAccountID == SampleAccounts.wallet.id)
+        #expect(model.toAccountID == nil)
     }
 
     @Test("轉入的選項不含已選的轉出帳戶")
     func toCandidatesExcludeFrom() async {
-        let model = await loaded()
+        let model = await loaded(from: SampleAccounts.savings.id)
 
         #expect(model.toCandidates.map(\.name) == ["iOS 測試皮夾"])
     }
@@ -84,15 +94,23 @@ struct TransferTests {
         #expect(!model.hasQuickScenarios)
     }
 
-    @Test("金額要大於 0 的整數，否則提示且不送出")
-    func amountIsRequired() async {
+    @Test("沒選轉出帳戶、沒選轉入帳戶、金額無效，各自有提示，而且不送出")
+    func requiredFieldsAreChecked() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = await loaded(repository)
-        model.amountText = "0"
+        model.amountText = "500"
 
         #expect(await model.submit() == nil)
+        #expect(model.errorMessage == "請選擇轉出帳戶")
 
-        #expect(model.errorMessage == "請選擇轉出、轉入帳戶，並輸入大於 0 的金額")
+        model.fromAccountID = SampleAccounts.savings.id
+        #expect(await model.submit() == nil)
+        #expect(model.errorMessage == "請選擇轉入帳戶")
+
+        model.toAccountID = SampleAccounts.wallet.id
+        model.amountText = "0"
+        #expect(await model.submit() == nil)
+        #expect(model.errorMessage == "請輸入大於 0 的金額")
         #expect(await repository.transfers.isEmpty)
     }
 
@@ -100,6 +118,8 @@ struct TransferTests {
     func submits() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = await loaded(repository)
+        model.fromAccountID = SampleAccounts.savings.id
+        model.toAccountID = SampleAccounts.wallet.id
         model.amountText = "500"
         model.note = "ATM 提款"
 
@@ -117,6 +137,8 @@ struct TransferTests {
     func showsRejection() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = await loaded(repository)
+        model.fromAccountID = SampleAccounts.savings.id
+        model.toAccountID = SampleAccounts.wallet.id
         model.amountText = "999999"
 
         #expect(await model.submit() == nil)
