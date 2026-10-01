@@ -39,10 +39,23 @@ public final class OverviewModel {
     public private(set) var overBudgets: [OverBudget] = []
     public private(set) var topGoals: [SavingsGoal] = []
 
+    /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
+    /// 不分家庭公帳或個人);載入失敗時是 `nil`，不影響總覽的其他區塊。
+    public private(set) var forecast: CashFlowForecast?
+
+    /// 走勢圖的呈現資料:零線位置、紅色切換點等。
+    public var forecastTrend: ForecastTrend? { forecast.map(ForecastTrend.init(forecast:)) }
+
+    /// 走勢圖的 VoiceOver 摘要，例如「未來 30 天預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
+    public var forecastSummary: String? {
+        forecastTrend?.spokenSummary(today: today(), locale: locale)
+    }
+
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let transactionRepository: any TransactionRepository
     @ObservationIgnored private let statisticsRepository: any StatisticsRepository
     @ObservationIgnored private let goalRepository: any SavingsGoalRepository
+    @ObservationIgnored private let forecastRepository: (any ForecastRepository)?
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
@@ -59,6 +72,7 @@ public final class OverviewModel {
         transactions: any TransactionRepository,
         statistics: any StatisticsRepository,
         goals: any SavingsGoalRepository,
+        forecast: (any ForecastRepository)? = nil,
         dataVersion: DataVersion,
         defaults: UserDefaults,
         currentUser: UserID? = nil,
@@ -69,6 +83,7 @@ public final class OverviewModel {
         transactionRepository = transactions
         statisticsRepository = statistics
         goalRepository = goals
+        forecastRepository = forecast
         self.dataVersion = dataVersion
         self.defaults = defaults
         self.currentUser = currentUser
@@ -113,8 +128,11 @@ public final class OverviewModel {
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)
             async let goals = goalRepository.goals()
+            // 預測是額外的資料來源:失敗不能讓整個總覽失敗，所以不 throw，失敗就是沒有走勢圖。
+            async let forecast = Self.fetchForecast(forecastRepository, scope: scope)
             let (loadedSummary, loadedAccounts, loadedRecent, loadedSummaries, loadedBudgets, loadedGoals) =
                 try await (summary, accounts, recent, summaries, budgets, goals)
+            let loadedForecast = await forecast
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
@@ -127,6 +145,7 @@ public final class OverviewModel {
             monthExpense = thisMonth?.expense ?? .zero
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             topGoals = Array(loadedGoals.prefix(3))
+            self.forecast = loadedForecast
             loadedVersion = version
             loadedScope = scope
             phase = .loaded
@@ -135,6 +154,12 @@ public final class OverviewModel {
             guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// 只有視角是「全部」才取預測;失敗是 `nil`。
+    private static func fetchForecast(_ repository: (any ForecastRepository)?, scope: ViewScope) async -> CashFlowForecast? {
+        guard scope == .all, let repository else { return nil }
+        return try? await repository.forecast()
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。

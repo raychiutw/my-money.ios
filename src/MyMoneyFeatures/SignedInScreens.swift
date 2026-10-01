@@ -46,7 +46,8 @@ public struct MainScreens {
         let dataVersion = DataVersion()
         overview = OverviewModel(
             accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
-            goals: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults, currentUser: currentUser
+            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, defaults: defaults,
+            currentUser: currentUser
         )
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
         transactions = TransactionsModel(

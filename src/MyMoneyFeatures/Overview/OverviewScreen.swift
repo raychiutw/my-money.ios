@@ -79,13 +79,17 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 摘要(#75):淨可用餘額是主數字，真實可支配現金、當月淨收支是一般列。
+    /// 主視覺(#116):超大的淨可用餘額加 30 天走勢線;下面的摘要是真實可支配現金、當月淨收支。
     /// 公式明細不寫：淨可用餘額的組成在帳戶頁，分攤平滑與每月預留在週期收支、儲蓄目標頁，當月收入與支出在統計頁。
     @ViewBuilder
     private var summarySection: some View {
         if let summary = model.summary {
             Section {
-                SummaryRow(title: "淨可用餘額", amount: summary.availableBalance, warnsWhenNegative: true)
+                OverviewHero(
+                    balance: summary.availableBalance, trend: model.forecastTrend, trendSummary: model.forecastSummary
+                )
+            }
+            Section {
                 AmountRow(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
                 AmountRow(title: model.netTitle, amount: model.monthNet, warnsWhenNegative: true)
             }
@@ -233,12 +237,13 @@ struct OverviewScreen: View {
     }
 }
 
-/// 首次載入的骨架屏：跟載入後一樣的摘要(主數字加兩列)、帳戶一覽、最近交易和儲蓄目標。
+/// 首次載入的骨架屏：跟載入後一樣的主視覺(大數字與走勢圖)、摘要兩列、帳戶一覽、最近交易和儲蓄目標。
 private struct OverviewSkeleton: View {
     var body: some View {
         Section {
-            SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
-                .skeletonAnnouncement()
+            OverviewHeroSkeleton()
+        }
+        Section {
             ForEach(0..<2, id: \.self) { _ in
                 AmountRow(title: "摘要數字", amount: Skeleton.amount)
                     .skeletonRow()

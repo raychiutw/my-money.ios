@@ -37,21 +37,29 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部」沒有進入交易 tab")
     }
 
-    /// 摘要只有一個主數字(#75):淨可用餘額在最上面，真實可支配現金、當月淨收支是一般列;沒有公式明細。
+    /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面才是真實可支配現金、當月淨收支;沒有公式明細。
     /// 超支警告每個超支的分類一列：分類名稱和超支金額。
     @MainActor
-    func testSummaryHasOneMainNumberAndOverBudgetRows() throws {
+    func testHeroShowsBigBalanceAndForecastChartAboveSummaryRowsAndOverBudgetRows() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
 
-        let available = element(in: app, labelContaining: "淨可用餘額 21,500 元")
+        let available = row("淨可用餘額", value: "21,500 元", in: app)
         XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
+        // 後端預測的 30 天走勢圖:念出最低餘額與會不會透支(範例預測不會透支)，位置在大數字下面、摘要列上面。
+        let chart = element(in: app, labelContaining: "未來 30 天預測餘額，最低餘額")
+        XCTAssertTrue(chart.exists, "沒有 30 天走勢圖")
+        XCTAssertTrue(chart.label.hasSuffix("不會透支"), "走勢圖的摘要沒有說明會不會透支:\(chart.label)")
+        XCTAssertLessThan(available.frame.minY, chart.frame.minY, "走勢圖不在淨可用餘額下面")
+        // 大數字比一般金額列大很多。
+        XCTAssertGreaterThan(available.frame.height, 50, "淨可用餘額不是大數字")
+        XCTAssertFalse(element(in: app, labelContaining: "淨可用餘額 21,500").exists, "淨可用餘額不該同時有一般摘要列")
         for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元")] {
             let summaryRow = row(label, value: value, in: app)
             XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一列")
-            XCTAssertLessThan(available.frame.minY, summaryRow.frame.minY, "淨可用餘額不在「\(label)」上面")
+            XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
         // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
         for formula in ["銀行存款 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
