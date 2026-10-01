@@ -102,10 +102,14 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(row("支出", value: "1,000 元", in: app).exists, "沒有支出")
         let ratio = element(in: app, labelContaining: "支出佔收入百分之 2")
         XCTAssertTrue(ratio.exists, "沒有支出佔收入的比例條")
-        let chart = element(in: app, labelContaining: "本區間每日支出，最多的一天是")
-        XCTAssertTrue(chart.exists, "沒有每日支出長條圖")
         XCTAssertLessThan(net.frame.minY, ratio.frame.minY, "比例條不在淨收支下面")
-        XCTAssertLessThan(ratio.frame.minY, chart.frame.minY, "長條圖不在比例條下面")
+        // 預設區間是本月 1 號到今天:每月 1 號只有一天，一根長條不是圖，所以不顯示;2 號以後才有。
+        let hasChart = Self.taipeiDayOfMonth() >= 2
+        let chart = element(in: app, labelContaining: "本區間每日支出，最多的一天是")
+        XCTAssertEqual(chart.exists, hasChart, "每日支出長條圖該不該顯示:今天是本月 \(Self.taipeiDayOfMonth()) 號")
+        if hasChart {
+            XCTAssertLessThan(ratio.frame.minY, chart.frame.minY, "長條圖不在比例條下面")
+        }
 
         // 日標頭右邊是當日淨額。範例資料的日期相對於今天(月初時全部落在同一天)，所以這裡只確認有，
         // 數值由單元測試用固定日期驗證。日標頭在主視覺下面，還沒捲到的不在 UI 階層裡，先捲下去。
@@ -126,7 +130,7 @@ final class TransactionsUITests: XCTestCase {
         app.navigationBars["篩選"].buttons["完成"].tap()
         XCTAssertTrue(row("淨收支", value: "負 1,000 元", in: app).waitForExistence(timeout: 5), "只看支出後淨收支沒有更新")
         XCTAssertFalse(element(in: app, labelContaining: "支出佔收入").exists, "收入是 0 時還有比例條")
-        XCTAssertTrue(element(in: app, labelContaining: "本區間每日支出").exists, "只看支出時沒有長條圖")
+        XCTAssertEqual(element(in: app, labelContaining: "本區間每日支出").exists, hasChart, "只看支出時長條圖的有無不對")
     }
 
     /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
@@ -324,6 +328,13 @@ final class TransactionsUITests: XCTestCase {
         calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
         let day = calendar.dateComponents([.year, .month, .day], from: .now)
         return "\(day.year!)年\(day.month!)月\(day.day!)日"
+    }
+
+    /// 台灣時間今天是本月的幾號。
+    private static func taipeiDayOfMonth() -> Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        return calendar.component(.day, from: .now)
     }
 
     /// 台灣時間的本月 1 號到今天，格式跟篩選按鈕的 VoiceOver 值一樣，例如「9月1日–9月28日」。

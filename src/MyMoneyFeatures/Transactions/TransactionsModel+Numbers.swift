@@ -43,8 +43,11 @@ extension TransactionsModel {
         return days.map { DailyExpense(date: $0.0, amount: $0.1, isPeak: $0.0 == peak) }
     }
 
-    /// 區間裡有任何支出，才有長條圖。
-    public var hasDailyExpenses: Bool { dailyExpenses.contains { $0.amount > .zero } }
+    /// 區間至少兩天、而且有支出，才有長條圖(只有一天時是一根佔滿整張圖的長條，沒有意義)。
+    public var hasDailyExpenses: Bool {
+        let days = dailyExpenses
+        return days.count >= 2 && days.contains { $0.amount > .zero }
+    }
 
     /// 長條圖的 VoiceOver 摘要，例如「本區間每日支出，最多的一天是9月5日，支出 300 元」;沒有支出時是 `nil`。
     public var dailyExpenseSummary: String? {

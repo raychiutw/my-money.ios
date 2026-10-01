@@ -109,6 +109,24 @@ struct TransactionsNumbersTests {
         #expect(list.dailyExpenseSummary == nil)
     }
 
+    /// 每月 1 號預設的區間只有一天:一根佔滿整張圖的長條沒有意義，不顯示。
+    @Test("區間只有一天時沒有長條圖(一根長條不是圖)，兩天以上才有")
+    func singleDayRangeHasNoChart() async {
+        let list = await loaded()
+        list.editFilter()
+        list.filterDraft.from = today
+        await list.applyFilter()
+        #expect(list.dailyExpenses.count == 1)
+        #expect(list.totalExpense == Money(1000))
+        #expect(!list.hasDailyExpenses)
+
+        list.editFilter()
+        list.filterDraft.from = today.addingDays(-1)
+        await list.applyFilter()
+        #expect(list.dailyExpenses.count == 2)
+        #expect(list.hasDailyExpenses)
+    }
+
     @Test("長條圖跟著篩選:只看某個分類時只算那個分類的支出")
     func dailyExpensesFollowTheFilter() async {
         let list = await loaded()

@@ -122,6 +122,8 @@ struct DailyExpenseChart: View {
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
+            // 最大的一天上面要留空間給金額標註，不然標註會超出圖的上緣。
+            .chartYScale(domain: 0...(days.map { $0.amount.chartValue }.max() ?? 1) * 1.3)
             .frame(height: 110)
             .accessibilityLabel(summary ?? "本區間每日支出")
 
