@@ -47,6 +47,13 @@ public struct CalendarDay: Hashable, Comparable, Sendable {
         Self.taipeiCalendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    /// 加減幾個月(負數往前);那個月沒有這一天時取當月最後一天,例如 5/31 往前 3 個月是 2/28。
+    public func addingMonths(_ months: Int) -> CalendarDay {
+        let index = year * 12 + (month - 1) + months
+        let first = CalendarDay(year: index / 12, month: index % 12 + 1, day: 1)
+        return CalendarDay(year: first.year, month: first.month, day: min(day, first.daysInMonth))
+    }
+
     /// 這個月有幾天。
     public var daysInMonth: Int {
         Self.taipeiCalendar.range(of: .day, in: .month, for: startOfDay)!.count

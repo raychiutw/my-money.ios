@@ -58,14 +58,13 @@ struct ReconcileUnbilledTests {
         )
     }
 
-    @Test("確認文字照 web 用正名，再說明重算的期間、會扣掉刷退和還款，並提醒繳過已出帳待繳款的話未出帳款會被算少(後端的問題，onion523/my-money#27)")
+    @Test("確認文字照 web 用正名，再說明重算的期間、會扣掉刷退和還款實際沖到未出帳款的部分;後端已修好，不再提醒未出帳款會被算少(上游 97f4789)")
     func confirmationExplainsPeriodAndConsequence() {
         let repository = InMemoryAccountRepository.sample()
 
         #expect(detail(SampleAccounts.card, repository: repository).reconcileConfirmation
             == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，從上一個結帳日起算),並扣掉這段期間的刷退和還款。"
-            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。")
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，從上一個結帳日起算),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。")
 
         let withoutStatementDay = CreditCard(
             id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
@@ -73,8 +72,9 @@ struct ReconcileUnbilledTests {
         )
         #expect(detail(withoutStatementDay, repository: repository).reconcileConfirmation
             == "確定要依據「沒有結帳日的卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，算這張卡所有的消費),並扣掉這段期間的刷退和還款。"
-            + "這段期間繳過已出帳待繳款的話，未出帳款會被算少。")
+            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，算這張卡所有的消費),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。")
+
+        #expect(!detail(SampleAccounts.card, repository: repository).reconcileConfirmation.contains("會被算少"))
     }
 
     @Test("確認後校準，顯示後端的訊息，資料版本遞增;送出期間是校準中", .timeLimit(.minutes(1)))
@@ -150,10 +150,10 @@ struct CardPaymentTests {
         #expect(model.availableBalance == nil)
     }
 
-    @Test("從「繳款」的三個項目打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay)", arguments: [
-        (CardPaymentModel.Preset.shared, "3000", true, "信用卡扣款還款「iOS 測試信用卡」(家庭代墊)"),
-        (CardPaymentModel.Preset.personal, "16380", false, "信用卡扣款還款「iOS 測試信用卡」(個人私帳)"),
-        (CardPaymentModel.Preset.full, "19380", true, "信用卡扣款還款「iOS 測試信用卡」(全額)"),
+    @Test("從「繳款」的三個項目打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay,備註照上游 97f4789 的寫法:半形括號、括號前有空格)", arguments: [
+        (CardPaymentModel.Preset.shared, "3000", true, "扣繳【iOS 測試信用卡】卡費 (家庭公帳代墊)"),
+        (CardPaymentModel.Preset.personal, "16380", false, "扣繳【iOS 測試信用卡】卡費 (個人私帳)"),
+        (CardPaymentModel.Preset.full, "19380", true, "扣繳【iOS 測試信用卡】卡費 (全額)"),
     ])
     func presets(preset: CardPaymentModel.Preset, amount: String, isShared: Bool, note: String) {
         let model = payment(card(), preset: preset)
@@ -221,7 +221,7 @@ struct CardPaymentTests {
 
         #expect(await repository.payments == [CardPayment(
             bankAccountID: joint.id, creditCardID: AccountID("card"), amount: Money(3000), date: today,
-            note: "信用卡扣款還款「iOS 測試信用卡」(家庭代墊)", isShared: true
+            note: "扣繳【iOS 測試信用卡】卡費 (家庭公帳代墊)", isShared: true
         )])
         #expect(dataVersion.value == 1)
         #expect(model.bankAccounts.map(\.id) == [empty.id, salary.id, joint.id])

@@ -20,7 +20,7 @@
 scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-auth | --bad-token]
 ```
 
-1. 先讀後端 [`onion523/my-money@43a205d`](https://github.com/onion523/my-money/tree/43a205d4366337fbec9d672cfc49e27b4f2cf48c/backend/src/handlers) 對應的 handler,確認這個請求會寫入什麼。只寫測試帳號自己的資料，不碰別人的資料，也不建立或加入家庭。
+1. 先讀後端 [`onion523/my-money@97f4789`](https://github.com/onion523/my-money/tree/97f4789/backend/src/handlers) 對應的 handler,確認這個請求會寫入什麼。只寫測試帳號自己的資料，不碰別人的資料，也不建立或加入家庭。
 2. 執行腳本。預設會先登入測試帳號，再帶 `Authorization: Bearer` 呼叫;`/auth/*` 用 `--no-auth`,錄 401 用 `--bad-token`。
    - body 裡寫 `__EMAIL__`、`__PASSWORD__`,腳本會換成測試帳號的 email 與密碼，所以密碼不會出現在指令列或 shell history。
    - 腳本會把回應裡所有 JWT 換成假值 `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ZmFrZS1maXh0dXJlLXRva2Vu.ZmFrZS1zaWduYXR1cmU`,並在回應含有密碼時拒絕存檔。
@@ -32,7 +32,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 ## 清單
 
-錄製日期都是 2026-09-28,後端版本 `43a205d`。
+這張表的錄製日期都是 2026-09-28,後端版本 `43a205d`;之後重錄或新增的，在後面各個「對齊上游」小節註明日期與後端版本。
 
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
@@ -60,8 +60,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」交易記錄 |
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
-| `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試信用卡」 | 200 | 未出帳 7380 移到已出帳待繳;訊息在 `data.message` |
-| `accounts-rollover-statement-none.json` | 再做一次出帳作業 | 400 | 「目前無未出帳金額需結轉」原樣傳遞 |
+| `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試小額卡」(未出帳 5000)。2026-10-01 重錄，後端 `97f4789` | 200 | 未出帳 5000 移到已出帳待繳款(8000 → 13000);訊息在 `data.message`,是「帳單出帳作業完成！已轉入已出帳待繳款。」,原樣傳遞 |
+| `accounts-rollover-statement-none.json` | 再做一次出帳作業。2026-10-01 重錄，後端 `97f4789` | 400 | 「目前無未出帳金額需出帳」原樣傳遞 |
 | `transactions-recent.json` | `GET /transactions?scope=all&limit=6&offset=0`,不帶 `from` / `to`(總覽的最近 6 筆) | 200 | 不限日期，由新到舊 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
 | `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |
@@ -156,11 +156,27 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-reconcile.json` | `POST /accounts/:id/reconcile`,「iOS 測試信用卡」(結帳日 15 號;9/15 之後沒有消費，未出帳本來就是 0) | 200 | 訊息在 `data.message`,另外有 `unbilled`、`shared_debt`、`personal_debt` |
 | `accounts-reconcile-not-card.json` | 同上，帶「iOS 測試存款」的 id | 404 | 「信用卡不存在或無權限」原樣傳遞 |
 
+### 對齊上游 `97f4789`(#98)
+
+以下是 2026-10-01 對 `97f4789` 的後端錄的，用的是測試帳號自己的資料，沒有建立或加入家庭。錄之前先用唯讀的 `GET` 比對現況，只重錄真的變了的:
+
+- 交易列(`GET /transactions`)的每一筆多了 `unbilled_offset`(信用卡還款沖到未出帳款的部分，校準用)。iOS 不解碼、不使用。
+- 出帳作業的訊息文字改了:成功是「帳單出帳作業完成！已轉入已出帳待繳款。」,沒有未出帳款是「目前無未出帳金額需出帳」。
+- 資產帳戶的資料列多了 `last_rollover_at`(`f32ff6c` 就有，iOS 不解碼)。
+- 沒變、不重錄:扣款還款與校準的回應形狀和訊息都沒變;家庭的三則訊息(「家庭群組群組」的疊字)`97f4789` 修掉了，而現有的 fixture 本來就是沒有疊字的文字，所以也不用重錄。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `transactions-list-unbilled-offset.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0`(唯讀) | 200 | 每筆多 `unbilled_offset`,解讀不受影響;包含 4 筆系統分類(ATM提款、公帳代墊報銷)與 1 筆餐飲 |
+| `accounts-rollover-statement.json`、`accounts-rollover-statement-none.json` | 見上面「清單」兩列，已用 `97f4789` 重錄 | 200、400 | 訊息原樣傳遞 |
+
+**錄完的狀態**:「iOS 測試小額卡」做過出帳作業，已出帳待繳款 13000、未出帳 0。測試帳號沒有家庭，也沒有留下暫時資料。
+
 ### 對齊上游 `f32ff6c`(#54)
 
 `da82a11` 和 `f32ff6c` 沒有新增或變更 fixture。回應的形狀沒變，只有資產帳戶的資料列多了 `last_rollover_at`(上一次結帳日出帳作業的時間),iOS 不解碼，所以不重錄。
 
-後端有幾則訊息的文字改了，例如「紀錄不存在」改成「交易記錄不存在」、「目前無未出帳金額需結轉」改成「目前無未出帳金額需出帳作業」。上面各表引用的是錄製當時的原文;iOS 原樣顯示後端的訊息，不依文字判斷。
+後端有幾則訊息的文字改了，例如「紀錄不存在」改成「交易記錄不存在」。上面各表引用的是錄製當時的原文;iOS 原樣顯示後端的訊息，不依文字判斷。出帳作業的兩則訊息在 `97f4789` 又改了，已重錄(見上一節)。
 
 ### 從缺:`auth-register-success.json`
 

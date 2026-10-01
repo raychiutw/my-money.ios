@@ -13,8 +13,8 @@ public enum TransactionType: String, Hashable, Sendable {
     case expense
 }
 
-/// 交易記錄的分類。固定清單是支出 8 種、收入 5 種，外加系統專用的「信用卡還款」;
-/// 機器人記帳可能寫入清單以外的分類，所以用字串保存。
+/// 交易記錄的分類。標準清單是支出 16 種、收入 8 種(上游 ADR-0009),外加 4 種系統專用的分類(「信用卡還款」等);
+/// 機器人記帳或舊資料可能有清單以外的分類(例如「副業」),不遷移、照舊顯示,所以用字串保存。
 public struct TransactionCategory: Hashable, Sendable {
     public let name: String
 
@@ -42,8 +42,16 @@ public struct TransactionCategory: Hashable, Sendable {
         creditCardRepayment, internalTransfer, atmWithdrawal, advanceReimbursement,
     ]
 
-    public static let expenseCategories = ["餐飲", "交通", "娛樂", "購物", "生活", "醫療", "教育", "其他"].map(TransactionCategory.init)
-    public static let incomeCategories = ["薪資", "獎金", "投資", "兼職", "其他"].map(TransactionCategory.init)
+    /// 支出的標準分類，順序與上游 `web/src/components/utils.ts` 的 `CATEGORIES.expense` 一致。
+    public static let expenseCategories = [
+        "餐飲", "交通", "汽機車輛", "居家水電", "數位訂閱", "購物", "生活", "娛樂",
+        "美妝保養", "醫療", "教育", "寵物毛孩", "旅行度假", "社交人情", "保險稅費", "其他",
+    ].map(TransactionCategory.init)
+
+    /// 收入的標準分類，順序與上游 `CATEGORIES.income` 一致。
+    public static let incomeCategories = [
+        "薪資", "獎金", "投資", "兼職", "政府補貼", "禮金餽贈", "二手出清", "其他",
+    ].map(TransactionCategory.init)
 }
 
 /// 視角：瀏覽交易記錄與統計時的範圍(CONTEXT.md)。raw value 是後端的 `scope`。

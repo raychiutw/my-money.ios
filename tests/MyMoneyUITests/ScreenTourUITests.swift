@@ -21,7 +21,7 @@ final class ScreenTourUITests: XCTestCase {
             throw XCTSkip("截圖巡覽只由 scripts/screen-tour.sh 執行(沒有設 SCREEN_TOUR_CONTENT_SIZE)")
         }
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
+        app.launchArguments = ["-uiTesting", "-uiTestingManyCategories", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
         app.launch()
         let tour = Tour(app: app, testCase: self)
 
@@ -39,6 +39,17 @@ final class ScreenTourUITests: XCTestCase {
             // 不能用「含金額欄的 collection view」:字級大到要捲動時,金額欄已被回收,找不到表單。
             let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
             tour.push(account, capturing: "quick-entry-account")
+            // 依備註預選分類的提示(#99):輸入「中油加油」,分類預選汽機車輛，提示出現在備註欄下面。
+            // 盡力而為:大字級時表單版面完全不同，備註欄可能在畫面外或拿不到焦點，這時略過這張，不讓整輪巡覽中斷。
+            let note = app.textFields["quickEntry.note"]
+            for _ in 0..<6 where !(note.exists && note.isHittable) { app.swipeDown() }
+            if note.exists, note.isHittable {
+                note.tap()
+                if app.keyboards.firstMatch.waitForExistence(timeout: 3), note.value(forKey: "hasKeyboardFocus") as? Bool ?? false {
+                    note.typeText("中油加油")
+                    tour.captureScrolling("quick-entry-recommended")
+                }
+            }
         }
         tour.tap(app.buttons["toolbar.me"])
         tour.captureScrolling("me-settings")
@@ -72,6 +83,8 @@ final class ScreenTourUITests: XCTestCase {
         // 統計。
         tour.select(tab: "統計")
         tour.captureScrolling("statistics")
+        // 新增預算額度直接打開編輯(#101),分類在 sheet 的分類格裡選。
+        tour.present(app.buttons["budgets.add"], capturing: "budget-editor")
 
         // 「我的」的規劃分頁，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
         tour.tap(app.buttons["toolbar.me"])

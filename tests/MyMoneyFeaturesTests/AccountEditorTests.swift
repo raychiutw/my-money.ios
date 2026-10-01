@@ -191,14 +191,25 @@ struct AccountEditorTests {
         #expect(card.unbilledDebt == Money(4000))
     }
 
-    @Test("歸屬的兩個選項是「個人私帳」「家庭共同基金」,所有類型都一樣(跟 web 一樣)", arguments: [
-        AccountKind.cash, .bank, .creditCard,
+    @Test("歸屬的選項是「個人私帳」和依類型變化的名稱:現金錢包與銀行存款帳戶叫家庭共同基金，信用卡叫家庭信用卡(上游 97f4789)", arguments: [
+        (AccountKind.cash, "家庭共同基金"), (.bank, "家庭共同基金"), (.creditCard, "家庭信用卡"),
     ])
-    func ownershipChoicesAreTheSameForAllKinds(kind: AccountKind) {
+    func ownershipChoicesFollowTheKind(kind: AccountKind, jointTitle: String) {
         let editor = adding(kind)
 
-        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭共同基金"])
+        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", jointTitle])
         #expect(editor.ownershipChoices.map(\.isJointFund) == [false, true])
+    }
+
+    @Test("新增時切換類型，歸屬選項的名稱跟著變，已選的歸屬不變")
+    func ownershipChoicesFollowKindSwitch() {
+        let editor = adding(.bank)
+        editor.isJointFund = true
+
+        editor.kind = .creditCard
+
+        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭信用卡"])
+        #expect(editor.isJointFund)
     }
 
     @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")

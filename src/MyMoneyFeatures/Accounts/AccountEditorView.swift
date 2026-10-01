@@ -42,7 +42,7 @@ struct AccountEditorView: View {
                     }
                 }
 
-                // 所有類型都能設歸屬，選項都是個人私帳、家庭共同基金(web 的「帳戶屬性歸屬」);預設個人私帳。
+                // 所有類型都能設歸屬，選項是個人私帳和家庭公用(信用卡叫家庭信用卡，其餘叫家庭共同基金);預設個人私帳。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isJointFund) {
                         ForEach(model.ownershipChoices, id: \.isJointFund) { choice in

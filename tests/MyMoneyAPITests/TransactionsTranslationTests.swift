@@ -69,6 +69,19 @@ struct TransactionsTranslationTests {
         #expect(transactions[2].category == .salary)
     }
 
+    @Test("後端 97f4789 起交易列多了 unbilled_offset 欄位(信用卡還款沖到未出帳款的部分):iOS 不解碼、不使用，解讀不受影響")
+    func listIgnoresUnbilledOffset() async throws {
+        try stub.reply(status: 200, fixture: "transactions-list-unbilled-offset.json")
+
+        let transactions = try await repository.transactions(from: september1, to: september30, scope: .all, limit: 200, offset: 0)
+
+        try #require(transactions.count == 5)
+        #expect(transactions.map(\.category.name) == ["公帳代墊報銷", "公帳代墊報銷", "餐飲", "ATM提款", "ATM提款"])
+        #expect(transactions.filter(\.isSystemRecord).count == 4)
+        #expect(transactions[2].note == "全家晚餐")
+        #expect(transactions[2].amount == Money(250))
+    }
+
     @Test("ATM 提款產生的兩筆交易記錄是系統分類(受保護、不算進合計)")
     func atmWithdrawalRecordsAreSystemRecords() async throws {
         try stub.reply(status: 200, fixture: "transactions-list-with-transfer.json")

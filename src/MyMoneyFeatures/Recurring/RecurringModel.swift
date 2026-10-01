@@ -44,7 +44,7 @@ public final class RecurringModel {
     public var monthlyExpense: Money { amortization.monthlyExpense }
     /// 週期收入的分攤平滑合計(後端算好)。
     public var monthlyIncome: Money { amortization.monthlyIncome }
-    /// 每月固定淨額：週期收入減週期支出。
+    /// 每月週期淨額：週期收入減週期支出。
     public var monthlyNet: Money { monthlyIncome - monthlyExpense }
 
     /// 載入週期收支與分攤平滑。任一個失敗都顯示載入失敗，不把分攤平滑當成 0

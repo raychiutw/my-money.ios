@@ -49,7 +49,10 @@ struct MyMoneyApp: App {
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday())
             let recurring = InMemoryRecurringRepository.sample()
             let goals = InMemorySavingsGoalRepository.sample()
-            let statistics = InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
+            // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。
+            let statistics = arguments.contains("-uiTestingManyCategories")
+                ? InMemoryStatisticsRepository.sampleWithEveryCategoryForToday(transactions: transactions)
+                : InMemoryStatisticsRepository.sampleForToday(transactions: transactions)
             let forecast = InMemoryForecastRepository.sampleForToday()
             // 建立家庭之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
             let household = InMemoryHouseholdRepository(

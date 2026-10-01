@@ -34,6 +34,17 @@ public final class TransactionEditorModel {
         return fixed.contains(category) ? fixed : fixed + [category]
     }
 
+    /// 編輯既有交易時分類一開始就是鎖定的，不依備註推薦，所以沒有提示(上游的 `handleOpenEdit` 也一樣)。
+    public var categoryHintText: String? { nil }
+
+    /// 使用者手動選分類。
+    public func chooseCategory(_ category: TransactionCategory) {
+        self.category = category
+    }
+
+    /// 編輯不依備註推薦，不需要歷史。
+    public func loadNoteHistory() async {}
+
     @ObservationIgnored private let id: TransactionID
     @ObservationIgnored private let transactions: any TransactionRepository
     @ObservationIgnored private let accountRepository: any AccountRepository

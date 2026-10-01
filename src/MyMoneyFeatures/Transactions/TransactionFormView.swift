@@ -16,7 +16,13 @@ public protocol TransactionForm: AnyObject, Observable {
     var categories: [TransactionCategory] { get }
     var errorMessage: String? { get }
     var isSaving: Bool { get }
+    /// 分類是依備註自動預選時的提示文字(記一筆才有);編輯既有交易一律沒有。
+    var categoryHintText: String? { get }
     func prepare() async
+    /// 使用者手動選分類:記一筆會鎖定，之後不再依備註覆蓋。
+    func chooseCategory(_ category: TransactionCategory)
+    /// 載入備註歷史(智慧推薦的第一層);失敗時不擋記帳。
+    func loadNoteHistory() async
     func save() async -> Bool
 }
 
@@ -56,9 +62,27 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
+                // 備註放在金額正下方、分類格上面:金額欄一打開就對焦，數字鍵盤蓋住下半部，16 格分類很高，
+                // 備註放在格子下面就看不到也捲不到;放這裡，打完金額就是備註，推薦提示緊貼在備註下面，
+                // 分類格就在下面跟著變(#99)。
+                Section {
+                    TextField("備註(選填)", text: $model.note)
+                        .focused($focusedField, equals: .note)
+                        .accessibilityIdentifier("quickEntry.note")
+                } footer: {
+                    // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。
+                    if let hint = model.categoryHintText {
+                        Label(hint, systemImage: "sparkles")
+                            .accessibilityIdentifier("quickEntry.categoryHint")
+                    }
+                }
+
                 // 分類攤開成格，點一下就選(ADR-0004、#89)。
                 Section("分類") {
-                    CategoryGrid(categories: model.categories, selection: $model.category)
+                    CategoryGrid(
+                        categories: model.categories,
+                        selection: Binding(get: { model.category }, set: { model.chooseCategory($0) })
+                    )
                 }
 
                 Section {
@@ -69,9 +93,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         displayedComponents: .date
                     )
                     .calendarDayTimeZone()
-                    TextField("備註(選填)", text: $model.note)
-                        .focused($focusedField, equals: .note)
-                        .accessibilityIdentifier("quickEntry.note")
                 }
 
                 if let message = model.errorMessage {
@@ -110,6 +131,13 @@ struct TransactionFormView<Model: TransactionForm>: View {
             .task {
                 await model.prepare()
                 focusedField = .amount
+            }
+            // 歷史另外載入:很慢或失敗都不影響記帳，只是少了歷史推薦。
+            .task { await model.loadNoteHistory() }
+            .onChange(of: model.categoryHintText) { _, hint in
+                if let hint {
+                    AccessibilityNotification.Announcement(hint).post()
+                }
             }
             .onChange(of: model.errorMessage) { _, message in
                 if let message {

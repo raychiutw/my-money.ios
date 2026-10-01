@@ -6,7 +6,7 @@ final class RecurringUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 統計卡與列表;新增一項後每月固定淨額跟著變;左滑刪除(先確認)。
+    /// 統計卡與列表;新增一項後每月週期淨額跟著變;左滑刪除(先確認)。
     @MainActor
     func testSummaryAddAndDelete() throws {
         let app = XCUIApplication()
@@ -16,7 +16,7 @@ final class RecurringUITests: XCTestCase {
 
         app.openPlanning()
         app.buttons["週期收支"].tap()
-        XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
+        XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
         XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 14,000 元").exists, "摘要的主數字不是週期支出的分攤平滑")
         XCTAssertTrue(element(in: app, labelContaining: "每年 15 號扣款").exists, "扣款日沒有依週期描述")
         XCTAssertTrue(element(in: app, labelContaining: "年繳保費，週期支出 24,000 元").exists, "VoiceOver 沒有把週期支出念成一句")
@@ -33,7 +33,7 @@ final class RecurringUITests: XCTestCase {
         amount.tap()
         amount.typeText("1000")
         app.buttons["recurringEditor.save"].tap()
-        XCTAssertTrue(row("每月固定淨額", value: "30,000 元", in: app).waitForExistence(timeout: 5), "新增後每月固定淨額沒有更新")
+        XCTAssertTrue(row("每月週期淨額", value: "30,000 元", in: app).waitForExistence(timeout: 5), "新增後每月週期淨額沒有更新")
 
         let rent = element(in: app, labelContaining: "房租")
         rent.swipeLeft()
@@ -44,7 +44,7 @@ final class RecurringUITests: XCTestCase {
     }
 
     /// 編輯器的週期支出／週期收入在 sheet 導覽列中間(分段控制),表單裡沒有分段控制(#65)。
-    /// 切到週期收入、新增每期 1,000 的項目，每月固定淨額從 31,000 變成 32,000。
+    /// 切到週期收入、新增每期 1,000 的項目，每月週期淨額從 31,000 變成 32,000。
     @MainActor
     func testEditorTypeInNavigationBar() throws {
         let app = XCUIApplication()
@@ -54,7 +54,7 @@ final class RecurringUITests: XCTestCase {
 
         app.openPlanning()
         app.buttons["週期收支"].tap()
-        XCTAssertTrue(row("每月固定淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
+        XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
 
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
@@ -72,7 +72,7 @@ final class RecurringUITests: XCTestCase {
         amount.tap()
         amount.typeText("1000")
         app.buttons["recurringEditor.save"].tap()
-        XCTAssertTrue(row("每月固定淨額", value: "32,000 元", in: app).waitForExistence(timeout: 5), "新增週期收入後每月固定淨額沒有增加")
+        XCTAssertTrue(row("每月週期淨額", value: "32,000 元", in: app).waitForExistence(timeout: 5), "新增週期收入後每月週期淨額沒有增加")
     }
 
     /// 週期是內嵌選擇列(5 列，點一下就選);扣款日(1～31 號)推入清單頁，選了自動返回(ADR-0004、#91)。

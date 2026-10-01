@@ -33,10 +33,11 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
   - 目標達成用 `systemGreen`。
 - **資訊不能只靠顏色傳達**:金額一律帶 `+` 或 `−` 號;家庭公帳和個人私帳用 symbol 加文字標示。
 - **帳戶顏色**是使用者選的資料，只用在帳戶列前緣的色塊，不當成唯一的辨識依據。
-- **支出分類的圖表顏色**(統計頁的圓餅圖，#76):圖表和下方清單共用同一份「分類 → 顏色」對照(`chartForegroundStyleScale(domain:range:)`),清單每列前緣的同色圓點就是圖例，分類名稱照舊顯示。顏色跟著分類固定，不隨排序、月份或視角改變(研究 §10)。
-  - 餐飲 `systemOrange`、交通 `systemBlue`、娛樂 `systemPurple`、購物 `systemPink`、生活 `systemGreen`、醫療 `systemCyan`、教育 `systemYellow`;「其他」和不在清單中的分類是 `systemGray`。
-  - 用系統色，深色和增強對比由系統調整。這 8 色在淺色、深色下任兩色都分得開(一般色覺的 OKLab ΔE ≥ 15);紅色留給支出和超支，不用。
-  - 8 色裡有幾色在淺色背景上的對比不到 3:1,色覺障礙時也有幾對不好分，所以一定要搭配分類名稱，不能只靠顏色。
+- **支出分類的圖表顏色**(統計頁的圓餅圖，#76、#100):圖表和下方清單共用同一份「分類 → 顏色」對照(`chartForegroundStyleScale(domain:range:)`),清單每列前緣的同色圓點就是圖例，分類名稱照舊顯示。顏色跟著分類固定，不隨排序、月份或視角改變(研究 §10)。
+  - 有專屬色的 11 種分類:餐飲 `systemOrange`、交通 `systemBlue`、汽機車輛 `systemIndigo`、居家水電 `systemTeal`、數位訂閱 `systemMint`、購物 `systemPink`、生活 `systemGreen`、娛樂 `systemPurple`、醫療 `systemCyan`、教育 `systemYellow`、旅行度假 `systemBrown`。
+  - **圖最多 8 塊**(支出分類有 16 種，顏色多了就分不開):沒有專屬色的分類(美妝保養、寵物毛孩、社交人情、保險稅費、「其他」,以及清單外的舊分類)永遠併進 1 塊 `systemGray`;有專屬色的分類超過 8 種時，金額最大的 7 種各自一塊，其餘也併進這塊灰色。清單仍列出全部分類，合併進灰色的，圓點也是灰色。灰色塊的名稱是「其餘分類」,VoiceOver 念出它包含哪些分類。
+  - 用系統色，深色和增強對比由系統調整。紅色留給支出和超支，不用。
+  - 這些色裡有幾色在淺色背景上的對比不到 3:1,色覺障礙時也有幾對不好分，所以一定要搭配分類名稱，不能只靠顏色。
 
 ## 字型與數字
 
@@ -121,7 +122,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 只列有預算或本月已花(我記的支出，不隨視角改變)的支出分類，依支出分類的固定順序。
 - 第 1 行是分類(圖示加名稱);已花、預算各一列(`LabeledContent`,`subheadline`,標籤是次要文字色，金額單行),沒有預算時預算是次要文字色的「未設定」;有預算時是進度;超支、接近上限用 `exclamationmark.triangle.fill` 加文字，顏色是 `systemRed`、`systemOrange`。
 - 整列是按鈕，點了開設定 sheet,不放「設定／調整」按鈕。
-- section 底部是「新增預算額度」選單(`Menu`,整列都點得開),列出其餘的支出分類，選了打開同一個 sheet;全部都列出時不顯示(HIG Pull-down buttons 的「An Add button could present a menu」)。
+- section 底部是「新增預算額度」(`Button`,整列都點得開),**直接打開**同一個設定 sheet,預設選第一個還沒列出的支出分類，其他分類在 sheet 裡用分類格選(支出分類最多 16 個，不再先列成選單，ADR-0004、#101);全部都列出時不顯示。
   - 選單的 label 自己排圖示和文字，不用 `Label`:`Menu` 的 label 是 `Label` 時，AX5 折成兩行會被裁掉、圖示壓到文字(#76 的截圖)。其他會折行的 `Menu` label 也照這樣做。
 - VoiceOver:整列一個元素，依序念分類、預算、已花和狀態，例如「餐飲，預算 100 元，已花 120 元，超支 20 元」「交通，預算未設定，已花 250 元」;進度條不另外念(超支時卡在 100%)。
 
@@ -149,9 +150,9 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 其餘數字用 `AmountRow`(`LabeledContent`):標籤在左、金額在右，大字級放不下時自動上下堆疊，金額單行。VoiceOver 念標籤，值是金額。交易頁的總收入、總支出、淨收支也用它。
   - 總覽：真實可支配現金、當月淨收支(標題隨視角改變)。
   - 帳戶頁：淨可用餘額的組成，現金錢包總額、銀行存款帳戶餘額合計、信用卡待繳總額。
-  - 週期收支：週期收入的分攤平滑、每月固定淨額(負數用紅色)。
+  - 週期收支：週期收入的分攤平滑、每月週期淨額(負數用紅色)。
   - 儲蓄目標：目標金額合計、整體達成率(不是金額，直接用 `LabeledContent`,VoiceOver 念標籤，值是百分比)、每月預留合計。
-  - 負數用紅色的只有淨可用餘額、真實可支配現金、當月淨收支、每月固定淨額。
+  - 負數用紅色的只有淨可用餘額、真實可支配現金、當月淨收支、每月週期淨額。
 - 不寫公式明細和帳戶數：拿掉的數字在別頁都有一項一列(淨可用餘額的組成在帳戶頁，分攤平滑與每月預留在週期收支、儲蓄目標頁，當月收入與支出在統計頁),帳戶數在 section 標題。跟 web 的差異見 parity 刻意偏離第 49 項。
 - **超支警告**(總覽):section 標題是紅色的 `exclamationmark.triangle.fill` 加「有 N 個分類支出已超出預算」;每個超支的分類一列，前緣是分類圖示和名稱，trailing 是紅色的「超支 $20」。已花和預算額度在統計頁的預算額度。
 
@@ -191,7 +192,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 總覽 toolbar        line.3.horizontal.decrease → 視角選單(全部、家庭公帳、個人);plus → 「記一筆」sheet
 交易 toolbar        line.3.horizontal.decrease → 「篩選」sheet(視角、起日、迄日、類型、分類);plus → 「記一筆」sheet
 統計 toolbar        line.3.horizontal.decrease → 視角選單
-帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭共同基金、個人私帳);plus → 新增資產帳戶選單
+帳戶 toolbar        line.3.horizontal.decrease → 帳戶檢視範圍選單(全部、家庭公用、個人私帳);plus → 新增資產帳戶選單
 家庭 toolbar        只有頭像
 帳戶、總覽的信用卡精簡列 → 信用卡詳細頁(push)
                     「繳款」選單 → 「信用卡扣款還款」sheet;toolbar「編輯」→ 資產帳戶編輯器 sheet
@@ -209,7 +210,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   - VoiceOver:篩選按鈕的標籤是「篩選」,值是副標題。
   - 頁面上只留搜尋欄(最上面，即時過濾)。打開畫面最上面是摘要：總收入、總支出、淨收支各一列(`LabeledContent`,金額單行);筆數寫在交易記錄的標題「交易記錄(N)」,放在第一天的分組標頭上面。
   - toolbar 是篩選、記一筆和頭像三顆。「匯出 CSV」(`ShareLink`)是交易記錄列表最底下的一列，匯出的是目前篩選的範圍。
-- **帳戶檢視範圍**(全部、家庭共同基金、個人私帳):帳戶頁放在 toolbar 的篩選按鈕，跟視角共用同一個元件(`ScopeFilter.swift`),點開是可勾選的選單;導覽列副標題一律顯示目前的範圍。清單最上面不放分段控制，依序是摘要(見「列與欄位」)、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態(標題加新增按鈕)。
+- **帳戶檢視範圍**(全部、家庭公用、個人私帳):帳戶頁放在 toolbar 的篩選按鈕，跟視角共用同一個元件(`ScopeFilter.swift`),點開是可勾選的選單;導覽列副標題一律顯示目前的範圍。清單最上面不放分段控制，依序是摘要(見「列與欄位」)、現金錢包、銀行存款帳戶、信用卡四個 `Section`,每區有自己的空狀態(標題加新增按鈕)。
   - VoiceOver:篩選按鈕的標籤是「帳戶檢視範圍」,值是目前的選擇。
   - toolbar 是篩選、新增資產帳戶和頭像三顆。
 - 「ATM 提款／轉帳」是 sheet:入口在帳戶頁摘要卡最下面的一列(`arrow.left.arrow.right`),以及現金錢包列、銀行存款帳戶列的 leading swipe action(預選轉入或轉出)。撥款報銷也是 sheet,從家庭頁的代墊摘要打開。
@@ -235,11 +236,13 @@ Tab bar(iPad 用 .sidebarAdaptable)
   | 選項 | 做法 | 例 |
   |---|---|---|
   | 2～5 個 | 內嵌選擇列(`Picker` 的 `.pickerStyle(.inline)`):選項全部攤開，`body` 字級，右邊打勾 | 歸屬、新增資產帳戶的類型、週期收支的週期、外觀、篩選 sheet 的類型 |
-  | 6～12 個 | 攤開成格，欄數由實際空間決定(`GridItem(.adaptive)`,最小欄寬用 `@ScaledMetric` 跟著字級放大:一般字級 4 欄，大字級自然變少，標籤不縮小也不截斷);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類 |
+  | 6～16 個 | 攤開成格，欄數由實際空間決定(`GridItem(.adaptive)`,最小欄寬用 `@ScaledMetric` 跟著字級放大:一般字級 4 欄，16 個分類是 4×4,大字級自然變少，標籤不縮小也不截斷);每格圖示加名稱，`subheadline` | 記一筆和預算額度的分類(支出 16 種、收入 8 種) |
   | 不固定或很多 | 推入清單頁，選了自動返回 | 帳戶、結帳日、繳款日、扣款日、篩選 sheet 的分類 |
   | 動作 | pull-down 至少 3 項才用，1～2 項直接放按鈕 | 新增資產帳戶(3 項)、繳款(3 項) |
 
   分類攤開成格是**刻意偏離** HIG(超過約 5 個選項建議用 pop-up button),理由是少一次點擊。視角和帳戶檢視範圍維持 toolbar 選單，見上面「視角」。
+
+  **分類推薦提示**(記一筆依備註預選分類，上游 ADR-0009、#99):提示放在備註欄正下方(表單 `Section` 的 footer),打字時看得到，不必捲回分類格;文字是「依歷史習慣推薦【分類】」或「智慧推薦為【分類】」,前面是 `sparkles` symbol(不用 emoji)。提示出現時 VoiceOver 念出提示文字;手動選分類、切換類型或備註沒有命中時提示消失。預選只是改變分類格的選取，格子照常顯示選取狀態。
 
 ## 元件對照(web → iOS)
 
@@ -271,17 +274,27 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 ## 分類圖示
 
-| 分類 | SF Symbol | 分類 | SF Symbol |
-|---|---|---|---|
-| 餐飲 | `fork.knife` | 薪資 | `banknote` |
-| 交通 | `tram.fill` | 獎金 | `gift` |
-| 娛樂 | `gamecontroller` | 投資 | `chart.line.uptrend.xyaxis` |
-| 購物 | `bag` | 兼職 | `briefcase` |
-| 生活 | `lightbulb` | 其他 | `shippingbox` |
-| 醫療 | `cross.case` | 不在清單中的分類 | `tag` |
-| 教育 | `book` | | |
+分類是上游的標準清單(支出 16 種、收入 8 種，順序與 web 一致，上游 ADR-0009),每種有專屬的 SF Symbol,不用 emoji。
 
-機器人記帳可能寫入不在清單中的分類(例如舊版寫入的「副業」),所以需要 fallback 圖示。
+| 支出 | SF Symbol | 支出 | SF Symbol |
+|---|---|---|---|
+| 餐飲 | `fork.knife` | 美妝保養 | `paintbrush.pointed` |
+| 交通 | `tram.fill` | 醫療 | `cross.case` |
+| 汽機車輛 | `car` | 教育 | `book` |
+| 居家水電 | `bolt.fill` | 寵物毛孩 | `pawprint` |
+| 數位訂閱 | `iphone` | 旅行度假 | `airplane` |
+| 購物 | `bag` | 社交人情 | `person.2` |
+| 生活 | `lightbulb` | 保險稅費 | `doc.text` |
+| 娛樂 | `gamecontroller` | 其他 | `shippingbox` |
+
+| 收入 | SF Symbol | 收入 | SF Symbol |
+|---|---|---|---|
+| 薪資 | `banknote` | 政府補貼 | `building.columns` |
+| 獎金 | `gift` | 禮金餽贈 | `envelope` |
+| 投資 | `chart.line.uptrend.xyaxis` | 二手出清 | `arrow.3.trianglepath` |
+| 兼職 | `briefcase` | 其他 | `shippingbox` |
+
+不在清單中的分類(例如舊版機器人寫入的「副業」,歷史資料不遷移)用 `tag`。同一份清單用在記一筆、編輯交易、交易篩選、預算額度、交易列和總覽最近交易。
 
 系統專用的分類「信用卡還款」(信用卡扣款還款產生的交易記錄)用 `creditcard.and.123`。這類交易記錄不能編輯或刪除，列表上只在 trailing 的金額前面放鎖定標記 `lock.fill`,不放說明文字;VoiceOver 接在交易記錄後面念「系統紀錄，不能編輯或刪除」(見「列與欄位」的交易記錄列)。家庭共同基金的標記用 `house.fill` 加上文字「家庭共同基金」。
 

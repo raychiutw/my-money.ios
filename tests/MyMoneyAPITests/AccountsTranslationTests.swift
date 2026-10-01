@@ -219,17 +219,17 @@ struct AccountsTranslationTests {
 
     @Test("結帳日出帳作業：回傳後端的訊息;沒有未出帳款時原樣傳遞錯誤")
     func rollOverStatement() async throws {
-        let card = AccountID("70b75089-3652-40a3-8c47-c23d04aab28c")
+        // 出帳作業有未出帳款才能做，所以用「iOS 測試小額卡」(未出帳 5000)錄的;訊息是後端 `97f4789` 的原文，iOS 原樣傳遞，不依文字判斷。
+        let card = AccountID("a1d2f913-9872-4868-88de-0e523ca46a3c")
 
-        // fixture 是後端 `da82a11` 改用字之前從 prod 錄的，訊息是錄製當時的原文(見 Fixtures README);iOS 原樣傳遞，不依文字判斷。
         try stub.reply(status: 200, fixture: "accounts-rollover-statement.json")
         let message = try await repository.rollOverStatement(card)
-        #expect(message == "已將未出帳 NT$ 7,380 成功結轉為已出帳待繳！")
+        #expect(message == "帳單出帳作業完成！已轉入已出帳待繳款。")
         #expect(stub.requests.last?.httpMethod == "POST")
-        #expect(stub.requests.last?.url?.path() == "/accounts/70b75089-3652-40a3-8c47-c23d04aab28c/rollover-statement")
+        #expect(stub.requests.last?.url?.path() == "/accounts/a1d2f913-9872-4868-88de-0e523ca46a3c/rollover-statement")
 
         try stub.reply(status: 400, fixture: "accounts-rollover-statement-none.json")
-        await #expect(throws: RepositoryError.rejected("目前無未出帳金額需結轉")) {
+        await #expect(throws: RepositoryError.rejected("目前無未出帳金額需出帳")) {
             try await repository.rollOverStatement(card)
         }
     }

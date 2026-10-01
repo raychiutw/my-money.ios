@@ -47,8 +47,8 @@ final class AccountsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "負債性質拆解").exists, "帳戶頁還有負債性質拆解，應該移到詳細頁")
     }
 
-    /// 帳戶檢視範圍是「全部」「家庭共同基金」「個人私帳」(web 的 bd0507b),在 toolbar 的篩選按鈕(#64):
-    /// 點按鈕再選，導覽列副標題顯示目前的範圍。範例資料的資產帳戶都是個人私帳，切到家庭共同基金之後，銀行存款帳戶區塊是空的。
+    /// 帳戶檢視範圍是「全部」「家庭公用」「個人私帳」(web 的 bd0507b),在 toolbar 的篩選按鈕(#64):
+    /// 點按鈕再選，導覽列副標題顯示目前的範圍。範例資料的資產帳戶都是個人私帳，切到家庭公用之後，銀行存款帳戶區塊是空的。
     @MainActor
     func testJointFundScopeHidesPersonalAccounts() throws {
         let app = XCUIApplication()
@@ -64,18 +64,18 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的帳戶檢視範圍")
 
         filter.tap()
-        for option in ["全部", "家庭共同基金", "個人私帳"] {
+        for option in ["全部", "家庭公用", "個人私帳"] {
             XCTAssertTrue(app.buttons[option].waitForExistence(timeout: 3), "帳戶檢視範圍選單裡沒有「\(option)」")
         }
-        app.buttons["家庭共同基金"].tap()
-        XCTAssertTrue(subtitle("家庭共同基金", in: app).waitForExistence(timeout: 3), "切換帳戶檢視範圍後導覽列副標題沒有跟著變")
-        XCTAssertEqual(filter.value as? String, "家庭共同基金", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
+        app.buttons["家庭公用"].tap()
+        XCTAssertTrue(subtitle("家庭公用", in: app).waitForExistence(timeout: 3), "切換帳戶檢視範圍後導覽列副標題沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "家庭公用", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 銀行存款帳戶區塊在統計卡和現金錢包區塊下面，捲下去才在 UI 階層裡。
         let empty = element(in: app, labelContaining: "目前此範圍無銀行存款帳戶")
         _ = empty.waitForExistence(timeout: 2)
         for _ in 0..<5 where !empty.exists { app.swipeUp() }
-        XCTAssertTrue(empty.exists, "切到家庭共同基金之後，還看得到個人私帳的銀行存款帳戶")
+        XCTAssertTrue(empty.exists, "切到家庭公用之後，還看得到個人私帳的銀行存款帳戶")
         XCTAssertFalse(element(in: app, labelContaining: "iOS 測試存款").exists)
     }
 

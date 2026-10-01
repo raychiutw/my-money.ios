@@ -46,7 +46,7 @@ public final class CardPaymentModel {
     }
 
     /// 預設值跟 web 一樣：第一個餘額大於 0 的銀行存款帳戶(沒有就用第一個);金額、歸屬依打開的項目;
-    /// 今天;備註是「信用卡扣款還款「卡名」(家庭代墊／個人私帳／全額)」,不照抄 web 的疊字(parity 刻意偏離第 42 項)。
+    /// 今天;備註照上游 `97f4789` 的寫法:「扣繳【卡名】卡費 (家庭公帳代墊／個人私帳／全額)」。
     public init(
         card: CreditCard,
         preset: Preset,
@@ -61,13 +61,14 @@ public final class CardPaymentModel {
         self.dataVersion = dataVersion
         bankAccountID = (bankAccounts.first { $0.balance > .zero } ?? bankAccounts.first)?.id
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
-        case .shared: (card.sharedDebt, true, "家庭代墊")
+        case .shared: (card.sharedDebt, true, "家庭公帳代墊")
         case .personal: (card.personalDebt, false, "個人私帳")
         case .full: (card.totalDue, true, "全額")
         }
         amountText = amount > .zero ? "\(amount.amount)" : ""
         date = today()
-        note = "信用卡扣款還款「\(card.name)」(\(kind))"
+        // 照上游 `97f4789` 的預設備註(W:Accounts.tsx@97f4789:226):半形括號，括號前有一個空格。
+        note = "扣繳【\(card.name)】卡費 (\(kind))"
         self.isShared = isShared
     }
 

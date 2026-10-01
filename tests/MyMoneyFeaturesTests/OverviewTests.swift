@@ -108,7 +108,7 @@ struct OverviewTests {
 
     @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
         (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
-        (.household, "目前無家庭共同基金帳戶", "至帳戶管理將帳戶屬性設為「家庭共同基金」即可在此呈現"),
+        (.household, "目前無家庭公用帳戶", "至帳戶管理將帳戶屬性設為家庭公用（共同基金或家庭卡）即可在此呈現"),
         (.personal, "目前無個人私帳", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
     ])
     func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
@@ -294,5 +294,13 @@ struct OverviewTests {
 
         #expect(await transactions.queries.last?.scope == .household)
         #expect(await transactions.queries.count > fetches)
+    }
+}
+
+@Suite("帳戶檢視範圍的名稱(CONTEXT.md「帳戶歸屬」)")
+struct AccountScopeTitleTests {
+    @Test("帳戶檢視範圍是「全部」「家庭公用」「個人私帳」(上游 97f4789)")
+    func titles() {
+        #expect(AccountScope.allCases.map(\.title) == ["全部", "家庭公用", "個人私帳"])
     }
 }

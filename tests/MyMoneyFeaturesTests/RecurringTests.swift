@@ -28,7 +28,7 @@ struct RecurringTests {
         #expect(model.incomes.map(\.name) == ["薪水"])
     }
 
-    @Test("三張統計卡：週期支出與週期收入的分攤平滑(後端算好)、每月固定淨額")
+    @Test("三張統計卡：週期支出與週期收入的分攤平滑(後端算好)、每月週期淨額")
     func summaryCards() async {
         let (model, _) = await loaded()
 

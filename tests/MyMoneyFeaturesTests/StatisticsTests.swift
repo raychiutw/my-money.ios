@@ -114,7 +114,10 @@ struct StatisticsTests {
     func addBudgetMenuListsRemainingCategories() async {
         let (model, _) = await loaded()
 
-        #expect(model.addableBudgetCategories.map(\.name) == ["娛樂", "生活", "醫療", "教育", "其他"])
+        #expect(model.addableBudgetCategories.map(\.name) == [
+            "汽機車輛", "居家水電", "數位訂閱", "生活", "娛樂", "美妝保養", "醫療", "教育",
+            "寵物毛孩", "旅行度假", "社交人情", "保險稅費", "其他",
+        ])
     }
 
     @Test("全部分類都有預算時沒有「新增預算額度」選單")
@@ -142,6 +145,45 @@ struct StatisticsTests {
         #expect(fromMenu.title == "設定 娛樂 的預算")
         #expect(fromMenu.amountText == "5000")
         #expect(model.makeBudgetEditor(for: .dining).amountText == "100")
+    }
+
+    @Test("「新增預算額度」直接打開編輯:預設選第一個還沒列出的支出分類，預算預設 5000")
+    func newBudgetEditorStartsAtFirstUnlistedCategory() async throws {
+        let (model, _) = await loaded()
+
+        let editor = try #require(model.makeNewBudgetEditor())
+
+        #expect(editor.category.name == "汽機車輛")
+        #expect(editor.title == "設定 汽機車輛 的預算")
+        #expect(editor.amountText == "5000")
+    }
+
+    @Test("新增預算額度的編輯裡可以改選任何支出分類，包含新增的分類，儲存後 PUT 所選分類")
+    func newBudgetEditorCanChooseAnyExpenseCategory() async throws {
+        let (model, repository) = await loaded()
+        let editor = try #require(model.makeNewBudgetEditor())
+
+        #expect(BudgetEditorModel.categories.map(\.name).contains("寵物毛孩"))
+        editor.category = TransactionCategory("寵物毛孩")
+        #expect(await editor.save())
+
+        #expect(await repository.setBudgets.map(\.category.name) == ["寵物毛孩"])
+    }
+
+    @Test("全部分類都列出時沒有「新增預算額度」的編輯")
+    func noNewBudgetEditorWhenEveryCategoryIsListed() async {
+        let repository = InMemoryStatisticsRepository(
+            expensesByScope: [:],
+            summaries: [],
+            shares: [],
+            budgets: TransactionCategory.expenseCategories.map {
+                Budget(category: $0, amount: Money(1000), spent: .zero, isOver: false)
+            }
+        )
+
+        let (model, _) = await loaded(repository)
+
+        #expect(model.makeNewBudgetEditor() == nil)
     }
 
     /// web 的統計頁用視角的分類支出當已花(parity 刻意偏離第 10 項)。

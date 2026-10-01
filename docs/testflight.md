@@ -27,8 +27,9 @@ workflow 會依序做這幾件事:
 ## CI
 
 - 只在 PR 上跑(`ci.yml`),`master` 不另外跑。
-- UI 測試的 runner 偶爾在開始跑測試之前就當掉(`never finished bootstrapping`),跟程式碼無關。
-  遇到這種情況，CI 不重新編譯，用 `test-without-building` 自動重跑一次;其他失敗照常算失敗。
+- 兩個 job 平行跑，各約幾分鐘：`package`(`swift test` 加以 iOS 編譯 package)、`app`(`xcodebuild build`:編譯 app、零 warning，不啟動模擬器)。
+- **CI 完全不做 UI 測試**(連編譯都不做):56 個 UI 測試在 CI 上要 34 分鐘，加上建置和收集診斷逾時，整個 job 要 49 分鐘，太久了。
+  UI 測試在本機跑，而且只跑有修改到的(見 `CLAUDE.md`「常用指令」)。
 
 ## 版本號與 build 號
 

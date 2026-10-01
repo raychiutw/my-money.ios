@@ -341,12 +341,16 @@ final class TransactionsUITests: XCTestCase {
 
         app.tabBars.buttons["交易"].tap()
         app.buttons["transactions.add"].tap()
-        // 只在記一筆的表單裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕。
+        // 只在 collection view 裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕，但 tab bar 不是 collection view。
+        // 不能用「含金額欄的 collection view」:帳戶列在 16 格分類下面，捲下去之後金額欄已被回收。
         func accountRow() -> XCUIElement {
-            app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
-                .buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+            app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
         }
-        XCTAssertTrue(accountRow().waitForExistence(timeout: 5), "記一筆沒有「帳戶」列")
+        // 金額欄一打開就對焦，數字鍵盤蓋住下半部;先收起鍵盤，再捲到帳戶列(在 16 格分類下面)。
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3), "沒有打開記一筆")
+        app.buttons["完成"].tap()
+        for _ in 0..<6 where !(accountRow().exists && accountRow().isHittable) { app.swipeUp() }
+        XCTAssertTrue(accountRow().exists, "記一筆沒有「帳戶」列")
         XCTAssertTrue(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().displayedText)")
 
         accountRow().tap()
