@@ -41,7 +41,8 @@ struct ForecastTrendChart: View {
                 if trend.minimum < 0 {
                     RuleMark(y: .value("零", 0))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundStyle(.secondary)
+                        // 明確的灰色:`.secondary` 在圖表裡會被主題色染成粉紅。
+                        .foregroundStyle(Color.secondary)
                         .accessibilityHidden(true)
                 }
             }
