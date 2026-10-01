@@ -30,7 +30,7 @@ struct CardPaymentView: View {
                 Section {
                     AccountPicker(
                         title: "扣款帳戶", selection: $model.bankAccountID, options: model.bankAccounts.map(AccountPicker.Option.init),
-                        noneTitle: "請選擇扣款帳戶"
+                        placeholder: "請選擇扣款銀行"
                     )
                     if let balance = model.availableBalance {
                         AmountRow(title: "可用餘額", amount: balance)

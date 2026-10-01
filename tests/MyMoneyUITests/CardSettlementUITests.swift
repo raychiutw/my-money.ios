@@ -44,9 +44,9 @@ final class CardSettlementUITests: XCTestCase {
         // 確認對話框的「出帳作業」,不是詳細頁上的那一顆。
         app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "出帳作業", "cardDetail.rollover"))
             .firstMatch.tap()
-        // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
+        // 後端的原文(`97f4789` 起是「帳單出帳作業完成！已轉入已出帳待繳款。」),照原樣顯示。
         XCTAssertTrue(
-            element(in: app, labelContaining: "已將未出帳 NT$ 5,000 成功出帳作業為已出帳待繳款！").waitForExistence(timeout: 5),
+            element(in: app, labelContaining: "帳單出帳作業完成！已轉入已出帳待繳款。").waitForExistence(timeout: 5),
             "沒有顯示出帳作業的結果"
         )
         app.buttons["好"].tap()
@@ -69,7 +69,16 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(form.buttons["個人私帳"].exists, "信用卡扣款還款的歸屬缺少「個人私帳」這一列")
         XCTAssertTrue(form.buttons["家庭公帳"].isSelected, "「繳家庭代墊」的歸屬不是家庭公帳")
         XCTAssertEqual(form.segmentedControls.count, 0, "信用卡扣款還款的表單裡還有分段控制")
-        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "信用卡扣款還款沒有另起一列顯示扣款帳戶的可用餘額")
+        // 扣款帳戶是空的(上游 ADR 0011、#112):顯示佔位文字，選了扣款銀行之後才另起一列顯示可用餘額。
+        let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
+        XCTAssertTrue(bankRow.waitForExistence(timeout: 3), "信用卡扣款還款沒有「扣款帳戶」列")
+        XCTAssertTrue(bankRow.displayedText.contains("請選擇扣款銀行"), "扣款帳戶沒有顯示佔位文字:\(bankRow.displayedText)")
+        XCTAssertFalse(row("可用餘額", value: "50,000 元", in: app).exists, "還沒選扣款帳戶就顯示了可用餘額")
+        bankRow.tap()
+        let bankOption = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 測試存款")).firstMatch
+        XCTAssertTrue(bankOption.waitForExistence(timeout: 3), "沒有推入扣款帳戶清單頁")
+        bankOption.tap()
+        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).waitForExistence(timeout: 3), "信用卡扣款還款沒有另起一列顯示扣款帳戶的可用餘額")
         // 點金額欄全選後重打一次，直接取代原值(#32)。
         amount.tap()
         amount.typeText("3000")
