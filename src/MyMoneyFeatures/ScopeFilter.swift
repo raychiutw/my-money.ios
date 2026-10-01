@@ -4,6 +4,23 @@ import SwiftUI
 /// toolbar 篩選選單的選項：視角、帳戶檢視範圍。`title` 是選單裡的文字，也是導覽列副標題。
 protocol ScopeFilterOption: Hashable, CaseIterable {
     var title: String { get }
+    /// 是不是預設的選擇;不是的時候篩選按鈕改實心圖示。
+    var isDefaultFilter: Bool { get }
+}
+
+extension ViewScope {
+    /// 預設的視角是「全部」;其他就是套用了篩選(篩選按鈕改實心圖示，#107)。
+    public var isDefaultFilter: Bool { self == .all }
+}
+
+extension AccountScope {
+    /// 預設的檢視範圍是「全部」;其他就是套用了篩選(篩選按鈕改實心圖示，#107)。
+    public var isDefaultFilter: Bool { self == .all }
+}
+
+/// 篩選按鈕的圖示:預設用一般的圖示，套用了非預設篩選時改實心，不只靠顏色(DESIGN.md「導覽」)。
+func filterSymbolName(isActive: Bool) -> String {
+    isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease"
 }
 
 extension ViewScope: ScopeFilterOption {
@@ -55,7 +72,7 @@ struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
             } label: {
                 // label 用 `Label` 時,toolbar 上的 `accessibilityValue` 會被丟掉(VoiceOver 念不到目前的選擇),
                 // 所以只放 symbol,標籤另外用 `accessibilityLabel` 補上。
-                Image(systemName: "line.3.horizontal.decrease")
+                Image(systemName: filterSymbolName(isActive: !scope.isDefaultFilter))
             }
             .accessibilityLabel(name)
             .accessibilityValue(scope.title)

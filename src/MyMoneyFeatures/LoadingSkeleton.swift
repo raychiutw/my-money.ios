@@ -15,6 +15,10 @@ enum Skeleton {
         category: .dining, amount: Money(888), note: "佔位備註", date: CalendarDay(year: 2026, month: 1, day: 1),
         isShared: true, recorderName: "佔位"
     )
+    static let goal = SavingsGoal(
+        id: SavingsGoalID("skeleton"), name: "儲蓄目標名稱", emoji: "🎯", targetAmount: Money(100), savedAmount: Money(40),
+        monthlyReserve: .zero, deadline: nil
+    )
 }
 
 extension View {
@@ -81,21 +85,6 @@ struct SkeletonSection<Row: View>: View {
 struct SkeletonSummaryRow: View {
     var body: some View {
         SummaryRow(title: "統計卡標題", amount: Skeleton.amount, detail: Skeleton.text)
-    }
-}
-
-/// 資產帳戶一列的佔位：代表色、名稱、金額。
-struct SkeletonAccountRow: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(.quaternary)
-                .frame(width: 6, height: 28)
-            Text("帳戶名稱")
-            Spacer()
-            Text(Skeleton.amount.formatted())
-                .monospacedDigit()
-        }
     }
 }
 

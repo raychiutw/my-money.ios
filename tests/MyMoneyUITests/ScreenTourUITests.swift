@@ -21,7 +21,7 @@ final class ScreenTourUITests: XCTestCase {
             throw XCTSkip("截圖巡覽只由 scripts/screen-tour.sh 執行(沒有設 SCREEN_TOUR_CONTENT_SIZE)")
         }
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingManyCategories", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
+        app.launchArguments = ["-uiTesting", "-uiTestingManyCategories", "-uiTestingOverdraftForecast", "-uiTestingJoinedHousehold", "-resetSession", "-UIPreferredContentSizeCategoryName", contentSize]
         app.launch()
         let tour = Tour(app: app, testCase: self)
 
@@ -76,8 +76,13 @@ final class ScreenTourUITests: XCTestCase {
             tour.present(app.buttons["cardDetail.pay"], menuItem: "全額結清", capturing: "card-payment")
         }
 
-        // 家庭(範例帳號沒有加入家庭，只拍得到建立和加入)。
+        // 家庭:啟動時已加入(`-uiTestingJoinedHousehold`),先拍已加入的主視覺(分攤建議、長條圖、數字磚、成員，#121)，
+        // 再用「離開家庭」回到還沒加入的建立和加入，拍那一頁(不用打字，大字級也拍得到)。
         tour.select(tab: "家庭")
+        tour.captureScrolling("household-joined")
+        tour.tap(app.buttons["household.leave"])
+        tour.tap(app.buttons["離開"].firstMatch)
+        XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開家庭後沒有回到建立的畫面")
         tour.captureScrolling("household")
 
         // 統計。

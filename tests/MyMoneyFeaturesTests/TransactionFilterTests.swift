@@ -137,26 +137,26 @@ struct TransactionFilterTests {
         #expect(list.filterDraft == applied, "再打開時還留著取消掉的草稿")
     }
 
-    /// 不打開 sheet 也知道在看什麼(HIG Searching 的「Clearly display the current scope」)。日期用系統格式(DESIGN.md「日期」)。
-    @Test("導覽列副標題一律顯示目前的範圍：視角、起迄日，有篩選時加上類型與分類")
-    func subtitleShowsCurrentScope() async {
+    /// 目前篩選的一句話描述，當篩選按鈕的 VoiceOver 值(畫面上不再顯示副標題，#108)。日期用系統格式(DESIGN.md「日期」)。
+    @Test("篩選按鈕的 VoiceOver 值描述目前的範圍：視角、起迄日，有篩選時加上類型與分類")
+    func filterSummaryDescribesCurrentFilter() async {
         let list = TransactionsModel(
             repository: InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)),
             dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW"), today: { today }
         )
         await list.load()
 
-        #expect(list.subtitle == "全部・9月1日–9月28日")
+        #expect(list.filterSummary == "全部・9月1日–9月28日")
 
         list.editFilter()
         list.filterDraft.scope = .household
         list.filterDraft.to = CalendarDay(year: 2026, month: 9, day: 30)
         list.filterDraft.type = .expense
         list.filterDraft.category = .dining
-        #expect(list.subtitle == "全部・9月1日–9月28日", "還沒按完成，副標題就變了")
+        #expect(list.filterSummary == "全部・9月1日–9月28日", "還沒按完成，描述就變了")
         await list.applyFilter()
 
-        #expect(list.subtitle == "家庭公帳・9月1日–9月30日・支出・餐飲")
+        #expect(list.filterSummary == "家庭公帳・9月1日–9月30日・支出・餐飲")
     }
 
     @Test("只看收入時，列表與加總都只算收入")

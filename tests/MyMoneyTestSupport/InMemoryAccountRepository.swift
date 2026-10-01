@@ -143,7 +143,7 @@ public actor InMemoryAccountRepository: AccountRepository {
             $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
         }
         // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:274),疊字已回報 onion523/my-money#27。
-        return "已將未出帳 NT$ \(card.unbilledDebt.backendText) 成功出帳作業為已出帳待繳款！"
+        return "帳單出帳作業完成！已轉入已出帳待繳款。"
     }
 
     /// 校準過未出帳的信用卡，依順序。

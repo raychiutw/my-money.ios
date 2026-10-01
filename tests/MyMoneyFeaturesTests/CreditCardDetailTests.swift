@@ -78,7 +78,7 @@ struct CreditCardDetailTests {
 
         #expect(await repository.rolledOverIDs == [SampleAccounts.lowLimitCard.id])
         // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
-        #expect(model.noticeMessage == "已將未出帳 NT$ 5,000 成功出帳作業為已出帳待繳款！")
+        #expect(model.noticeMessage == "帳單出帳作業完成！已轉入已出帳待繳款。")
         #expect(dataVersion.value == 1)
     }
 
@@ -103,6 +103,8 @@ struct CreditCardDetailTests {
         let payment = model.makePayment(.shared)
         #expect(payment.amountText == "3000")
         #expect(payment.bankAccounts.map(\.id) == [SampleAccounts.savings.id])
+        #expect(payment.bankAccountID == nil, "扣款帳戶是空的，要自己選(上游 ADR 0011，#112)")
+        payment.bankAccountID = SampleAccounts.savings.id
         #expect(await payment.submit() == .paid)
         await model.refreshIfStale()
 

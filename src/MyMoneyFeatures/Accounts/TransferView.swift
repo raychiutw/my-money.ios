@@ -27,13 +27,15 @@ struct TransferView: View {
 
                 Section {
                     AccountPicker(
-                        title: "轉出帳戶", selection: $model.fromAccountID, options: model.candidates.map(AccountPicker.Option.init)
+                        title: "轉出帳戶", selection: $model.fromAccountID, options: model.candidates.map(AccountPicker.Option.init),
+                        placeholder: "請選擇轉出帳戶"
                     )
                     if let balance = model.availableBalance {
                         AmountRow(title: "可用餘額", amount: balance)
                     }
                     AccountPicker(
-                        title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init)
+                        title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init),
+                        placeholder: "請選擇轉入帳戶"
                     )
                 }
 

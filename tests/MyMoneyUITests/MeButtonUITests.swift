@@ -30,6 +30,27 @@ final class MeButtonUITests: XCTestCase {
         }
     }
 
+    /// 五個 tab 的首頁沒有標題與副標題(#108):導覽列裡不再有大標題，tab bar 已經說明目前在哪個 tab。
+    /// 總覽原本的標題是問候「早安，小明」,其他是「交易」「帳戶」「家庭」「統計」。
+    @MainActor
+    func testTabRootsHaveNoTitleOrSubtitle() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        for tab in ["總覽", "交易", "帳戶", "家庭", "統計"] {
+            app.tabBars.buttons[tab].tap()
+            XCTAssertTrue(app.buttons["toolbar.me"].waitForExistence(timeout: 5), "「\(tab)」主頁面沒有出現")
+
+            let titles = app.navigationBars.staticTexts
+            XCTAssertEqual(
+                titles.count, 0,
+                "「\(tab)」主頁面的導覽列還有標題或副標題:\(titles.allElementsBoundByIndex.map(\.label))"
+            )
+        }
+    }
+
     /// VoiceOver 念「我的，姓名」。頭像上的字是姓名的第一個字，這個規則由 `AvatarInitialTests` 驗證
     /// (工具列按鈕會把裡面的字併進按鈕的 label,UI 測試查不到單獨的文字)。
     @MainActor

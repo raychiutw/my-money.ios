@@ -12,6 +12,18 @@ public struct TransactionDay: Identifiable, Sendable {
     public let expense: Money
 
     public var id: CalendarDay { date }
+
+    /// 當日淨額(收入減支出，不含系統分類，#118)。
+    public var net: Money { income - expense }
+
+    /// 當天有收入或支出才有淨額可以顯示;只有信用卡還款這類系統分類的那天沒有。
+    public var hasNet: Bool { income > .zero || expense > .zero }
+
+    /// 日標頭右邊的淨額，帶正負號，例如「+$45,000」「-$1,000」;零是「$0」。
+    public var netText: String {
+        guard net != .zero else { return net.formatted() }
+        return (net > .zero ? "+" : "-") + Money(abs(net.amount)).formatted()
+    }
 }
 
 /// 交易頁的 model(parity.md「交易」)。
@@ -113,9 +125,17 @@ public final class TransactionsModel {
         isEditingFilter = false
     }
 
-    /// 導覽列副標題：目前套用的範圍，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
-    /// 日期用系統格式(DESIGN.md「日期」)。
-    public var subtitle: String {
+    /// 套用了非預設的篩選:視角不是全部、起迄日不是「本月 1 號到今天」、類型或分類不是全部，或搜尋關鍵字不是空白。
+    /// 篩選按鈕這時改用實心圖示，畫面上雖然沒有範圍文字，也不會把篩選過的結果當成全部(#107)。
+    public var isFilterActive: Bool {
+        let now = today()
+        let isDefault = filter == Filter(from: now.firstOfMonth, to: now)
+        return !isDefault || !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// 目前套用的篩選的一句話描述，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
+    /// 畫面上不再顯示(tab 首頁沒有標題與副標題，#108),只當篩選按鈕的 VoiceOver 值。日期用系統格式(DESIGN.md「日期」)。
+    public var filterSummary: String {
         let today = today()
         var parts = [
             filter.scope.title,
@@ -156,7 +176,12 @@ public final class TransactionsModel {
     public var totalExpense: Money { Self.expense(of: filtered) }
     public var net: Money { totalIncome - totalExpense }
 
-    private var filtered: [Transaction] {
+    /// 今天(台灣時間)與地區:`TransactionsModel+Numbers` 的日期文字用。
+    var todayValue: CalendarDay { today() }
+    var localeValue: Locale { locale }
+
+    /// 套用類型、分類與關鍵字之後的交易記錄;摘要、比例條和長條圖都用它。
+    var filtered: [Transaction] {
         let needle = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return loaded.filter { transaction in
             switch filter.type {
@@ -232,12 +257,12 @@ public final class TransactionsModel {
     }
 
     /// 收入合計，不含系統分類(ATM 提款、轉帳、報銷的收入那一筆也只是資金調度)。
-    private static func income(of transactions: [Transaction]) -> Money {
+    static func income(of transactions: [Transaction]) -> Money {
         transactions.filter { $0.type == .income && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }
 
     /// 支出合計，不含系統分類：信用卡扣款還款、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
-    private static func expense(of transactions: [Transaction]) -> Money {
+    static func expense(of transactions: [Transaction]) -> Money {
         transactions.filter { $0.type == .expense && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
     }
 }

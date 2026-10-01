@@ -40,7 +40,7 @@ struct StatementRolloverTests {
 
         #expect(await repository.rolledOverIDs == [card.id])
         // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
-        #expect(model.noticeMessage == "已將未出帳 NT$ 3,500 成功出帳作業為已出帳待繳款！")
+        #expect(model.noticeMessage == "帳單出帳作業完成！已轉入已出帳待繳款。")
         #expect(dataVersion.value == 1)
     }
 }
@@ -143,6 +143,8 @@ struct CardPaymentTests {
     func availableBalance() {
         let model = payment(card())
 
+        #expect(model.availableBalance == nil, "還沒選扣款帳戶，不該有可用餘額")
+        model.bankAccountID = salary.id
         #expect(model.availableBalance == salary.balance)
         model.bankAccountID = joint.id
         #expect(model.availableBalance == joint.balance)
@@ -162,8 +164,8 @@ struct CardPaymentTests {
         #expect(model.isShared == isShared)
         #expect(model.note == note)
         #expect(model.date == today)
-        // 扣款帳戶一律是第一個餘額大於 0 的銀行存款帳戶(web 不再自動改選家庭共同基金)。
-        #expect(model.bankAccountID == salary.id)
+        // 扣款帳戶是空的:不再預設「第一個餘額大於 0 的銀行存款帳戶」(上游 ADR 0011，#112)。
+        #expect(model.bankAccountID == nil)
     }
 
     @Test("預設金額是 0 時留空")
@@ -171,9 +173,10 @@ struct CardPaymentTests {
         #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
-    @Test("沒有任何餘額大於 0 的銀行存款帳戶時，預設第一個")
-    func defaultsToFirstBank() {
-        #expect(payment(card(), banks: [empty]).bankAccountID == empty.id)
+    @Test("扣款帳戶一律是空的:不論銀行存款帳戶有沒有餘額，都不預選")
+    func bankAccountIsNeverPreselected() {
+        #expect(payment(card(), banks: [empty]).bankAccountID == nil)
+        #expect(payment(card(), banks: [salary, joint]).bankAccountID == nil)
     }
 
     @Test("驗證：沒選扣款帳戶、金額無效、超過信用卡待繳總額", arguments: [
@@ -187,7 +190,7 @@ struct CardPaymentTests {
     func validation(hasBank: Bool, amount: String, message: String) async {
         let repository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
         let model = payment(card(), repository: repository)
-        if !hasBank { model.bankAccountID = nil }
+        model.bankAccountID = hasBank ? salary.id : nil
         model.amountText = amount
 
         #expect(await model.submit() == .invalid)

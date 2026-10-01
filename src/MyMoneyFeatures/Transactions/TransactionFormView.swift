@@ -19,6 +19,8 @@ public protocol TransactionForm: AnyObject, Observable {
     /// 分類是依備註自動預選時的提示文字(記一筆才有);編輯既有交易一律沒有。
     var categoryHintText: String? { get }
     func prepare() async
+    /// 開始新的一筆:記一筆清空帳戶、重設分類鎖定;編輯什麼都不做。只在 sheet 打開時呼叫一次。
+    func startNewEntry()
     /// 使用者手動選分類:記一筆會鎖定，之後不再依備註覆蓋。
     func chooseCategory(_ category: TransactionCategory)
     /// 載入備註歷史(智慧推薦的第一層);失敗時不擋記帳。
@@ -34,6 +36,8 @@ struct TransactionFormView<Model: TransactionForm>: View {
     @Bindable var model: Model
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
+    /// 這次打開有沒有開始過新的一筆:`.task` 在從帳戶清單頁返回時會再跑，重設只能做一次。
+    @State private var didStartEntry = false
 
     private enum Field {
         case amount
@@ -43,6 +47,15 @@ struct TransactionFormView<Model: TransactionForm>: View {
     var body: some View {
         NavigationStack {
             Form {
+                // 錯誤訊息放在表單最上面:16 格分類很高，放在最底下的話，儲存失敗時使用者根本看不到(#109)。
+                if let message = model.errorMessage {
+                    Section {
+                        Text(message)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("quickEntry.error")
+                    }
+                }
+
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
@@ -86,7 +99,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 }
 
                 Section {
-                    AccountPicker(title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init))
+                    AccountPicker(
+                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
+                        placeholder: "請選擇扣款／存入帳戶"
+                    )
                     DatePicker(
                         "日期",
                         selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
@@ -95,13 +111,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     .calendarDayTimeZone()
                 }
 
-                if let message = model.errorMessage {
-                    Section {
-                        Text(message)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("quickEntry.error")
-                    }
-                }
             }
             .navigationTitle(model.title)
             .inlineNavigationTitle()
@@ -129,8 +138,14 @@ struct TransactionFormView<Model: TransactionForm>: View {
             }
             .keyboardDismissal(clearing: $focusedField)
             .task {
+                // 只有打開的那一次開始新的一筆、對焦金額欄;從帳戶清單頁返回時 `.task` 會再跑，只重新載入帳戶。
+                let isFirstRun = !didStartEntry
+                if isFirstRun {
+                    didStartEntry = true
+                    model.startNewEntry()
+                }
                 await model.prepare()
-                focusedField = .amount
+                if isFirstRun { focusedField = .amount }
             }
             // 歷史另外載入:很慢或失敗都不影響記帳，只是少了歷史推薦。
             .task { await model.loadNoteHistory() }

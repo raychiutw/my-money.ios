@@ -50,12 +50,11 @@ public final class RecurringEditorModel {
         self.dataVersion = dataVersion
     }
 
-    /// 打開 sheet 時呼叫：載入資產帳戶;新增時帶入第一個。
+    /// 打開 sheet 時呼叫：載入資產帳戶。新增時關聯帳戶是「無特定帳戶」,不預選第一個
+    /// (上游 ADR 0011:週期收支的關聯帳戶是選填;使用者在帳戶載入之前就選了的話，保留他的選擇)。
     public func prepare() async {
         do {
             accounts = try await accountRepository.accounts()
-            // 使用者在資產帳戶載入之前就選了，保留他的選擇。
-            if editingID == nil, accountID == nil { accountID = accounts.first?.id }
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -128,6 +128,28 @@ public final class AccountsModel {
     /// 淨可用餘額(後端依帳戶檢視範圍計算)。
     public var availableBalance: Money? { summary?.availableBalance }
 
+    /// 組成比例條(#119):現金、銀行存款、信用卡待繳各佔多少，用後端的資金指標算出顯示比例。
+    /// 只列金額大於 0 的項目(透支的銀行存款不畫);全部是 0 或還沒載入時是空的。
+    public var composition: [CompositionSegment] {
+        guard let summary else { return [] }
+        let parts: [(CompositionSegment.Kind, Money)] = [
+            (.cash, summary.cashTotal), (.bank, summary.bankBalanceTotal),
+            (.cardDue, summary.billedDebtTotal + summary.unbilledDebtTotal),
+        ].filter { $0.1 > .zero }
+        let total = parts.reduce(Money.zero) { $0 + $1.1 }
+        return parts.map { kind, amount in
+            CompositionSegment(kind: kind, amount: amount, fraction: NSDecimalNumber(decimal: amount.amount / total.amount).doubleValue)
+        }
+    }
+
+    /// 比例條的 VoiceOver 摘要，例如「資金組成，現金百分之 2，銀行存款百分之 63，信用卡待繳百分之 36」;沒有比例條時是 `nil`。
+    public var compositionSummary: String? {
+        let segments = composition
+        guard !segments.isEmpty else { return nil }
+        let parts = segments.map { "\($0.kind.title)百分之 \(Int(($0.fraction * 100).rounded(.toNearestOrAwayFromZero)))" }
+        return (["資金組成"] + parts).joined(separator: "，")
+    }
+
     /// 載入這個範圍的資產帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
         let version = dataVersion.value
@@ -182,4 +204,29 @@ extension Account {
 extension ReceivingAccount {
     /// 撥款報銷收款帳戶選單項目的副標題：類型。不含餘額(其他成員個人私帳的餘額不公開)。
     public var menuSubtitle: String { kind.title }
+}
+
+/// 帳戶頁組成比例條的一段(#119)。
+public struct CompositionSegment: Identifiable, Sendable {
+    public enum Kind: Hashable, Sendable {
+        case cash
+        case bank
+        case cardDue
+
+        /// 圖例與 VoiceOver 的名稱。
+        public var title: String {
+            switch self {
+            case .cash: "現金"
+            case .bank: "銀行存款"
+            case .cardDue: "信用卡待繳"
+            }
+        }
+    }
+
+    public let kind: Kind
+    public let amount: Money
+    /// 佔三項合計的比例(0 到 1)。
+    public let fraction: Double
+
+    public var id: Kind { kind }
 }

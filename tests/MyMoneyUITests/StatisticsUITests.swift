@@ -6,7 +6,7 @@ final class StatisticsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 公帳代墊款與分攤建議;從 toolbar 的篩選按鈕切到個人視角時不顯示，導覽列副標題跟著變(#63);超支標示。
+    /// 公帳代墊款與分攤建議;從 toolbar 的篩選按鈕切到個人視角時不顯示，按鈕的 VoiceOver 值跟著變(#63);超支標示。
     @MainActor
     func testHouseholdSharesScopeAndOverBudget() throws {
         let app = launchSignedIn()
@@ -14,16 +14,19 @@ final class StatisticsUITests: XCTestCase {
         app.tabBars.buttons["統計"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額 10,000 元").waitForExistence(timeout: 5), "沒有看到公帳代墊款")
         XCTAssertTrue(element(in: app, labelContaining: "小美 轉 1,000 元 給 小明").exists, "沒有分攤建議")
+        // 最上面是超大的當月支出(#120):標題帶月份，數字比一般金額列大很多，位置在公帳代墊款上面。
+        let hero = app.descendants(matching: .any).matching(NSPredicate(format: "label ENDSWITH %@", "月支出")).firstMatch
+        XCTAssertTrue(hero.exists, "沒有當月支出的大數字")
+        XCTAssertGreaterThan(hero.frame.height, 50, "當月支出不是大數字")
+        XCTAssertLessThan(hero.frame.minY, element(in: app, labelContaining: "當月家庭公帳總額").frame.minY, "當月支出不在公帳代墊款上面")
 
         let filter = app.buttons["statistics.scope"]
         XCTAssertTrue(filter.waitForExistence(timeout: 3), "toolbar 沒有視角的篩選按鈕")
         XCTAssertEqual(filter.label, "視角", "篩選按鈕的 VoiceOver 標籤不是「視角」")
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
-        XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的視角")
 
         choose("個人", from: filter, in: app)
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額").waitForNonExistence(timeout: 5), "個人視角還看得到公帳代墊款")
-        XCTAssertTrue(subtitle("個人", in: app).waitForExistence(timeout: 3), "切換視角後導覽列副標題沒有跟著變")
         XCTAssertEqual(filter.value as? String, "個人", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 範例的預算額度：餐飲 100,已花 120。
@@ -99,12 +102,6 @@ final class StatisticsUITests: XCTestCase {
         for _ in 0..<8 where !(element.exists && element.isHittable && element.frame.maxY < tabBar.frame.minY) {
             app.swipeUp()
         }
-    }
-
-    /// 導覽列副標題(`navigationSubtitle`)。
-    @MainActor
-    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        app.navigationBars.staticTexts[text]
     }
 
     @MainActor

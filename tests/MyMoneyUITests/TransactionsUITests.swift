@@ -19,9 +19,9 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         // 預設的範圍是本月 1 號到台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
-        XCTAssertTrue(
-            subtitle("全部・\(Self.taipeiThisMonthPeriod())", in: app).exists,
-            "導覽列副標題不是本月 1 號到台灣時間的今天(\(Self.taipeiThisMonthPeriod()))"
+        XCTAssertEqual(
+            app.buttons["transactions.filter"].value as? String, "全部・\(Self.taipeiThisMonthPeriod())",
+            "篩選按鈕的 VoiceOver 值不是本月 1 號到台灣時間的今天(\(Self.taipeiThisMonthPeriod()))"
         )
 
         app.buttons["transactions.add"].tap()
@@ -29,14 +29,15 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 3))
         amount.tap()
         amount.typeText("250")
+        app.chooseQuickEntryAccount()
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "記一筆的帳戶選擇列還帶著類型")
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
-    /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，導覽列副標題一律顯示目前的範圍。
-    /// 在 sheet 裡改類型後按「完成」,清單、副標題和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
+    /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，篩選按鈕的 VoiceOver 值描述目前的範圍。
+    /// 在 sheet 裡改類型後按「完成」,清單、篩選按鈕的值和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
     @MainActor
     func testFilterSheetAppliesOnDoneAndCancelKeepsFilter() throws {
         let app = XCUIApplication()
@@ -47,7 +48,7 @@ final class TransactionsUITests: XCTestCase {
 
         let period = Self.taipeiThisMonthPeriod()
         XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
-        XCTAssertTrue(subtitle("全部・\(period)", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的範圍(全部・\(period))")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)", "篩選按鈕的 VoiceOver 值沒有描述目前的範圍(全部・\(period))")
         XCTAssertEqual(app.collectionViews.firstMatch.segmentedControls.count, 0, "交易頁的清單上方還有分段控制")
         XCTAssertTrue(app.staticTexts["交易記錄(4)"].exists, "交易記錄的筆數不在 section 的標題")
 
@@ -67,21 +68,69 @@ final class TransactionsUITests: XCTestCase {
         sheet.buttons["完成"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
-        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).waitForExistence(timeout: 3), "按完成後副標題沒有加上類型")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按完成後篩選按鈕的值沒有加上類型")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按完成後清單沒有收入")
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按完成後清單還有支出")
         XCTAssertTrue(app.staticTexts["交易記錄(1)"].exists, "按完成後交易記錄的筆數沒有更新")
 
-        // 改成僅支出再按取消：清單和副標題都不變。
+        // 改成僅支出再按取消：清單和篩選按鈕的值都不變。
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
         tapRevealing(app.buttons["僅支出"], in: app)
         sheet.buttons["取消"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
-        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).exists, "按取消後副標題變了")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按取消後篩選按鈕的值變了")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按取消後清單變了")
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
+    }
+
+    /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;
+    /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880(信用卡還款不算)。
+    @MainActor
+    func testHeroShowsNetIncomeExpenseRatioDailyChartAndDayNet() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let net = row("淨收支", value: "44,000 元", in: app)
+        XCTAssertTrue(net.waitForExistence(timeout: 5), "沒有淨收支的大數字")
+        XCTAssertGreaterThan(net.frame.height, 50, "淨收支不是大數字")
+        XCTAssertTrue(row("收入", value: "45,000 元", in: app).exists, "沒有收入")
+        XCTAssertTrue(row("支出", value: "1,000 元", in: app).exists, "沒有支出")
+        let ratio = element(in: app, labelContaining: "支出佔收入百分之 2")
+        XCTAssertTrue(ratio.exists, "沒有支出佔收入的比例條")
+        XCTAssertLessThan(net.frame.minY, ratio.frame.minY, "比例條不在淨收支下面")
+        // 預設區間是本月 1 號到今天:每月 1 號只有一天，一根長條不是圖，所以不顯示;2 號以後才有。
+        let hasChart = Self.taipeiDayOfMonth() >= 2
+        let chart = element(in: app, labelContaining: "本區間每日支出，最多的一天是")
+        XCTAssertEqual(chart.exists, hasChart, "每日支出長條圖該不該顯示:今天是本月 \(Self.taipeiDayOfMonth()) 號")
+        if hasChart {
+            XCTAssertLessThan(ratio.frame.minY, chart.frame.minY, "長條圖不在比例條下面")
+        }
+
+        // 日標頭右邊是當日淨額。範例資料的日期相對於今天(月初時全部落在同一天)，所以這裡只確認有，
+        // 數值由單元測試用固定日期驗證。日標頭在主視覺下面，還沒捲到的不在 UI 階層裡，先捲下去。
+        let dayNet = element(in: app, labelContaining: "當日淨額")
+        for _ in 0..<5 where !dayNet.exists { app.swipeUp() }
+        XCTAssertTrue(dayNet.exists, "日標頭沒有當日淨額")
+        for _ in 0..<5 where !app.buttons["transactions.filter"].isHittable { app.swipeDown() }
+        // 只看收入時沒有支出，也就沒有長條圖;只看支出時收入是 0，沒有比例條，長條圖還在。
+        let filter = app.buttons["transactions.filter"]
+        filter.tap()
+        tapRevealing(app.buttons["僅收入"], in: app)
+        app.navigationBars["篩選"].buttons["完成"].tap()
+        XCTAssertTrue(row("淨收支", value: "45,000 元", in: app).waitForExistence(timeout: 5), "只看收入後淨收支沒有更新")
+        XCTAssertFalse(element(in: app, labelContaining: "本區間每日支出").exists, "沒有支出時還有長條圖")
+
+        filter.tap()
+        tapRevealing(app.buttons["僅支出"], in: app)
+        app.navigationBars["篩選"].buttons["完成"].tap()
+        XCTAssertTrue(row("淨收支", value: "負 1,000 元", in: app).waitForExistence(timeout: 5), "只看支出後淨收支沒有更新")
+        XCTAssertFalse(element(in: app, labelContaining: "支出佔收入").exists, "收入是 0 時還有比例條")
+        XCTAssertEqual(element(in: app, labelContaining: "本區間每日支出").exists, hasChart, "只看支出時長條圖的有無不對")
     }
 
     /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
@@ -140,6 +189,7 @@ final class TransactionsUITests: XCTestCase {
 
         amount.tap()
         amount.typeText("250")
+        app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
         let added = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "收入 250 元", "個人私帳")
@@ -280,7 +330,14 @@ final class TransactionsUITests: XCTestCase {
         return "\(day.year!)年\(day.month!)月\(day.day!)日"
     }
 
-    /// 台灣時間的本月 1 號到今天，格式跟導覽列副標題一樣，例如「9月1日–9月28日」。
+    /// 台灣時間今天是本月的幾號。
+    private static func taipeiDayOfMonth() -> Int {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        return calendar.component(.day, from: .now)
+    }
+
+    /// 台灣時間的本月 1 號到今天，格式跟篩選按鈕的 VoiceOver 值一樣，例如「9月1日–9月28日」。
     private static func taipeiThisMonthPeriod() -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
@@ -351,16 +408,52 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["完成"].tap()
         for _ in 0..<6 where !(accountRow().exists && accountRow().isHittable) { app.swipeUp() }
         XCTAssertTrue(accountRow().exists, "記一筆沒有「帳戶」列")
-        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().displayedText)")
+        // 帳戶預設是空的(上游 ADR 0011、#109):列上顯示佔位文字，不是任何一個帳戶。
+        XCTAssertTrue(accountRow().displayedText.contains("請選擇扣款／存入帳戶"), "「帳戶」列沒有顯示佔位文字:\(accountRow().displayedText)")
+        XCTAssertFalse(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列預選了第一個帳戶:\(accountRow().displayedText)")
 
         accountRow().tap()
-        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試信用卡")).firstMatch
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 測試信用卡")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 3), "沒有推入帳戶清單頁")
         XCTAssertTrue(card.displayedText.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.displayedText)")
 
         card.tap()
         XCTAssertTrue(accountRow().waitForExistence(timeout: 3), "選了帳戶之後沒有自動返回表單")
         XCTAssertTrue(accountRow().displayedText.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().displayedText)")
+    }
+
+    /// 記一筆沒選帳戶就儲存:被擋下並用紅字提示;選了帳戶儲存成功;再打開一次，帳戶又是空的(上游 ADR 0011、#109)。
+    @MainActor
+    func testQuickEntryRequiresAnAccountChoice() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        app.buttons["transactions.add"].tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開記一筆")
+        amount.tap()
+        amount.typeText("300")
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(
+            element(in: app, labelContaining: "請選擇扣款或存入帳戶").waitForExistence(timeout: 3),
+            "沒選帳戶就儲存，沒有顯示「請選擇扣款或存入帳戶」"
+        )
+        XCTAssertTrue(app.buttons["quickEntry.save"].exists, "沒選帳戶儲存時，記一筆被關掉了")
+
+        app.chooseQuickEntryAccount("iOS 測試存款")
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "支出 300 元").waitForExistence(timeout: 5), "選了帳戶儲存後沒有出現在列表上")
+
+        // 再打開一次:帳戶又是空的(不沿用上一筆)。
+        app.buttons["transactions.add"].tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3))
+        app.buttons["完成"].tap()
+        let row = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        for _ in 0..<6 where !(row.exists && row.isHittable) { app.swipeUp() }
+        XCTAssertTrue(row.displayedText.contains("請選擇扣款／存入帳戶"), "再打開記一筆，帳戶沒有清成空的:\(row.displayedText)")
     }
 
     /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
@@ -397,6 +490,7 @@ final class TransactionsUITests: XCTestCase {
 
         amount.tap()
         amount.typeText("88")
+        app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
         let added = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "交通", "支出 88 元")
@@ -412,10 +506,9 @@ final class TransactionsUITests: XCTestCase {
         element.tap()
     }
 
-    /// 導覽列副標題(`navigationSubtitle`)。
     @MainActor
-    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        app.navigationBars.staticTexts[text]
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

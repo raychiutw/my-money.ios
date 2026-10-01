@@ -45,6 +45,28 @@ public actor InMemoryForecastRepository: ForecastRepository {
         }
     }
 
+    /// 截圖巡覽用(`-uiTestingOverdraftForecast`):起始餘額 20000,第 8 天房租 -35000 會透支，第 28 天薪水 +45000 回到正數，
+    /// 走勢圖才看得到跨過零線的紅色段落(#116)。
+    public static func overdraftSampleForToday() -> InMemoryForecastRepository {
+        let today = CalendarDay.today()
+        let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(35000))
+        let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000))
+        var balance = Money(20000)
+        let dailyBalances = (0..<30).map { offset in
+            let date = day(today, plus: offset)
+            for event in [rent, salary] where event.date == date {
+                balance = event.type == .income ? balance + event.amount : balance - event.amount
+            }
+            return DailyBalance(date: date, balance: balance)
+        }
+        let forecast = CashFlowForecast(
+            dailyBalances: dailyBalances, minBalance: Money(-15000), minDate: rent.date, willOverdraft: true, events: [rent, salary]
+        )
+        return InMemoryForecastRepository(forecast: forecast) { amount in
+            PurchaseCheck(amount: amount, verdict: .danger, minBalance: Money(-15000) - amount, affectedGoalNames: [])
+        }
+    }
+
     public func forecast() async throws -> CashFlowForecast {
         fetchCount += 1
         if let failure { throw failure }

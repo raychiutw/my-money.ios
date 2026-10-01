@@ -59,7 +59,8 @@ public final class CardPaymentModel {
         self.bankAccounts = bankAccounts
         self.repository = repository
         self.dataVersion = dataVersion
-        bankAccountID = (bankAccounts.first { $0.balance > .zero } ?? bankAccounts.first)?.id
+        // 扣款帳戶是空的:不預設「第一個餘額大於 0 的銀行存款帳戶」,要使用者自己選(上游 ADR 0011，#112)。
+        bankAccountID = nil
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
         case .shared: (card.sharedDebt, true, "家庭公帳代墊")
         case .personal: (card.personalDebt, false, "個人私帳")

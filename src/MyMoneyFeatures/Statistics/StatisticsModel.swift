@@ -113,6 +113,9 @@ public final class StatisticsModel {
     /// 所選月份的年份(收支趨勢),例如「2026年」。
     public var yearTitle: String { month.yearText(locale: locale) }
 
+    /// 主數字的標題，例如「9月支出」(#120);月份在下面的月份列也有，完整的年月是 `monthTitle`。
+    public var expenseTitle: String { "\(month.month)月支出" }
+
     public var totalCategoryExpense: Money { categoryExpenses.reduce(.zero) { $0 + $1.total } }
 
     /// 視角是家庭或全部、而且有公帳代墊款時才顯示。
@@ -262,5 +265,16 @@ public final class BudgetEditorModel {
         }
         dataVersion.bump()
         return true
+    }
+}
+
+extension Settlement {
+    /// 分攤建議的一句話，統計頁與家庭頁共用:「平分後每人應負擔 5,000 元,小美 轉 1,000 元 給 小明」;
+    /// 兩人一樣多時「…,兩人的公帳代墊款一樣多，不用轉帳」。`spoken` 時金額念成「1,000 元」。
+    func text(spoken: Bool) -> String {
+        let amount: (Money) -> String = { spoken ? $0.spokenText : $0.formatted() }
+        let perPerson = "平分後每人應負擔 \(amount(perPerson))"
+        guard let transfer else { return "\(perPerson),兩人的公帳代墊款一樣多，不用轉帳" }
+        return "\(perPerson),\(transfer.from) 轉 \(amount(transfer.amount)) 給 \(transfer.to)"
     }
 }

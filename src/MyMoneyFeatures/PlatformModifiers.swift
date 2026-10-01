@@ -64,6 +64,27 @@ extension View {
         #endif
     }
 
+    /// tab 首頁不顯示標題與副標題(#108):tab bar 已經說明目前在哪個 tab,標題是重複的資訊，還佔空間。
+    /// 標題文字仍設給系統(返回鍵與 VoiceOver 的脈絡用)，只是不顯示。
+    func tabRootNavigation(_ name: String) -> some View {
+        #if os(iOS)
+        navigationTitle(name)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbar(removing: .title)
+        #else
+        navigationTitle(name)
+        #endif
+    }
+
+    /// 區塊之間的間距縮小(總覽的數字磚、提示)。只有 iOS 有 `listSectionSpacing`。
+    func compactSectionSpacing() -> some View {
+        #if os(iOS)
+        listSectionSpacing(.compact)
+        #else
+        self
+        #endif
+    }
+
     /// 標題以小字顯示在導覽列(push 進來的頁面)。
     func inlineNavigationTitle() -> some View {
         #if os(iOS)

@@ -6,7 +6,8 @@ final class HouseholdUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 建立家庭 → 我是管理員 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
+    /// 建立家庭 → 我是管理員 → 數字優先的主視覺(#121):超大的分攤建議並標明誰轉給誰、各成員代墊長條圖、
+    /// 我的累計代墊／已報銷／待報銷 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
     @MainActor
     func testCreateInviteAndLeave() throws {
         let app = XCUIApplication()
@@ -26,13 +27,28 @@ final class HouseholdUITests: XCTestCase {
 
         XCTAssertTrue(element(in: app, labelContaining: "我的角色：管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭")
 
-        app.buttons["household.invite"].tap()
+        // 範例本月的公帳代墊:小明 6,000、小美 4,000，平均 5,000，小美該轉 1,000 給小明。
+        let settlement = element(in: app, labelContaining: "分攤建議,平分後每人應負擔 5,000 元,小美 轉 1,000 元 給 小明")
+        XCTAssertTrue(settlement.exists, "沒有分攤建議")
+        XCTAssertGreaterThan(settlement.frame.height, 50, "分攤建議不是大數字")
+        XCTAssertTrue(element(in: app, labelContaining: "本月各成員公帳代墊，平均 5,000 元").exists, "沒有各成員代墊的長條圖")
+        // 我的數字磚:登入的範例帳號小明墊付 250，還沒報銷。
+        for (label, value) in [("我的累計公帳墊付", "250 元"), ("我的已獲撥款報銷", "0 元"), ("我的待報銷", "250 元")] {
+            let tile = row(label, value: value, in: app)
+            XCTAssertTrue(tile.exists, "沒有「\(label) \(value)」這一磚")
+            XCTAssertGreaterThan(tile.frame.minY, settlement.frame.maxY - 1, "「\(label)」不在分攤建議下面")
+        }
+
+        // 邀請與離開降到最下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let invite = app.buttons["household.invite"]
+        for _ in 0..<8 where !(invite.exists && invite.isHittable) { app.swipeUp() }
+        invite.tap()
         XCTAssertTrue(app.staticTexts["household.invitationCode"].waitForExistence(timeout: 3), "沒有顯示邀請碼")
         app.buttons["household.copy"].tap()
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        // 「離開家庭」在代墊與報銷區塊下面;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        // 「離開家庭」在「邀請家庭成員」下面，同樣在最下面。
         let leave = app.buttons["household.leave"]
         for _ in 0..<5 where !(leave.exists && leave.isHittable) { app.swipeUp() }
         leave.tap()
@@ -88,10 +104,28 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
         // 帳戶選擇列只顯示名稱，值在 value 或子元素裡(推入清單頁的選擇列，ADR-0004、#88)。
         let receiving = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "收款帳戶")).firstMatch
+        let funding = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "撥款公帳")).firstMatch
         XCTAssertTrue(receiving.exists, "撥款報銷沒有「收款帳戶」列")
+        // 撥款帳戶與收款帳戶都是空的(上游 ADR 0011、#113):顯示佔位文字;選了撥款帳戶之後才顯示可用餘額。
+        XCTAssertTrue(funding.displayedText.contains("請選擇家庭共同基金帳戶"), "撥款帳戶沒有顯示佔位文字:\(funding.displayedText)")
+        XCTAssertTrue(receiving.displayedText.contains("請選擇收款個人帳戶"), "收款帳戶沒有顯示佔位文字:\(receiving.displayedText)")
+        XCTAssertFalse(row("可用餘額", value: "5,000 元", in: app).exists, "還沒選撥款帳戶就顯示了可用餘額")
+        // 沒選就送出:提示缺哪一個，不送出。
+        submit.tap()
+        XCTAssertTrue(element(in: app, labelContaining: "請選擇家庭共同基金帳戶").waitForExistence(timeout: 3), "沒選撥款帳戶就送出，沒有提示")
+        XCTAssertTrue(submit.exists, "沒選撥款帳戶就送出，撥款報銷被關掉了")
+
+        funding.tap()
+        let fund = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "家庭共同基金")).firstMatch
+        XCTAssertTrue(fund.waitForExistence(timeout: 3), "沒有推入撥款帳戶清單頁")
+        fund.tap()
+        receiving.tap()
+        let meiBank = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "小美薪轉")).firstMatch
+        XCTAssertTrue(meiBank.waitForExistence(timeout: 3), "沒有推入收款帳戶清單頁")
+        meiBank.tap()
         XCTAssertTrue(receiving.displayedText.contains("小美薪轉"), "收款帳戶不是小美的可收款帳戶:\(receiving.displayedText)")
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "帳戶選擇列的值還帶著類型")
-        XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).exists, "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
+        XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).waitForExistence(timeout: 3), "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
         submit.tap()
 
         XCTAssertTrue(element(in: app, labelContaining: "成功從共同基金撥款報銷 NT$ 600 給 小美").waitForExistence(timeout: 5), "沒有顯示撥款報銷的結果")

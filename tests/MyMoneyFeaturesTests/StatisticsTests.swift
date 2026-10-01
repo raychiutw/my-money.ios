@@ -56,6 +56,21 @@ struct StatisticsTests {
         #expect(model.yearTitle == "2027年")
     }
 
+    /// 統計頁最上面是超大的當月支出(#120):標題帶月份，切換月份跟著變;數字是環圈各分類的後端合計。
+    @Test("主數字的標題是「N月支出」，跟著所選月份;數字是各分類支出的合計")
+    func expenseHero() async {
+        let model = StatisticsModel(
+            repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            locale: Locale(identifier: "zh_Hant_TW"), today: { CalendarDay(year: 2026, month: 9, day: 28) }
+        )
+        await model.load()
+
+        #expect(model.expenseTitle == "9月支出")
+        #expect(model.totalCategoryExpense == model.categoryExpenses.reduce(.zero) { $0 + $1.total })
+        model.month = CalendarMonth(year: 2027, month: 1)
+        #expect(model.expenseTitle == "1月支出")
+    }
+
     /// web 的收支趨勢永遠是今年(parity 刻意偏離第 12 項)。
     @Test("依所選的月份與視角查詢;收支趨勢帶入所選月份的年份;已花另外用我記的支出")
     func queries() async {

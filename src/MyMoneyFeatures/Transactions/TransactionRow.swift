@@ -1,28 +1,26 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 一筆交易記錄，總覽的最近交易和交易頁共用(DESIGN.md「列與欄位」,#72)。一行一個欄位：
+/// 一筆交易記錄，交易頁用(DESIGN.md「列與欄位」,#72、#118)。數字優先，只留最重要的:
 ///
 /// - 前緣：分類圖示。
-/// - 第 1 行：備註，沒有備註時用分類名稱。
-/// - 第 2 行：資產帳戶名稱，不加「帳戶：」。
-/// - 第 3 行：記帳人，只有不是自己記的才有(由畫面 model 判斷)。
-/// - trailing:帶正負號的金額，下面是家庭公帳或個人私帳的標記;系統紀錄在金額前面加鎖定標記。
+/// - 名稱：備註，沒有備註時用分類名稱。
+/// - 小標記(只有圖示、不用文字):家庭公帳 `house.fill` 或個人私帳 `person.fill`;家人記的加 `person.2.fill`。
+/// - trailing:帶正負號的金額;系統紀錄在金額前面加鎖定標記。
 ///
-/// 放不下時(大字級)改成上下堆疊，金額一律單行。VoiceOver 把整列念成一句完整的話。
+/// 資產帳戶名稱與記帳人從列上拿掉(點進編輯可以看到)，但 VoiceOver 照樣念出，整列是一句完整的話。
+/// 放不下時(大字級)改成上下堆疊，金額一律單行。
 struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
-    /// 記帳人;自己記的是 `nil`。
+    /// 記帳人;自己記的是 `nil`。只用來決定要不要「家人記的」小標記和 VoiceOver 念誰記的。
     var recorder: String?
-    /// 日期，獨立一行。總覽的最近交易才傳(#79);交易頁已經依日期分組，是 `nil`。
-    var date: String?
-    /// 點得開(可以編輯)的列：備註最多兩行、帳戶和記帳人各一行，從結尾截斷。點不開的列不截斷，才看得到全文。
+    /// 點得開(可以編輯)的列：名稱最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
     /// 系統紀錄(不能編輯或刪除):金額前面加鎖定標記，VoiceOver 最後念「系統紀錄，不能編輯或刪除」(#63)。
     var isLocked = false
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-    /// 左右並列時，文字欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊。
+    /// 左右並列時，名稱欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊。
     ///
     /// 不用 `LabeledContent`:它依 label 不折行的寬度判斷，備註一長，預設字級也會變成上下堆疊(#72 的截圖)。
     @ScaledMetric(relativeTo: .body) private var minimumTextWidth: CGFloat = 120
@@ -32,25 +30,19 @@ struct TransactionRow: View {
             HStack(spacing: 12) {
                 icon
                     .frame(width: iconWidth)
-                VStack(alignment: .leading, spacing: 2) {
-                    titleText
-                    details
-                }
-                .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .trailing, spacing: 2) {
-                    amount
-                    LedgerBadge(isShared: transaction.isShared)
-                }
+                titleText
+                    .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
+                markers
+                amount
             }
-            // 上下堆疊：圖示和備註一行，其餘各佔一行，用滿整列的寬度。
-            VStack(alignment: .leading, spacing: 2) {
+            // 上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     icon
                     titleText
                 }
-                details
                 amount
-                LedgerBadge(isShared: transaction.isShared)
+                markers
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -68,24 +60,16 @@ struct TransactionRow: View {
             .lineLimit(isOpenable ? 2 : nil)
     }
 
-    @ViewBuilder
-    private var details: some View {
-        if let date {
-            Text(date)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    /// 家庭公帳或個人私帳，家人記的多一個標記;只有圖示，文字在 VoiceOver。
+    private var markers: some View {
+        HStack(spacing: 6) {
+            Image(systemName: transaction.isShared ? "house.fill" : "person.fill")
+            if recorder != nil {
+                Image(systemName: "person.2.fill")
+            }
         }
-        Text(account)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .lineLimit(isOpenable ? 1 : nil)
-        if let recorder {
-            Label(recorder, systemImage: "person")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .labelStyle(.titleAndIcon)
-                .lineLimit(isOpenable ? 1 : nil)
-        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
     }
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
@@ -104,19 +88,16 @@ struct TransactionRow: View {
         }
     }
 
-    private var title: String {
-        transaction.note.isEmpty ? transaction.category.name : transaction.note
-    }
+    private var title: String { transaction.displayTitle }
 
     private var account: String {
         transaction.accountName ?? "預設帳戶"
     }
 
-    /// 例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」;總覽在備註後面念日期。沒有備註時不重複念分類。
+    /// 例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」。沒有備註時不重複念分類。
     private var spokenText: String {
         var parts = [transaction.category.name]
         if !transaction.note.isEmpty { parts.append(transaction.note) }
-        if let date { parts.append(date) }
         parts.append("帳戶 \(account)")
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(transaction.isShared ? "家庭公帳" : "個人私帳")
