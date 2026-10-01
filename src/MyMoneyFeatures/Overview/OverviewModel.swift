@@ -60,13 +60,11 @@ public final class OverviewModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private var loadedVersion: Int?
     @ObservationIgnored private var loadedScope: ViewScope?
 
     private static let scopeKey = "overview.scope"
 
-    /// `currentUser` 是登入的人：最近交易裡自己記的不顯示記帳人。
     public init(
         accounts: any AccountRepository,
         transactions: any TransactionRepository,
@@ -75,7 +73,6 @@ public final class OverviewModel {
         forecast: (any ForecastRepository)? = nil,
         dataVersion: DataVersion,
         defaults: UserDefaults,
-        currentUser: UserID? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() },
         locale: Locale = .autoupdatingCurrent
     ) {
@@ -86,23 +83,12 @@ public final class OverviewModel {
         forecastRepository = forecast
         self.dataVersion = dataVersion
         self.defaults = defaults
-        self.currentUser = currentUser
         self.today = today
         self.locale = locale
         scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     public var monthNet: Money { monthIncome - monthExpense }
-
-    /// 最近交易的日期，例如「9月28日」(清單格式，不是今年的加上年份，#79)。
-    public func dateText(of transaction: MyMoneyDomain.Transaction) -> String {
-        transaction.date.text(today: today(), locale: locale)
-    }
-
-    /// 最近交易的記帳人：只有不是自己記的才顯示(#72)。
-    public func recorderName(of transaction: MyMoneyDomain.Transaction) -> String? {
-        transaction.recorderName(besides: currentUser)
-    }
 
     /// 標題隨視角改變;「個人」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
@@ -115,6 +101,27 @@ public final class OverviewModel {
 
     public var overBudgetTitle: String { "有 \(overBudgets.count) 個分類支出已超出預算" }
 
+    /// 超支提示的畫面文字(#117):精簡的「N 個分類超支」;VoiceOver 念 `overBudgetTitle` 的完整一句。
+    public var overBudgetChipTitle: String { "\(overBudgets.count) 個分類超支" }
+
+    /// 信用卡待繳磚(#117):所有信用卡的已出帳待繳款加未出帳款，用後端的合計(跟帳戶頁的信用卡待繳總額同一個算法)。
+    public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
+
+    /// 帳戶卡片最多幾張;其餘用「管理」到帳戶頁(#117)。
+    public static let accountCardLimit = 6
+
+    /// 總覽的帳戶卡片:順序跟帳戶頁一樣(現金錢包、銀行存款帳戶、信用卡)，最多 `accountCardLimit` 張。
+    public var accountCards: [OverviewAccountCard] {
+        let all = cashWallets.map(OverviewAccountCard.init) + bankAccounts.map(OverviewAccountCard.init)
+            + creditCards.map(OverviewAccountCard.init)
+        return Array(all.prefix(Self.accountCardLimit))
+    }
+
+    /// 還有帳戶沒有顯示在卡片上。
+    public var hasMoreAccounts: Bool {
+        cashWallets.count + bankAccounts.count + creditCards.count > Self.accountCardLimit
+    }
+
 
     /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);預算額度帶入明確的當月。
     public func load() async {
@@ -124,7 +131,7 @@ public final class OverviewModel {
         do {
             async let summary = accountRepository.balanceSummary(scope: scope.accountScope)
             async let accounts = accountRepository.accounts(scope: scope.accountScope)
-            async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 6, offset: 0)
+            async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 5, offset: 0)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)
             async let goals = goalRepository.goals()
@@ -166,6 +173,66 @@ public final class OverviewModel {
     public func refreshIfStale() async {
         guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
+    }
+}
+
+/// 總覽帳戶卡片的一張(#117):名稱加大金額。信用卡的金額是信用卡待繳總額，有待繳時用警示色，另外有「N 日繳」。
+public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
+    public enum Kind: Hashable, Sendable {
+        case cash
+        case bank
+        case creditCard(CreditCard)
+    }
+
+    public let id: AccountID
+    public let name: String
+    public let colorHex: String
+    public let amount: Money
+    public let kind: Kind
+
+    init(_ wallet: CashWallet) {
+        (id, name, colorHex, amount, kind) = (wallet.id, wallet.name, wallet.colorHex, wallet.balance, .cash)
+    }
+
+    init(_ account: BankAccount) {
+        (id, name, colorHex, amount, kind) = (account.id, account.name, account.colorHex, account.balance, .bank)
+    }
+
+    init(_ card: CreditCard) {
+        (id, name, colorHex, amount, kind) = (card.id, card.name, card.colorHex, card.totalDue, .creditCard(card))
+    }
+
+    /// 卡片上的類型圖示(用帳戶的代表色)。
+    public var symbolName: String {
+        switch kind {
+        case .cash: "wallet.bifold"
+        case .bank: "building.columns"
+        case .creditCard: "creditcard"
+        }
+    }
+
+    public var isCreditCard: Bool {
+        if case .creditCard = kind { true } else { false }
+    }
+
+    /// 信用卡有待繳款:金額用警示色。
+    public var isDue: Bool { isCreditCard && amount > .zero }
+
+    /// 視覺上的繳款日,例如「5 日繳」;沒有設定繳款日(或不是信用卡)時是 `nil`。
+    public var dueDayText: String? {
+        guard case .creditCard(let card) = kind, let day = card.paymentDueDay else { return nil }
+        return "\(day) 日繳"
+    }
+
+    /// 現金錢包、銀行存款帳戶:「名稱，類型，餘額 X 元」;信用卡:「名稱，信用卡待繳總額 X 元，每月 N 日繳款」。
+    public var spokenText: String {
+        switch kind {
+        case .cash: "\(name)，現金錢包，餘額 \(amount.spokenText)"
+        case .bank: "\(name)，銀行存款帳戶，餘額 \(amount.spokenText)"
+        case .creditCard(let card):
+            ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
+                .compactMap { $0 }.joined(separator: "，")
+        }
     }
 }
 

@@ -104,9 +104,7 @@ struct TransactionRow: View {
         }
     }
 
-    private var title: String {
-        transaction.note.isEmpty ? transaction.category.name : transaction.note
-    }
+    private var title: String { transaction.displayTitle }
 
     private var account: String {
         transaction.accountName ?? "預設帳戶"

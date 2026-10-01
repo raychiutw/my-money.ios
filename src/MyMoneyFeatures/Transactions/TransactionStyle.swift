@@ -40,6 +40,9 @@ extension MyMoneyDomain.Transaction {
         (type == .income ? "+" : "-") + amount.formatted()
     }
 
+    /// 列上的名稱:備註，沒有備註時用分類名稱。
+    var displayTitle: String { note.isEmpty ? category.name : note }
+
     /// VoiceOver 念的金額，例如「支出 120 元」(DESIGN.md「無障礙」)。
     var spokenAmount: String {
         (type == .income ? "收入 " : "支出 ") + amount.spokenText

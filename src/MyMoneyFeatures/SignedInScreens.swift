@@ -30,7 +30,7 @@ public struct MainScreens {
     public let bot: BotModel
 
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
-    /// `currentUser` 是登入的人(自己記的交易記錄不顯示記帳人);`defaults` 存總覽選過的視角。
+    /// `currentUser` 是登入的人(交易頁自己記的交易記錄不顯示記帳人);`defaults` 存總覽選過的視角。
     public init(
         currentUser: UserID,
         accountRepository: any AccountRepository,
@@ -46,8 +46,7 @@ public struct MainScreens {
         let dataVersion = DataVersion()
         overview = OverviewModel(
             accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
-            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, defaults: defaults,
-            currentUser: currentUser
+            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, defaults: defaults
         )
         accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
         transactions = TransactionsModel(

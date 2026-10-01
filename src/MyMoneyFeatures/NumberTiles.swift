@@ -1,0 +1,162 @@
+import MyMoneyDomain
+import SwiftUI
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
+
+extension Color {
+    /// 群組列表上一張卡片的底色，跟列表列的底色相同(深色模式也跟著系統)。
+    static var groupedCardBackground: Color {
+        #if os(iOS)
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #else
+        Color(nsColor: .controlBackgroundColor)
+        #endif
+    }
+}
+
+/// 數字磚(#117):小標籤加一個大數字，各 tab 摘要共用(DESIGN.md「數字磚與卡片」)。
+/// 放在 `NumberTileRow` 裡，一排放得下就並排，放不下就上下堆疊。
+///
+/// 數字單行，磚太窄時縮小，不折行、不截斷。VoiceOver 念「標籤，金額」。
+struct NumberTile: View {
+    let title: String
+    let amount: Money
+    /// 顯示的文字，預設是金額;帶正負號的總收入、總支出另外傳。
+    var text: String?
+    /// 數字的顏色，預設是主要文字色;`warnsWhenNegative` 時負數用紅色。
+    var style: Color?
+    var warnsWhenNegative = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Text(text ?? amount.formatted())
+                .font(.title3.bold())
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(12)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(amount.spokenText)
+    }
+
+    private var color: Color {
+        if let style { return style }
+        return warnsWhenNegative && amount < .zero ? .red : .primary
+    }
+}
+
+/// 一排數字磚:每格至少要有 `minimumTileWidth`(跟著字級變大)，放得下就並排、等寬等高，放不下就上下堆疊。
+/// 只看實際可用的寬度，不看裝置或字級屬性(#117)。
+struct NumberTileRow<Content: View>: View {
+    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 100
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        NumberTileLayout(minimumTileWidth: minimumTileWidth, spacing: 12) {
+            content()
+        }
+    }
+}
+
+struct NumberTileLayout: Layout {
+    let minimumTileWidth: CGFloat
+    let spacing: CGFloat
+
+    /// 寬度沒有限制時(ideal)並排。
+    private func tileWidth(in width: CGFloat?, count: Int) -> CGFloat? {
+        guard let width else { return nil }
+        let candidate = (width - spacing * CGFloat(count - 1)) / CGFloat(count)
+        return candidate >= minimumTileWidth ? candidate : nil
+    }
+
+    private func isSideBySide(_ width: CGFloat?, count: Int) -> Bool {
+        width == nil || tileWidth(in: width, count: count) != nil
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let count = subviews.count
+        guard count > 0 else { return .zero }
+        if isSideBySide(proposal.width, count: count) {
+            let width = tileWidth(in: proposal.width, count: count) ?? minimumTileWidth
+            let height = subviews.map { $0.sizeThatFits(.init(width: width, height: nil)).height }.max() ?? 0
+            return CGSize(width: proposal.width ?? (width * CGFloat(count) + spacing * CGFloat(count - 1)), height: height)
+        }
+        let width = proposal.width ?? minimumTileWidth
+        let heights = subviews.map { $0.sizeThatFits(.init(width: width, height: nil)).height }
+        return CGSize(width: width, height: heights.reduce(0, +) + spacing * CGFloat(count - 1))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let count = subviews.count
+        guard count > 0 else { return }
+        if let width = tileWidth(in: bounds.width, count: count) {
+            let height = bounds.height
+            for (index, subview) in subviews.enumerated() {
+                let origin = CGPoint(x: bounds.minX + (width + spacing) * CGFloat(index), y: bounds.minY)
+                subview.place(at: origin, anchor: .topLeading, proposal: .init(width: width, height: height))
+            }
+        } else {
+            var y = bounds.minY
+            for subview in subviews {
+                let height = subview.sizeThatFits(.init(width: bounds.width, height: nil)).height
+                subview.place(at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading, proposal: .init(width: bounds.width, height: height))
+                y += height + spacing
+            }
+        }
+    }
+}
+
+/// 帳戶卡片(#117):圖示加名稱，下面是大金額，最下面是選填的小字(信用卡的「N 日繳」)。
+/// 放在兩欄的 `LazyVGrid` 裡。小字的位置固定保留，同一排的卡片一樣高。
+struct NumberCard: View {
+    let title: String
+    let symbol: String
+    let symbolColor: Color
+    let amount: Money
+    /// 警示狀態(例如信用卡有待繳):金額用紅色。
+    var isWarning = false
+    var caption: String?
+    /// VoiceOver 念的整句。
+    let spokenText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            } icon: {
+                Image(systemName: symbol)
+                    .foregroundStyle(symbolColor)
+            }
+            Text(amount.formatted())
+                .font(.title3.bold())
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            Text(caption ?? " ")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenText)
+    }
+}

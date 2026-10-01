@@ -31,16 +31,16 @@ final class OverviewUITests: XCTestCase {
         for _ in 0..<5 where !recent.exists { app.swipeUp() }
         XCTAssertTrue(recent.exists, "記一筆後最近交易沒有更新")
 
-        let showAll = app.buttons["查看全部"]
+        let showAll = app.buttons["全部"]
         for _ in 0..<5 where !showAll.isHittable { app.swipeUp() }
         showAll.tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部」沒有進入交易 tab")
+        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "最近的「全部」沒有進入交易 tab")
     }
 
-    /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面才是真實可支配現金、當月淨收支;沒有公式明細。
-    /// 超支警告每個超支的分類一列：分類名稱和超支金額。
+    /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面是三格數字磚(#117):
+    /// 真實可支配現金、當月淨收支、信用卡待繳;沒有公式明細。
     @MainActor
-    func testHeroShowsBigBalanceAndForecastChartAboveSummaryRowsAndOverBudgetRows() throws {
+    func testHeroShowsBigBalanceAndForecastChartAboveSummaryTiles() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -56,26 +56,35 @@ final class OverviewUITests: XCTestCase {
         // 大數字比一般金額列大很多。
         XCTAssertGreaterThan(available.frame.height, 50, "淨可用餘額不是大數字")
         XCTAssertFalse(element(in: app, labelContaining: "淨可用餘額 21,500").exists, "淨可用餘額不該同時有一般摘要列")
-        for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元")] {
+        for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")] {
             let summaryRow = row(label, value: value, in: app)
-            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一列")
+            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一磚")
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
         // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
         for formula in ["銀行存款 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
             XCTAssertFalse(element(in: app, labelContaining: formula).exists, "總覽還有公式明細「\(formula)」")
         }
-
-        // 範例的預算額度：餐飲 100,已花 120。
-        let overBudget = row("餐飲", value: "超支 20 元", in: app)
-        for _ in 0..<5 where !overBudget.exists { app.swipeUp() }
-        XCTAssertTrue(overBudget.exists, "超支警告沒有「餐飲」這一列")
-        XCTAssertTrue(element(in: app, labelContaining: "有 1 個分類支出已超出預算").exists, "超支警告沒有標題")
-        XCTAssertFalse(element(in: app, labelContaining: "已花").exists, "超支警告還有已花和預算額度")
     }
 
-    /// 最近交易跟交易頁用同一種交易記錄列(#72):整列念成一句完整的話，自己記的不念記帳人;
-    /// 總覽多念日期(#79)。
+    /// 超支提示(#117):範例的預算額度餐飲 100、已花 120，所以有一個精簡的提示;點了切到統計 tab 的預算額度。
+    /// 超支的明細(已花、預算額度)不在總覽。
+    @MainActor
+    func testOverBudgetChipOpensStatistics() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        let chip = app.buttons["overview.overBudget"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5), "沒有超支提示")
+        XCTAssertEqual(chip.label, "有 1 個分類支出已超出預算", "超支提示沒有念出完整的一句")
+        XCTAssertFalse(element(in: app, labelContaining: "已花").exists, "總覽還有已花和預算額度")
+        chip.tap()
+        XCTAssertTrue(app.buttons["statistics.scope"].waitForExistence(timeout: 3), "超支提示沒有切到統計 tab")
+    }
+
+    /// 最近交易只有圖示、名稱和金額(#117):整列念成一句話「分類，備註，收支金額」;日期、帳戶、記帳人在交易頁。
     @MainActor
     func testRecentTransactionReadsAsOneSentence() throws {
         let app = XCUIApplication()
@@ -83,21 +92,14 @@ final class OverviewUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        let headphones = app.descendants(matching: .any)["購物，耳機，\(Self.taipeiToday())，帳戶 iOS 測試信用卡，個人私帳，支出 880 元"]
+        let headphones = app.descendants(matching: .any)["購物，耳機，支出 880 元"]
         for _ in 0..<5 where !headphones.exists { app.swipeUp() }
-        XCTAssertTrue(headphones.exists, "最近交易的耳機沒有念成一句完整的話")
-        XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "自己記的交易記錄還顯示記帳人")
+        XCTAssertTrue(headphones.exists, "最近交易的耳機沒有念成一句「分類，備註，金額」")
+        XCTAssertFalse(element(in: app, labelContaining: "帳戶 iOS").exists, "最近交易還顯示帳戶")
+        XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "最近交易還顯示記帳人")
     }
 
-    /// 台灣時間的今天，格式跟清單的日期一樣(同一年省略年份),例如「9月28日」。
-    private static func taipeiToday() -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
-        let day = calendar.dateComponents([.month, .day], from: .now)
-        return "\(day.month!)月\(day.day!)日"
-    }
-
-    /// 帳戶一覽的信用卡跟帳戶頁用同一種精簡列(#73):整列念成一句話，點進去是信用卡詳細頁。
+    /// 帳戶卡片(#117):信用卡卡片念成一句話(待繳總額、每月幾日繳款)，點進去是信用卡詳細頁(#73)。
     @MainActor
     func testCreditCardRowOpensDetail() throws {
         let app = XCUIApplication()
@@ -108,10 +110,10 @@ final class OverviewUITests: XCTestCase {
         let card = app.buttons["overview.card.sample-card"]
         _ = card.waitForExistence(timeout: 5)
         for _ in 0..<5 where !(card.exists && card.isHittable) { app.swipeUp() }
-        XCTAssertTrue(card.exists, "帳戶一覽的信用卡不是導覽連結")
-        XCTAssertEqual(card.label, "iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款", "帳戶一覽的信用卡不是精簡列")
+        XCTAssertTrue(card.exists, "帳戶卡片沒有信用卡")
+        XCTAssertEqual(card.label, "iOS 測試信用卡，信用卡待繳總額 15,500 元，每月 5 日繳款", "信用卡卡片沒有念出待繳總額與繳款日")
         card.tap()
-        XCTAssertTrue(app.navigationBars["iOS 測試信用卡"].waitForExistence(timeout: 3), "點帳戶一覽的信用卡沒有進入詳細頁")
+        XCTAssertTrue(app.navigationBars["iOS 測試信用卡"].waitForExistence(timeout: 3), "點帳戶卡片的信用卡沒有進入詳細頁")
         // 詳細頁的欄位是 `LabeledContent`,標籤和值合成一個元素。
         XCTAssertTrue(app.staticTexts["信用卡待繳總額、$15,500"].waitForExistence(timeout: 3), "從總覽進入的詳細頁沒有信用卡待繳總額")
     }

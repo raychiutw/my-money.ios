@@ -117,6 +117,11 @@ extension SavingsGoal {
         return percent.percentText(fractionDigits: 0)
     }
 
+    /// 總覽的圓環:VoiceOver 念「名稱，已達成百分之 N」(#117);N 取整數，最多 100。
+    public var ringSpokenText: String {
+        "\(name)，已達成百分之 \(percentText.dropLast())"
+    }
+
     /// VoiceOver 把整列念成一句，例如「沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%，截止日 2027年3月31日」。
     /// 畫面上百分比交給進度條，不另外寫(#77)。
     public func spokenText(deadline: String?) -> String {

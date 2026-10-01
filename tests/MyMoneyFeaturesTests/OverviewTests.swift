@@ -50,37 +50,6 @@ struct OverviewTests {
         #expect(await accounts.fetchCount == fetchesBefore + 1)
     }
 
-    /// 最近交易跟交易頁用同一種交易記錄列：記帳人只有不是自己記的才顯示(#72)。
-    /// 使用者決定照 web 在最近交易顯示日期(W:Dashboard.tsx@f32ff6c:462),日期獨立一行，用清單格式(#79)。
-    @Test("最近交易的日期：清單格式，跟今天同一年時省略年份")
-    func recentTransactionDate() async throws {
-        let model = await loaded()
-        let lunch = try #require(model.recentTransactions.first { $0.note == "午餐" })
-        let salary = try #require(model.recentTransactions.first { $0.category == .salary })
-
-        #expect(model.dateText(of: lunch) == "9月28日")
-        #expect(model.dateText(of: salary) == "9月1日")
-    }
-
-    @Test("最近交易的記帳人只有不是自己記的才顯示")
-    func recentRecorderOnlyForOthers() {
-        let me = InMemoryAuthRepository.Member.sample.user
-        let model = OverviewModel(
-            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
-            dataVersion: DataVersion(), defaults: defaults, currentUser: me.id, today: { today }
-        )
-        func recorded(by name: String, id: UserID) -> MyMoneyDomain.Transaction {
-            MyMoneyDomain.Transaction(
-                id: TransactionID("recorded-by-\(id.rawValue)"), accountID: SampleAccounts.savings.id,
-                accountName: SampleAccounts.savings.name, type: .expense, category: .dining, amount: Money(120),
-                note: "", date: today, isShared: true, recorderName: name, recorderID: id
-            )
-        }
-
-        #expect(model.recorderName(of: recorded(by: me.name, id: me.id)) == nil)
-        #expect(model.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
-    }
-
     @Test("帳戶一覽列出現金錢包")
     func accountsListIncludesCash() async {
         let model = OverviewModel(
@@ -147,7 +116,7 @@ struct OverviewTests {
         #expect(model().scope == .household)
     }
 
-    @Test("最近 6 筆交易記錄不限日期，依目前的視角查詢")
+    @Test("最近 5 筆交易記錄不限日期，依目前的視角查詢")
     func recentTransactionsQuery() async throws {
         let model = model()
         model.scope = .personal
@@ -157,7 +126,7 @@ struct OverviewTests {
         let query = try #require(await transactions.queries.last)
         #expect(query.from == nil && query.to == nil)
         #expect(query.scope == .personal)
-        #expect(query.limit == 6 && query.offset == 0)
+        #expect(query.limit == 5 && query.offset == 0)
     }
 
     @Test("當月淨收支來自當月的收支趨勢(依視角),預算額度帶入明確的當月")
