@@ -60,6 +60,8 @@ struct NumberTile: View {
     /// 數字的顏色，預設是主要文字色;`warnsWhenNegative` 時負數用紅色。
     var style: Color?
     var warnsWhenNegative = false
+    /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 CONTEXT.md 的正名(例如「信用卡待繳總額」)。
+    var spokenTitle: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -80,7 +82,7 @@ struct NumberTile: View {
         .padding(12)
         .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
+        .accessibilityLabel(spokenTitle ?? title)
         .accessibilityValue(amount.spokenText)
     }
 

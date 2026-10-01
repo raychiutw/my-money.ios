@@ -8,8 +8,8 @@ final class AccountsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 顯示摘要、現金錢包、銀行存款帳戶與信用卡帳戶三區。信用卡是精簡列(#73):名稱、歸屬、信用卡待繳總額，
-    /// 第 2 行只有繳款日;剩餘額度這些欄位在詳細頁(`CardSettlementUITests`)。
+    /// 顯示主視覺、現金錢包、銀行存款帳戶與信用卡帳戶三區。每個帳戶是一張卡片(#119);信用卡卡片:名稱、歸屬、
+    /// 信用卡待繳總額與繳款日;剩餘額度這些欄位在詳細頁(`CardSettlementUITests`)。
     @MainActor
     func testAccountsTabShowsSummaryAndBothSections() throws {
         let app = XCUIApplication()
@@ -19,13 +19,18 @@ final class AccountsUITests: XCTestCase {
 
         app.tabBars.buttons["帳戶"].tap()
 
-        // 摘要(#75):淨可用餘額是主數字，在最上面;下面是它的組成，一項一列(`LabeledContent`)。
-        let available = element(in: app, labelContaining: "淨可用餘額 21,500 元")
+        // 主視覺(#119):淨可用餘額是超大的數字，在最上面;下面是組成比例條，再下面是三格數字磚。
+        let available = row("淨可用餘額", value: "21,500 元", in: app)
         XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
+        XCTAssertGreaterThan(available.frame.height, 50, "淨可用餘額不是大數字")
+        // 範例沒有現金錢包(現金是 0，不畫在比例條上)，銀行存款 50,000 與信用卡待繳 28,500 共 78,500:64% 與 36%。
+        let composition = element(in: app, labelContaining: "資金組成，銀行存款百分之 64，信用卡待繳百分之 36")
+        XCTAssertTrue(composition.exists, "沒有組成比例條")
+        XCTAssertLessThan(available.frame.minY, composition.frame.minY, "比例條不在淨可用餘額下面")
         for (label, value) in [("現金錢包總額", "0 元"), ("銀行存款帳戶餘額合計", "50,000 元"), ("信用卡待繳總額", "28,500 元")] {
             let summaryRow = row(label, value: value, in: app)
-            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一列")
-            XCTAssertLessThan(available.frame.minY, summaryRow.frame.minY, "淨可用餘額不在「\(label)」上面")
+            XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一磚")
+            XCTAssertLessThan(composition.frame.minY, summaryRow.frame.minY, "比例條不在「\(label)」上面")
         }
         // 帳戶數在 section 標題，已出帳待繳款和未出帳款在信用卡詳細頁。
         XCTAssertFalse(element(in: app, labelContaining: "個現金錢包").exists, "摘要還有現金錢包的個數")
@@ -38,12 +43,12 @@ final class AccountsUITests: XCTestCase {
         // 信用卡標示家庭信用卡或個人卡(web 的 bd0507b)。整列念成一句話，第 2 行只放繳款日(#73)。
         let card = app.buttons["iOS 測試信用卡，個人卡，信用卡待繳總額 15,500 元，每月 5 日繳款"]
         for _ in 0..<5 where !card.exists { app.swipeUp() }
-        XCTAssertTrue(card.exists, "信用卡不是精簡列(名稱、個人卡、信用卡待繳總額、繳款日)")
-        XCTAssertEqual(card.identifier, "accounts.card.sample-card", "信用卡精簡列不是導覽連結")
+        XCTAssertTrue(card.exists, "信用卡不是卡片(名稱、個人卡、信用卡待繳總額、繳款日)")
+        XCTAssertEqual(card.identifier, "accounts.card.sample-card", "信用卡卡片的識別碼不對")
         // 小額卡在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
         let lowLimit = app.buttons["iOS 測試小額卡，個人卡，信用卡待繳總額 13,000 元，每月 20 日繳款"]
         for _ in 0..<5 where !lowLimit.exists { app.swipeUp() }
-        XCTAssertTrue(lowLimit.exists, "小額卡不是精簡列")
+        XCTAssertTrue(lowLimit.exists, "小額卡不是卡片")
         XCTAssertFalse(element(in: app, labelContaining: "負債性質拆解").exists, "帳戶頁還有負債性質拆解，應該移到詳細頁")
     }
 
@@ -271,7 +276,9 @@ final class AccountsUITests: XCTestCase {
         // 先捲到點得到，左滑才滑得出「刪除」。
         let row = element(in: app, labelContaining: "UI 測試帳戶,餘額 1,234 元")
         _ = row.waitForExistence(timeout: 2)
-        for _ in 0..<6 where !(row.exists && row.isHittable) { app.swipeUp() }
+        // 卡片比以前的列高，中心點要離開浮動的 tab bar:在 tab bar 上左滑是切換 tab，不是滑出「刪除」。
+        let tabBarTop = app.tabBars.firstMatch.frame.minY
+        for _ in 0..<6 where !(row.exists && row.isHittable && row.frame.midY < tabBarTop - 20) { app.swipeUp() }
         XCTAssertTrue(row.exists, "新增後沒有出現在列表上")
         row.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
@@ -285,7 +292,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
-    /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要卡最下面的一列(ADR-0004、#87)。
+    /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {
         let app = XCUIApplication()
@@ -305,11 +312,11 @@ final class AccountsUITests: XCTestCase {
         XCTAssertFalse(toolbar.buttons["accounts.transfer"].exists, "ATM 提款／轉帳還在工具列")
 
         let transfer = app.buttons["accounts.transfer"]
-        XCTAssertTrue(transfer.waitForExistence(timeout: 3), "摘要卡裡沒有「ATM 提款／轉帳」")
+        XCTAssertTrue(transfer.waitForExistence(timeout: 3), "摘要下面沒有「ATM 提款／轉帳」")
         XCTAssertEqual(transfer.label, "ATM 提款／轉帳")
         let cardDebt = element(in: app, labelContaining: "信用卡待繳總額")
         XCTAssertTrue(cardDebt.exists)
-        XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在摘要的最後一列")
+        XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在數字磚下面")
     }
 
     /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額，例如標籤「信用卡待繳總額」、值「28,500 元」。

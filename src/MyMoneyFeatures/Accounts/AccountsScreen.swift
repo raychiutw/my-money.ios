@@ -2,10 +2,10 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「帳戶」tab:摘要(淨可用餘額和它的組成),現金錢包、銀行存款帳戶與信用卡帳戶三區(parity.md「帳戶」)。
-/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇顯示在導覽列副標題)、新增資產帳戶和頭像三顆;
-/// ATM 提款／轉帳是摘要卡最下面的一列(ADR-0004)。
-/// 信用卡是精簡列，點進信用卡詳細頁(#73)。
+/// 「帳戶」tab:數字優先的主視覺(淨可用餘額、組成比例條、三格數字磚、ATM 提款／轉帳膠囊按鈕)，
+/// 現金錢包、銀行存款帳戶與信用卡帳戶三區的卡片(parity.md「帳戶」,#119)。
+/// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇由按鈕的圖示狀態表達)、新增資產帳戶和頭像三顆。
+/// 每個帳戶是一張卡片(整列);信用卡點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     @State private var editor: EditorSheet?
@@ -13,9 +13,11 @@ struct AccountsScreen: View {
     @State private var pendingRollover: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
+    /// 點信用卡卡片 push 信用卡詳細頁。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
+    @State private var cardPath: [CreditCard] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $cardPath) {
             content
                 .skeletonTransition(value: model.phase)
                 .tabRootNavigation("帳戶")
@@ -129,7 +131,8 @@ struct AccountsScreen: View {
         } label: {
             label()
         }
-        .tint(.primary)
+        .buttonStyle(.plain)
+        .clearListRow()
         .swipeActions {
             Button("刪除", systemImage: "trash", role: .destructive) {
                 pendingDeletion = account
@@ -160,16 +163,25 @@ struct AccountsScreen: View {
         case .loading:
             List {
                 Section {
-                    SummaryRow(title: "淨可用餘額", amount: Skeleton.amount)
-                        .skeletonAnnouncement()
-                    ForEach(0..<3, id: \.self) { _ in
-                        AmountRow(title: "摘要數字", amount: Skeleton.amount)
-                            .skeletonRow()
+                    VStack(alignment: .leading, spacing: 16) {
+                        BigNumber(title: "淨可用餘額", amount: Skeleton.amount)
+                        SkeletonChart(height: 12)
                     }
+                    .padding(.vertical, 8)
+                    .skeletonAnnouncement()
                 }
-                SkeletonSection(title: "現金錢包", count: 1) { SkeletonAccountRow() }
-                SkeletonSection(title: "銀行存款帳戶", count: 2) { SkeletonAccountRow() }
-                SkeletonSection(title: "信用卡", count: 1) { SkeletonAccountRow() }
+                Section {
+                    NumberTileRow {
+                        ForEach(0..<3, id: \.self) { _ in
+                            NumberTile(title: "摘要數字", amount: Skeleton.amount)
+                        }
+                    }
+                    .clearListRow()
+                    .skeletonRow()
+                }
+                SkeletonSection(title: "現金錢包", count: 1) { skeletonCard.clearListRow() }
+                SkeletonSection(title: "銀行存款帳戶", count: 2) { skeletonCard.clearListRow() }
+                SkeletonSection(title: "信用卡", count: 1) { skeletonCard.clearListRow() }
             }
         case .failed(let message):
             ContentUnavailableView {
@@ -192,22 +204,37 @@ struct AccountsScreen: View {
         }
     }
 
-    /// 摘要(#75):淨可用餘額是主數字，下面是它的組成，一項一列。
+    private var skeletonCard: some View {
+        NumberCard(title: "帳戶名稱", symbol: "building.columns", symbolColor: .gray, amount: Skeleton.amount, caption: "佔位", spokenText: "")
+            .skeletonRow()
+    }
+
+    /// 主視覺(#119):超大的淨可用餘額與組成比例條，下面是三格數字磚和 ATM 提款／轉帳的膠囊按鈕。
     /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
+    @ViewBuilder
     private var summarySection: some View {
         Section {
-            SummaryRow(title: "淨可用餘額", amount: model.availableBalance ?? .zero, warnsWhenNegative: true)
-            AmountRow(title: "現金錢包總額", amount: model.cashTotal ?? .zero)
-            AmountRow(title: "銀行存款帳戶餘額合計", amount: model.bankBalanceTotal ?? .zero)
-            AmountRow(title: "信用卡待繳總額", amount: model.totalCardDue ?? .zero)
-            // ATM 提款／轉帳:摘要卡最下面的一列(ADR-0004、#87);現金錢包列、銀行存款帳戶列的滑動捷徑照舊。
-            Button {
-                transfer = model.makeTransfer()
-            } label: {
-                Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
-            }
-            .accessibilityIdentifier("accounts.transfer")
+            AccountsHero(
+                balance: model.availableBalance ?? .zero, segments: model.composition, summary: model.compositionSummary
+            )
         }
+        Section {
+            NumberTileRow {
+                NumberTile(title: "現金", amount: model.cashTotal ?? .zero, spokenTitle: "現金錢包總額")
+                NumberTile(title: "銀行存款", amount: model.bankBalanceTotal ?? .zero, spokenTitle: "銀行存款帳戶餘額合計")
+                NumberTile(
+                    title: "信用卡待繳", amount: model.totalCardDue ?? .zero,
+                    style: (model.totalCardDue ?? .zero) > .zero ? .red : nil, spokenTitle: "信用卡待繳總額"
+                )
+            }
+            .clearListRow()
+            // ATM 提款／轉帳:醒目的膠囊按鈕，在摘要下面(ADR-0004、#87、#119);現金錢包卡、銀行存款帳戶卡的滑動捷徑照舊。
+            TransferCapsuleButton {
+                transfer = model.makeTransfer()
+            }
+            .clearListRow()
+        }
+        .compactSectionSpacing()
     }
 
     private var cashSection: some View {
@@ -220,8 +247,8 @@ struct AccountsScreen: View {
             }
             ForEach(model.cashWallets) { wallet in
                 accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
-                    FundAccountRow(
-                        name: wallet.name, colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
+                    fundCard(
+                        name: wallet.name, symbol: "wallet.bifold", colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
                         balance: wallet.balance, balanceTitle: "現金錢包餘額"
                     )
                 }
@@ -239,8 +266,8 @@ struct AccountsScreen: View {
             }
             ForEach(model.bankAccounts) { account in
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
-                    FundAccountRow(
-                        name: account.name, colorHex: account.colorHex, isJointFund: account.isJointFund,
+                    fundCard(
+                        name: account.name, symbol: "building.columns", colorHex: account.colorHex, isJointFund: account.isJointFund,
                         balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true
                     )
                 }
@@ -262,12 +289,33 @@ struct AccountsScreen: View {
         }
     }
 
-    /// 信用卡精簡列(#73):整列是導覽連結，點進信用卡詳細頁。往左滑可以刪除;長按有繳款、出帳作業、編輯和刪除的捷徑，
-    /// 每一項在詳細頁都找得到(HIG Context menus)。沒有對應欠款的繳款項目、沒有未出帳款時的出帳作業都隱藏。
+    /// 現金錢包、銀行存款帳戶的卡片(#119):名稱加大金額，家庭共同基金多一行小字。
+    /// VoiceOver 念名稱、歸屬、餘額(跟以前的列一樣)。
+    private func fundCard(
+        name: String, symbol: String, colorHex: String, isJointFund: Bool, balance: Money, balanceTitle: String,
+        warnsWhenNegative: Bool = false
+    ) -> some View {
+        NumberCard(
+            title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray, amount: balance,
+            isWarning: warnsWhenNegative && balance < .zero, caption: isJointFund ? "家庭共同基金" : nil,
+            spokenText: "\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)"
+        )
+    }
+
+    /// 信用卡卡片(#119、#73):名稱、待繳金額(有待繳時紅色)、歸屬與繳款日;整張卡點進信用卡詳細頁。
+    /// 往左滑可以刪除;長按有繳款、出帳作業、編輯和刪除的捷徑，每一項在詳細頁都找得到(HIG Context menus)。
+    /// 沒有對應欠款的繳款項目、沒有未出帳款時的出帳作業都隱藏。
     private func creditCardRow(_ card: CreditCard) -> some View {
-        NavigationLink(value: card) {
-            CreditCardSummaryRow(card: card, mark: .colorBar)
+        Button {
+            cardPath.append(card)
+        } label: {
+            NumberCard(
+                title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.totalDue,
+                isWarning: card.isDue, caption: card.cardCaption, spokenText: card.spokenSummary
+            )
         }
+        .buttonStyle(.plain)
+        .clearListRow()
         .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
         .swipeActions {
             Button("刪除", systemImage: "trash", role: .destructive) {
@@ -298,43 +346,6 @@ struct AccountsScreen: View {
 /// 給 `.sheet(item:)` 用;class 的 `id` 預設是 `ObjectIdentifier`。
 extension CardPaymentModel: Identifiable {}
 extension TransferModel: Identifiable {}
-
-/// 現金錢包、銀行存款帳戶的列：色條、名稱(家庭共同基金多一行標記)和餘額。
-/// 用 `LabeledContent`:放不下同一行時(AX5)自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」第 5 條，#79)。
-private struct FundAccountRow: View {
-    let name: String
-    let colorHex: String
-    let isJointFund: Bool
-    let balance: Money
-    /// VoiceOver 在餘額前念的標籤，例如「現金錢包餘額」。
-    let balanceTitle: String
-    /// 負數用紅色(銀行存款帳戶)。
-    var warnsWhenNegative = false
-
-    var body: some View {
-        LabeledContent {
-            Text(balance.formatted())
-                .monospacedDigit()
-                .foregroundStyle(warnsWhenNegative && balance < .zero ? Color.red : .primary)
-                .lineLimit(1)
-                .fixedSize()
-        } label: {
-            HStack(spacing: 12) {
-                AccountColorMark(hex: colorHex)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name)
-                    if isJointFund {
-                        Label("家庭共同基金", systemImage: "house.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)")
-    }
-}
 
 /// 區塊沒有帳戶時的空狀態(web 的「目前此範圍無…」):只有標題和新增的入口，web 的宣傳句不寫(DESIGN.md「說明文字」)。
 private struct SectionEmptyState: View {
