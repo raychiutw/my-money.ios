@@ -118,6 +118,50 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["信用卡待繳總額、$15,500"].waitForExistence(timeout: 3), "從總覽進入的詳細頁沒有信用卡待繳總額")
     }
 
+    /// 總覽跟設計稿一致(#124):三格數字磚橫排、帳戶卡片兩欄、淨可用餘額是很大的數字。
+    /// 真機的字級常常不是預設的 L:XXL 時數字磚與卡片不能掉成單欄(設計稿是橫排)，要到更大的字級才上下堆疊。
+    /// 只在預設字級截圖驗收不夠，所以這裡用 XXL 實際量位置。
+    @MainActor
+    func testTilesAndAccountCardsStaySideBySideAtXXL() throws {
+        let app = launchAtContentSize("UICTContentSizeCategoryXXL")
+
+        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
+            .map { row($0.0, value: $0.1, in: app) }
+        XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
+        XCTAssertEqual(Set(tiles.map { $0.frame.minY.rounded() }).count, 1, "XXL 時三格數字磚沒有橫排:\(tiles.map(\.frame))")
+        XCTAssertLessThan(tiles[0].frame.minX, tiles[1].frame.minX)
+        XCTAssertLessThan(tiles[1].frame.minX, tiles[2].frame.minX)
+
+        // 帳戶卡片兩欄:銀行存款帳戶與第一張信用卡在同一排。
+        let bank = element(in: app, labelContaining: "iOS 測試存款，銀行存款帳戶")
+        let card = app.buttons["overview.card.sample-card"]
+        for _ in 0..<6 where !(bank.exists && card.exists) { app.swipeUp() }
+        XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
+        XCTAssertEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "XXL 時帳戶卡片沒有兩欄:\(bank.frame) \(card.frame)")
+    }
+
+    /// 反過來:無障礙字級(AX5)放不下橫排時，數字磚與帳戶卡片上下堆疊，數字不截斷。
+    @MainActor
+    func testTilesStackAtAccessibilityContentSize() throws {
+        let app = launchAtContentSize("UICTContentSizeCategoryAccessibilityXXXL")
+
+        let first = row("真實可支配現金", value: "21,500 元", in: app)
+        let second = row("當月淨收支", value: "44,000 元", in: app)
+        XCTAssertTrue(first.waitForExistence(timeout: 5), "沒有看到數字磚")
+        for _ in 0..<4 where !second.exists { app.swipeUp() }
+        XCTAssertTrue(second.exists, "沒有看到第二格數字磚")
+        XCTAssertNotEqual(first.frame.minY.rounded(), second.frame.minY.rounded(), "AX5 時數字磚沒有上下堆疊")
+    }
+
+    @MainActor
+    private func launchAtContentSize(_ category: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession", "-UIPreferredContentSizeCategoryName", category]
+        app.launch()
+        signIn(app)
+        return app
+    }
+
     /// 視角在 toolbar 的篩選按鈕(#63):點按鈕再選，按鈕的 VoiceOver 值是目前的視角;選過的視角重開 app 之後沿用。
     @MainActor
     func testScopeFilterShowsSubtitleAndIsRemembered() throws {

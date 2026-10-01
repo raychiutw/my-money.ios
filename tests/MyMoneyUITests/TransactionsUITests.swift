@@ -15,9 +15,15 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
 
         app.tabBars.buttons["交易"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
+        // 交易記錄在大數字、比例條與長條圖下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let expense = element(in: app, labelContaining: "支出 880 元")
+        _ = expense.waitForExistence(timeout: 5)
+        for _ in 0..<6 where !expense.exists { app.swipeUp() }
+        XCTAssertTrue(expense.exists, "沒有看到本月的交易記錄")
+        for _ in 0..<6 where !element(in: app, labelContaining: "收入 45,000 元").exists { app.swipeUp() }
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
+        for _ in 0..<8 where !app.buttons["transactions.filter"].isHittable { app.swipeDown() }
         // 預設的範圍是本月 1 號到台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertEqual(
             app.buttons["transactions.filter"].value as? String, "全部・\(Self.taipeiThisMonthPeriod())",

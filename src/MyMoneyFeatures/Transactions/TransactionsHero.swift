@@ -21,7 +21,8 @@ struct TransactionsHero: View {
                 )
             }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 
     /// 淨收支的大數字，收入與支出在旁邊;放不下時改成上下堆疊，再放不下收入與支出也上下堆疊。

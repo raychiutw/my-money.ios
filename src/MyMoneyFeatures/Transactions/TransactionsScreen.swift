@@ -98,6 +98,7 @@ struct TransactionsScreen: View {
             case .loading:
                 Section {
                     TransactionsHeroSkeleton()
+                        .clearListRow()
                 }
                 SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
                 SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
@@ -109,6 +110,7 @@ struct TransactionsScreen: View {
             case .loaded:
                 Section {
                     TransactionsHero(model: model)
+                        .clearListRow()
                 }
                 let days = model.days
                 if days.isEmpty {
@@ -229,7 +231,8 @@ private struct TransactionsHeroSkeleton: View {
             BigNumber(title: "淨收支", amount: Skeleton.amount)
             SkeletonChart(height: 110)
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
         .skeletonAnnouncement()
     }
 }

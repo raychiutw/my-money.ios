@@ -167,8 +167,10 @@ struct AccountsScreen: View {
                         BigNumber(title: "淨可用餘額", amount: Skeleton.amount)
                         SkeletonChart(height: 12)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .skeletonAnnouncement()
+                    .clearListRow()
                 }
                 Section {
                     NumberTileRow {
@@ -217,6 +219,7 @@ struct AccountsScreen: View {
             AccountsHero(
                 balance: model.availableBalance ?? .zero, segments: model.composition, summary: model.compositionSummary
             )
+            .clearListRow()
         }
         Section {
             NumberTileRow {

@@ -93,7 +93,9 @@ struct OverviewScreen: View {
                 OverviewHero(
                     balance: summary.availableBalance, trend: model.forecastTrend, trendSummary: model.forecastSummary
                 )
+                .clearListRow()
             }
+            .compactSectionSpacing()
             Section {
                 NumberTileRow {
                     NumberTile(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
@@ -152,7 +154,7 @@ struct OverviewScreen: View {
     private func accountCard(_ card: OverviewAccountCard) -> some View {
         let view = NumberCard(
             title: card.name, symbol: card.symbolName, symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.amount,
-            isWarning: card.isDue, caption: card.dueDayText, spokenText: card.spokenText
+            isWarning: card.isDue, trailingText: card.dueDayText, spokenText: card.spokenText
         )
         if case .creditCard(let creditCard) = card.kind {
             Button { cardPath.append(creditCard) } label: { view }
@@ -209,6 +211,7 @@ private struct OverviewSkeleton: View {
     var body: some View {
         Section {
             OverviewHeroSkeleton()
+                .clearListRow()
         }
         Section {
             NumberTileRow {
