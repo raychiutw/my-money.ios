@@ -200,6 +200,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 - **視角**(全部、家庭公帳、個人):總覽、統計頁放在 toolbar 的篩選按鈕(`line.3.horizontal.decrease`),點開是可勾選的選單(`ScopeFilter.swift`);導覽列副標題(`navigationSubtitle`)一律顯示目前的視角，不用打開選單就知道現在看的範圍。清單最上面不放分段控制，打開畫面最上面就是資料。
   - VoiceOver:篩選按鈕的標籤是「視角」,值是目前的選擇。
+  - **篩選按鈕有兩種狀態**(#107,交易、總覽、統計、帳戶四頁共用):預設的篩選用一般圖示(`line.3.horizontal.decrease`),**套用了非預設的篩選就改實心**(`line.3.horizontal.decrease.circle.fill`),不只靠顏色。「非預設」:視角或檢視範圍不是「全部」;交易頁還包含起迄日不是「本月 1 號到今天」、類型或分類不是全部、搜尋關鍵字不是空白。這樣即使畫面上沒有範圍文字，也不會把篩選過的結果當成全部。
   - **每頁 toolbar 最多 3 顆按鈕(含頭像)，不放「…」**(ADR-0004)。放不下的動作搬進列表，不藏進選單。HIG 依據:pull-down button 至少 3 項才值得，1～2 項改用按鈕或開關(Pull-down buttons);主要動作不要藏在 pull-down 裡;More 選單「only add this menu if you really need it」(Toolbars)。
   - 視角只有 3 個選項卻不用分段控制:選過的視角會記住(parity 第 30 項)，平常不必切換，而且清單最上面留給資料(#63、#64)。
   - 交易頁例外：視角跟起迄日、類型、分類一起放在篩選 sheet,見下一條。

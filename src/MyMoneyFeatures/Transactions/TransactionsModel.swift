@@ -113,6 +113,14 @@ public final class TransactionsModel {
         isEditingFilter = false
     }
 
+    /// 套用了非預設的篩選:視角不是全部、起迄日不是「本月 1 號到今天」、類型或分類不是全部，或搜尋關鍵字不是空白。
+    /// 篩選按鈕這時改用實心圖示，畫面上雖然沒有範圍文字，也不會把篩選過的結果當成全部(#107)。
+    public var isFilterActive: Bool {
+        let now = today()
+        let isDefault = filter == Filter(from: now.firstOfMonth, to: now)
+        return !isDefault || !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// 導覽列副標題：目前套用的範圍，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
     /// 日期用系統格式(DESIGN.md「日期」)。
     public var subtitle: String {
