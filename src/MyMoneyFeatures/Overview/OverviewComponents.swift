@@ -73,7 +73,7 @@ struct GoalRingRow: View {
     }
 }
 
-/// 超支提示(#117):沒有超支時完全不出現;有超支時是一個精簡的紅色提示，點了切到統計 tab 的預算額度。
+/// 超支提示(#117):沒有超支時完全不出現;有超支時是一個精簡的紅色圓角提示，點了切到統計 tab 的預算額度。
 struct OverBudgetChip: View {
     let title: String
     let spokenTitle: String
@@ -86,7 +86,8 @@ struct OverBudgetChip: View {
                 .foregroundStyle(.red)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(.red.opacity(0.14), in: Capsule())
+                // 不用膠囊:大字級文字折成多行時，膠囊的兩端會切到文字。
+                .background(.red.opacity(0.14), in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .leading)

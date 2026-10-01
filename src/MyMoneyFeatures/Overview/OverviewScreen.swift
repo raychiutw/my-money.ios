@@ -105,6 +105,7 @@ struct OverviewScreen: View {
                 }
                 .clearListRow()
             }
+            .listSectionSpacing(.compact)
         }
     }
 
@@ -117,9 +118,10 @@ struct OverviewScreen: View {
             .accessibilityIdentifier("overview.overBudget")
             .clearListRow()
         }
+        .listSectionSpacing(.compact)
     }
 
-    /// 帳戶卡片(#117):兩欄網格，每張是名稱加大金額;最多 `accountCardLimit` 張，其餘用「管理」到帳戶頁。
+    /// 帳戶卡片(#117):兩欄網格(大字級自然變一欄)，每張是名稱加大金額;最多 `accountCardLimit` 張，其餘用「管理」到帳戶頁。
     /// 信用卡的金額是信用卡待繳總額(有待繳時紅色)加「N 日繳」,點了進信用卡詳細頁(#73)。
     private var accountsSection: some View {
         Section {
@@ -134,7 +136,7 @@ struct OverviewScreen: View {
                         .buttonStyle(.borderless)
                 }
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: cardMinimumWidth), spacing: 12)], spacing: 12) {
+                NumberCardGrid {
                     ForEach(model.accountCards) { card in
                         accountCard(card)
                     }
@@ -145,9 +147,6 @@ struct OverviewScreen: View {
             header("帳戶", action: "管理") { show(.accounts) }
         }
     }
-
-    /// 一張卡的最小寬度，跟著字級變大:一般字級兩欄，大字級自然變成一欄。
-    @ScaledMetric(relativeTo: .body) private var cardMinimumWidth: CGFloat = 150
 
     @ViewBuilder
     private func accountCard(_ card: OverviewAccountCard) -> some View {
@@ -221,7 +220,7 @@ private struct OverviewSkeleton: View {
             .skeletonRow()
         }
         Section {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+            NumberCardGrid {
                 ForEach(0..<4, id: \.self) { _ in
                     NumberCard(
                         title: "帳戶名稱", symbol: "building.columns", symbolColor: .gray, amount: Skeleton.amount, spokenText: ""

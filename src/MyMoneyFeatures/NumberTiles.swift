@@ -36,6 +36,8 @@ struct NumberTile: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            // 數字靠底:標籤一行或兩行的磚，數字還是在同一條線上。
+            Spacer(minLength: 0)
             Text(text ?? amount.formatted())
                 .font(.title3.bold())
                 .monospacedDigit()
@@ -119,7 +121,7 @@ struct NumberTileLayout: Layout {
 }
 
 /// 帳戶卡片(#117):圖示加名稱，下面是大金額，最下面是選填的小字(信用卡的「N 日繳」)。
-/// 放在兩欄的 `LazyVGrid` 裡。小字的位置固定保留，同一排的卡片一樣高。
+/// 放在 `NumberCardGrid` 裡，同一排的卡片一樣高。
 struct NumberCard: View {
     let title: String
     let symbol: String
@@ -148,15 +150,74 @@ struct NumberCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-            Text(caption ?? " ")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if let caption {
+                Text(caption)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(12)
         .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
+    }
+}
+
+/// 卡片網格:欄數由實際可用寬度決定(每欄至少 `minimumWidth`,跟著字級變大，大字級自然變一欄)，
+/// 每一排的卡片一樣高。卡片不多(總覽最多 6 張)，所以不用 `LazyVGrid`。
+struct NumberCardGrid<Content: View>: View {
+    @ScaledMetric(relativeTo: .body) private var minimumWidth: CGFloat = 150
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        NumberCardGridLayout(minimumWidth: minimumWidth, spacing: 12) {
+            content()
+        }
+    }
+}
+
+struct NumberCardGridLayout: Layout {
+    let minimumWidth: CGFloat
+    let spacing: CGFloat
+
+    private func columns(in width: CGFloat) -> Int {
+        max(1, Int((width + spacing) / (minimumWidth + spacing)))
+    }
+
+    /// 每一排的高度:那一排最高的卡片。
+    private func rowHeights(width: CGFloat, subviews: Subviews) -> (columns: Int, columnWidth: CGFloat, heights: [CGFloat]) {
+        let columns = columns(in: width)
+        let columnWidth = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+        let heights = stride(from: 0, to: subviews.count, by: columns).map { start in
+            subviews[start..<min(start + columns, subviews.count)]
+                .map { $0.sizeThatFits(.init(width: columnWidth, height: nil)).height }.max() ?? 0
+        }
+        return (columns, columnWidth, heights)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let width = proposal.width ?? minimumWidth
+        let layout = rowHeights(width: width, subviews: subviews)
+        return CGSize(width: width, height: layout.heights.reduce(0, +) + spacing * CGFloat(layout.heights.count - 1))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let layout = rowHeights(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for (row, height) in layout.heights.enumerated() {
+            for column in 0..<layout.columns {
+                let index = row * layout.columns + column
+                guard index < subviews.count else { break }
+                let x = bounds.minX + (layout.columnWidth + spacing) * CGFloat(column)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .init(width: layout.columnWidth, height: height)
+                )
+            }
+            y += height + spacing
+        }
     }
 }
