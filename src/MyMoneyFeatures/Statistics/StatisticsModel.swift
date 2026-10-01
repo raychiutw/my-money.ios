@@ -113,6 +113,9 @@ public final class StatisticsModel {
     /// 所選月份的年份(收支趨勢),例如「2026年」。
     public var yearTitle: String { month.yearText(locale: locale) }
 
+    /// 主數字的標題，例如「9月支出」(#120);月份在下面的月份列也有，完整的年月是 `monthTitle`。
+    public var expenseTitle: String { "\(month.month)月支出" }
+
     public var totalCategoryExpense: Money { categoryExpenses.reduce(.zero) { $0 + $1.total } }
 
     /// 視角是家庭或全部、而且有公帳代墊款時才顯示。

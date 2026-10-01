@@ -3,8 +3,9 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「統計」tab:月份、公帳代墊款與分攤建議、支出分類、收支趨勢、預算額度(parity.md「統計與預算」)。
-/// 視角在 toolbar 的篩選按鈕，目前的選擇顯示在導覽列副標題。
+/// 「統計」tab:數字優先(#120):精簡的月份列、超大的當月支出、公帳代墊款與分攤建議、支出分類環圈、
+/// 12 個月收支趨勢、預算額度(parity.md「統計與預算」)。
+/// 視角在 toolbar 的篩選按鈕，目前的選擇由按鈕的圖示狀態表達。
 struct StatisticsScreen: View {
     @Bindable var model: StatisticsModel
     @State private var budgetEditor: BudgetEditorModel?
@@ -14,7 +15,9 @@ struct StatisticsScreen: View {
             List {
                 Section {
                     MonthSwitcher(month: $model.month, title: model.monthTitle)
+                        .clearListRow()
                 }
+                .compactSectionSpacing()
                 content
             }
             .skeletonTransition(value: model.phase)
@@ -44,7 +47,14 @@ struct StatisticsScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            SkeletonSection(title: "支出分類", count: 1, announces: true) { SkeletonChart() }
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    BigNumber(title: "支出", amount: Skeleton.amount)
+                }
+                .padding(.vertical, 8)
+                .skeletonAnnouncement()
+            }
+            SkeletonSection(title: "支出分類", count: 1) { SkeletonChart() }
             SkeletonSection(title: "收支趨勢", count: 1) { SkeletonChart(height: 160) }
             SkeletonSection(title: "預算額度", count: 4) { SkeletonItemRow() }
         case .failed(let message):
@@ -60,6 +70,10 @@ struct StatisticsScreen: View {
                 }
             }
         case .loaded:
+            Section {
+                BigNumber(title: model.expenseTitle, amount: model.totalCategoryExpense, warnsWhenNegative: false)
+                    .padding(.vertical, 8)
+            }
             if model.showsHouseholdShares {
                 householdSection
             }
@@ -92,16 +106,41 @@ struct StatisticsScreen: View {
                 .accessibilityLabel("\(share.userName),公帳代墊款 \(share.total.spokenText),佔 \(model.ratioText(share))")
             }
             if let settlement = model.settlement {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("分攤建議", systemImage: "lightbulb")
-                        .font(.subheadline.bold())
-                    Text(settlementText(settlement, spoken: false))
-                        .font(.subheadline)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("分攤建議,\(settlementText(settlement, spoken: true))")
+                settlementView(settlement)
             }
         }
+    }
+
+    /// 分攤建議以數字為主(#120):轉帳金額是大數字，「誰轉給誰」在上面，平分後每人負擔在下面;
+    /// 兩人的公帳代墊款一樣多時只有一句「不用轉帳」。VoiceOver 念完整的一句(跟以前一樣)。
+    private func settlementView(_ settlement: Settlement) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("分攤建議", systemImage: "lightbulb")
+                .font(.subheadline.bold())
+            if let transfer = settlement.transfer {
+                Text("\(transfer.from) 轉給 \(transfer.to)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(transfer.amount.formatted())
+                    .font(.title.bold())
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text("平分後每人負擔 \(settlement.perPerson.formatted())")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            } else {
+                Text("兩人的公帳代墊款一樣多，不用轉帳")
+                    .font(.subheadline)
+                Text("平分後每人負擔 \(settlement.perPerson.formatted())")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("分攤建議,\(settlementText(settlement, spoken: true))")
     }
 
     private func settlementText(_ settlement: Settlement, spoken: Bool) -> String {
@@ -132,7 +171,7 @@ struct StatisticsScreen: View {
                     range: chart.slices.map(\.color.color)
                 )
                 .chartLegend(.hidden)
-                .frame(height: 220)
+                .frame(height: 200)
                 .padding(.vertical, 8)
                 ForEach(model.categoryExpenses, id: \.category) { expense in
                     LabeledContent {
@@ -150,9 +189,6 @@ struct StatisticsScreen: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(expense.category.name) \(expense.total.spokenText)")
                 }
-                LabeledContent("合計", value: model.totalCategoryExpense.formatted())
-                    .monospacedDigit()
-                    .bold()
             }
         }
     }
@@ -176,7 +212,7 @@ struct StatisticsScreen: View {
                         .accessibilityValue(summary.expense.spokenText)
                 }
                 .chartForegroundStyleScale(["收入": Color.green, "支出": Color.red])
-                .frame(height: 220)
+                .frame(height: 180)
                 .padding(.vertical, 8)
             }
         }
@@ -213,7 +249,7 @@ struct StatisticsScreen: View {
     }
 }
 
-/// 上一個月、下一個月。
+/// 精簡的月份列(#120):上一個月、所選的月份、下一個月，不是卡片也不佔標題位置;兩個按鈕的觸控範圍至少 44×44pt。
 private struct MonthSwitcher: View {
     @Binding var month: CalendarMonth
     /// 所選的月份(畫面 model 依系統格式產生)。
@@ -223,6 +259,7 @@ private struct MonthSwitcher: View {
         HStack {
             Button("上一個月", systemImage: "chevron.left") { month = month.previous }
                 .labelStyle(.iconOnly)
+                .frame(minWidth: 44, minHeight: 44)
             Spacer()
             Text(title)
                 .font(.headline)
@@ -230,6 +267,7 @@ private struct MonthSwitcher: View {
             Spacer()
             Button("下一個月", systemImage: "chevron.right") { month = month.next }
                 .labelStyle(.iconOnly)
+                .frame(minWidth: 44, minHeight: 44)
         }
         .buttonStyle(.borderless)
     }
@@ -255,23 +293,30 @@ private struct AddBudgetLabel: View {
     }
 }
 
-/// 預算額度的一列(#76,DESIGN.md「列與欄位」):分類;已花、預算各一列(沒有預算時是「未設定」);
-/// 有預算時是進度;超支與接近上限用 symbol 加文字，不只靠顏色。整列是按鈕，VoiceOver 念 `spokenText`。
+/// 預算額度的一列(#76、#120,DESIGN.md「列與欄位」):分類名稱與「已花 / 預算」一行，沒有預算時是「已花 / 未設定」;
+/// 有預算時下面是進度條，超支紅色、接近上限橙色，並有警示圖示加文字，不只靠顏色。
+/// 整列是按鈕，VoiceOver 念 `spokenText`。大字級放不下時名稱與數字改成上下堆疊，數字一律單行。
 private struct BudgetRowView: View {
     let row: BudgetRow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label(row.category.name, systemImage: row.category.symbolName)
-            field("已花", value: row.spent.formatted())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Label(row.category.name, systemImage: row.category.symbolName)
+                    Spacer(minLength: 8)
+                    figures
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(row.category.name, systemImage: row.category.symbolName)
+                    figures
+                }
+            }
             if let budget = row.budget {
-                field("預算", value: budget.amount.formatted())
                 // 超支時進度卡在 100%,VoiceOver 改念 `spokenText` 裡的超支金額。
                 ProgressView(value: budget.amount > .zero ? min(row.spent.chartValue / budget.amount.chartValue, 1) : 1)
                     .tint(tint)
                     .accessibilityHidden(true)
-            } else {
-                field("預算", value: "未設定", isPlaceholder: true)
             }
             if let statusText = row.statusText(spoken: false) {
                 Label(statusText, systemImage: "exclamationmark.triangle.fill")
@@ -282,22 +327,20 @@ private struct BudgetRowView: View {
         .padding(.vertical, 2)
     }
 
-    /// 已花、預算各一列：標籤在左、金額在右，大字級放不下時自動上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
-    /// 字級直接設在 `Text` 上：設在外層時，List 裡的 `LabeledContent` 仍是 `body`(#76 的截圖)。
-    /// `isPlaceholder`:沒有值(「未設定」)時用次要文字色，跟金額區分。
-    private func field(_ title: String, value: String, isPlaceholder: Bool = false) -> some View {
-        LabeledContent {
-            Text(value)
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(isPlaceholder ? .secondary : .primary)
-                .lineLimit(1)
-                .fixedSize()
-        } label: {
-            Text(title)
-                .font(.subheadline)
+    /// 「已花 / 預算」:已花是主要數字，預算(或「未設定」)是次要色。金額一律單行(DESIGN.md「列與欄位」)。
+    private var figures: some View {
+        HStack(spacing: 4) {
+            Text(row.spent.formatted())
+                .foregroundStyle(row.status.isOver ? Color.red : .primary)
+            Text("/")
+                .foregroundStyle(.secondary)
+            Text(row.budget.map { $0.amount.formatted() } ?? "未設定")
                 .foregroundStyle(.secondary)
         }
+        .font(.subheadline)
+        .monospacedDigit()
+        .lineLimit(1)
+        .fixedSize()
     }
 
     private var tint: Color {
@@ -306,6 +349,12 @@ private struct BudgetRowView: View {
         case .nearLimit: .orange
         case .unset, .normal: .accentColor
         }
+    }
+}
+
+extension BudgetRow.Status {
+    fileprivate var isOver: Bool {
+        if case .over = self { true } else { false }
     }
 }
 

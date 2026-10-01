@@ -14,6 +14,11 @@ final class StatisticsUITests: XCTestCase {
         app.tabBars.buttons["統計"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額 10,000 元").waitForExistence(timeout: 5), "沒有看到公帳代墊款")
         XCTAssertTrue(element(in: app, labelContaining: "小美 轉 1,000 元 給 小明").exists, "沒有分攤建議")
+        // 最上面是超大的當月支出(#120):標題帶月份，數字比一般金額列大很多，位置在公帳代墊款上面。
+        let hero = app.descendants(matching: .any).matching(NSPredicate(format: "label ENDSWITH %@", "月支出")).firstMatch
+        XCTAssertTrue(hero.exists, "沒有當月支出的大數字")
+        XCTAssertGreaterThan(hero.frame.height, 50, "當月支出不是大數字")
+        XCTAssertLessThan(hero.frame.minY, element(in: app, labelContaining: "當月家庭公帳總額").frame.minY, "當月支出不在公帳代墊款上面")
 
         let filter = app.buttons["statistics.scope"]
         XCTAssertTrue(filter.waitForExistence(timeout: 3), "toolbar 沒有視角的篩選按鈕")
