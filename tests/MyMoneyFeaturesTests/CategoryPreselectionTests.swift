@@ -88,7 +88,7 @@ struct CategoryPreselectionTests {
         entry.note = ""
         entry.note = "先寫著"
 
-        await entry.prepare()
+        entry.startNewEntry()
         entry.note = "Netflix"
 
         #expect(entry.category == TransactionCategory("數位訂閱"))
@@ -109,6 +109,7 @@ struct CategoryPreselectionTests {
     @Test("儲存成功後備註清空，分類保留給下一筆，提示清掉")
     func savingClearsTheHint() async {
         let (entry, _) = await entry()
+        entry.accountID = SampleAccounts.savings.id
         entry.amountText = "120"
         entry.note = "中油加油"
 

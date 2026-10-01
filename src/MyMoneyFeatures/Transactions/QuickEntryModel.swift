@@ -71,20 +71,26 @@ public final class QuickEntryModel {
         date = today()
     }
 
-    /// 打開 sheet 時呼叫：載入資產帳戶;還沒選過、或選的帳戶已經不在時，預設第一個。
-    /// 每次打開都從沒鎖定分類、沒有推薦提示開始。
-    public func prepare() async {
+    /// 開始新的一筆(sheet 打開的那一次):**帳戶一律是空的**,不預選任何一個(上游 ADR 0011「顯式帳戶選取」，#109),
+    /// 避免沒注意預填的帳戶就記錯，連續記帳也一樣，每次打開都要自己選;也從沒鎖定分類、沒有推薦提示開始。
+    ///
+    /// 跟 `prepare` 分開:表單的 `.task` 在從帳戶清單頁返回時會再跑一次 `prepare`,不能因此清掉剛選的帳戶與分類的鎖定。
+    public func startNewEntry() {
         isCategoryChosen = false
         recommendation = nil
+        accountID = nil
+    }
+
+    /// 載入資產帳戶(表單出現時呼叫，可以重複呼叫);已選的帳戶不在清單裡了才清掉。不預選任何帳戶。
+    public func prepare() async {
         errorMessage = nil
         do {
             accounts = try await accountRepository.accounts()
         } catch {
             errorMessage = error.localizedDescription
-            return
         }
-        if accountID == nil || !accounts.contains(where: { $0.id == accountID }) {
-            accountID = accounts.first?.id
+        if let accountID, !accounts.contains(where: { $0.id == accountID }) {
+            self.accountID = nil
         }
     }
 
@@ -119,11 +125,15 @@ public final class QuickEntryModel {
         recommendation = result
     }
 
-    /// 送出;成功時回傳 `true`(sheet 關閉)。只清空金額、備註和日期，其他選擇保留給下一筆。
+    /// 送出;成功時回傳 `true`(sheet 關閉)。清空金額、備註、日期和帳戶，類型、分類、歸屬保留給下一筆。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let accountID, !accounts.isEmpty else {
+        guard !accounts.isEmpty else {
             errorMessage = "請先至「帳戶」建立至少一個帳戶"
+            return false
+        }
+        guard let accountID else {
+            errorMessage = "請選擇扣款或存入帳戶"
             return false
         }
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
@@ -151,6 +161,8 @@ public final class QuickEntryModel {
         amountText = ""
         note = ""
         date = today()
+        // 帳戶不沿用上一筆(ADR 0011):下一筆要重新選。
+        self.accountID = nil
         return true
     }
 }

@@ -42,6 +42,9 @@ public final class TransactionEditorModel {
         self.category = category
     }
 
+    /// 編輯一開始就是原本的帳戶與分類，沒有「新的一筆」要重設。
+    public func startNewEntry() {}
+
     /// 編輯不依備註推薦，不需要歷史。
     public func loadNoteHistory() async {}
 

@@ -22,6 +22,7 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 3))
         amount.tap()
         amount.typeText("250")
+        app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")

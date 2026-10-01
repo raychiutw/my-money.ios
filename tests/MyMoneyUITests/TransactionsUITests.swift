@@ -29,6 +29,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 3))
         amount.tap()
         amount.typeText("250")
+        app.chooseQuickEntryAccount()
         XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "記一筆的帳戶選擇列還帶著類型")
         app.buttons["quickEntry.save"].tap()
 
@@ -140,6 +141,7 @@ final class TransactionsUITests: XCTestCase {
 
         amount.tap()
         amount.typeText("250")
+        app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
         let added = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "收入 250 元", "個人私帳")
@@ -351,16 +353,52 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["完成"].tap()
         for _ in 0..<6 where !(accountRow().exists && accountRow().isHittable) { app.swipeUp() }
         XCTAssertTrue(accountRow().exists, "記一筆沒有「帳戶」列")
-        XCTAssertTrue(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列的值不是預設的第一個帳戶:\(accountRow().displayedText)")
+        // 帳戶預設是空的(上游 ADR 0011、#109):列上顯示佔位文字，不是任何一個帳戶。
+        XCTAssertTrue(accountRow().displayedText.contains("請選擇扣款／存入帳戶"), "「帳戶」列沒有顯示佔位文字:\(accountRow().displayedText)")
+        XCTAssertFalse(accountRow().displayedText.contains("iOS 測試存款"), "「帳戶」列預選了第一個帳戶:\(accountRow().displayedText)")
 
         accountRow().tap()
-        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試信用卡")).firstMatch
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 測試信用卡")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 3), "沒有推入帳戶清單頁")
         XCTAssertTrue(card.displayedText.contains("信用卡"), "清單頁的列沒有類型副標題:\(card.displayedText)")
 
         card.tap()
         XCTAssertTrue(accountRow().waitForExistence(timeout: 3), "選了帳戶之後沒有自動返回表單")
         XCTAssertTrue(accountRow().displayedText.contains("iOS 測試信用卡"), "返回之後「帳戶」列沒有顯示新選的帳戶:\(accountRow().displayedText)")
+    }
+
+    /// 記一筆沒選帳戶就儲存:被擋下並用紅字提示;選了帳戶儲存成功;再打開一次，帳戶又是空的(上游 ADR 0011、#109)。
+    @MainActor
+    func testQuickEntryRequiresAnAccountChoice() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        app.buttons["transactions.add"].tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開記一筆")
+        amount.tap()
+        amount.typeText("300")
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(
+            element(in: app, labelContaining: "請選擇扣款或存入帳戶").waitForExistence(timeout: 3),
+            "沒選帳戶就儲存，沒有顯示「請選擇扣款或存入帳戶」"
+        )
+        XCTAssertTrue(app.buttons["quickEntry.save"].exists, "沒選帳戶儲存時，記一筆被關掉了")
+
+        app.chooseQuickEntryAccount("iOS 測試存款")
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "支出 300 元").waitForExistence(timeout: 5), "選了帳戶儲存後沒有出現在列表上")
+
+        // 再打開一次:帳戶又是空的(不沿用上一筆)。
+        app.buttons["transactions.add"].tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3))
+        app.buttons["完成"].tap()
+        let row = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        for _ in 0..<6 where !(row.exists && row.isHittable) { app.swipeUp() }
+        XCTAssertTrue(row.displayedText.contains("請選擇扣款／存入帳戶"), "再打開記一筆，帳戶沒有清成空的:\(row.displayedText)")
     }
 
     /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
@@ -397,6 +435,7 @@ final class TransactionsUITests: XCTestCase {
 
         amount.tap()
         amount.typeText("88")
+        app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
         let added = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "交通", "支出 88 元")
