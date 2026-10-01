@@ -342,7 +342,7 @@ struct HouseholdTests {
 
     /// 系統依地區的格式(DESIGN.md「日期」),不再是「2026/09/28」;今年的省略年份。
     /// 時區固定台灣：加入時間 UTC 9/27 21:20 是台灣 9/28 早上(web 直接取 UTC 字串的前 10 個字，會顯示成前一天)。
-    @Test("加入日期、代墊明細的日期、邀請碼的有效期限用系統格式，時區固定台灣")
+    @Test("代墊明細的日期、邀請碼的有效期限用系統格式，時區固定台灣")
     func dateTexts() throws {
         let model = HouseholdModel(
             repository: InMemoryHouseholdRepository.sample(), accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion,
@@ -350,7 +350,6 @@ struct HouseholdTests {
         )
         let invitation = HouseholdInvitation(code: "FAM-AB12", expiresAt: try Date("2026-10-05T07:00:00Z", strategy: .iso8601))
 
-        #expect(model.joinedDateText(of: member("小美", .member)) == "9月28日")
         #expect(model.dateText(CalendarDay(year: 2026, month: 9, day: 27)) == "9月27日")
         #expect(model.dateText(CalendarDay(year: 2025, month: 12, day: 31)) == "2025年12月31日")
         #expect(model.expiryText(of: invitation) == "10月5日 下午3:00")

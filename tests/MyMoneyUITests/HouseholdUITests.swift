@@ -6,7 +6,8 @@ final class HouseholdUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 建立家庭 → 我是管理員 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
+    /// 建立家庭 → 我是管理員 → 數字優先的主視覺(#121):超大的分攤建議並標明誰轉給誰、各成員代墊長條圖、
+    /// 我的累計代墊／已報銷／待報銷 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
     @MainActor
     func testCreateInviteAndLeave() throws {
         let app = XCUIApplication()
@@ -26,13 +27,28 @@ final class HouseholdUITests: XCTestCase {
 
         XCTAssertTrue(element(in: app, labelContaining: "我的角色：管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭")
 
-        app.buttons["household.invite"].tap()
+        // 範例本月的公帳代墊:小明 6,000、小美 4,000，平均 5,000，小美該轉 1,000 給小明。
+        let settlement = element(in: app, labelContaining: "分攤建議,平分後每人應負擔 5,000 元,小美 轉 1,000 元 給 小明")
+        XCTAssertTrue(settlement.exists, "沒有分攤建議")
+        XCTAssertGreaterThan(settlement.frame.height, 50, "分攤建議不是大數字")
+        XCTAssertTrue(element(in: app, labelContaining: "本月各成員公帳代墊，平均 5,000 元").exists, "沒有各成員代墊的長條圖")
+        // 我的數字磚:登入的範例帳號小明墊付 250，還沒報銷。
+        for (label, value) in [("我的累計公帳墊付", "250 元"), ("我的已獲撥款報銷", "0 元"), ("我的待報銷", "250 元")] {
+            let tile = row(label, value: value, in: app)
+            XCTAssertTrue(tile.exists, "沒有「\(label) \(value)」這一磚")
+            XCTAssertGreaterThan(tile.frame.minY, settlement.frame.maxY - 1, "「\(label)」不在分攤建議下面")
+        }
+
+        // 邀請與離開降到最下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        let invite = app.buttons["household.invite"]
+        for _ in 0..<8 where !(invite.exists && invite.isHittable) { app.swipeUp() }
+        invite.tap()
         XCTAssertTrue(app.staticTexts["household.invitationCode"].waitForExistence(timeout: 3), "沒有顯示邀請碼")
         app.buttons["household.copy"].tap()
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        // 「離開家庭」在代墊與報銷區塊下面;List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        // 「離開家庭」在「邀請家庭成員」下面，同樣在最下面。
         let leave = app.buttons["household.leave"]
         for _ in 0..<5 where !(leave.exists && leave.isHittable) { app.swipeUp() }
         leave.tap()

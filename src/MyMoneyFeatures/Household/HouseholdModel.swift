@@ -29,11 +29,16 @@ public final class HouseholdModel {
 
     /// 每位成員的家庭公帳代墊統計(web 的「家庭公帳代墊與報銷中心」)。
     public private(set) var advances: [HouseholdAdvance] = []
+    /// 各成員本月的公帳代墊(`GET /statistics/household-shares`，#121):長條圖與分攤建議的資料。
+    /// 取不到(沒有統計資料來源或取得失敗)時是空的，家庭頁其餘區塊照常顯示。
+    public private(set) var shares: [HouseholdShare] = []
     /// 就地展開明細的成員;可以同時展開多位。
     private var expandedMemberIDs: Set<UserID> = []
 
     @ObservationIgnored private let repository: any HouseholdRepository
     @ObservationIgnored private let accounts: any AccountRepository
+    @ObservationIgnored private let statistics: (any StatisticsRepository)?
+    @ObservationIgnored private let currentUser: UserID?
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
@@ -42,20 +47,19 @@ public final class HouseholdModel {
     public init(
         repository: any HouseholdRepository,
         accounts: any AccountRepository,
+        statistics: (any StatisticsRepository)? = nil,
+        currentUser: UserID? = nil,
         dataVersion: DataVersion,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.accounts = accounts
+        self.statistics = statistics
+        self.currentUser = currentUser
         self.dataVersion = dataVersion
         self.locale = locale
         self.today = today
-    }
-
-    /// 加入日期(台灣時間的那一天),例如「9月28日」,不是今年的加上年份(DESIGN.md「日期」)。
-    public func joinedDateText(of member: HouseholdMember) -> String {
-        member.joinedAt.dayText(today: today(), locale: locale)
     }
 
     /// 代墊與報銷明細的日期，例如「9月27日」,不是今年的加上年份。
@@ -118,10 +122,41 @@ public final class HouseholdModel {
         do {
             household = try await repository.current()
             advances = household == nil ? [] : try await repository.advances()
+            // 本月各成員的公帳代墊是額外的資料來源:取不到不能讓家庭頁失敗。
+            shares = household == nil ? [] : await fetchShares()
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    private func fetchShares() async -> [HouseholdShare] {
+        guard let statistics else { return [] }
+        return (try? await statistics.householdShares(month: CalendarMonth(today()))) ?? []
+    }
+
+    /// 分攤建議(#121):剛好兩位成員有公帳代墊款時，平分後誰轉多少給誰;跟統計頁同一個算法(parity「前端常數」)。
+    public var settlement: Settlement? { StatisticsModel.settlement(for: shares) }
+
+    /// 長條圖的平均線:各成員本月公帳代墊的平均(四捨五入到整數)，只是顯示;沒有資料時是 `nil`。
+    public var averageShare: Money? {
+        guard !shares.isEmpty else { return nil }
+        let total = shares.reduce(Money.zero) { $0 + $1.total }.amount
+        var average = total / Decimal(shares.count)
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &average, 0, .plain)
+        return Money(rounded)
+    }
+
+    /// 登入的人在代墊統計裡的那一筆:我的累計代墊、已報銷、待報銷(後端的值)。
+    public var myAdvance: HouseholdAdvance? {
+        guard let currentUser else { return nil }
+        return advances.first { $0.memberID == currentUser }
+    }
+
+    /// 成員的身分，例如「管理員」「成員」;不是這個家庭的成員時是 `nil`。
+    public func roleTitle(of userID: UserID) -> String? {
+        household?.members.first { $0.userID == userID }?.role.title
     }
 
     public func create() async {

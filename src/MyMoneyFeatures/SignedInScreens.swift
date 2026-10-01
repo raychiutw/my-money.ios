@@ -58,7 +58,8 @@ public struct MainScreens {
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
         household = HouseholdModel(
-            repository: householdRepository, accounts: accountRepository, dataVersion: dataVersion
+            repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
+            currentUser: currentUser, dataVersion: dataVersion
         )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }

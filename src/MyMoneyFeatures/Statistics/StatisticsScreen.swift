@@ -140,14 +140,7 @@ struct StatisticsScreen: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("分攤建議,\(settlementText(settlement, spoken: true))")
-    }
-
-    private func settlementText(_ settlement: Settlement, spoken: Bool) -> String {
-        let text: (Money) -> String = { spoken ? $0.spokenText : $0.formatted() }
-        let perPerson = "平分後每人應負擔 \(text(settlement.perPerson))"
-        guard let transfer = settlement.transfer else { return "\(perPerson),兩人的公帳代墊款一樣多，不用轉帳" }
-        return "\(perPerson),\(transfer.from) 轉 \(text(transfer.amount)) 給 \(transfer.to)"
+        .accessibilityLabel("分攤建議,\(settlement.text(spoken: true))")
     }
 
     /// 圓餅圖最多 8 塊:金額最大的幾種用各自固定的顏色，其餘(含沒有專屬色的分類)併成 1 塊灰色(`ExpenseChart`,#100)。
