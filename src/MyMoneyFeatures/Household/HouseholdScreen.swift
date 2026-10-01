@@ -324,6 +324,9 @@ private struct MemberRow: View {
     /// 這位成員的代墊統計;後端沒有這位成員的紀錄時是 `nil`。
     let advance: HouseholdAdvance?
 
+    /// 圓形頭像跟著字級放大，大字級時開頭字才放得進去。
+    @ScaledMetric(relativeTo: .headline) private var avatarSize: CGFloat = 40
+
     var body: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 12) {
@@ -347,7 +350,7 @@ private struct MemberRow: View {
     private var avatar: some View {
         Text(name.first.map { String($0).uppercased() } ?? "?")
             .font(.headline)
-            .frame(width: 40, height: 40)
+            .frame(width: avatarSize, height: avatarSize)
             .background(Circle().fill(.tint.opacity(0.2)))
     }
 

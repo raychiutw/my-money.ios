@@ -42,41 +42,65 @@ struct HouseholdHero: View {
     }
 }
 
-/// 各成員本月公帳代墊的長條圖:每位成員一根，一條虛線是平均;數字標在每根上面，不只靠長度。
+/// 各成員本月公帳代墊的長條圖:每位成員一根，金額標在長條裡面(白字，不會壓到平均線)，一條虛線是平均，
+/// 平均的金額寫在圖下面的圖例;只標成員名字，不畫格線。
 struct MemberShareChart: View {
     let shares: [HouseholdShare]
     let average: Money?
 
     var body: some View {
-        Chart {
-            ForEach(shares, id: \.userID) { share in
-                BarMark(x: .value("成員", share.userName), y: .value("公帳代墊", share.total.chartValue))
-                    .foregroundStyle(.indigo)
-                    .annotation(position: .top) {
-                        Text(share.total.formatted())
-                            .font(.footnote.bold())
-                            .monospacedDigit()
-                    }
-                    .accessibilityLabel(share.userName)
-                    .accessibilityValue("公帳代墊 \(share.total.spokenText)")
+        VStack(alignment: .leading, spacing: 6) {
+            Chart {
+                ForEach(shares, id: \.userID) { share in
+                    BarMark(x: .value("成員", share.userName), y: .value("公帳代墊", share.total.chartValue))
+                        .foregroundStyle(.indigo)
+                        .annotation(position: .overlay, alignment: .top) {
+                            Text(share.total.formatted())
+                                .font(.footnote.bold())
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                // 大字級時長條比字窄:縮小到放得下，不截斷成「$6,…」。
+                                .minimumScaleFactor(0.4)
+                                .foregroundStyle(.white)
+                                .padding(.top, 4)
+                                .padding(.horizontal, 4)
+                        }
+                        .accessibilityLabel(share.userName)
+                        .accessibilityValue("公帳代墊 \(share.total.spokenText)")
+                }
+                if let average {
+                    RuleMark(y: .value("平均", average.chartValue))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        // 明確的灰色:`.secondary` 在圖表裡會被主題色染成粉紅。
+                        .foregroundStyle(Color.secondary)
+                        .accessibilityHidden(true)
+                }
             }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisValueLabel()
+                }
+            }
+            .chartYAxis(.hidden)
+            .frame(height: 160)
+            .accessibilityLabel(summary)
+
             if let average {
-                RuleMark(y: .value("平均", average.chartValue))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(.secondary)
-                    .annotation(position: .top, alignment: .trailing) {
-                        Text("平均 \(average.formatted())")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
+                HStack(spacing: 6) {
+                    Path { path in
+                        path.move(to: .zero)
+                        path.addLine(to: CGPoint(x: 20, y: 0))
                     }
-                    .accessibilityHidden(true)
+                    .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .frame(width: 20, height: 1)
+                    Text("平均 \(average.formatted())")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .accessibilityHidden(true)
             }
         }
-        .chartYAxis(.hidden)
-        .chartYScale(domain: 0...(max(shares.map(\.total.chartValue).max() ?? 1, average?.chartValue ?? 0) * 1.35))
-        .frame(height: 160)
-        .accessibilityLabel(summary)
     }
 
     /// 例如「本月各成員公帳代墊，平均 5,000 元」。
