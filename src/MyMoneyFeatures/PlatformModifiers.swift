@@ -76,6 +76,15 @@ extension View {
         #endif
     }
 
+    /// 區塊之間的間距縮小(總覽的數字磚、提示)。只有 iOS 有 `listSectionSpacing`。
+    func compactSectionSpacing() -> some View {
+        #if os(iOS)
+        listSectionSpacing(.compact)
+        #else
+        self
+        #endif
+    }
+
     /// 標題以小字顯示在導覽列(push 進來的頁面)。
     func inlineNavigationTitle() -> some View {
         #if os(iOS)

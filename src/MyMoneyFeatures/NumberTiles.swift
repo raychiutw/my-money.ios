@@ -17,6 +17,37 @@ extension Color {
     }
 }
 
+/// 大數字(#116、#118):全 app 唯一放大的字級(DESIGN.md「字型與數字」)。小標題加 52pt 的粗圓體金額，
+/// `@ScaledMetric` 跟著 Dynamic Type 放大;單行，放不下時縮小，不折行也不截斷。
+/// 整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
+struct BigNumber: View {
+    let title: String
+    let amount: Money
+    /// 顯示的文字，預設是金額。
+    var text: String?
+    /// 負數用紅色。
+    var warnsWhenNegative = true
+
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 52
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(text ?? amount.formatted())
+                .font(.system(size: size, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(amount.spokenText)
+    }
+}
+
 /// 數字磚(#117):小標籤加一個大數字，各 tab 摘要共用(DESIGN.md「數字磚與卡片」)。
 /// 放在 `NumberTileRow` 裡，一排放得下就並排，放不下就上下堆疊。
 ///

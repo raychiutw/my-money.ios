@@ -10,24 +10,9 @@ struct OverviewHero: View {
     /// 走勢線的 VoiceOver 摘要(最低餘額、日期、會不會透支)。
     let trendSummary: String?
 
-    /// 大數字的字級:跟著 Dynamic Type 縮放，單行、放不下就縮小(不折行、不截斷)。
-    @ScaledMetric(relativeTo: .largeTitle) private var bigNumberSize: CGFloat = 52
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("淨可用餘額")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text(balance.formatted())
-                .font(.system(size: bigNumberSize, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .foregroundStyle(balance < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                // VoiceOver 念「淨可用餘額 21,500 元」，不要把標題和數字拆成兩個元素。
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("淨可用餘額")
-                .accessibilityValue(balance.spokenText)
+            BigNumber(title: "淨可用餘額", amount: balance)
             if let trend, !trend.points.isEmpty {
                 ForecastTrendChart(trend: trend, summary: trendSummary)
             }
@@ -102,17 +87,9 @@ struct ForecastTrendChart: View {
 
 /// 主視覺的骨架屏:跟載入後一樣的大數字與一塊跟圖表一樣高的灰色區塊。
 struct OverviewHeroSkeleton: View {
-    @ScaledMetric(relativeTo: .largeTitle) private var bigNumberSize: CGFloat = 52
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("淨可用餘額")
-                .font(.subheadline)
-            Text(Skeleton.amount.formatted())
-                .font(.system(size: bigNumberSize, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
+            BigNumber(title: "淨可用餘額", amount: Skeleton.amount)
             SkeletonChart(height: 120)
         }
         .padding(.vertical, 8)

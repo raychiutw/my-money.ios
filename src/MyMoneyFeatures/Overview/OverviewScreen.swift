@@ -105,7 +105,7 @@ struct OverviewScreen: View {
                 }
                 .clearListRow()
             }
-            .listSectionSpacing(.compact)
+            .compactSectionSpacing()
         }
     }
 
@@ -118,7 +118,7 @@ struct OverviewScreen: View {
             .accessibilityIdentifier("overview.overBudget")
             .clearListRow()
         }
-        .listSectionSpacing(.compact)
+        .compactSectionSpacing()
     }
 
     /// 帳戶卡片(#117):兩欄網格(大字級自然變一欄)，每張是名稱加大金額;最多 `accountCardLimit` 張，其餘用「管理」到帳戶頁。

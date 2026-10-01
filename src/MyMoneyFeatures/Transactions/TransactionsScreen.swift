@@ -2,11 +2,11 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「交易」tab:搜尋、摘要、依日期分組的交易記錄(parity.md「交易」)。
+/// 「交易」tab:搜尋、數字優先的主視覺(淨收支、比例條、每日支出長條圖)、依日期分組的交易記錄(parity.md「交易」,#118)。
 ///
-/// 視角、起迄日、類型、分類收在 toolbar 篩選按鈕打開的「篩選」sheet(#74),目前的範圍一律顯示在導覽列副標題;
+/// 視角、起迄日、類型、分類收在 toolbar 篩選按鈕打開的「篩選」sheet(#74),目前的範圍是篩選按鈕的 VoiceOver 值;
 /// toolbar 只有篩選、記一筆和頭像三顆,匯出 CSV 是列表最底下的一列(ADR-0004);
-/// 打開畫面最上面就是摘要和交易記錄。
+/// 打開畫面最上面就是主視覺和交易記錄。
 struct TransactionsScreen: View {
     @Bindable var model: TransactionsModel
     let quickEntry: QuickEntryModel
@@ -96,8 +96,8 @@ struct TransactionsScreen: View {
         List {
             switch model.phase {
             case .loading:
-                SkeletonSection(count: 3, announces: true) {
-                    LabeledContent("總收入", value: Skeleton.amount.formatted())
+                Section {
+                    TransactionsHeroSkeleton()
                 }
                 SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
                 SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
@@ -107,7 +107,9 @@ struct TransactionsScreen: View {
                         .foregroundStyle(.secondary)
                 }
             case .loaded:
-                totalsSection
+                Section {
+                    TransactionsHero(model: model)
+                }
                 let days = model.days
                 if days.isEmpty {
                     ContentUnavailableView {
@@ -186,19 +188,9 @@ struct TransactionsScreen: View {
             TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isLocked: true)
         }
     }
-
-    /// 摘要：總收入、總支出、淨收支各一列(DESIGN.md「列與欄位」);筆數在交易記錄的標題。
-    private var totalsSection: some View {
-        Section {
-            AmountRow(title: "總收入", amount: model.totalIncome, text: "+\(model.totalIncome.formatted())", style: .green)
-            AmountRow(title: "總支出", amount: model.totalExpense, text: "-\(model.totalExpense.formatted())", style: .red)
-            AmountRow(title: "淨收支", amount: model.net, style: .primary)
-                .bold()
-        }
-    }
 }
 
-/// 每天的標頭：日期(「9月29日週二」,DESIGN.md「日期」),以及大於 0 的當日收入與支出。
+/// 每天的標頭：日期(「9月29日週二」,DESIGN.md「日期」)，以及當日淨額(帶正負號;只有系統分類的那天沒有，#118)。
 /// 放不下時(大字級)改成上下堆疊，金額一律單行(DESIGN.md「列與欄位」)。
 private struct DayHeader: View {
     let day: TransactionDay
@@ -208,27 +200,36 @@ private struct DayHeader: View {
             HStack {
                 Text(day.title)
                 Spacer(minLength: 8)
-                amounts
+                net
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(day.title)
-                amounts
+                net
             }
         }
         .monospacedDigit()
     }
 
     @ViewBuilder
-    private var amounts: some View {
-        if day.income > .zero {
-            Text("+\(day.income.formatted())")
+    private var net: some View {
+        if day.hasNet {
+            Text(day.netText)
                 .lineLimit(1)
                 .fixedSize()
+                .foregroundStyle(day.net > .zero ? Color.green : (day.net < .zero ? Color.red : Color.secondary))
+                .accessibilityLabel("當日淨額 \(day.net.spokenText)")
         }
-        if day.expense > .zero {
-            Text("-\(day.expense.formatted())")
-                .lineLimit(1)
-                .fixedSize()
+    }
+}
+
+/// 主視覺的骨架屏:跟載入後一樣的大數字與灰色圖表區塊。
+private struct TransactionsHeroSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            BigNumber(title: "淨收支", amount: Skeleton.amount)
+            SkeletonChart(height: 110)
         }
+        .padding(.vertical, 8)
+        .skeletonAnnouncement()
     }
 }

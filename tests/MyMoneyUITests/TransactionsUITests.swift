@@ -85,6 +85,50 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
     }
 
+    /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;
+    /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880(信用卡還款不算)。
+    @MainActor
+    func testHeroShowsNetIncomeExpenseRatioDailyChartAndDayNet() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let net = row("淨收支", value: "44,000 元", in: app)
+        XCTAssertTrue(net.waitForExistence(timeout: 5), "沒有淨收支的大數字")
+        XCTAssertGreaterThan(net.frame.height, 50, "淨收支不是大數字")
+        XCTAssertTrue(row("收入", value: "45,000 元", in: app).exists, "沒有收入")
+        XCTAssertTrue(row("支出", value: "1,000 元", in: app).exists, "沒有支出")
+        let ratio = element(in: app, labelContaining: "支出佔收入百分之 2")
+        XCTAssertTrue(ratio.exists, "沒有支出佔收入的比例條")
+        let chart = element(in: app, labelContaining: "本區間每日支出，最多的一天是")
+        XCTAssertTrue(chart.exists, "沒有每日支出長條圖")
+        XCTAssertLessThan(net.frame.minY, ratio.frame.minY, "比例條不在淨收支下面")
+        XCTAssertLessThan(ratio.frame.minY, chart.frame.minY, "長條圖不在比例條下面")
+
+        // 日標頭右邊是當日淨額。範例資料的日期相對於今天(月初時全部落在同一天)，所以這裡只確認有，
+        // 數值由單元測試用固定日期驗證。日標頭在主視覺下面，還沒捲到的不在 UI 階層裡，先捲下去。
+        let dayNet = element(in: app, labelContaining: "當日淨額")
+        for _ in 0..<5 where !dayNet.exists { app.swipeUp() }
+        XCTAssertTrue(dayNet.exists, "日標頭沒有當日淨額")
+        for _ in 0..<5 where !app.buttons["transactions.filter"].isHittable { app.swipeDown() }
+        // 只看收入時沒有支出，也就沒有長條圖;只看支出時收入是 0，沒有比例條，長條圖還在。
+        let filter = app.buttons["transactions.filter"]
+        filter.tap()
+        tapRevealing(app.buttons["僅收入"], in: app)
+        app.navigationBars["篩選"].buttons["完成"].tap()
+        XCTAssertTrue(row("淨收支", value: "45,000 元", in: app).waitForExistence(timeout: 5), "只看收入後淨收支沒有更新")
+        XCTAssertFalse(element(in: app, labelContaining: "本區間每日支出").exists, "沒有支出時還有長條圖")
+
+        filter.tap()
+        tapRevealing(app.buttons["僅支出"], in: app)
+        app.navigationBars["篩選"].buttons["完成"].tap()
+        XCTAssertTrue(row("淨收支", value: "負 1,000 元", in: app).waitForExistence(timeout: 5), "只看支出後淨收支沒有更新")
+        XCTAssertFalse(element(in: app, labelContaining: "支出佔收入").exists, "收入是 0 時還有比例條")
+        XCTAssertTrue(element(in: app, labelContaining: "本區間每日支出").exists, "只看支出時沒有長條圖")
+    }
+
     /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
     /// 自己記的不念記帳人;分組標頭是「9月28日週一」這種系統格式，不是「09/28」。
     @MainActor
@@ -449,6 +493,11 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
         XCTAssertTrue(element.exists && element.isHittable, "捲動之後還是點不到「\(element.label)」")
         element.tap()
+    }
+
+    @MainActor
+    private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
     }
 
     @MainActor

@@ -54,6 +54,11 @@ public struct CalendarDay: Hashable, Comparable, Sendable {
         return CalendarDay(year: first.year, month: first.month, day: min(day, first.daysInMonth))
     }
 
+    /// 加減幾天(負數往前)。
+    public func addingDays(_ days: Int) -> CalendarDay {
+        CalendarDay(date: Self.taipeiCalendar.date(byAdding: .day, value: days, to: startOfDay)!)
+    }
+
     /// 這個月有幾天。
     public var daysInMonth: Int {
         Self.taipeiCalendar.range(of: .day, in: .month, for: startOfDay)!.count
