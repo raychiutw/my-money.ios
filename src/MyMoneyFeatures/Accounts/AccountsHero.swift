@@ -25,6 +25,8 @@ struct CompositionBar: View {
     let summary: String
 
     @ScaledMetric(relativeTo: .body) private var barHeight: CGFloat = 12
+    /// 圖例的色點跟著字級放大，大字級時才不會小到看不見。
+    @ScaledMetric(relativeTo: .subheadline) private var dotSize: CGFloat = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -67,7 +69,7 @@ struct CompositionBar: View {
         HStack(spacing: 6) {
             Circle()
                 .fill(segment.kind.color)
-                .frame(width: 8, height: 8)
+                .frame(width: dotSize, height: dotSize)
             Text(segment.kind.title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -97,6 +99,8 @@ struct TransferCapsuleButton: View {
             Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
+                // 標籤用系統背景色(淺色白、深色黑):深色模式的主題色是淡粉紅，白字只有約 2.2:1，黑字約 9:1。
+                .foregroundStyle(.background)
         }
         .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
