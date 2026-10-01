@@ -19,7 +19,7 @@ struct HouseholdScreen: View {
     private var screen: some View {
         content
             .skeletonTransition(value: model.phase)
-            .navigationTitle("家庭")
+            .tabRootNavigation("家庭")
             .toolbar {
                 AccountToolbarItem()
             }

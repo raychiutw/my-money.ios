@@ -261,14 +261,6 @@ struct OverviewTests {
         #expect(model.topGoals.map(\.name) == ["沖繩旅遊", "緊急備用金", "iOS 小目標"])
     }
 
-    /// web 固定寫「早安」(parity 刻意偏離第 21 項)。
-    @Test("依裝置的當地時間問候", arguments: [
-        (4, "晚安"), (5, "早安"), (11, "早安"), (12, "午安"), (17, "午安"), (18, "晚安"), (23, "晚安"),
-    ])
-    func greeting(hour: Int, expected: String) {
-        #expect(OverviewModel.greeting(hour: hour, name: "小明") == "\(expected)，小明")
-    }
-
     @Test("資料版本改變後重抓(例如從總覽記一筆之後)")
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()

@@ -100,15 +100,6 @@ public final class OverviewModel {
 
     public var overBudgetTitle: String { "有 \(overBudgets.count) 個分類支出已超出預算" }
 
-    /// 依裝置的當地時間問候(parity 刻意偏離第 21 項):5 點到中午前是早安，中午到 18 點前是午安，其餘是晚安。
-    public nonisolated static func greeting(hour: Int, name: String) -> String {
-        let greeting = switch hour {
-        case 5..<12: "早安"
-        case 12..<18: "午安"
-        default: "晚安"
-        }
-        return "\(greeting)，\(name)"
-    }
 
     /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);預算額度帶入明確的當月。
     public func load() async {

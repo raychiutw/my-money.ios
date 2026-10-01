@@ -18,8 +18,7 @@ struct AccountsScreen: View {
         NavigationStack {
             content
                 .skeletonTransition(value: model.phase)
-                .navigationTitle("帳戶")
-                .navigationSubtitle(model.scope.title)
+                .tabRootNavigation("帳戶")
                 .toolbar {
                     ScopeFilter("帳戶檢視範圍", scope: $model.scope, identifier: "accounts.scope")
                     ToolbarItem(placement: .primaryAction) {

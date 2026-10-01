@@ -48,7 +48,7 @@ final class AccountsUITests: XCTestCase {
     }
 
     /// 帳戶檢視範圍是「全部」「家庭公用」「個人私帳」(web 的 bd0507b),在 toolbar 的篩選按鈕(#64):
-    /// 點按鈕再選，導覽列副標題顯示目前的範圍。範例資料的資產帳戶都是個人私帳，切到家庭公用之後，銀行存款帳戶區塊是空的。
+    /// 點按鈕再選，按鈕的 VoiceOver 值是目前的範圍。範例資料的資產帳戶都是個人私帳，切到家庭公用之後，銀行存款帳戶區塊是空的。
     @MainActor
     func testJointFundScopeHidesPersonalAccounts() throws {
         let app = XCUIApplication()
@@ -61,14 +61,12 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(filter.waitForExistence(timeout: 5), "toolbar 沒有帳戶檢視範圍的篩選按鈕")
         XCTAssertEqual(filter.label, "帳戶檢視範圍", "篩選按鈕的 VoiceOver 標籤不是「帳戶檢視範圍」")
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的帳戶檢視範圍")
-        XCTAssertTrue(subtitle("全部", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的帳戶檢視範圍")
 
         filter.tap()
         for option in ["全部", "家庭公用", "個人私帳"] {
             XCTAssertTrue(app.buttons[option].waitForExistence(timeout: 3), "帳戶檢視範圍選單裡沒有「\(option)」")
         }
         app.buttons["家庭公用"].tap()
-        XCTAssertTrue(subtitle("家庭公用", in: app).waitForExistence(timeout: 3), "切換帳戶檢視範圍後導覽列副標題沒有跟著變")
         XCTAssertEqual(filter.value as? String, "家庭公用", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 銀行存款帳戶區塊在統計卡和現金錢包區塊下面，捲下去才在 UI 階層裡。
@@ -284,12 +282,6 @@ final class AccountsUITests: XCTestCase {
         let cardDebt = element(in: app, labelContaining: "信用卡待繳總額")
         XCTAssertTrue(cardDebt.exists)
         XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在摘要的最後一列")
-    }
-
-    /// 導覽列副標題(`navigationSubtitle`)。
-    @MainActor
-    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        app.navigationBars.staticTexts[text]
     }
 
     /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額，例如標籤「信用卡待繳總額」、值「28,500 元」。

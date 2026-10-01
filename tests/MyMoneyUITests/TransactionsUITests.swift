@@ -19,9 +19,9 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         // 預設的範圍是本月 1 號到台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
-        XCTAssertTrue(
-            subtitle("全部・\(Self.taipeiThisMonthPeriod())", in: app).exists,
-            "導覽列副標題不是本月 1 號到台灣時間的今天(\(Self.taipeiThisMonthPeriod()))"
+        XCTAssertEqual(
+            app.buttons["transactions.filter"].value as? String, "全部・\(Self.taipeiThisMonthPeriod())",
+            "篩選按鈕的 VoiceOver 值不是本月 1 號到台灣時間的今天(\(Self.taipeiThisMonthPeriod()))"
         )
 
         app.buttons["transactions.add"].tap()
@@ -35,8 +35,8 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 250 元").waitForExistence(timeout: 5), "記一筆後沒有出現在列表上")
     }
 
-    /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，導覽列副標題一律顯示目前的範圍。
-    /// 在 sheet 裡改類型後按「完成」,清單、副標題和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
+    /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，篩選按鈕的 VoiceOver 值描述目前的範圍。
+    /// 在 sheet 裡改類型後按「完成」,清單、篩選按鈕的值和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
     @MainActor
     func testFilterSheetAppliesOnDoneAndCancelKeepsFilter() throws {
         let app = XCUIApplication()
@@ -47,7 +47,7 @@ final class TransactionsUITests: XCTestCase {
 
         let period = Self.taipeiThisMonthPeriod()
         XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
-        XCTAssertTrue(subtitle("全部・\(period)", in: app).waitForExistence(timeout: 3), "導覽列副標題沒有顯示目前的範圍(全部・\(period))")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)", "篩選按鈕的 VoiceOver 值沒有描述目前的範圍(全部・\(period))")
         XCTAssertEqual(app.collectionViews.firstMatch.segmentedControls.count, 0, "交易頁的清單上方還有分段控制")
         XCTAssertTrue(app.staticTexts["交易記錄(4)"].exists, "交易記錄的筆數不在 section 的標題")
 
@@ -67,19 +67,19 @@ final class TransactionsUITests: XCTestCase {
         sheet.buttons["完成"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按完成後篩選 sheet 沒有關閉")
-        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).waitForExistence(timeout: 3), "按完成後副標題沒有加上類型")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按完成後篩選按鈕的值沒有加上類型")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按完成後清單沒有收入")
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按完成後清單還有支出")
         XCTAssertTrue(app.staticTexts["交易記錄(1)"].exists, "按完成後交易記錄的筆數沒有更新")
 
-        // 改成僅支出再按取消：清單和副標題都不變。
+        // 改成僅支出再按取消：清單和篩選按鈕的值都不變。
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
         tapRevealing(app.buttons["僅支出"], in: app)
         sheet.buttons["取消"].tap()
 
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
-        XCTAssertTrue(subtitle("全部・\(period)・收入", in: app).exists, "按取消後副標題變了")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按取消後篩選按鈕的值變了")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按取消後清單變了")
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
     }
@@ -280,7 +280,7 @@ final class TransactionsUITests: XCTestCase {
         return "\(day.year!)年\(day.month!)月\(day.day!)日"
     }
 
-    /// 台灣時間的本月 1 號到今天，格式跟導覽列副標題一樣，例如「9月1日–9月28日」。
+    /// 台灣時間的本月 1 號到今天，格式跟篩選按鈕的 VoiceOver 值一樣，例如「9月1日–9月28日」。
     private static func taipeiThisMonthPeriod() -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
@@ -410,12 +410,6 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
         XCTAssertTrue(element.exists && element.isHittable, "捲動之後還是點不到「\(element.label)」")
         element.tap()
-    }
-
-    /// 導覽列副標題(`navigationSubtitle`)。
-    @MainActor
-    private func subtitle(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        app.navigationBars.staticTexts[text]
     }
 
     @MainActor

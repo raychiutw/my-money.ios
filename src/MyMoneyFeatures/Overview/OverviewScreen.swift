@@ -17,8 +17,7 @@ struct OverviewScreen: View {
             List {
                 content
             }
-            .navigationTitle(greeting)
-            .navigationSubtitle(model.scope.title)
+            .tabRootNavigation("總覽")
             .skeletonTransition(value: model.phase)
             .refreshable { await model.load() }
             .toolbar {
@@ -50,11 +49,6 @@ struct OverviewScreen: View {
     private struct QueryKey: Equatable {
         let scope: ViewScope
         let version: Int
-    }
-
-    /// 依裝置的當地時間問候(parity 刻意偏離第 21 項)。
-    private var greeting: String {
-        OverviewModel.greeting(hour: Calendar.current.component(.hour, from: .now), name: session.current?.user.name ?? "朋友")
     }
 
     @ViewBuilder

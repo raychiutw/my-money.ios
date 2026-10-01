@@ -18,8 +18,7 @@ struct TransactionsScreen: View {
         NavigationStack {
             content
                 .skeletonTransition(value: model.phase)
-                .navigationTitle("交易")
-                .navigationSubtitle(model.subtitle)
+                .tabRootNavigation("交易")
                 // 搜尋欄一直顯示在標題下方。iOS 26 起在 TabView 裡用預設位置時，CI 的 UI 階層裡找不到搜尋欄。
                 #if os(iOS)
                 .searchable(text: $model.keyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋備註、分類、帳戶或記帳人")
@@ -36,7 +35,7 @@ struct TransactionsScreen: View {
                             Image(systemName: filterSymbolName(isActive: model.isFilterActive))
                         }
                         .accessibilityLabel("篩選")
-                        .accessibilityValue(model.subtitle)
+                        .accessibilityValue(model.filterSummary)
                         .accessibilityIdentifier("transactions.filter")
                     }
                     ToolbarItem(placement: .primaryAction) {

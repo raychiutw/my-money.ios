@@ -121,9 +121,9 @@ public final class TransactionsModel {
         return !isDefault || !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// 導覽列副標題：目前套用的範圍，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
-    /// 日期用系統格式(DESIGN.md「日期」)。
-    public var subtitle: String {
+    /// 目前套用的篩選的一句話描述，例如「家庭公帳・9月1日–9月30日・支出・餐飲」;預設時是「全部・9月1日–9月29日」。
+    /// 畫面上不再顯示(tab 首頁沒有標題與副標題，#108),只當篩選按鈕的 VoiceOver 值。日期用系統格式(DESIGN.md「日期」)。
+    public var filterSummary: String {
         let today = today()
         var parts = [
             filter.scope.title,

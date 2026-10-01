@@ -18,8 +18,7 @@ struct StatisticsScreen: View {
                 content
             }
             .skeletonTransition(value: model.phase)
-            .navigationTitle("統計")
-            .navigationSubtitle(model.scope.title)
+            .tabRootNavigation("統計")
             .toolbar {
                 ScopeFilter("視角", scope: $model.scope, identifier: "statistics.scope")
                 AccountToolbarItem()
