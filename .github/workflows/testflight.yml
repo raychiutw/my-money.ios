@@ -71,8 +71,11 @@ jobs:
       - name: 工具鏈版本
         run: xcodebuild -version
 
-      # 自動簽章：xcodebuild 用 App Store Connect team API key 註冊 App ID、建立描述檔，
-      # Distribution 憑證由 Apple 雲端管理。版本號沿用專案的 MARKETING_VERSION,build 號用 GITHUB_RUN_ID。
+      # 簽章只在匯出時做:archive 不簽章(不需要 Apple Development 憑證)，匯出時用 App Store Connect team API key
+      # 註冊 App ID、建立描述檔，用 Apple 雲端管理的 Distribution 憑證簽章(固定的一張，不隨 runner 重建)。
+      # 以前 archive 也自動簽章，每次都在全新的 runner 上建一張「Created via API」的 Apple Development 憑證，
+      # 累積到帳號的上限就失敗(「maximum number of certificates」，2026-10-02)。
+      # 版本號沿用專案的 MARKETING_VERSION,build 號用 GITHUB_RUN_ID。
       - name: Archive 並上傳到 TestFlight
         run: |
           set -euo pipefail
@@ -95,17 +98,21 @@ jobs:
             -archivePath "$archive_path" \
             -derivedDataPath "$RUNNER_TEMP/ArchiveDerivedData" \
             -hideShellScriptEnvironment \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$key_path" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_ID"
+
+          # 不簽章的 archive 裡沒有團隊資訊:匯出設定要帶 teamID(Team ID 在 environment 變數裡，不進 repo)。
+          export_options="$RUNNER_TEMP/ExportOptions.plist"
+          cp .github/ExportOptions.plist "$export_options"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$export_options"
 
           xcodebuild -exportArchive \
             -archivePath "$archive_path" \
             -exportPath "$RUNNER_TEMP/TestFlightExport" \
-            -exportOptionsPlist .github/ExportOptions.plist \
+            -exportOptionsPlist "$export_options" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$key_path" \
             -authenticationKeyID "$ASC_KEY_ID" \
