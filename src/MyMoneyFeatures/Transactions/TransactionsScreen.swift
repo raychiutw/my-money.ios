@@ -94,6 +94,12 @@ struct TransactionsScreen: View {
     @ViewBuilder
     private var content: some View {
         List {
+            // 年月快速切換:不論載入狀態都在最上面(載入失敗時也能換個月再試)。
+            Section {
+                MonthPill(model: model)
+                    .clearListRow()
+            }
+            .compactSectionSpacing()
             switch model.phase {
             case .loading:
                 Section {

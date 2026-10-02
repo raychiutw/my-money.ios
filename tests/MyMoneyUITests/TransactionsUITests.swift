@@ -123,6 +123,69 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
     }
 
+    /// 年月快速切換(#130):上一月、下一月、選任意年月，篩選按鈕的值跟著變;本月時下一月停用。
+    @MainActor
+    func testMonthSwitcherChangesTheFilterRange() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let title = app.buttons["transactions.month.title"]
+        let previous = app.buttons["transactions.month.previous"]
+        let next = app.buttons["transactions.month.next"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "交易頁沒有年月切換")
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 0), "年月不是台灣時間的本月")
+        XCTAssertFalse(next.isEnabled, "本月時下一月沒有停用")
+        let filter = app.buttons["transactions.filter"]
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiThisMonthPeriod())")
+
+        previous.tap()
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 1), "上一月沒有換成上個月")
+        XCTAssertTrue(next.isEnabled, "切到過去的月份後下一月還是停用")
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiWholeMonthPeriod(monthsAgo: 1))", "篩選按鈕的範圍沒有跟著變成整個上個月")
+
+        next.tap()
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 0))
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiThisMonthPeriod())", "切回本月後範圍不是本月 1 號到今天")
+
+        // 點年月選任意年月:2025 年 3 月。
+        title.tap()
+        let year = app.pickerWheels.element(boundBy: 0)
+        let month = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(year.waitForExistence(timeout: 3), "沒有打開選年月")
+        year.adjust(toPickerWheelValue: "2025年")
+        month.adjust(toPickerWheelValue: "3月")
+        app.buttons["transactions.month.done"].tap()
+        XCTAssertEqual(title.value as? String, "2025年3月", "選了 2025年3月 但年月沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
+    }
+
+    /// 台灣時間往前 `monthsAgo` 個月的「2026年9月」。
+    private static func taipeiMonthTitle(monthsAgo: Int) -> String {
+        let (year, month) = taipeiYearMonth(monthsAgo: monthsAgo)
+        return "\(year)年\(month)月"
+    }
+
+    /// 台灣時間往前 `monthsAgo` 個月的整月範圍，格式跟篩選按鈕的值一樣(同年省略年份)。
+    private static func taipeiWholeMonthPeriod(monthsAgo: Int) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let (year, month) = taipeiYearMonth(monthsAgo: monthsAgo)
+        let nowYear = calendar.component(.year, from: .now)
+        let days = calendar.range(of: .day, in: .month, for: calendar.date(from: DateComponents(year: year, month: month, day: 1))!)!.count
+        let prefix = year == nowYear ? "" : "\(year)年"
+        return "\(prefix)\(month)月1日–\(prefix)\(month)月\(days)日"
+    }
+
+    private static func taipeiYearMonth(monthsAgo: Int) -> (Int, Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let date = calendar.date(byAdding: .month, value: -monthsAgo, to: .now)!
+        return (calendar.component(.year, from: date), calendar.component(.month, from: date))
+    }
+
     /// 記一筆與編輯交易共用同一份表單，欄位順序一致(#129):帳戶、日期在最上面，接著歸屬、金額、備註、分類。
     /// 以前帳戶與日期在最底下，每次都要捲到底才能選。帳戶仍然每次都是空的(上游 ADR 0011)。
     @MainActor

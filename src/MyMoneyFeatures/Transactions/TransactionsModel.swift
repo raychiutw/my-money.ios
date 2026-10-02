@@ -125,6 +125,60 @@ public final class TransactionsModel {
         isEditingFilter = false
     }
 
+    // MARK: 年月快速切換(#130)
+
+    /// 今天所在的月份(台灣時間)，也是年月控制項能切到的最後一個月。
+    public var currentMonth: CalendarMonth { CalendarMonth(today()) }
+
+    /// 整月的範圍:本月是 1 號到今天，過去的月份是 1 號到月底(台灣時間)。
+    private func range(of month: CalendarMonth) -> (from: CalendarDay, to: CalendarDay) {
+        let first = CalendarDay(year: month.year, month: month.month, day: 1)
+        let last = month == currentMonth ? today() : CalendarDay(year: month.year, month: month.month, day: first.daysInMonth)
+        return (first, last)
+    }
+
+    /// 目前篩選剛好是某個整月時是那個月;在篩選 sheet 設了自訂範圍就是 `nil`。
+    public var selectedMonth: CalendarMonth? {
+        let month = CalendarMonth(filter.from)
+        let whole = range(of: month)
+        return filter.from == whole.from && filter.to == whole.to ? month : nil
+    }
+
+    /// 年月控制項的標題，例如「2026年9月」;自訂範圍時是範圍文字「9月10日–9月20日」。
+    public var monthTitle: String {
+        if let month = selectedMonth { return month.text(locale: locale) }
+        let today = today()
+        return "\(filter.from.text(today: today, locale: locale))–\(filter.to.text(today: today, locale: locale))"
+    }
+
+    /// 上一月、下一月的基準:整月就是那個月，自訂範圍從迄日所在的月份算。
+    private var baseMonth: CalendarMonth { selectedMonth ?? CalendarMonth(filter.to) }
+
+    /// 不能切到未來的月份。
+    public var canGoToNextMonth: Bool { baseMonth < currentMonth }
+
+    public func goToPreviousMonth() async {
+        await selectMonth(baseMonth.previous)
+    }
+
+    public func goToNextMonth() async {
+        guard canGoToNextMonth else { return }
+        await selectMonth(baseMonth.next)
+    }
+
+    /// 切到某個整月:等同改篩選的起迄日，視角、類型、分類不變(關鍵字本來就不在篩選裡)，並重新查詢。
+    /// 未來的月份、或已經是那個月，什麼都不做。篩選 sheet 打開時草稿本來就從目前的篩選開始(`editFilter`)，兩邊永遠一致。
+    public func selectMonth(_ month: CalendarMonth) async {
+        guard month <= currentMonth else { return }
+        let whole = range(of: month)
+        guard filter.from != whole.from || filter.to != whole.to else { return }
+        var next = filter
+        next.from = whole.from
+        next.to = whole.to
+        filter = next
+        await load()
+    }
+
     /// 套用了非預設的篩選:視角不是全部、起迄日不是「本月 1 號到今天」、類型或分類不是全部，或搜尋關鍵字不是空白。
     /// 篩選按鈕這時改用實心圖示，畫面上雖然沒有範圍文字，也不會把篩選過的結果當成全部(#107)。
     public var isFilterActive: Bool {
