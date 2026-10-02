@@ -73,6 +73,8 @@ public final class TransactionsModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let currentUser: UserID?
+    /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
+    @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private var loadedVersion: Int?
 
@@ -82,6 +84,7 @@ public final class TransactionsModel {
         accounts: (any AccountRepository)? = nil,
         dataVersion: DataVersion,
         currentUser: UserID? = nil,
+        permissions: PermissionsModel? = nil,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
@@ -89,6 +92,7 @@ public final class TransactionsModel {
         accountRepository = accounts
         self.dataVersion = dataVersion
         self.currentUser = currentUser
+        self.permissions = permissions
         self.locale = locale
         self.today = today
         let now = today()
@@ -273,9 +277,17 @@ public final class TransactionsModel {
         await load()
     }
 
-    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕)。
+    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕);
+    /// 再跟權限取交集(上游 ADR 0013、#133):個人私帳只有記錄者，家庭公帳是記錄者或家庭管理員。
     public func canModify(_ transaction: Transaction) -> Bool {
-        !transaction.isSystemRecord
+        !transaction.isSystemRecord && (permissions?.current.canModify(transaction) ?? true)
+    }
+
+    /// 點不開的列，鎖定標記的 VoiceOver 說明;可以改的是 `nil`。
+    public func lockReason(for transaction: Transaction) -> String? {
+        if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
+        if canModify(transaction) { return nil }
+        return transaction.isShared ? "他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除" : "他人的個人私帳，僅記錄者本人可以編輯、刪除"
     }
 
     /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。

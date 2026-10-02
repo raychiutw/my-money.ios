@@ -46,6 +46,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-bank.json` | `POST /accounts`,建立銀行存款帳戶「iOS 測試存款」(餘額 50000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試信用卡」(已出帳 12000、未出帳 3500、額度 100000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card-low-limit.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試小額卡」(已出帳 8000、未出帳 5000、額度 20000) | 201 | 建立後的回應(#7 使用) |
+| `accounts-list-permission.json` | `GET /accounts`(2026-10-02,上游 `af5444c`) | 200 | 每個帳戶都有 `user_id`(擁有者)與 `is_joint`:編輯權限防呆(上游 ADR 0013、#133)用 |
 | `accounts-list.json` | `GET /accounts`,上面三個資產帳戶建立之後 | 200 | snake_case;`balance` 依類型拆成餘額或已出帳待繳款;含 `is_joint`、`shared_debt`、`personal_debt` |
 | `accounts-balance.json` | `GET /accounts/balance`,同上 | 200 | camelCase 的資金指標(淨可用餘額 21500) |
 | `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資產帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |

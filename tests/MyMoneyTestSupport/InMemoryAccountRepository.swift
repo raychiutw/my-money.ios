@@ -260,14 +260,27 @@ extension InMemoryAccountRepository {
     }
 }
 
-/// 畫面 model 測試與 UI 測試共用的資產帳戶。
+/// 畫面 model 測試與 UI 測試共用的資產帳戶。擁有者都是登入的範例帳號(編輯權限防呆，上游 ADR 0013、#133)。
 public enum SampleAccounts {
+    private static let me = InMemoryAuthRepository.Member.sample.user.id
+
     public static let savings = BankAccount(
         id: AccountID("sample-bank"),
         name: "iOS 測試存款",
         colorHex: "#A8D8EA",
         balance: Money(50000),
-        isJointFund: false
+        isJointFund: false,
+        ownerID: me
+    )
+
+    /// 家人(小美)建立的家庭共同基金:一般成員不能編輯、刪除，家庭管理員可以(#133)。
+    public static let meiJointFund = BankAccount(
+        id: AccountID("sample-mei-joint-fund"),
+        name: "小美的共同基金",
+        colorHex: "#A8D8EA",
+        balance: Money(8000),
+        isJointFund: true,
+        ownerID: UserID("sample-mei")
     )
 
     public static let card = CreditCard(
@@ -280,7 +293,8 @@ public enum SampleAccounts {
         statementDay: 15,
         paymentDueDay: 5,
         sharedDebt: Money(3000),
-        personalDebt: Money(12500)
+        personalDebt: Money(12500),
+        ownerID: me
     )
 
     /// 剩餘額度 7,000,低於 10,000 的警示門檻。
@@ -292,14 +306,15 @@ public enum SampleAccounts {
         unbilledDebt: Money(5000),
         creditLimit: Money(20000),
         statementDay: 1,
-        paymentDueDay: 20
+        paymentDueDay: 20,
+        ownerID: me
     )
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
 
     /// 個人私帳的現金錢包。
     public static let wallet = CashWallet(
-        id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false
+        id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false, ownerID: me
     )
 
     /// 含現金錢包的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。

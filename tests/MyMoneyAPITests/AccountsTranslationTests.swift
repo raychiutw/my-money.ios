@@ -38,6 +38,20 @@ struct AccountsTranslationTests {
         #expect(accounts.map(\.name) == ["iOS 家庭共同基金"])
     }
 
+    @Test("後端的 user_id 解讀成擁有者:現金錢包、銀行存款帳戶、信用卡都有(上游 ADR 0013 的編輯權限判斷，#133)")
+    func ownerIDIsUserID() async throws {
+        // 2026-10-02 從 prod 錄的真實回應:`user_id` 是帳戶擁有者，`is_joint` 區分個人私帳與家庭共同帳戶。
+        try stub.reply(status: 200, fixture: "accounts-list-permission.json")
+
+        let accounts = try await repository.accounts()
+
+        let owner = UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
+        try #require(accounts.count == 5)
+        #expect(accounts.map(\.kind) == [.bank, .creditCard, .creditCard, .bank, .cash])
+        #expect(accounts.allSatisfy { $0.ownerID == owner }, "每一種帳戶都要帶擁有者")
+        #expect(accounts.map(\.isJointFund) == [false, false, false, true, false])
+    }
+
     @Test("帳戶檢視範圍：個人私帳的餘額摘要帶 scope=personal,不含歸屬家庭共同基金的帳戶")
     func personalScopeBalanceSummary() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-personal.json")
@@ -63,7 +77,8 @@ struct AccountsTranslationTests {
             name: "iOS 測試皮夾",
             colorHex: "#10B981",
             balance: Money(1500),
-            isJointFund: false
+            isJointFund: false,
+            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
         )))
     }
 
@@ -90,7 +105,8 @@ struct AccountsTranslationTests {
             name: "iOS 測試存款",
             colorHex: "#A8D8EA",
             balance: Money(50000),
-            isJointFund: false
+            isJointFund: false,
+            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
         )))
     }
 
@@ -111,7 +127,8 @@ struct AccountsTranslationTests {
             statementDay: 15,
             paymentDueDay: 5,
             sharedDebt: .zero,
-            personalDebt: Money(15500)
+            personalDebt: Money(15500),
+            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
         )))
     }
 

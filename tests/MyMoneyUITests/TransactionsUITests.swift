@@ -106,7 +106,11 @@ final class TransactionsUITests: XCTestCase {
     @MainActor
     private func assertFamilyRowsStaySingleLine(at category: String) throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingFamilyEntries", "-resetSession", "-UIPreferredContentSizeCategoryName", category]
+        // 有家庭才看得到家人記的交易:家庭管理員，家人記的公帳點得開，列版型才是真實使用的樣子。
+        app.launchArguments = [
+            "-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession",
+            "-UIPreferredContentSizeCategoryName", category,
+        ]
         app.launch()
         signIn(app)
         app.tabBars.buttons["交易"].tap()
@@ -121,6 +125,60 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "\(category):家人記的家庭公帳掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
         // 備註很長:名稱最多兩行(多一行)，不是把標記與金額擠成額外的幾行。
         XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
+    }
+
+    /// 編輯權限防呆(上游 ADR 0013、#133):家人(小美)記的家庭公帳，一般成員點不開、只有鎖定標記，VoiceOver 念出原因;
+    /// 家庭管理員點得開。自己記的照舊。
+    @MainActor
+    func testMemberCannotEditFamilyRecordedPublicRowButAdminCan() throws {
+        for isAdmin in [false, true] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
+                + (isAdmin ? [] : ["-uiTestingMemberRole"])
+            app.launch()
+            signIn(app)
+            app.tabBars.buttons["交易"].tap()
+
+            let role = isAdmin ? "家庭管理員" : "一般成員"
+            let family = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+            let lunch = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "餐飲，午餐，帳戶")).firstMatch
+            for _ in 0..<12 where !(family.exists && lunch.exists) { app.swipeUp() }
+            XCTAssertTrue(lunch.exists, "\(role):自己記的公帳要點得開")
+            XCTAssertTrue(family.exists, "\(role):沒有找到家人記的公帳")
+
+            let familyButton = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "晚餐-水煎包")).firstMatch
+            if isAdmin {
+                // 角色在登入時問一次，晚一點才到。
+                XCTAssertTrue(familyButton.waitForExistence(timeout: 5), "\(role):家人記的公帳應該點得開")
+                XCTAssertFalse(family.label.contains("僅記錄者"), "\(role):不該有鎖定說明:\(family.label)")
+            } else {
+                XCTAssertFalse(familyButton.waitForExistence(timeout: 2), "\(role):家人記的公帳不該點得開")
+                XCTAssertTrue(
+                    family.label.contains("他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除"), "\(role):沒有鎖定說明:\(family.label)"
+                )
+            }
+            app.terminate()
+        }
+    }
+
+    /// 鎖定標記只是金額前面的一個圖示，不影響單行版型(#128、#133):沒有權限的家人公帳，列高跟自己記的一樣。
+    @MainActor
+    func testLockedFamilyRowStaysSingleLineAtXXL() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL",
+        ]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+        for _ in 0..<12 where !(lunch.exists && short.exists) { app.swipeUp() }
+        XCTAssertTrue(lunch.exists && short.exists, "沒有找到範例交易")
+        XCTAssertTrue(short.label.contains("僅記錄者"), "這一列應該是鎖定的:\(short.label)")
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "鎖定標記讓列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
     }
 
     /// 年月快速切換(#130):上一月、下一月、選任意年月，篩選按鈕的值跟著變;本月時下一月停用。

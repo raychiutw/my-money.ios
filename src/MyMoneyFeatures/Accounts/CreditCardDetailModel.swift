@@ -18,6 +18,7 @@ public final class CreditCardDetailModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let permissions: PermissionsModel?
     /// 上一次取得時的資料版本;`nil` 是還沒取得過。
     @ObservationIgnored private var loadedVersion: Int?
 
@@ -30,6 +31,7 @@ public final class CreditCardDetailModel {
         scope: AccountScope,
         repository: any AccountRepository,
         dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.card = card
@@ -37,8 +39,19 @@ public final class CreditCardDetailModel {
         self.scope = scope
         self.repository = repository
         self.dataVersion = dataVersion
+        self.permissions = permissions
         self.today = today
         self.loadedVersion = loadedVersion
+    }
+
+    /// toolbar 的「編輯」:家庭信用卡只有建立者或家庭管理員，個人信用卡只有持卡人(上游 ADR 0013、#133)。
+    public var canEdit: Bool {
+        permissions?.current.canModify(.creditCard(card)) ?? true
+    }
+
+    /// 繳款、出帳作業、校準未出帳:個人信用卡只有持卡人，家庭信用卡全員都可以。
+    public var canOperate: Bool {
+        permissions?.current.canOperate(card) ?? true
     }
 
     /// 「繳款」選單的項目。
@@ -64,6 +77,7 @@ public final class CreditCardDetailModel {
 
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本(詳細頁、帳戶頁和總覽都重新取得)。
     public func rollOver() async {
+        guard canOperate else { return }
         do {
             noticeMessage = try await repository.rollOverStatement(card.id)
             dataVersion.bump()
@@ -86,6 +100,7 @@ public final class CreditCardDetailModel {
 
     /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
     public func reconcile() async {
+        guard canOperate else { return }
         isReconciling = true
         defer { isReconciling = false }
         do {

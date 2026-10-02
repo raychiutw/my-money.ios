@@ -37,6 +37,15 @@ public enum Account: Hashable, Sendable, Identifiable {
         }
     }
 
+    /// 帳戶擁有者(後端的 `user_id`:個人私帳是本人，家庭共同帳戶是建立者);資料沒有時是 `nil`。
+    public var ownerID: UserID? {
+        switch self {
+        case .cash(let wallet): wallet.ownerID
+        case .bank(let account): account.ownerID
+        case .creditCard(let card): card.ownerID
+        }
+    }
+
     /// 歸屬家庭共同基金(信用卡叫家庭信用卡)或個人私帳。
     public var isJointFund: Bool {
         switch self {
@@ -61,12 +70,16 @@ public struct CashWallet: Hashable, Sendable, Identifiable {
     /// 是否歸屬家庭共同基金(例如客廳零用金盒)。預設是個人私帳。
     public let isJointFund: Bool
 
-    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool) {
+    /// 擁有者(後端的 `user_id`)，判斷誰能編輯、刪除(上游 ADR 0013);資料沒有時是 `nil`。
+    public let ownerID: UserID?
+
+    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool, ownerID: UserID? = nil) {
         self.id = id
         self.name = name
         self.colorHex = colorHex
         self.balance = balance
         self.isJointFund = isJointFund
+        self.ownerID = ownerID
     }
 }
 
@@ -84,12 +97,16 @@ public struct BankAccount: Hashable, Sendable, Identifiable {
     /// 是否標記為家庭共同基金(Joint Fund)。
     public let isJointFund: Bool
 
-    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool) {
+    /// 擁有者(後端的 `user_id`)，判斷誰能編輯、刪除(上游 ADR 0013);資料沒有時是 `nil`。
+    public let ownerID: UserID?
+
+    public init(id: AccountID, name: String, colorHex: String, balance: Money, isJointFund: Bool, ownerID: UserID? = nil) {
         self.id = id
         self.name = name
         self.colorHex = colorHex
         self.balance = balance
         self.isJointFund = isJointFund
+        self.ownerID = ownerID
     }
 }
 
@@ -123,6 +140,9 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 是否歸屬家庭共同基金，也就是家庭信用卡(所有帳戶類型都能設歸屬)。
     public let isJointFund: Bool
 
+    /// 持卡人(後端的 `user_id`):個人信用卡的還款沖銷、出帳作業、校準只有持卡人;資料沒有時是 `nil`。
+    public let ownerID: UserID?
+
     public init(
         id: AccountID,
         name: String,
@@ -134,9 +154,11 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         paymentDueDay: Int?,
         sharedDebt: Money = .zero,
         personalDebt: Money = .zero,
-        isJointFund: Bool = false
+        isJointFund: Bool = false,
+        ownerID: UserID? = nil
     ) {
         self.isJointFund = isJointFund
+        self.ownerID = ownerID
         self.id = id
         self.name = name
         self.colorHex = colorHex

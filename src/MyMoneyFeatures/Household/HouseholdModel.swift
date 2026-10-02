@@ -39,6 +39,8 @@ public final class HouseholdModel {
     @ObservationIgnored private let accounts: any AccountRepository
     @ObservationIgnored private let statistics: (any StatisticsRepository)?
     @ObservationIgnored private let currentUser: UserID?
+    /// 載入家庭之後同步角色，帳戶頁、交易頁的編輯權限跟著改(上游 ADR 0013、#133)。
+    @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
@@ -49,6 +51,7 @@ public final class HouseholdModel {
         accounts: any AccountRepository,
         statistics: (any StatisticsRepository)? = nil,
         currentUser: UserID? = nil,
+        permissions: PermissionsModel? = nil,
         dataVersion: DataVersion,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
@@ -57,6 +60,7 @@ public final class HouseholdModel {
         self.accounts = accounts
         self.statistics = statistics
         self.currentUser = currentUser
+        self.permissions = permissions
         self.dataVersion = dataVersion
         self.locale = locale
         self.today = today
@@ -126,6 +130,7 @@ public final class HouseholdModel {
     public func load() async {
         do {
             household = try await repository.current()
+            permissions?.update(role: household?.myRole)
             advances = household == nil ? [] : try await repository.advances()
             // 本月各成員的公帳代墊是額外的資料來源:取不到不能讓家庭頁失敗。
             shares = household == nil ? [] : await fetchShares()

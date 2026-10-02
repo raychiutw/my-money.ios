@@ -17,8 +17,9 @@ struct TransactionRow: View {
     var recorder: String?
     /// 點得開(可以編輯)的列：名稱最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
-    /// 系統紀錄(不能編輯或刪除):金額前面加鎖定標記，VoiceOver 最後念「系統紀錄，不能編輯或刪除」(#63)。
-    var isLocked = false
+    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133):金額前面加鎖定標記，VoiceOver 最後念這段說明，
+    /// 例如「系統紀錄，不能編輯或刪除」(#63)。標記只有一個圖示，不影響單行版型(#128)。
+    var lockReason: String?
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -77,7 +78,7 @@ struct TransactionRow: View {
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amount: some View {
         HStack(spacing: 4) {
-            if isLocked {
+            if lockReason != nil {
                 Image(systemName: "lock.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -104,7 +105,7 @@ struct TransactionRow: View {
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(transaction.isShared ? "家庭公帳" : "個人私帳")
         parts.append(transaction.spokenAmount)
-        if isLocked { parts.append("系統紀錄，不能編輯或刪除") }
+        if let lockReason { parts.append(lockReason) }
         return parts.joined(separator: "，")
     }
 }

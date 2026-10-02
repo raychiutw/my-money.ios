@@ -142,6 +142,11 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         failure = error
     }
 
+    /// 之後的請求恢復正常。
+    public func clearFailure() {
+        failure = nil
+    }
+
     /// 登入的範例帳號。
     private static func me(role: HouseholdRole, joinedAt: Date) -> HouseholdMember {
         let user = InMemoryAuthRepository.Member.sample.user

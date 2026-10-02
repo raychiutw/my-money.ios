@@ -45,8 +45,12 @@ struct MyMoneyApp: App {
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
-            let accounts = InMemoryAccountRepository.sample()
-            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: arguments.contains("-uiTestingFamilyEntries")))
+            // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金(版型與編輯權限防呆的 UI 測試)。
+            let includesFamily = arguments.contains("-uiTestingFamilyEntries")
+            let accounts = includesFamily
+                ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund)], summary: SampleAccounts.summary)
+                : InMemoryAccountRepository.sample()
+            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: includesFamily))
             let recurring = InMemoryRecurringRepository.sample()
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。

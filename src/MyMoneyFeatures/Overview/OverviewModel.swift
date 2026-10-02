@@ -28,7 +28,7 @@ public final class OverviewModel {
         CreditCardDetailModel(
             card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope.accountScope,
             repository: accountRepository,
-            dataVersion: dataVersion, today: today
+            dataVersion: dataVersion, permissions: permissions, today: today
         )
     }
 
@@ -57,6 +57,7 @@ public final class OverviewModel {
     @ObservationIgnored private let goalRepository: any SavingsGoalRepository
     @ObservationIgnored private let forecastRepository: (any ForecastRepository)?
     @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
@@ -72,6 +73,7 @@ public final class OverviewModel {
         goals: any SavingsGoalRepository,
         forecast: (any ForecastRepository)? = nil,
         dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
         defaults: UserDefaults,
         today: @escaping () -> CalendarDay = { CalendarDay.today() },
         locale: Locale = .autoupdatingCurrent
@@ -82,6 +84,7 @@ public final class OverviewModel {
         goalRepository = goals
         forecastRepository = forecast
         self.dataVersion = dataVersion
+        self.permissions = permissions
         self.defaults = defaults
         self.today = today
         self.locale = locale
