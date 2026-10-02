@@ -96,9 +96,7 @@ struct RecurringEditorView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
+                SheetCloseButton { dismiss() }
                 // 週期支出／週期收入放在導覽列中間(#65,跟記一筆一樣),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
                     Picker("類型", selection: $model.type) {
@@ -107,14 +105,10 @@ struct RecurringEditorView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "recurringEditor.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("recurringEditor.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

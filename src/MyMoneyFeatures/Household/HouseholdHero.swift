@@ -72,7 +72,7 @@ struct MemberShareChart: View {
                 if let average {
                     RuleMark(y: .value("平均", average.chartValue))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        // 明確的灰色:`.secondary` 在圖表裡會被主題色染成粉紅。
+                        // 明確的灰色:`.secondary` 在圖表裡會被預設的 tint 染色。
                         .foregroundStyle(Color.secondary)
                         .accessibilityHidden(true)
                 }

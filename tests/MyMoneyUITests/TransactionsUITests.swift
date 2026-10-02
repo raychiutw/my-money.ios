@@ -83,12 +83,12 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
         tapRevealing(app.buttons["僅支出"], in: app)
-        sheet.buttons["取消"].tap()
+        sheet.buttons["關閉"].tap()
 
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
-        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按取消後篩選按鈕的值變了")
-        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按取消後清單變了")
-        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按關閉後篩選 sheet 沒有關閉")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按關閉後篩選按鈕的值變了")
+        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按關閉後清單變了")
+        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按關閉後清單變了")
     }
 
     /// 交易列在「家庭公帳 + 家人記的」下仍是單行(#128):列高跟其他列一樣，金額與小標記不被擠到左下。
@@ -261,7 +261,7 @@ final class TransactionsUITests: XCTestCase {
         let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
         XCTAssertTrue(account.label.contains("請選擇"), "記一筆的帳戶不是空的:\(account.label)")
         app.buttons["完成"].firstMatch.tap()
-        app.buttons["取消"].tap()
+        app.buttons["關閉"].tap()
 
         // 編輯既有交易:點一筆自己的交易(午餐)
         let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")

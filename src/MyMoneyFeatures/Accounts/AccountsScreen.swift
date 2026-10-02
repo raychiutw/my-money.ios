@@ -151,8 +151,9 @@ struct AccountsScreen: View {
         }
         .swipeActions(edge: .leading) {
             if let transferTitle {
+                // 滑動動作的字固定是白色，深色模式 accent 是白色會白底白字:用中性灰(#134)。
                 Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
-                    .tint(.accentColor)
+                    .tint(.gray)
             }
         }
         .contextMenu {
@@ -383,13 +384,9 @@ private struct SectionEmptyState: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            // 大字級折行時跟標題一樣靠左：加在 Text 上，加在 Button 上會被按鈕樣式的置中蓋掉(AX5 截圖)。
-            Button(action: action) {
-                Text(actionTitle)
-                    .multilineTextAlignment(.leading)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier(identifier)
+            // 玻璃膠囊(#134);大字級折行時文字置中。
+            GlassCapsuleButton(title: actionTitle, action: action)
+                .accessibilityIdentifier(identifier)
         }
     }
 }

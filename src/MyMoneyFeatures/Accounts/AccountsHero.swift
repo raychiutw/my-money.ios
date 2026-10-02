@@ -91,21 +91,12 @@ extension CompositionSegment.Kind {
     }
 }
 
-/// ATM 提款／轉帳的膠囊按鈕(#119):醒目的主要動作，在摘要下面。
+/// ATM 提款／轉帳的膠囊按鈕(#119、#134):醒目的主要動作，在摘要下面;單色填滿的玻璃膠囊。
 struct TransferCapsuleButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Label("ATM 提款／轉帳", systemImage: "arrow.left.arrow.right")
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                // 標籤用系統背景色(淺色白、深色黑):深色模式的主題色是淡粉紅，白字只有約 2.2:1，黑字約 9:1。
-                .foregroundStyle(.background)
-        }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
-        .accessibilityIdentifier("accounts.transfer")
+        PrimaryCapsuleButton(title: "ATM 提款／轉帳", systemImage: "arrow.left.arrow.right", fillsWidth: true, action: action)
+            .accessibilityIdentifier("accounts.transfer")
     }
 }

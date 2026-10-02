@@ -59,14 +59,9 @@ struct TransactionFilterView: View {
             .navigationTitle("篩選")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { model.cancelFilter() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        Task { await model.applyFilter() }
-                    }
-                    .accessibilityIdentifier("transactionFilter.done")
+                SheetCloseButton { model.cancelFilter() }
+                SheetConfirmButton("完成", identifier: "transactionFilter.done") {
+                    Task { await model.applyFilter() }
                 }
             }
         }

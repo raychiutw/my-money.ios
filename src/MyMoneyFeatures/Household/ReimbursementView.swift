@@ -68,20 +68,14 @@ struct ReimbursementView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("確認") {
-                        Task {
-                            if let message = await model.submit() {
-                                dismiss()
-                                onDone(message)
-                            }
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("確認", isDisabled: !model.canSubmit, identifier: "reimbursement.submit") {
+                    Task {
+                        if let message = await model.submit() {
+                            dismiss()
+                            onDone(message)
                         }
                     }
-                    .disabled(!model.canSubmit)
-                    .accessibilityIdentifier("reimbursement.submit")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

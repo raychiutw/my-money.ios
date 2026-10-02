@@ -7,7 +7,7 @@ import SwiftUI
 /// 這是**刻意偏離 HIG**(超過約 5 個選項建議用 pop-up button),理由是少一次點擊,見 DESIGN.md「導覽」的「選擇控制項」。
 ///
 /// 欄數由實際空間決定(`adaptive`),最小欄寬跟著字級放大，所以大字級自然變成比較少的欄，標籤不縮小也不截斷。
-/// 選取的格子有色底、外框和打勾，不只靠顏色;VoiceOver 念分類名稱並標示已選取。
+/// 選取的格子是主要文字色填滿加反色字與打勾(單色，#134)，不只靠顏色;VoiceOver 念分類名稱並標示已選取。
 /// 目前的分類不在清單裡(例如機器人記帳寫入的舊分類)時，沒有任何一格被選取，也不會改動目前的值。
 struct CategoryGrid: View {
     let categories: [TransactionCategory]
@@ -38,14 +38,14 @@ struct CategoryGrid: View {
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .padding(.vertical, 4)
-            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-            .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear, in: shape)
-            .overlay(shape.strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: isSelected ? 2 : 1))
+            // 選取單色化(#134):主要文字色填滿、字與圖示反色(淺色黑底白字、深色白底黑字);沒選的是細外框。
+            .foregroundStyle(isSelected ? Color.inverseOfPrimary : Color.primary)
+            .background(isSelected ? Color.primary : Color.clear, in: shape)
+            .overlay(shape.strokeBorder(isSelected ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.footnote)
-                        .foregroundStyle(Color.accentColor)
                         .padding(4)
                 }
             }

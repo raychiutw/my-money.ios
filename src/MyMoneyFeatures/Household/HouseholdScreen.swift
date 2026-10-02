@@ -131,11 +131,9 @@ struct HouseholdScreen: View {
                     TextField("家庭名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
                         .accessibilityIdentifier("household.createName")
                 }
-                Button("建立") {
+                PrimaryCapsuleButton(title: "建立", fillsWidth: true) {
                     Task { await model.create() }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
             }
@@ -147,11 +145,9 @@ struct HouseholdScreen: View {
                         .autocorrectionDisabled()
                         .accessibilityIdentifier("household.joinCode")
                 }
-                Button("加入") {
+                PrimaryCapsuleButton(title: "加入", fillsWidth: true) {
                     Task { await model.join() }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
                 .disabled(!model.canJoin)
                 .accessibilityIdentifier("household.join")
             }
@@ -432,9 +428,7 @@ private struct InvitationSheet: View {
             .navigationTitle("邀請家庭成員")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
-                }
+                SheetConfirmButton("完成", identifier: "household.invitation.done") { dismiss() }
             }
         }
         .presentationDetents([.medium])

@@ -98,15 +98,10 @@ private struct MonthPickerSheet: View {
             .navigationTitle("選擇年月")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        onSelect(CalendarMonth(year: year, month: month))
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("transactions.month.done")
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("完成", identifier: "transactions.month.done") {
+                    onSelect(CalendarMonth(year: year, month: month))
+                    dismiss()
                 }
             }
         }

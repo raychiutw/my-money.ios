@@ -116,9 +116,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
+                SheetCloseButton { dismiss() }
                 // 支出／收入放在導覽列中間(#65,HIG 分段控制一節舉的行事曆「新增事件」),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
                     Picker("類型", selection: $model.type) {
@@ -127,14 +125,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "quickEntry.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("quickEntry.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

@@ -265,8 +265,7 @@ private struct SavingsGoalRow: View {
                 .font(.subheadline.bold())
                 .foregroundStyle(.green)
         } else {
-            Button("存入", systemImage: "plus.circle.fill", action: deposit)
-                .buttonStyle(.borderless)
+            GlassCapsuleButton(title: "存入", systemImage: "plus", action: deposit)
                 .accessibilityIdentifier("goals.deposit.\(goal.id.rawValue)")
         }
     }

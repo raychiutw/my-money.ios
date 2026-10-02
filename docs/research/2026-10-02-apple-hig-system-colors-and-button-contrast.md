@@ -258,6 +258,31 @@ alt 文字分別是「a checkmark on a blue Liquid Glass background」與「The 
 - [Apple Design Resources](https://developer.apple.com/design/resources/)（只確認為 Figma／Sketch 檔，未取得內容）
 - [W3C WCAG 2.2](https://www.w3.org/TR/WCAG22/)：relative luminance、contrast ratio、large scale、SC 1.4.3、SC 1.4.11
 
+## 8. 單色玻璃按鈕實測（#134，【推論】本機實測）
+
+**實測日期**：2026-10-02。**環境**：Xcode 27.0、iOS Simulator iPhone 17（iOS 26.5），app 內的暫時畫面（用完已刪除），`AccentColor` 資產是單色（淺色黑、深色白，增強對比同）。外觀用 `xcrun simctl ui <device> appearance light|dark`、`increase_contrast enabled|disabled` 切換，`xcrun simctl io screenshot` 截圖後目視並用像素取樣確認。**沒有**驗證 iOS 26.0–26.4 與 iOS 27.0 的 runtime。
+
+| 項目 | 淺色 | 深色 | 淺色增強對比 | 深色增強對比 |
+|---|---|---|---|---|
+| `.buttonStyle(.glass)`（字用主要文字色） | 白色玻璃膠囊、黑字，正常 | 深色玻璃膠囊、白字，正常 | 同左，外框略清楚 | 同左 |
+| `.glassProminent`（accent 單色，**沒有**指定字色） | 黑底白字，正常 | **白底白字，字幾乎看不見** | 同淺色 | **同深色，看不見** |
+| `.glassProminent` + 標籤明確指定 `foregroundStyle(系統背景色)` | 黑底白字 | 白底黑字 | 同 | 同 |
+| `.glassProminent` + `.tint(.primary)`（沒指定字色） | 黑底白字 | 白底白字（同上） | 同 | 同 |
+| 自訂 `ButtonStyle`（`Capsule` 填 `.primary`、字用系統背景色） | 黑底白字 | 白底黑字 | 同 | 同 |
+| toolbar `Button(role: .cancel)`（`xmark`） | 白色玻璃圓鈕、黑 ✕ | 深色玻璃圓鈕、白 ✕ | 同 | 同 |
+| toolbar `Button(role: .confirm)`（`checkmark`） | 黑色填滿圓鈕、白勾 | 白色填滿圓鈕、黑勾 | 同 | 同 |
+| 「…」`Menu` + `.glass` + `.circle` | 白色玻璃圓鈕 | 深色玻璃圓鈕 | 同 | 同 |
+| 一組 `ToolbarItemGroup` | 單一玻璃膠囊，圖示黑 | 單一玻璃膠囊，圖示白 | 同 | 同 |
+| 停用的 `.glass`、`.glassProminent` | 淡化，仍看得出是按鈕 | 淡化 | — | — |
+
+結論：
+
+1. **`.glass` 四種外觀都能直接用**，不需要自訂樣式。
+2. **`.glassProminent` 的字固定是白色**（跟 §3.5 的 `borderedProminent` 一致）:accent 在深色是白色時變成白底白字，**一定要明確指定反色字**。把反色字放在標籤裡面（`Button { label.foregroundStyle(...) }`）有效;只靠 `.tint(.primary)` 不行。不需要退到自訂 `ButtonStyle`，但保留為備案。
+3. toolbar 的 `Button(role: .cancel)` 加 `systemImage: "xmark"` 是 ✕ 玻璃圓鈕，`Button(role: .confirm)` 加 `systemImage: "checkmark"` 是單色填滿的 ✓ 圓鈕;**系統依 accent 自動選反色的勾**，淺色黑底白勾、深色白底黑勾，不用自己處理。給了標題時（`Button("儲存", role: .confirm)`）會畫成帶文字的膠囊，沒有圖示，所以要同時給 `systemImage`;標題仍是 VoiceOver 的標籤。
+4. 這些系統玻璃圓鈕的畫面尺寸是 36pt，UI 測試在圓鈕外 4pt 點得到（觸控範圍外擴到 44pt）。
+5. **降低透明度**:嘗試用 `defaults write com.apple.Accessibility ReduceTransparencyEnabled` 在模擬器切換，截圖看不出差異，**無法確認模擬器有套用**，所以這一項沒有實測結果，只能依 HIG「系統控制項自動處理」的說法;真機要另外確認。增強對比有實測（上表）。
+
 ## 附錄 A：實測與重現方式
 
 **取 HIG 色值**：
