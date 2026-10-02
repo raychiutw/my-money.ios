@@ -25,6 +25,15 @@ struct AvatarPaletteTests {
         #expect(AvatarPalette.palette(for: increased).contrastRatio >= AvatarPalette.palette(for: standard).contrastRatio)
     }
 
+    @Test("淺色與深色用同一組粉底黑字(使用者要求，品牌識別一致)")
+    func lightAndDarkShareThePinkPalette() {
+        #expect(AvatarPalette.palette(for: .light) == AvatarPalette.palette(for: .dark))
+        #expect(AvatarPalette.palette(for: .lightIncreasedContrast) == AvatarPalette.palette(for: .darkIncreasedContrast))
+        let light = AvatarPalette.palette(for: .light)
+        #expect(light.fill == AvatarPalette.RGB(red: 255, green: 156, blue: 156))
+        #expect(light.letter == AvatarPalette.RGB(red: 31, green: 5, blue: 7))
+    }
+
     @Test("WCAG 對比公式:黑底白字是 21:1,同色是 1:1")
     func contrastFormula() {
         let black = AvatarPalette.RGB(red: 0, green: 0, blue: 0)

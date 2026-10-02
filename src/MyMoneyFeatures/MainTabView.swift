@@ -22,24 +22,33 @@ struct MainTabView: View {
         TabView(selection: $selection) {
             Tab("總覽", systemImage: "house", value: .overview) {
                 OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry) { selection = $0 }
+                    .tint(.primary)
             }
             Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
+                    .tint(.primary)
             }
             Tab("帳戶", systemImage: "creditcard", value: .accounts) {
                 AccountsScreen(model: screens.accounts)
+                    .tint(.primary)
             }
             Tab("家庭", systemImage: "person.2", value: .household) {
                 HouseholdScreen(model: screens.household)
+                    .tint(.primary)
             }
             Tab("統計", systemImage: "chart.bar", value: .statistics) {
                 StatisticsScreen(model: screens.statistics)
+                    .tint(.primary)
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        // tab bar 目前所在的 tab 用品牌粉紅(使用者要求，底色維持淺色白、深色黑);tint 會往下傳，
+        // 每個 tab 的內容與 sheet 都改回單色(ADR-0007)，粉紅只留在 tab bar。
+        .tint(.brandPink)
         .environment(\.openAccount, OpenAccountAction { isAccountPresented = true })
         .sheet(isPresented: $isAccountPresented) {
             MeSheet(screens: screens)
+                .tint(.primary)
         }
     }
 }
