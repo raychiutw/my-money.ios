@@ -78,6 +78,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-update.json` | `PUT /recurring/:id`,用暫時建立的項目(改成每半年 20 號 360),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
 | `recurring-delete.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` 視為成功 |
 | `recurring-delete-not-found.json` | 再刪一次同一個 id | 404 | 「項目不存在」原樣傳遞 |
+| `recurring-create-quarterly.json` | `POST /recurring`,週期支出「iOS 測試保險費」3000,每季 5 號、`month_of_cycle` 2 | 201 | 回傳 `month_of_cycle`(上游 `feabed3`) |
+| `recurring-list-with-month.json` | `GET /recurring`,上面那項存在時 | 200 | 每項都帶 `month_of_cycle`;舊項目是 `1` |
+| `recurring-update-month.json` | `PUT /recurring/:id`,把上面那項改成每半年、`month_of_cycle` 4 | 200 | 回傳更新後的 `month_of_cycle` |
+| `recurring-delete-quarterly.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 | `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
 | `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |

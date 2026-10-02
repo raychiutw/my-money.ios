@@ -12,6 +12,25 @@ struct RecurringEditorView: View {
         case amount
     }
 
+    @ViewBuilder
+    private var monthPicker: some View {
+        let picker = Picker(model.monthTitle, selection: $model.monthOfCycle) {
+            ForEach(model.monthOptions) { option in
+                Text(option.title).tag(option.value)
+            }
+        }
+        if model.monthOptions.count <= 3 {
+            picker
+                .pickerStyle(.inline)
+                .labelsHidden()
+                .accessibilityIdentifier("recurringEditor.month")
+        } else {
+            picker
+                .navigationLinkStyle()
+                .accessibilityIdentifier("recurringEditor.month")
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -43,6 +62,13 @@ struct RecurringEditorView: View {
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
+                }
+
+                // 繳費月份(#131):月繳沒有;雙月繳 2 個、季繳 3 個用內嵌選擇列，半年繳 6 個、年繳 12 個推入清單頁。
+                if !model.monthOptions.isEmpty {
+                    Section(model.monthTitle) {
+                        monthPicker
+                    }
                 }
 
                 Section {

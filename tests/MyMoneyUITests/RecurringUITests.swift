@@ -18,7 +18,7 @@ final class RecurringUITests: XCTestCase {
         app.buttons["週期收支"].tap()
         XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
         XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 14,000 元").exists, "摘要的主數字不是週期支出的分攤平滑")
-        XCTAssertTrue(element(in: app, labelContaining: "每年 15 號扣款").exists, "扣款日沒有依週期描述")
+        XCTAssertTrue(element(in: app, labelContaining: "每年 1 月 15 號扣款").exists, "扣款日沒有依週期描述(舊資料的繳費月份是 1)")
         XCTAssertTrue(element(in: app, labelContaining: "年繳保費，週期支出 24,000 元").exists, "VoiceOver 沒有把週期支出念成一句")
         XCTAssertTrue(element(in: app, labelContaining: "分攤平滑每月 2,000 元").exists, "年繳項目沒有顯示分攤平滑")
         XCTAssertFalse(element(in: app, labelContaining: "未指定關聯帳戶").exists, "沒設帳戶時不該顯示「未指定關聯帳戶」")
@@ -41,6 +41,45 @@ final class RecurringUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["確定要刪除週期收支「房租」嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(rent.waitForNonExistence(timeout: 5), "刪除後還在列表上")
+    }
+
+    /// 繳費月份(上游 `feabed3`，#131):選季繳才出現月份選項，選了「2、5、8、11 月」儲存後，卡片寫確切時程;
+    /// 切回月繳月份欄位消失。
+    @MainActor
+    func testQuarterlyMonthChoiceShowsExactScheduleOnTheCard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.openPlanning()
+        app.buttons["週期收支"].tap()
+
+        app.buttons["recurring.add"].tap()
+        let name = app.textFields["recurringEditor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3), "沒有打開週期收支編輯器")
+        let month = app.descendants(matching: .any)["recurringEditor.month"]
+        XCTAssertFalse(month.exists, "月繳不該有月份欄位")
+
+        name.tap()
+        name.typeText("保險費")
+        let amount = app.textFields["recurringEditor.amount"]
+        amount.tap()
+        amount.typeText("3000")
+        app.buttons["完成"].firstMatch.tap()
+        let quarterly = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "每季")).firstMatch
+        for _ in 0..<4 where !(quarterly.exists && quarterly.isHittable) { app.swipeUp() }
+        quarterly.tap()
+        let second = app.buttons["2、5、8、11 月"]
+        for _ in 0..<4 where !(second.exists && second.isHittable) { app.swipeUp() }
+        XCTAssertTrue(second.exists, "選了季繳之後沒有出現月份選項")
+        XCTAssertTrue(app.buttons["1、4、7、10 月"].exists && app.buttons["3、6、9、12 月"].exists, "季繳的月份選項不是 3 組")
+        second.tap()
+        app.buttons["recurringEditor.save"].tap()
+
+        XCTAssertTrue(
+            element(in: app, labelContaining: "保險費，週期支出 3,000 元，每季 (2/5/8/11月) 1 號扣款").waitForExistence(timeout: 5),
+            "卡片沒有寫出確切時程(扣款日預設 1 號)"
+        )
     }
 
     /// 編輯器的週期支出／週期收入在 sheet 導覽列中間(分段控制),表單裡沒有分段控制(#65)。

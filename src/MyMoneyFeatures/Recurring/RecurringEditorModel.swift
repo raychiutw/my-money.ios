@@ -11,9 +11,14 @@ public final class RecurringEditorModel {
     public var type: TransactionType = .expense
     public var name = ""
     public var amountText = ""
-    public var cycle: RecurringCycle = .monthly
+    /// 切換週期時，月份超出新週期的範圍就重設為第一項(月繳一律是 1)。
+    public var cycle: RecurringCycle = .monthly {
+        didSet { monthOfCycle = cycle.clampedMonth(monthOfCycle) }
+    }
     /// 扣款日或入帳日(1 到 31)。
     public var dayOfCycle = 1
+    /// 繳費月份(`month_of_cycle`，#131):月繳沒有這個欄位(固定 1)，其他週期依 `monthOptions` 選。
+    public var monthOfCycle = 1
     /// 關聯帳戶;`nil` 是「無特定帳戶」。
     public var accountID: AccountID?
 
@@ -44,10 +49,36 @@ public final class RecurringEditorModel {
         amountText = "\(item.amount.amount)"
         cycle = item.cycle
         dayOfCycle = item.dayOfCycle
+        monthOfCycle = item.monthOfCycle
         accountID = item.accountID
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
+    }
+
+    /// 目前週期的繳費月份選項(文字照上游 web);月繳沒有，不顯示月份欄位。
+    public var monthOptions: [RecurringMonthOption] {
+        switch cycle {
+        case .monthly: []
+        case .bimonthly:
+            [
+                RecurringMonthOption(value: 1, title: "單數月（1、3、5、7、9、11月）"),
+                RecurringMonthOption(value: 2, title: "雙數月（2、4、6、8、10、12月）"),
+            ]
+        case .quarterly, .semiannual:
+            cycle.monthChoices.map { RecurringMonthOption(value: $0, title: "\(cycle.monthList(from: $0, separator: "、")) 月") }
+        case .annual:
+            cycle.monthChoices.map { RecurringMonthOption(value: $0, title: "每年 \($0) 月") }
+        }
+    }
+
+    /// 月份欄位的標籤:年繳是「扣款月份／入帳月份」，雙月繳是「單數或雙數月」，其他是「起算月份」(同 web)。
+    public var monthTitle: String {
+        switch cycle {
+        case .annual: type == .expense ? "扣款月份" : "入帳月份"
+        case .bimonthly: "單數或雙數月"
+        default: "起算月份"
+        }
     }
 
     /// 打開 sheet 時呼叫：載入資產帳戶。新增時關聯帳戶是「無特定帳戶」,不預選第一個
@@ -73,7 +104,8 @@ public final class RecurringEditorModel {
             return false
         }
         let draft = RecurringDraft(
-            name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle, accountID: accountID
+            name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle,
+            monthOfCycle: cycle.clampedMonth(monthOfCycle), accountID: accountID
         )
         isSaving = true
         defer { isSaving = false }
@@ -91,4 +123,12 @@ public final class RecurringEditorModel {
         dataVersion.bump()
         return true
     }
+}
+
+/// 繳費月份的一個選項(#131)。
+public struct RecurringMonthOption: Identifiable, Hashable, Sendable {
+    public let value: Int
+    public let title: String
+
+    public var id: Int { value }
 }

@@ -37,21 +37,37 @@ struct RecurringTests {
         #expect(model.monthlyNet == Money(31000))
     }
 
-    /// web 不管週期都顯示「每月 N 號」(parity 刻意偏離第 11 項)。
-    @Test("扣款日與入帳日依週期描述", arguments: [
-        (RecurringCycle.monthly, TransactionType.expense, 5, "每月 5 號扣款"),
-        (.bimonthly, .expense, 10, "每雙月 10 號扣款"),
-        (.quarterly, .expense, 5, "每季 5 號扣款"),
-        (.semiannual, .income, 1, "每半年 1 號入帳"),
-        (.annual, .income, 25, "每年 25 號入帳"),
+    /// 上游 `feabed3` 起 web 的 `formatScheduleLabel` 寫出確切時程;收入寫「入帳」、支出寫「扣款」(#131)。
+    @Test("確切時程標籤:月繳、單數月／雙數月、每季、每半年、每年", arguments: [
+        (RecurringCycle.monthly, 1, TransactionType.expense, 5, "每月 5 號扣款"),
+        (.monthly, 1, .income, 25, "每月 25 號入帳"),
+        (.bimonthly, 1, .expense, 10, "單數月 10 號扣款"),
+        (.bimonthly, 2, .income, 10, "雙數月 10 號入帳"),
+        (.quarterly, 1, .expense, 5, "每季 (1/4/7/10月) 5 號扣款"),
+        (.quarterly, 2, .expense, 5, "每季 (2/5/8/11月) 5 號扣款"),
+        (.quarterly, 3, .income, 5, "每季 (3/6/9/12月) 5 號入帳"),
+        (.semiannual, 1, .expense, 1, "每半年 (1/7月) 1 號扣款"),
+        (.semiannual, 6, .income, 1, "每半年 (6/12月) 1 號入帳"),
+        (.annual, 5, .expense, 15, "每年 5 月 15 號扣款"),
+        (.annual, 12, .income, 25, "每年 12 月 25 號入帳"),
     ])
-    func scheduleText(cycle: RecurringCycle, type: TransactionType, day: Int, expected: String) {
+    func scheduleText(cycle: RecurringCycle, month: Int, type: TransactionType, day: Int, expected: String) {
         let item = RecurringItem(
             id: RecurringItemID("x"), name: "x", type: type, amount: Money(1200), cycle: cycle, dayOfCycle: day,
-            accountID: nil, accountName: nil
+            monthOfCycle: month, accountID: nil, accountName: nil
         )
 
         #expect(item.scheduleText == expected)
+    }
+
+    @Test("舊資料沒有繳費月份時(預設 1)，季繳是 1/4/7/10 月、年繳是 1 月")
+    func defaultMonthIsOne() {
+        let quarterly = RecurringItem(
+            id: RecurringItemID("x"), name: "x", type: .expense, amount: Money(1), cycle: .quarterly, dayOfCycle: 5,
+            accountID: nil, accountName: nil
+        )
+        #expect(quarterly.monthOfCycle == 1)
+        #expect(quarterly.scheduleText == "每季 (1/4/7/10月) 5 號扣款")
     }
 
     @Test("週期不是每月的週期支出，顯示每月的分攤平滑;週期收入不顯示")
@@ -96,7 +112,7 @@ struct RecurringTests {
         #expect(annual.amortizationText == "$2,000／月")
         #expect(rent.amortizationText == nil)
         #expect(salary.amortizationText == nil)
-        #expect(annual.spokenText == "年繳保費，週期支出 24,000 元，每年 15 號扣款，分攤平滑每月 2,000 元")
+        #expect(annual.spokenText == "年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，分攤平滑每月 2,000 元")
         #expect(rent.spokenText == "房租，週期支出 12,000 元，每月 5 號扣款，帳戶 iOS 測試存款")
         #expect(salary.spokenText == "薪水，週期收入 45,000 元，每月 25 號入帳，帳戶 iOS 測試存款")
     }
