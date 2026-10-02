@@ -15,6 +15,7 @@ struct MonthPill: View {
                 Image(systemName: "chevron.left")
                     .fontWeight(.semibold)
                     .frame(width: 48, height: 44)
+                    .contentShape(.rect)
             }
             .accessibilityLabel("上一月")
             .accessibilityIdentifier("transactions.month.previous")
@@ -29,6 +30,7 @@ struct MonthPill: View {
                     .minimumScaleFactor(0.7)
                     .padding(.horizontal, 6)
                     .frame(minHeight: 44)
+                    .contentShape(.rect)
             }
             .accessibilityLabel("選擇年月")
             .accessibilityValue(model.monthTitle)
@@ -40,6 +42,7 @@ struct MonthPill: View {
                 Image(systemName: "chevron.right")
                     .fontWeight(.semibold)
                     .frame(width: 48, height: 44)
+                    .contentShape(.rect)
             }
             .disabled(!model.canGoToNextMonth)
             .accessibilityLabel("下一月")
@@ -68,8 +71,10 @@ private struct MonthPickerSheet: View {
     init(selected: CalendarMonth, latest: CalendarMonth, onSelect: @escaping (CalendarMonth) -> Void) {
         self.latest = latest
         self.onSelect = onSelect
-        _year = State(initialValue: min(selected.year, latest.year))
-        _month = State(initialValue: selected.month)
+        // 滾輪裡沒有的年月(例如自訂範圍落在十年前)改成最接近的，不然滾輪沒有選取值。
+        let year = min(max(selected.year, latest.year - 10), latest.year)
+        _year = State(initialValue: year)
+        _month = State(initialValue: min(selected.month, year == latest.year ? latest.month : 12))
     }
 
     private var years: [Int] { Array((latest.year - 10)...latest.year) }

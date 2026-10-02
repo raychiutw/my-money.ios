@@ -94,7 +94,7 @@ struct BotScreen: View {
             } else if let message = model.bindingsErrorMessage, model.bindings == nil {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }

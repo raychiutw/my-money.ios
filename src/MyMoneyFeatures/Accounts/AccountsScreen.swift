@@ -207,7 +207,7 @@ struct AccountsScreen: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }

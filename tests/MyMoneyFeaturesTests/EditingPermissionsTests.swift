@@ -200,6 +200,31 @@ struct EditingPermissionsFeatureTests {
         #expect(model.current.role == .admin)
     }
 
+    @Test("角色取得失敗之後，帳戶頁、交易頁下一次載入會再問一次")
+    func pagesRetryTheRole() async {
+        let households = InMemoryHouseholdRepository.sample(myRole: .admin)
+        await households.fail(with: .rejected("伺服器忙碌"))
+        let permissions = PermissionsModel(userID: me, households: households)
+        let accounts = AccountsModel(
+            repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), permissions: permissions
+        )
+
+        await accounts.load()
+        #expect(permissions.current.role == nil)
+
+        await households.clearFailure()
+        await accounts.load()
+        #expect(permissions.current.role == .admin)
+
+        let transactionsPermissions = PermissionsModel(userID: me, households: InMemoryHouseholdRepository.sample(myRole: .member))
+        let transactions = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: []), dataVersion: DataVersion(), currentUser: me,
+            permissions: transactionsPermissions, today: { today }
+        )
+        await transactions.load()
+        #expect(transactionsPermissions.current.role == .member)
+    }
+
     @Test("家庭頁載入、建立家庭之後，權限跟著家庭的角色更新")
     func householdModelKeepsPermissionsInSync() async {
         let permissions = PermissionsModel(userID: me, role: nil)

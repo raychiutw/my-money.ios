@@ -50,6 +50,9 @@ struct RecurringTests {
         (.semiannual, 6, .income, 1, "每半年 (6/12月) 1 號入帳"),
         (.annual, 5, .expense, 15, "每年 5 月 15 號扣款"),
         (.annual, 12, .income, 25, "每年 12 月 25 號入帳"),
+        // 月份超出這個週期的範圍(例如別的 client 改了週期)時，標籤與編輯器存的值都用修正後的月份。
+        (.bimonthly, 3, .expense, 10, "單數月 10 號扣款"),
+        (.quarterly, 7, .expense, 5, "每季 (1/4/7/10月) 5 號扣款"),
     ])
     func scheduleText(cycle: RecurringCycle, month: Int, type: TransactionType, day: Int, expected: String) {
         let item = RecurringItem(

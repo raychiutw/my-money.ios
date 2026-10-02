@@ -44,8 +44,10 @@ struct CategoryGrid: View {
             .overlay(shape.strokeBorder(isSelected ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 if isSelected {
+                    // overlay 不會繼承上面的 foregroundStyle:明確指定反色，不然黑底黑勾、白底白勾。
                     Image(systemName: "checkmark.circle.fill")
                         .font(.footnote)
+                        .foregroundStyle(Color.inverseOfPrimary)
                         .padding(4)
                 }
             }

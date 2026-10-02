@@ -14,6 +14,7 @@ public final class PermissionsModel {
 
     @ObservationIgnored private let households: (any HouseholdRepository)?
     @ObservationIgnored private var isLoaded: Bool
+    @ObservationIgnored private var isLoading = false
 
     /// `role` 是已經知道的角色(沒有 `households` 時就以它為準，例如測試);有 `households` 時，要呼叫 `loadIfNeeded` 才會取得。
     public init(userID: UserID?, role: HouseholdRole? = nil, households: (any HouseholdRepository)? = nil) {
@@ -22,12 +23,17 @@ public final class PermissionsModel {
         isLoaded = households == nil
     }
 
-    /// 還沒取得過角色才問後端;取得失敗不算取得過。
+    /// 還沒取得過角色才問後端;取得失敗不算取得過，帳戶頁、交易頁每次載入會再問一次。
     public func loadIfNeeded() async {
-        guard !isLoaded, let households else { return }
+        guard !isLoaded, !isLoading, let households else { return }
+        isLoading = true
+        defer { isLoading = false }
         // 沒有家庭是正常的「沒有角色」;只有請求失敗才不算取得過。
         do {
-            update(role: try await households.current()?.myRole)
+            let role = try await households.current()?.myRole
+            // 等待期間家庭頁已經同步了較新的角色(例如剛建立家庭)，不要拿比較舊的回應蓋掉。
+            guard !isLoaded else { return }
+            update(role: role)
         } catch {}
     }
 

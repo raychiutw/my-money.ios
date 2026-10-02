@@ -109,7 +109,7 @@ extension RecurringItem {
         let month = cycle.clampedMonth(monthOfCycle)
         switch cycle {
         case .monthly: return "每月 \(dayOfCycle) 號\(action)"
-        case .bimonthly: return "\(monthOfCycle == 1 ? "單數月" : "雙數月") \(dayOfCycle) 號\(action)"
+        case .bimonthly: return "\(month == 1 ? "單數月" : "雙數月") \(dayOfCycle) 號\(action)"
         case .quarterly: return "每季 (\(cycle.monthList(from: month, separator: "/"))月) \(dayOfCycle) 號\(action)"
         case .semiannual: return "每半年 (\(cycle.monthList(from: month, separator: "/"))月) \(dayOfCycle) 號\(action)"
         case .annual: return "每年 \(month) 月 \(dayOfCycle) 號\(action)"

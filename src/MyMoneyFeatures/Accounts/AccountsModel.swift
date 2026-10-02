@@ -183,6 +183,7 @@ public final class AccountsModel {
             loadedVersion = version
             loadedScope = scope
             phase = .loaded
+            await permissions?.loadIfNeeded()
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }

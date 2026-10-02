@@ -265,6 +265,7 @@ public final class TransactionsModel {
             loaded = transactions
             loadedVersion = version
             phase = .loaded
+            await permissions?.loadIfNeeded()
         } catch {
             guard query == filter.query else { return }
             phase = .failed(error.localizedDescription)

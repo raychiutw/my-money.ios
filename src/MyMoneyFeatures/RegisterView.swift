@@ -70,12 +70,10 @@ struct RegisterView: View {
             }
 
             Section {
-                Button(action: submit) {
-                    Text(model.submitTitle)
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(!model.canSubmit)
-                .accessibilityIdentifier("register.submit")
+                PrimaryCapsuleButton(title: model.submitTitle, fillsWidth: true, action: submit)
+                    .disabled(!model.canSubmit)
+                    .accessibilityIdentifier("register.submit")
+                    .clearListRow()
             }
 
             Section {
