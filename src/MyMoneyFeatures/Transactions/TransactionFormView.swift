@@ -56,6 +56,21 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
+                // 帳戶與日期放在最上面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
+                // (上游 ADR 0011);金額欄仍然一打開就對焦。
+                Section {
+                    AccountPicker(
+                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
+                        placeholder: "請選擇扣款／存入帳戶"
+                    )
+                    DatePicker(
+                        "日期",
+                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
+                        displayedComponents: .date
+                    )
+                    .calendarDayTimeZone()
+                }
+
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
@@ -97,20 +112,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         selection: Binding(get: { model.category }, set: { model.chooseCategory($0) })
                     )
                 }
-
-                Section {
-                    AccountPicker(
-                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
-                        placeholder: "請選擇扣款／存入帳戶"
-                    )
-                    DatePicker(
-                        "日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
-                }
-
             }
             .navigationTitle(model.title)
             .inlineNavigationTitle()

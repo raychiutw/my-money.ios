@@ -123,6 +123,47 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
     }
 
+    /// 記一筆與編輯交易共用同一份表單，欄位順序一致(#129):帳戶、日期在最上面，接著歸屬、金額、備註、分類。
+    /// 以前帳戶與日期在最底下，每次都要捲到底才能選。帳戶仍然每次都是空的(上游 ADR 0011)。
+    @MainActor
+    func testFormFieldsStartWithAccountAndDateInQuickEntryAndEditor() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        // 記一筆
+        app.buttons["transactions.add"].tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3), "沒有打開記一筆")
+        assertFormOrder(in: app, context: "記一筆")
+        let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        XCTAssertTrue(account.label.contains("請選擇"), "記一筆的帳戶不是空的:\(account.label)")
+        app.buttons["完成"].firstMatch.tap()
+        app.buttons["取消"].tap()
+
+        // 編輯既有交易:點一筆自己的交易(午餐)
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        for _ in 0..<8 where !(lunch.exists && lunch.isHittable) { app.swipeUp() }
+        lunch.tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3), "沒有打開編輯交易")
+        assertFormOrder(in: app, context: "編輯交易")
+    }
+
+    /// 表單裡各欄位由上到下的順序:帳戶、日期、(歸屬)、金額、備註。
+    @MainActor
+    private func assertFormOrder(in app: XCUIApplication, context: String) {
+        let form = app.collectionViews.firstMatch
+        let account = form.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        let date = form.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "日期")).firstMatch
+        let amount = app.textFields["quickEntry.amount"]
+        let note = app.textFields["quickEntry.note"]
+        XCTAssertTrue(account.exists && date.exists && amount.exists && note.exists, "\(context):找不到欄位 帳戶\(account.exists) 日期\(date.exists) 金額\(amount.exists) 備註\(note.exists)")
+        XCTAssertLessThan(account.frame.minY, date.frame.minY, "\(context):帳戶不在日期上面")
+        XCTAssertLessThan(date.frame.minY, amount.frame.minY, "\(context):日期不在金額上面")
+        XCTAssertLessThan(amount.frame.minY, note.frame.minY, "\(context):金額不在備註上面")
+    }
+
     /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;
     /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880(信用卡還款不算)。
     @MainActor
