@@ -84,10 +84,15 @@ public final class HouseholdModel {
         }
     }
 
-    /// 有待報銷就能從共同基金撥款報銷，不限本人(web 的 `b1382f4`:收款帳戶改用代墊統計附的可收款帳戶)。
+    /// 有待報銷才能從共同基金撥款報銷(web 的 `b1382f4`:收款帳戶改用代墊統計附的可收款帳戶);
+    /// 上游 ADR 0013(#48):家庭管理員可以替任何成員撥款，一般成員只能對自己的代墊款撥款，後端對其他人回 403，
+    /// 所以他人的卡片不顯示入口。不知道登入的是誰時，一般成員一律沒有入口。
     public func canReimburse(_ advance: HouseholdAdvance) -> Bool {
-        !advance.isSettled
+        !advance.isSettled && (household?.myRole == .admin || advance.memberID == currentUser)
     }
+
+    /// 只有家庭管理員可以產生邀請碼(上游 ADR 0013,#47);一般成員呼叫會得到 403。
+    public var canInvite: Bool { household?.myRole == .admin }
 
     public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {
         ReimbursementModel(advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, today: today)
@@ -113,7 +118,7 @@ public final class HouseholdModel {
         household.map { "「\($0.name)」" } ?? "這個家庭"
     }
 
-    /// 只有管理員看得到「移除」,而且只出現在一般成員上。
+    /// 只有家庭管理員看得到「移除」,而且只出現在一般成員上。
     public func canRemove(_ member: HouseholdMember) -> Bool {
         household?.myRole == .admin && member.role == .member
     }
@@ -154,7 +159,7 @@ public final class HouseholdModel {
         return advances.first { $0.memberID == currentUser }
     }
 
-    /// 成員的身分，例如「管理員」「成員」;不是這個家庭的成員時是 `nil`。
+    /// 成員的身分，例如「家庭管理員」「一般成員」;不是這個家庭的成員時是 `nil`。
     public func roleTitle(of userID: UserID) -> String? {
         household?.members.first { $0.userID == userID }?.role.title
     }
@@ -212,7 +217,7 @@ public final class HouseholdModel {
 extension HouseholdRole {
     public var title: String {
         switch self {
-        case .admin: "管理員"
+        case .admin: "家庭管理員"
         case .member: "一般成員"
         }
     }

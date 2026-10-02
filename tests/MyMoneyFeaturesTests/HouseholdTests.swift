@@ -13,10 +13,10 @@ struct HouseholdTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
 
     private func loaded(
-        _ repository: InMemoryHouseholdRepository, accounts: InMemoryAccountRepository = .sample()
+        _ repository: InMemoryHouseholdRepository, accounts: InMemoryAccountRepository = .sample(), currentUser: UserID? = nil
     ) async -> HouseholdModel {
         let model = HouseholdModel(
-            repository: repository, accounts: accounts, dataVersion: dataVersion, today: { today }
+            repository: repository, accounts: accounts, currentUser: currentUser, dataVersion: dataVersion, today: { today }
         )
         await model.load()
         return model
@@ -54,9 +54,9 @@ struct HouseholdTests {
         #expect(model.isShowingDetails(of: UserID("sample-mei")))
     }
 
-    @Test("有待報銷的家庭成員都能從共同基金撥款報銷，不限本人(web 的 b1382f4);已結清的不能報銷")
-    func anyPendingAdvanceCanBeReimbursed() async {
-        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
+    @Test("家庭管理員可以替任何有待報銷的成員撥款報銷;已結清的不能(web 的 b1382f4、上游 ADR 0013)")
+    func adminCanReimburseAnyPendingAdvance() async {
+        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]), currentUser: me)
 
         #expect(model.canReimburse(InMemoryHouseholdRepository.myPendingAdvance))
         #expect(model.canReimburse(meiAdvance))
@@ -66,6 +66,50 @@ struct HouseholdTests {
             pendingReimbursement: .zero, advanceItems: [], reimbursementItems: []
         )
         #expect(!model.canReimburse(settled))
+    }
+
+    @Test("一般成員只能對自己的代墊款撥款報銷，他人的代墊卡片沒有入口(上游 #48、ADR 0013)")
+    func memberCanOnlyReimburseOwnAdvance() async {
+        let model = await loaded(
+            .sample(myRole: .member, advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]), currentUser: me
+        )
+
+        #expect(model.canReimburse(InMemoryHouseholdRepository.myPendingAdvance))
+        #expect(!model.canReimburse(meiAdvance))
+    }
+
+    @Test("不知道登入的是誰時，一般成員一律沒有撥款入口(寧可少給入口，也不顯示後端會拒絕的按鈕)")
+    func memberWithoutKnownUserCannotReimburse() async {
+        let model = await loaded(.sample(myRole: .member, advances: [InMemoryHouseholdRepository.myPendingAdvance]))
+
+        #expect(!model.canReimburse(InMemoryHouseholdRepository.myPendingAdvance))
+    }
+
+    @Test("只有家庭管理員看得到邀請入口;還沒有家庭時也沒有(上游 #47、ADR 0013)")
+    func onlyAdminCanInvite() async {
+        #expect(await loaded(.sample(myRole: .admin)).canInvite)
+        #expect(await loaded(.sample(myRole: .member)).canInvite == false)
+        #expect(await loaded(InMemoryHouseholdRepository(household: nil)).canInvite == false)
+    }
+
+    @Test("後端回 403 時，邀請與撥款報銷顯示後端的中文原因，不換成通用錯誤")
+    func forbiddenReasonIsShownVerbatim() async throws {
+        let inviteReason = "權限不足：只有家庭管理員可以生成邀請碼"
+        let repository = InMemoryHouseholdRepository.sample(myRole: .member, advances: [InMemoryHouseholdRepository.myPendingAdvance])
+        let model = await loaded(repository, accounts: accountsForReimbursement(), currentUser: me)
+        await repository.fail(with: .rejected(inviteReason))
+        await model.invite()
+        #expect(model.alertMessage == inviteReason)
+        #expect(model.invitation == nil)
+
+        let reimburseReason = "權限不足：一般成員僅能為本人代墊款執行撥款報銷，無法動支撥款給其他成員"
+        let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
+        await reimbursement.load()
+        reimbursement.fromAccountID = AccountID("fund")
+        reimbursement.toAccountID = SampleAccounts.savings.id
+        await repository.fail(with: .rejected(reimburseReason))
+        #expect(await reimbursement.submit() == nil)
+        #expect(reimbursement.errorMessage == reimburseReason)
     }
 
     /// 家庭共同基金兩個(餘額 100 不夠付 250、8,000)、我的個人私帳一個銀行存款帳戶和一個現金錢包，還有一張個人信用卡。
@@ -194,7 +238,7 @@ struct HouseholdTests {
         #expect(await repository.createdNames.isEmpty)
     }
 
-    @Test("建立成功後資料版本遞增，並顯示新的家庭(我是管理員)")
+    @Test("建立成功後資料版本遞增，並顯示新的家庭(我是家庭管理員)")
     func create() async throws {
         let repository = InMemoryHouseholdRepository(household: nil)
         let model = await loaded(repository)
@@ -244,7 +288,7 @@ struct HouseholdTests {
         let model = await loaded(InMemoryHouseholdRepository.sample())
         let household = try #require(model.household)
 
-        #expect(household.myRole.title == "管理員")
+        #expect(household.myRole.title == "家庭管理員")
         #expect(HouseholdRole.member.title == "一般成員")
         #expect(model.memberCountText == "2 位成員")
     }
@@ -263,7 +307,13 @@ struct HouseholdTests {
         #expect(await repository.inviteCount == 2)
     }
 
-    @Test("只有管理員看得到「移除」,而且只出現在一般成員上")
+    @Test("成員的身分叫「家庭管理員」「一般成員」(CONTEXT.md、上游 ADR 0013)")
+    func roleTitles() {
+        #expect(HouseholdRole.admin.title == "家庭管理員")
+        #expect(HouseholdRole.member.title == "一般成員")
+    }
+
+    @Test("只有家庭管理員看得到「移除」,而且只出現在一般成員上")
     func canRemove() async throws {
         let adminView = await loaded(InMemoryHouseholdRepository.sample())
         let members = try #require(adminView.household?.members)

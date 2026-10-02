@@ -60,8 +60,11 @@ struct MyMoneyApp: App {
             // 建立家庭之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
             let advances = [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
             // 截圖巡覽要看已加入家庭的畫面，又不能在大字級打字建立家庭:啟動時就已加入(巡覽再用「離開家庭」拍建立與加入)。
-            let household = arguments.contains("-uiTestingJoinedHousehold")
-                ? InMemoryHouseholdRepository.sample(advances: advances)
+            // `-uiTestingMemberRole`:範例帳號是一般成員(小美才是家庭管理員)，驗證邀請與撥款報銷的權限防呆(#132)。
+            let household = arguments.contains("-uiTestingJoinedHousehold") || arguments.contains("-uiTestingMemberRole")
+                ? InMemoryHouseholdRepository.sample(
+                    myRole: arguments.contains("-uiTestingMemberRole") ? .member : .admin, advances: advances
+                )
                 : InMemoryHouseholdRepository(household: nil, advances: advances)
             let bot = InMemoryBotRepository.sample()
             signedIn = SignedInScreens { user in

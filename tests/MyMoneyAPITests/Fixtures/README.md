@@ -120,11 +120,12 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-current-none.json` | `GET /households/current`,測試帳號沒有家庭群組時 | 200 | `household: null`、`myRole: null` |
 | `households-join-invalid.json` | `POST /households/join {code: "FAM-0000"}`。0 不在後端的邀請碼字元表裡，這組不可能存在，不會誤加入別人的家庭 | 404 | 「邀請碼無效或已過期」原樣傳遞 |
 | `households-create-missing-name.json` | `POST /households {name: "  "}` | 400 | 「請輸入家庭名稱」原樣傳遞 |
-| `households-create.json` | `POST /households {name: "iOS 測試家庭"}`,測試帳號自己建立 | 201 | 我是管理員 |
+| `households-create.json` | `POST /households {name: "iOS 測試家庭"}`,測試帳號自己建立 | 201 | 我是家庭管理員 |
 | `households-current.json` | `GET /households/current`,上面那個家庭群組 | 200 | 成員名冊：`user_id`、`role`、`joined_at`(UTC 的 `YYYY-MM-DD HH:MM:SS`)、`name`、`email` |
 | `households-invite.json` | `POST /households/invite` | 200 | `code` 是 `FAM-XXXX`,`expires_at` 是有毫秒的 ISO 8601 |
 | `households-join-already-member.json` | 已經在家庭群組裡時 `POST /households/join` | 400 | 「你已經加入家庭群組，無法重複加入」原樣傳遞 |
-| `households-remove-self.json` | 管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
+| `households-invite-none.json` | 沒有家庭時 `POST /households/invite` | 400 | `{success:false, error}` 原樣傳遞;測試把狀態碼換成 403，驗證權限不足的 403 走同一條路(測試帳號只有自己一人、是家庭管理員，錄不到真正的 403) |
+| `households-remove-self.json` | 家庭管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
 | `households-leave.json` | `DELETE /households/leave`。測試帳號是唯一的成員，離開後後端會刪掉整個家庭群組 | 200 | 只回 `{success, message}`,沒有 `data` |
 | `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 

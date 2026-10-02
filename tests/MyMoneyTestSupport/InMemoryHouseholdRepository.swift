@@ -83,15 +83,16 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.backendText) 給 \(name)！"
     }
 
-    /// 「我們家」:小明(管理員，就是登入的範例帳號)和小美(一般成員)。
+    /// 「我們家」:小明(就是登入的範例帳號)和小美;`myRole` 是小明的角色(預設家庭管理員)，小美是另一個角色，
+    /// 名冊跟 `myRole` 一致。
     public static func sample(
         myRole: HouseholdRole = .admin, advances: [HouseholdAdvance] = [], gate: Gate? = nil
     ) -> InMemoryHouseholdRepository {
         let joined = Date(timeIntervalSince1970: 1_790_000_000)
         return InMemoryHouseholdRepository(household: Household(name: "我們家", myRole: myRole, members: [
-            me(role: .admin, joinedAt: joined),
+            me(role: myRole, joinedAt: joined),
             HouseholdMember(
-                userID: UserID("sample-mei"), name: "小美", email: "mei@example.com", role: .member,
+                userID: UserID("sample-mei"), name: "小美", email: "mei@example.com", role: myRole == .admin ? .member : .admin,
                 joinedAt: joined.addingTimeInterval(86_400)
             ),
         ]), advances: advances, gate: gate)
@@ -102,7 +103,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         return stored
     }
 
-    /// 跟後端一樣：建立的人是管理員，也是唯一的成員。
+    /// 跟後端一樣：建立的人是家庭管理員，也是唯一的成員。
     public func create(name: String) async throws {
         if let failure { throw failure }
         createdNames.append(name)

@@ -6,7 +6,7 @@ final class HouseholdUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 建立家庭 → 我是管理員 → 數字優先的主視覺(#121):超大的分攤建議並標明誰轉給誰、各成員代墊長條圖、
+    /// 建立家庭 → 我是家庭管理員 → 數字優先的主視覺(#121):超大的分攤建議並標明誰轉給誰、各成員代墊長條圖、
     /// 我的累計代墊／已報銷／待報銷 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
     @MainActor
     func testCreateInviteAndLeave() throws {
@@ -25,7 +25,7 @@ final class HouseholdUITests: XCTestCase {
         name.typeText("我們家")
         app.buttons["household.create"].tap()
 
-        XCTAssertTrue(element(in: app, labelContaining: "我的角色：管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭")
+        XCTAssertTrue(element(in: app, labelContaining: "我的角色：家庭管理員").waitForExistence(timeout: 5), "建立後沒有顯示家庭")
 
         // 範例本月的公帳代墊:小明 6,000、小美 4,000，平均 5,000，小美該轉 1,000 給小明。
         let settlement = element(in: app, labelContaining: "分攤建議,平分後每人應負擔 5,000 元,小美 轉 1,000 元 給 小明")
@@ -58,6 +58,32 @@ final class HouseholdUITests: XCTestCase {
         )
         app.buttons["離開"].firstMatch.tap()
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開後沒有回到建立的畫面")
+    }
+
+    /// 一般成員視角(上游 ADR 0013，#132):範例帳號是一般成員、小美是家庭管理員。沒有邀請入口;
+    /// 撥款報銷只有自己的代墊款，小美的代墊卡片沒有入口(後端會回 403)。
+    @MainActor
+    func testMemberHasNoInviteAndOnlyOwnReimbursement() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["家庭"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "我的角色：一般成員").waitForExistence(timeout: 5), "沒有顯示一般成員的角色")
+
+        // 捲到最底:離開在、邀請不在;小美的區塊(家庭管理員)看得到，但沒有報銷入口。
+        let leave = app.buttons["household.leave"]
+        for _ in 0..<8 where !(leave.exists && leave.isHittable) { app.swipeUp() }
+        XCTAssertTrue(leave.isHittable, "沒有捲到最底")
+        XCTAssertFalse(app.buttons["household.invite"].exists, "一般成員不該看到邀請入口")
+        XCTAssertTrue(element(in: app, labelContaining: "小美,有待請款代墊").exists, "沒有看到小美的代墊卡片")
+        XCTAssertTrue(element(in: app, labelContaining: "家庭管理員").exists, "小美的身分不是家庭管理員")
+        XCTAssertFalse(app.buttons["household.reimburse.sample-mei"].exists, "一般成員不該能替小美的代墊款撥款")
+
+        let reimburseMine = app.buttons["household.reimburse.in-memory-member-1"]
+        for _ in 0..<8 where !reimburseMine.exists { app.swipeDown() }
+        XCTAssertTrue(reimburseMine.exists, "自己的代墊款沒有報銷入口")
     }
 
     /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭後，小明和小美都有待報銷
