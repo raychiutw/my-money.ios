@@ -120,39 +120,55 @@ struct AccountsScreen: View {
 
     /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認：後端刪除無法復原)。
     /// `transferTitle` 有值時，往右滑和長按多一個轉帳動作(現金錢包是「ATM 提款」,銀行存款帳戶是「轉帳／提款」)。
+    /// 沒有編輯權限的帳戶(別人建立的家庭共同帳戶，上游 ADR 0013、#133)點不開、沒有編輯與刪除，轉帳照舊。
+    @ViewBuilder
     private func accountRow(
         _ account: Account,
         transferTitle: String? = nil,
         openTransfer: @escaping () -> TransferModel? = { nil },
         @ViewBuilder label: () -> some View
     ) -> some View {
-        Button {
-            editor = EditorSheet(model.makeEditor(editing: account))
-        } label: {
-            label()
+        let canModify = model.canModify(account)
+        Group {
+            if canModify {
+                Button {
+                    editor = EditorSheet(model.makeEditor(editing: account))
+                } label: {
+                    label()
+                }
+                .buttonStyle(.plain)
+            } else {
+                label()
+            }
         }
-        .buttonStyle(.plain)
         .clearListRow()
         .swipeActions {
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = account
+            if canModify {
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = account
+                }
             }
         }
         .swipeActions(edge: .leading) {
             if let transferTitle {
+                // 滑動動作的字固定是白色，深色模式 accent 是白色會白底白字:用中性灰(#134)。
                 Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
-                    .tint(.accentColor)
+                    .tint(.gray)
             }
         }
         .contextMenu {
-            Button("編輯", systemImage: "pencil") {
-                editor = EditorSheet(model.makeEditor(editing: account))
+            if canModify {
+                Button("編輯", systemImage: "pencil") {
+                    editor = EditorSheet(model.makeEditor(editing: account))
+                }
             }
             if let transferTitle {
                 Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
             }
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = account
+            if canModify {
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = account
+                }
             }
         }
     }
@@ -191,7 +207,7 @@ struct AccountsScreen: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }
@@ -321,26 +337,33 @@ struct AccountsScreen: View {
         .clearListRow()
         .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
         .swipeActions {
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = .creditCard(card)
+            if model.canModify(.creditCard(card)) {
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = .creditCard(card)
+                }
             }
         }
         .contextMenu {
-            Section {
-                ForEach(card.paymentPresets, id: \.self) { preset in
-                    Button(preset.title, systemImage: preset.systemImage) {
-                        payment = model.makePayment(for: card, preset: preset)
+            // 還款、出帳作業只有能操作這張卡的人;編輯、刪除只有能修改這個帳戶的人(上游 ADR 0013、#133)。
+            if model.canOperate(card) {
+                Section {
+                    ForEach(card.paymentPresets, id: \.self) { preset in
+                        Button(preset.title, systemImage: preset.systemImage) {
+                            payment = model.makePayment(for: card, preset: preset)
+                        }
+                    }
+                    if model.showsRollover(card) {
+                        Button("出帳作業", systemImage: "calendar.badge.clock") { pendingRollover = card }
                     }
                 }
-                if model.showsRollover(card) {
-                    Button("出帳作業", systemImage: "calendar.badge.clock") { pendingRollover = card }
+            }
+            if model.canModify(.creditCard(card)) {
+                Button("編輯", systemImage: "pencil") {
+                    editor = EditorSheet(model.makeEditor(editing: .creditCard(card)))
                 }
-            }
-            Button("編輯", systemImage: "pencil") {
-                editor = EditorSheet(model.makeEditor(editing: .creditCard(card)))
-            }
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = .creditCard(card)
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = .creditCard(card)
+                }
             }
         }
     }
@@ -361,13 +384,9 @@ private struct SectionEmptyState: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
-            // 大字級折行時跟標題一樣靠左：加在 Text 上，加在 Button 上會被按鈕樣式的置中蓋掉(AX5 截圖)。
-            Button(action: action) {
-                Text(actionTitle)
-                    .multilineTextAlignment(.leading)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier(identifier)
+            // 玻璃膠囊(#134);大字級折行時文字置中。
+            GlassCapsuleButton(title: actionTitle, action: action)
+                .accessibilityIdentifier(identifier)
         }
     }
 }

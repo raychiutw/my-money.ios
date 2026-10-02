@@ -12,6 +12,25 @@ struct RecurringEditorView: View {
         case amount
     }
 
+    @ViewBuilder
+    private var monthPicker: some View {
+        let picker = Picker(model.monthTitle, selection: $model.monthOfCycle) {
+            ForEach(model.monthOptions) { option in
+                Text(option.title).tag(option.value)
+            }
+        }
+        if model.monthOptions.count <= 3 {
+            picker
+                .pickerStyle(.inline)
+                .labelsHidden()
+                .accessibilityIdentifier("recurringEditor.month")
+        } else {
+            picker
+                .navigationLinkStyle()
+                .accessibilityIdentifier("recurringEditor.month")
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -45,6 +64,13 @@ struct RecurringEditorView: View {
                     .labelsHidden()
                 }
 
+                // 繳費月份(#131):月繳沒有;雙月繳 2 個、季繳 3 個用內嵌選擇列，半年繳 6 個、年繳 12 個推入清單頁。
+                if !model.monthOptions.isEmpty {
+                    Section(model.monthTitle) {
+                        monthPicker
+                    }
+                }
+
                 Section {
                     // 1～31 號有 31 個選項:推入清單頁，選了自動返回。
                     Picker(model.type == .expense ? "扣款日" : "入帳日", selection: $model.dayOfCycle) {
@@ -70,9 +96,7 @@ struct RecurringEditorView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
+                SheetCloseButton { dismiss() }
                 // 週期支出／週期收入放在導覽列中間(#65,跟記一筆一樣),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
                     Picker("類型", selection: $model.type) {
@@ -81,14 +105,10 @@ struct RecurringEditorView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "recurringEditor.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("recurringEditor.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

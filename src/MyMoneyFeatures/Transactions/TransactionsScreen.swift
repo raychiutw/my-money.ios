@@ -94,6 +94,12 @@ struct TransactionsScreen: View {
     @ViewBuilder
     private var content: some View {
         List {
+            // 年月快速切換:不論載入狀態都在最上面(載入失敗時也能換個月再試)。
+            Section {
+                MonthPill(model: model)
+                    .clearListRow()
+            }
+            .compactSectionSpacing()
             switch model.phase {
             case .loading:
                 Section {
@@ -158,7 +164,7 @@ struct TransactionsScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄只顯示鎖定標記。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)只顯示鎖定標記。
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
@@ -186,8 +192,10 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            // 只放鎖定標記，不放說明文字(#63);點不開，所以不截斷。
-            TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isLocked: true)
+            // 只放鎖定標記，不放說明文字(#63);說明在 VoiceOver。點不開，所以不截斷。
+            TransactionRow(
+                transaction: transaction, recorder: model.recorderName(of: transaction), lockReason: model.lockReason(for: transaction)
+            )
         }
     }
 }

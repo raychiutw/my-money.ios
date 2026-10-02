@@ -102,9 +102,18 @@ public final class RecurringModel {
 }
 
 extension RecurringItem {
-    /// 例如「每季 5 號扣款」「每月 25 號入帳」(parity 刻意偏離第 11 項)。
+    /// 確切時程，照上游 web 的 `formatScheduleLabel`(`feabed3`，#131):「每月 5 號扣款」「單數月 10 號扣款」
+    /// 「每季 (1/4/7/10月) 5 號扣款」「每半年 (1/7月) 1 號入帳」「每年 5 月 15 號扣款」;收入寫「入帳」、支出寫「扣款」。
     public var scheduleText: String {
-        "\(cycle.label) \(dayOfCycle) 號\(type == .expense ? "扣款" : "入帳")"
+        let action = type == .expense ? "扣款" : "入帳"
+        let month = cycle.clampedMonth(monthOfCycle)
+        switch cycle {
+        case .monthly: return "每月 \(dayOfCycle) 號\(action)"
+        case .bimonthly: return "\(month == 1 ? "單數月" : "雙數月") \(dayOfCycle) 號\(action)"
+        case .quarterly: return "每季 (\(cycle.monthList(from: month, separator: "/"))月) \(dayOfCycle) 號\(action)"
+        case .semiannual: return "每半年 (\(cycle.monthList(from: month, separator: "/"))月) \(dayOfCycle) 號\(action)"
+        case .annual: return "每年 \(month) 月 \(dayOfCycle) 號\(action)"
+        }
     }
 
     /// 週期不是每月的週期支出才顯示分攤平滑;週期收入不顯示。
@@ -120,7 +129,7 @@ extension RecurringItem {
         showsMonthlyAmortization ? "\(monthlyAmortization.formatted())／月" : nil
     }
 
-    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 15 號扣款，分攤平滑每月 2,000 元」。
+    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，分攤平滑每月 2,000 元」。
     public var spokenText: String {
         var parts = [name, "\(type == .income ? "週期收入" : "週期支出") \(amount.spokenText)", scheduleText]
         if let accountText { parts.append("帳戶 \(accountText)") }
@@ -139,6 +148,11 @@ extension RecurringCycle {
         case .semiannual: "每半年"
         case .annual: "每年"
         }
+    }
+
+    /// 從 `start` 月起每隔一期的月份，例如季繳從 2 月起是「2/5/8/11」。
+    func monthList(from start: Int, separator: String) -> String {
+        stride(from: start, through: 12, by: months).map(String.init).joined(separator: separator)
     }
 
     /// 週期選單的文字，例如「每季(3 個月)」。

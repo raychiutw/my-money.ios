@@ -9,42 +9,45 @@ import SwiftUI
 /// - trailing:帶正負號的金額;系統紀錄在金額前面加鎖定標記。
 ///
 /// 資產帳戶名稱與記帳人從列上拿掉(點進編輯可以看到)，但 VoiceOver 照樣念出，整列是一句完整的話。
-/// 放不下時(大字級)改成上下堆疊，金額一律單行。
+/// **只有無障礙字級才改成上下堆疊**(#128)，其他字級一律單行:名稱在左(最多兩行)、小標記與金額靠右;金額一律單行。
+/// 以前用 `ViewThatFits` 依寬度判斷，XXL、XXXL 時小標記一多就掉進堆疊，列高變成兩倍以上。
 struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
     /// 記帳人;自己記的是 `nil`。只用來決定要不要「家人記的」小標記和 VoiceOver 念誰記的。
     var recorder: String?
     /// 點得開(可以編輯)的列：名稱最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
-    /// 系統紀錄(不能編輯或刪除):金額前面加鎖定標記，VoiceOver 最後念「系統紀錄，不能編輯或刪除」(#63)。
-    var isLocked = false
+    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133):金額前面加鎖定標記，VoiceOver 最後念這段說明，
+    /// 例如「系統紀錄，不能編輯或刪除」(#63)。標記只有一個圖示，不影響單行版型(#128)。
+    var lockReason: String?
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-    /// 左右並列時，名稱欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊。
-    ///
-    /// 不用 `LabeledContent`:它依 label 不折行的寬度判斷，備註一長，預設字級也會變成上下堆疊(#72 的截圖)。
-    @ScaledMetric(relativeTo: .body) private var minimumTextWidth: CGFloat = 120
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                icon
-                    .frame(width: iconWidth)
-                titleText
-                    .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
-                markers
-                amount
-            }
-            // 上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    icon
-                    titleText
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // 無障礙字級才上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        icon
+                        titleText
+                    }
+                    amount
+                    markers
                 }
-                amount
-                markers
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: 12) {
+                    icon
+                        .frame(width: iconWidth)
+                    // 名稱拿剩下的寬度，太長就從結尾截斷(最多兩行);標記與金額不被擠掉。
+                    titleText
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    markers
+                    amount
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
@@ -75,7 +78,7 @@ struct TransactionRow: View {
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amount: some View {
         HStack(spacing: 4) {
-            if isLocked {
+            if lockReason != nil {
                 Image(systemName: "lock.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -102,7 +105,7 @@ struct TransactionRow: View {
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(transaction.isShared ? "家庭公帳" : "個人私帳")
         parts.append(transaction.spokenAmount)
-        if isLocked { parts.append("系統紀錄，不能編輯或刪除") }
+        if let lockReason { parts.append(lockReason) }
         return parts.joined(separator: "，")
     }
 }

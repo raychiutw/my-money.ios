@@ -46,6 +46,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-bank.json` | `POST /accounts`,建立銀行存款帳戶「iOS 測試存款」(餘額 50000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試信用卡」(已出帳 12000、未出帳 3500、額度 100000) | 201 | 建立後的回應(#7 使用) |
 | `accounts-create-credit-card-low-limit.json` | `POST /accounts`,建立信用卡帳戶「iOS 測試小額卡」(已出帳 8000、未出帳 5000、額度 20000) | 201 | 建立後的回應(#7 使用) |
+| `accounts-list-permission.json` | `GET /accounts`(2026-10-02,上游 `af5444c`) | 200 | 每個帳戶都有 `user_id`(擁有者)與 `is_joint`:編輯權限防呆(上游 ADR 0013、#133)用 |
 | `accounts-list.json` | `GET /accounts`,上面三個資產帳戶建立之後 | 200 | snake_case;`balance` 依類型拆成餘額或已出帳待繳款;含 `is_joint`、`shared_debt`、`personal_debt` |
 | `accounts-balance.json` | `GET /accounts/balance`,同上 | 200 | camelCase 的資金指標(淨可用餘額 21500) |
 | `accounts-update.json` | `PUT /accounts/:id`,用暫時建立的資產帳戶(改名、改餘額、`is_joint: 1`),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
@@ -78,6 +79,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-update.json` | `PUT /recurring/:id`,用暫時建立的項目(改成每半年 20 號 360),錄完就刪掉 | 200 | 編輯成功(回傳更新後的資料列) |
 | `recurring-delete.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` 視為成功 |
 | `recurring-delete-not-found.json` | 再刪一次同一個 id | 404 | 「項目不存在」原樣傳遞 |
+| `recurring-create-quarterly.json` | `POST /recurring`,週期支出「iOS 測試保險費」3000,每季 5 號、`month_of_cycle` 2 | 201 | 回傳 `month_of_cycle`(上游 `feabed3`) |
+| `recurring-list-with-month.json` | `GET /recurring`,上面那項存在時 | 200 | 每項都帶 `month_of_cycle`;舊項目是 `1` |
+| `recurring-update-month.json` | `PUT /recurring/:id`,把上面那項改成每半年、`month_of_cycle` 4 | 200 | 回傳更新後的 `month_of_cycle` |
+| `recurring-delete-quarterly.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 | `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
 | `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |
@@ -116,11 +121,12 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-current-none.json` | `GET /households/current`,測試帳號沒有家庭群組時 | 200 | `household: null`、`myRole: null` |
 | `households-join-invalid.json` | `POST /households/join {code: "FAM-0000"}`。0 不在後端的邀請碼字元表裡，這組不可能存在，不會誤加入別人的家庭 | 404 | 「邀請碼無效或已過期」原樣傳遞 |
 | `households-create-missing-name.json` | `POST /households {name: "  "}` | 400 | 「請輸入家庭名稱」原樣傳遞 |
-| `households-create.json` | `POST /households {name: "iOS 測試家庭"}`,測試帳號自己建立 | 201 | 我是管理員 |
+| `households-create.json` | `POST /households {name: "iOS 測試家庭"}`,測試帳號自己建立 | 201 | 我是家庭管理員 |
 | `households-current.json` | `GET /households/current`,上面那個家庭群組 | 200 | 成員名冊：`user_id`、`role`、`joined_at`(UTC 的 `YYYY-MM-DD HH:MM:SS`)、`name`、`email` |
 | `households-invite.json` | `POST /households/invite` | 200 | `code` 是 `FAM-XXXX`,`expires_at` 是有毫秒的 ISO 8601 |
 | `households-join-already-member.json` | 已經在家庭群組裡時 `POST /households/join` | 400 | 「你已經加入家庭群組，無法重複加入」原樣傳遞 |
-| `households-remove-self.json` | 管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
+| `households-invite-none.json` | 沒有家庭時 `POST /households/invite` | 400 | `{success:false, error}` 原樣傳遞;測試把狀態碼換成 403，驗證權限不足的 403 走同一條路(測試帳號只有自己一人、是家庭管理員，錄不到真正的 403) |
+| `households-remove-self.json` | 家庭管理員 `DELETE /households/members/自己` | 400 | 「請使用離開家庭功能」原樣傳遞 |
 | `households-leave.json` | `DELETE /households/leave`。測試帳號是唯一的成員，離開後後端會刪掉整個家庭群組 | 200 | 只回 `{success, message}`,沒有 `data` |
 | `households-leave-none.json` | 再離開一次 | 400 | 「你未加入任何家庭」原樣傳遞 |
 

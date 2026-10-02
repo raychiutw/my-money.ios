@@ -83,7 +83,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
     private static func item(_ id: RecurringItemID, from draft: RecurringDraft) -> RecurringItem {
         RecurringItem(
             id: id, name: draft.name, type: draft.type, amount: draft.amount, cycle: draft.cycle, dayOfCycle: draft.dayOfCycle,
-            accountID: draft.accountID,
+            monthOfCycle: draft.monthOfCycle, accountID: draft.accountID,
             accountName: draft.accountID == SampleAccounts.savings.id ? SampleAccounts.savings.name : nil
         )
     }

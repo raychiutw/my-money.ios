@@ -33,15 +33,29 @@ public final class AccountsModel {
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
+    /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
+    @ObservationIgnored private let permissions: PermissionsModel?
 
     public init(
         repository: any AccountRepository,
         dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.permissions = permissions
         self.today = today
+    }
+
+    /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
+    public func canModify(_ account: Account) -> Bool {
+        permissions?.current.canModify(account) ?? true
+    }
+
+    /// 信用卡的還款沖銷、出帳作業、校準:個人信用卡只有持卡人;家庭信用卡全員都可以。
+    public func canOperate(_ card: CreditCard) -> Bool {
+        permissions?.current.canOperate(card) ?? true
     }
 
     /// 有未出帳款就能做結帳日出帳作業(長按選單)。
@@ -56,6 +70,7 @@ public final class AccountsModel {
 
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
     public func rollOver(_ card: CreditCard) async {
+        guard canOperate(card) else { return }
         do {
             noticeMessage = try await repository.rollOverStatement(card.id)
             dataVersion.bump()
@@ -81,6 +96,7 @@ public final class AccountsModel {
 
     /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
     public func delete(_ account: Account) async {
+        guard canModify(account) else { return }
         do {
             try await repository.delete(account.id)
             dataVersion.bump()
@@ -104,7 +120,7 @@ public final class AccountsModel {
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
             card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
-            dataVersion: dataVersion, today: today
+            dataVersion: dataVersion, permissions: permissions, today: today
         )
     }
 
@@ -167,6 +183,7 @@ public final class AccountsModel {
             loadedVersion = version
             loadedScope = scope
             phase = .loaded
+            await permissions?.loadIfNeeded()
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }

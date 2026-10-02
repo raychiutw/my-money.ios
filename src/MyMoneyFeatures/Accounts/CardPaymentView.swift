@@ -72,13 +72,9 @@ struct CardPaymentView: View {
             .navigationTitle("信用卡扣款還款")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("還款") { submit(confirmedLowBalance: false) }
-                        .disabled(model.isSaving)
-                        .accessibilityIdentifier("cardPayment.submit")
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("還款", isDisabled: model.isSaving, identifier: "cardPayment.submit") {
+                    submit(confirmedLowBalance: false)
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

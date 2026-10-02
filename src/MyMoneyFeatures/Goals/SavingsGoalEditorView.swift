@@ -54,17 +54,11 @@ struct SavingsGoalEditorView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "goalEditor.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("goalEditor.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)
@@ -96,9 +90,11 @@ private struct EmojiChoices: View {
                     Text(emoji)
                         .font(.title2)
                         .frame(width: 44, height: 44)
-                        .background(
+                        // 選取單色化(#134):淡淡的主要文字色底加實線外框。
+                        .background(selection == emoji ? Color.primary.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selection == emoji ? Color.accentColor : .clear, lineWidth: 2)
+                                .strokeBorder(selection == emoji ? Color.primary : .clear, lineWidth: 2)
                         )
                 }
                 .buttonStyle(.plain)

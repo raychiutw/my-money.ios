@@ -292,6 +292,46 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
+    /// 編輯權限防呆(上游 ADR 0013、#133):別人(小美)建立的家庭共同基金，一般成員點不開(不是按鈕)、左滑沒有「刪除」;
+    /// 自己的帳戶照舊可以點開。家庭管理員改得了共同基金，所以那一列是按鈕，左滑有「刪除」。
+    @MainActor
+    func testMemberCannotEditAnothersJointFundButAdminCan() throws {
+        for isAdmin in [false, true] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
+                + (isAdmin ? [] : ["-uiTestingMemberRole"])
+            app.launch()
+            signIn(app)
+            app.tabBars.buttons["帳戶"].tap()
+            XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+
+            let mei = element(in: app, labelContaining: "小美的共同基金,家庭共同基金")
+            let tabBarTop = app.tabBars.firstMatch.frame.minY
+            for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
+            XCTAssertTrue(mei.exists, "沒有看到小美建立的家庭共同基金")
+            let role = isAdmin ? "家庭管理員" : "一般成員"
+
+            // 角色在登入時問一次，晚一點才到:家庭管理員等「可以點開」出現，一般成員則一直都點不開。
+            let meiButton = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "小美的共同基金")).firstMatch
+            if isAdmin {
+                XCTAssertTrue(meiButton.waitForExistence(timeout: 5), "\(role):改得了共同基金，那一列應該是按鈕")
+            } else {
+                XCTAssertFalse(meiButton.waitForExistence(timeout: 2), "\(role):別人建立的共同基金不該點得開")
+            }
+            let own = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試存款")).firstMatch
+            XCTAssertTrue(own.exists, "\(role):自己的帳戶要點得開")
+
+            mei.swipeLeft()
+            let delete = app.buttons["刪除"].firstMatch
+            if isAdmin {
+                XCTAssertTrue(delete.waitForExistence(timeout: 3), "\(role):左滑應該有「刪除」")
+            } else {
+                XCTAssertFalse(delete.waitForExistence(timeout: 2), "\(role):左滑不該有「刪除」")
+            }
+            app.terminate()
+        }
+    }
+
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {

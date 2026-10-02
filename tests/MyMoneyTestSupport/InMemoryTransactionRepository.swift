@@ -138,14 +138,21 @@ public actor InMemoryTransactionRepository: TransactionRepository {
 /// 畫面 model 測試與 UI 測試共用的交易記錄。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
 public enum SampleTransactions {
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
-    public static func makeForToday() -> [Transaction] {
-        make(today: CalendarDay.today())
+    public static func makeForToday(includeFamilyEntries: Bool = false) -> [Transaction] {
+        make(today: CalendarDay.today(), includeFamilyEntries: includeFamilyEntries)
     }
 
-    public static func make(today: CalendarDay) -> [Transaction] {
+    /// `includeFamilyEntries`:多兩筆「家庭公帳、家人(小美)記的」交易，一筆名稱短、一筆備註很長(交易列版型的 UI 測試，#128)。
+    public static func make(today: CalendarDay, includeFamilyEntries: Bool = false) -> [Transaction] {
         let first = today.firstOfMonth
         let tenth = min(today, CalendarDay(year: today.year, month: today.month, day: 10))
-        return [
+        let family: [Transaction] = includeFamilyEntries
+            ? [
+                familyTransaction("family-short", "晚餐-水煎包", 85, today),
+                familyTransaction("family-long", "週末全家一起去大賣場採買下週要用的食材和日用品還有小孩的文具", 2380, today),
+            ]
+            : []
+        return family + [
             transaction("sample-income", .income, .salary, 45000, "", first, shared: true, account: SampleAccounts.savings),
             transaction("sample-repayment", .expense, .creditCardRepayment, 5000, "繳納【iOS 測試信用卡】卡費", tenth,
                         shared: true, account: SampleAccounts.savings),
@@ -153,6 +160,15 @@ public enum SampleTransactions {
             transaction("sample-headphones", .expense, TransactionCategory("購物"), 880, "耳機", today, shared: false,
                         accountName: SampleAccounts.card.name, accountID: SampleAccounts.card.id),
         ]
+    }
+
+    /// 家庭公帳、小美記的支出。
+    private static func familyTransaction(_ id: String, _ note: String, _ amount: Int, _ date: CalendarDay) -> Transaction {
+        Transaction(
+            id: TransactionID(id), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, type: .expense,
+            category: .dining, amount: Money(Decimal(amount)), note: note, date: date, isShared: true, recorderName: "小美",
+            recorderID: UserID("sample-mei")
+        )
     }
 
     private static func transaction(

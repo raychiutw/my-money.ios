@@ -36,7 +36,7 @@ struct ForecastScreen: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }
@@ -163,12 +163,13 @@ struct ForecastScreen: View {
                     focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
                 )
             }
-            Button("進行購買力試算") {
+            PrimaryCapsuleButton(title: "進行購買力試算", fillsWidth: true) {
                 focusedField = nil
                 Task { await model.checkPurchase() }
             }
             .disabled(model.isChecking)
             .accessibilityIdentifier("forecast.check")
+            .clearListRow()
             if let error = model.purchaseError {
                 Text(error)
                     .foregroundStyle(.red)

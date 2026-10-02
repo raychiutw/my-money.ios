@@ -44,13 +44,18 @@ public struct MainScreens {
         defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
+        // 編輯權限(上游 ADR 0013、#133):角色在登入時問一次，帳戶頁、交易頁、信用卡詳細頁共用;家庭頁載入後同步。
+        let permissions = PermissionsModel(userID: currentUser, households: householdRepository)
+        Task { await permissions.loadIfNeeded() }
         overview = OverviewModel(
             accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
-            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, defaults: defaults
+            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, permissions: permissions,
+            defaults: defaults
         )
-        accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion)
+        accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion, permissions: permissions)
         transactions = TransactionsModel(
-            repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser
+            repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
+            permissions: permissions
         )
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion)
@@ -59,7 +64,7 @@ public struct MainScreens {
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
-            currentUser: currentUser, dataVersion: dataVersion
+            currentUser: currentUser, permissions: permissions, dataVersion: dataVersion
         )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }

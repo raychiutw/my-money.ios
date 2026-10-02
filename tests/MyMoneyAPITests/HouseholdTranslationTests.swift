@@ -117,6 +117,25 @@ struct HouseholdTranslationTests {
         }
     }
 
+    @Test("權限不足的 403:邀請與撥款報銷都把後端的中文原因原樣傳遞，不當成 session 過期(上游 ADR 0013，#132)")
+    func forbiddenKeepsTheBackendReason() async throws {
+        // 測試帳號只有自己一個人、是家庭管理員，錄不到真正的 403:body 用真實的 `{success:false, error}` 回應(未加入家庭時邀請，400)，
+        // 只把狀態碼換成 403，驗證 403 走同一條「原樣傳遞訊息」的路。後端的 403 訊息來源是 B:handlers/households.ts@af5444c。
+        try stub.reply(status: 403, fixture: "households-invite-none.json")
+        await #expect(throws: RepositoryError.rejected("尚未建立或加入家庭群組")) {
+            try await repository.invite()
+        }
+
+        try stub.reply(status: 403, fixture: "households-invite-none.json")
+        await #expect(throws: RepositoryError.rejected("尚未建立或加入家庭群組")) {
+            try await repository.reimburse(Reimbursement(
+                memberID: me, fromAccountID: AccountID("a"), toAccountID: AccountID("b"), amount: Money(1),
+                date: CalendarDay(year: 2026, month: 9, day: 28), note: ""
+            ))
+        }
+        #expect(session.expirationCount == 0, "403 不是 401，不該清掉 session")
+    }
+
     @Test("還沒加入家庭時是 nil")
     func currentWithoutHousehold() async throws {
         try stub.reply(status: 200, fixture: "households-current-none.json")

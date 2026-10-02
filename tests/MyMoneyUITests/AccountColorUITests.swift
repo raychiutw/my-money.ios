@@ -76,8 +76,8 @@ final class AccountColorUITests: XCTestCase {
             XCTAssertTrue(swatch.isSelected, "再打開時代表色不是剛存的「\(name)」")
             XCTAssertTrue(isFullyVisible(swatch, in: row, app: app), "打開時沒有捲到已選的「\(name)」:色塊 \(swatch.frame),代表色列 \(row.frame)")
             XCTAssertTrue(showsPartialSwatch(in: row, app: app), "打開時(已選「\(name)」)邊緣沒有露出部分色塊，看不出還能滑")
-            app.buttons["取消"].tap()
-            XCTAssertTrue(swatch.waitForNonExistence(timeout: 5), "按取消後編輯資產帳戶沒有關閉")
+            app.buttons["關閉"].tap()
+            XCTAssertTrue(swatch.waitForNonExistence(timeout: 5), "按關閉後編輯資產帳戶沒有關閉")
         }
     }
 

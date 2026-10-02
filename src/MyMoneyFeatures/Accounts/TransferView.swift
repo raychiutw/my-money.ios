@@ -68,20 +68,14 @@ struct TransferView: View {
             .navigationTitle("ATM 提款／轉帳")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("確認") {
-                        Task {
-                            if let message = await model.submit() {
-                                dismiss()
-                                onDone(message)
-                            }
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("確認", isDisabled: model.isSaving, identifier: "transfer.submit") {
+                    Task {
+                        if let message = await model.submit() {
+                            dismiss()
+                            onDone(message)
                         }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("transfer.submit")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

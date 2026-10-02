@@ -76,6 +76,15 @@ extension View {
         #endif
     }
 
+    /// 滾輪式選擇(年、月)。只有 iOS 有 `.wheel`。
+    func wheelPickerStyle() -> some View {
+        #if os(iOS)
+        pickerStyle(.wheel)
+        #else
+        self
+        #endif
+    }
+
     /// 區塊之間的間距縮小(總覽的數字磚、提示)。只有 iOS 有 `listSectionSpacing`。
     func compactSectionSpacing() -> some View {
         #if os(iOS)

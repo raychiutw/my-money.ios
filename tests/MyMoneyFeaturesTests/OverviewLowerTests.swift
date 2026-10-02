@@ -61,6 +61,44 @@ struct OverviewLowerTests {
         #expect(overview.totalCardDue == Money(28500))
     }
 
+    // MARK: 數字磚的標籤(#127)
+
+    @Test("三格數字磚:畫面用簡稱(可支配現金、當月淨收支、信用卡待繳)，VoiceOver 念正名與完整金額")
+    func tileTitles() async throws {
+        let overview = await loaded()
+
+        let tiles = overview.summaryTiles
+        #expect(tiles.map(\.title) == ["可支配現金", "當月淨收支", "信用卡待繳"])
+        #expect(tiles.map(\.spokenTitle) == ["真實可支配現金", "當月淨收支", "信用卡待繳"])
+        #expect(tiles.map(\.amount) == [Money(23000), overview.monthNet, Money(28500)])
+    }
+
+    @Test("視角不是全部時，視角寫在 VoiceOver 的標籤，畫面上的標籤不加(才不會被截斷)")
+    func scopeIsOnlySpoken() async throws {
+        let overview = model(accounts: .sampleWithCash())
+        overview.scope = .household
+        await overview.load()
+
+        let net = try #require(overview.summaryTiles.dropFirst().first)
+        #expect(net.title == "當月淨收支")
+        #expect(net.spokenTitle == "當月淨收支(家庭)")
+    }
+
+    @Test("警示色:可支配現金與當月淨收支是負數時、信用卡待繳大於 0 時")
+    func tileWarnings() async throws {
+        let negative = BalanceSummary(
+            cashTotal: .zero, bankBalanceTotal: Money(1000), billedDebtTotal: Money(500), unbilledDebtTotal: .zero,
+            availableBalance: Money(500), monthlyAmortization: .zero, monthlySavingsReserve: .zero, disposableCash: Money(-97799)
+        )
+        let overview = await loaded(accounts: InMemoryAccountRepository(accounts: [], summary: negative))
+
+        let flags = overview.summaryTiles.map(\.isWarning)
+        // 可支配現金 -97,799 是負數;當月淨收支是來自範例交易的 +44,000;信用卡待繳 500 大於 0。
+        #expect(flags == [true, false, true])
+        let settled = await loaded(accounts: InMemoryAccountRepository(accounts: [], summary: .zero))
+        #expect(settled.summaryTiles.map(\.isWarning) == [false, false, false])
+    }
+
     // MARK: 帳戶卡片
 
     @Test("帳戶卡片的順序跟帳戶頁一樣:現金錢包、銀行存款帳戶、信用卡;每張卡是名稱加大金額，信用卡的金額是信用卡待繳總額")

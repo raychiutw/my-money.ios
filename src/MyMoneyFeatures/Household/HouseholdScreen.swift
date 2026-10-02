@@ -109,7 +109,7 @@ struct HouseholdScreen: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }
@@ -131,11 +131,9 @@ struct HouseholdScreen: View {
                     TextField("家庭名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
                         .accessibilityIdentifier("household.createName")
                 }
-                Button("建立") {
+                PrimaryCapsuleButton(title: "建立", fillsWidth: true) {
                     Task { await model.create() }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
                 .disabled(!model.canCreate)
                 .accessibilityIdentifier("household.create")
             }
@@ -147,11 +145,9 @@ struct HouseholdScreen: View {
                         .autocorrectionDisabled()
                         .accessibilityIdentifier("household.joinCode")
                 }
-                Button("加入") {
+                PrimaryCapsuleButton(title: "加入", fillsWidth: true) {
                     Task { await model.join() }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
                 .disabled(!model.canJoin)
                 .accessibilityIdentifier("household.join")
             }
@@ -185,13 +181,15 @@ struct HouseholdScreen: View {
 
             membersSection
 
-            // 邀請與離開是次要動作，降到最下面。
+            // 邀請與離開是次要動作，降到最下面;邀請只有家庭管理員看得到(上游 ADR 0013，#132)。
             Section {
-                Button("邀請家庭成員", systemImage: "person.badge.plus") {
-                    Task { await model.invite() }
+                if model.canInvite {
+                    Button("邀請家庭成員", systemImage: "person.badge.plus") {
+                        Task { await model.invite() }
+                    }
+                    .disabled(model.isInviting)
+                    .accessibilityIdentifier("household.invite")
                 }
-                .disabled(model.isInviting)
-                .accessibilityIdentifier("household.invite")
                 Button("離開家庭", role: .destructive) {
                     isLeaveConfirming = true
                 }
@@ -203,7 +201,7 @@ struct HouseholdScreen: View {
 
 extension HouseholdScreen {
     /// 成員(#121):每位成員一列，只有名字、身分和數字(待報銷);代墊明細就地展開(可以同時展開多位)，
-    /// 有待報銷的才有「從共同基金報銷」入口。管理員往左滑可以移除一般成員。
+    /// 有待報銷的才有「從共同基金報銷」入口(家庭管理員任何人都有，一般成員只有自己)。家庭管理員往左滑可以移除一般成員。
     private var membersSection: some View {
         Section("成員") {
             let members = model.household?.members ?? []
@@ -319,12 +317,12 @@ private struct AdvanceDetails: View {
 
 extension ReimbursementModel: Identifiable {}
 
-/// 成員的一列(#121):名稱開頭字、名字、身分(管理員或一般成員)與待報銷的數字(已結清時是「已結清」加勾勾);
+/// 成員的一列(#121):名稱開頭字、名字、身分(家庭管理員或一般成員)與待報銷的數字(已結清時是「已結清」加勾勾);
 /// 家庭公帳代墊的累計與已報銷在我的數字磚(自己)與代墊明細(每個人)。
 /// 放不下時(大字級)改成上下堆疊，金額單行。VoiceOver 念一句完整的話，跟以前的代墊摘要列一樣，最後多身分。
 private struct MemberRow: View {
     let name: String
-    /// 身分(管理員或一般成員);不在名冊裡的人是 `nil`。
+    /// 身分(家庭管理員或一般成員);不在名冊裡的人是 `nil`。
     let roleTitle: String?
     /// 這位成員的代墊統計;後端沒有這位成員的紀錄時是 `nil`。
     let advance: HouseholdAdvance?
@@ -394,7 +392,7 @@ private struct MemberRow: View {
         }
     }
 
-    /// 例如「小明,有待請款代墊,累計公帳墊付 250 元,已獲撥款報銷 0 元,待報銷 250 元,管理員」;已結清是「已全數結清」。
+    /// 例如「小明,有待請款代墊,累計公帳墊付 250 元,已獲撥款報銷 0 元,待報銷 250 元,家庭管理員」;已結清是「已全數結清」。
     private var spokenText: String {
         guard let advance else { return [name, roleTitle].compactMap { $0 }.joined(separator: ",") }
         return ["\(advance.memberName)", advance.isSettled ? "已全數結清" : "有待請款代墊",
@@ -430,9 +428,7 @@ private struct InvitationSheet: View {
             .navigationTitle("邀請家庭成員")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
-                }
+                SheetConfirmButton("完成", identifier: "household.invitation.done") { dismiss() }
             }
         }
         .presentationDetents([.medium])

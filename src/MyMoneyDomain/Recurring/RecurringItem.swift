@@ -17,6 +17,15 @@ public enum RecurringCycle: String, CaseIterable, Hashable, Sendable {
     case semiannual
     case annual
 
+    /// 可選的繳費月份(`month_of_cycle`，上游 ADR 0012):從哪一個月開始算，之後每隔一期扣款一次。
+    /// 月繳固定 1;雙月繳 1–2(單數月、雙數月);季繳 1–3;半年繳 1–6;年繳 1–12。
+    public var monthChoices: [Int] { Array(1...months) }
+
+    /// 切換週期時的月份:不在新週期範圍內就重設為第一項(1)，範圍內的保留(跟 web 的 `handleCycleChange` 一樣)。
+    public func clampedMonth(_ month: Int) -> Int {
+        monthChoices.contains(month) ? month : monthChoices[0]
+    }
+
     /// 一期有幾個月。
     public var months: Int {
         switch self {
@@ -39,6 +48,8 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
     public let cycle: RecurringCycle
     /// 扣款日或入帳日(1 到 31)。
     public let dayOfCycle: Int
+    /// 繳費月份(`month_of_cycle`):月繳是 1;舊資料沒有這個欄位時也是 1(見 `RecurringCycle.monthChoices`)。
+    public let monthOfCycle: Int
     /// 關聯帳戶;沒有指定時是 `nil`。
     public let accountID: AccountID?
     public let accountName: String?
@@ -50,6 +61,7 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
         amount: Money,
         cycle: RecurringCycle,
         dayOfCycle: Int,
+        monthOfCycle: Int = 1,
         accountID: AccountID?,
         accountName: String?
     ) {
@@ -59,6 +71,7 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
         self.amount = amount
         self.cycle = cycle
         self.dayOfCycle = dayOfCycle
+        self.monthOfCycle = monthOfCycle
         self.accountID = accountID
         self.accountName = accountName
     }
@@ -76,14 +89,19 @@ public struct RecurringDraft: Hashable, Sendable {
     public let amount: Money
     public let cycle: RecurringCycle
     public let dayOfCycle: Int
+    public let monthOfCycle: Int
     public let accountID: AccountID?
 
-    public init(name: String, type: TransactionType, amount: Money, cycle: RecurringCycle, dayOfCycle: Int, accountID: AccountID?) {
+    public init(
+        name: String, type: TransactionType, amount: Money, cycle: RecurringCycle, dayOfCycle: Int, monthOfCycle: Int = 1,
+        accountID: AccountID?
+    ) {
         self.name = name
         self.type = type
         self.amount = amount
         self.cycle = cycle
         self.dayOfCycle = dayOfCycle
+        self.monthOfCycle = monthOfCycle
         self.accountID = accountID
     }
 }

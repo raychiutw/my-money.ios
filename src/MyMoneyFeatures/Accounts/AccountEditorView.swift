@@ -77,17 +77,11 @@ struct AccountEditorView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "accountEditor.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("accountEditor.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

@@ -185,12 +185,15 @@ private struct AccountDTO: Decodable {
     let color: String
     /// 0/1;`79edd20` 以前的資料可能沒有這個欄位。
     let isJoint: Int?
+    /// 擁有者(個人私帳是本人，家庭共同帳戶是建立者)，判斷誰能編輯、刪除(上游 ADR 0013)。
+    let userID: String?
     /// 欠款公私拆解，只有信用卡帳戶有。
     let sharedDebt: Decimal?
     let personalDebt: Decimal?
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, balance, unbilled, color
+        case userID = "user_id"
         case sharedDebt = "shared_debt"
         case personalDebt = "personal_debt"
         case creditLimit = "credit_limit"
@@ -204,7 +207,8 @@ private struct AccountDTO: Decodable {
         switch type {
         case "cash":
             return .cash(CashWallet(
-                id: AccountID(id), name: name, colorHex: color, balance: Money(balance), isJointFund: isJoint == 1
+                id: AccountID(id), name: name, colorHex: color, balance: Money(balance), isJointFund: isJoint == 1,
+                ownerID: userID.map(UserID.init)
             ))
         case "bank":
             return .bank(BankAccount(
@@ -212,7 +216,8 @@ private struct AccountDTO: Decodable {
                 name: name,
                 colorHex: color,
                 balance: Money(balance),
-                isJointFund: isJoint == 1
+                isJointFund: isJoint == 1,
+                ownerID: userID.map(UserID.init)
             ))
         case "credit_card":
             return .creditCard(CreditCard(
@@ -226,7 +231,8 @@ private struct AccountDTO: Decodable {
                 paymentDueDay: paymentDueDay,
                 sharedDebt: Money(sharedDebt ?? 0),
                 personalDebt: Money(personalDebt ?? 0),
-                isJointFund: isJoint == 1
+                isJointFund: isJoint == 1,
+                ownerID: userID.map(UserID.init)
             ))
         default:
             return nil

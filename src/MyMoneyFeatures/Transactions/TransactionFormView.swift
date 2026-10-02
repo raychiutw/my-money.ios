@@ -56,6 +56,21 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
+                // 帳戶與日期放在最上面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
+                // (上游 ADR 0011);金額欄仍然一打開就對焦。
+                Section {
+                    AccountPicker(
+                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
+                        placeholder: "請選擇扣款／存入帳戶"
+                    )
+                    DatePicker(
+                        "日期",
+                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
+                        displayedComponents: .date
+                    )
+                    .calendarDayTimeZone()
+                }
+
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
@@ -97,27 +112,11 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         selection: Binding(get: { model.category }, set: { model.chooseCategory($0) })
                     )
                 }
-
-                Section {
-                    AccountPicker(
-                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
-                        placeholder: "請選擇扣款／存入帳戶"
-                    )
-                    DatePicker(
-                        "日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
-                }
-
             }
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
+                SheetCloseButton { dismiss() }
                 // 支出／收入放在導覽列中間(#65,HIG 分段控制一節舉的行事曆「新增事件」),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
                     Picker("類型", selection: $model.type) {
@@ -126,14 +125,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("儲存") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "quickEntry.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("quickEntry.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

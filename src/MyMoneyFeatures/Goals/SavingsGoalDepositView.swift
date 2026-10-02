@@ -35,17 +35,11 @@ struct SavingsGoalDepositView: View {
             .navigationTitle(model.title)
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("存入") {
-                        Task {
-                            if await model.save() { dismiss() }
-                        }
+                SheetCloseButton { dismiss() }
+                SheetConfirmButton("存入", isDisabled: model.isSaving, identifier: "goalDeposit.save") {
+                    Task {
+                        if await model.save() { dismiss() }
                     }
-                    .disabled(model.isSaving)
-                    .accessibilityIdentifier("goalDeposit.save")
                 }
             }
             .keyboardDismissal(clearing: $focusedField)

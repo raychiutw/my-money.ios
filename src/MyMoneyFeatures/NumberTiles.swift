@@ -108,12 +108,14 @@ struct NumberTile: View {
 /// 一排數字磚:每格至少要有 `minimumTileWidth`(跟著字級變大)，放得下就並排、等寬等高，放不下就上下堆疊。
 /// 只看實際可用的寬度，不看裝置或字級屬性(#117)。
 struct NumberTileRow<Content: View>: View {
-    /// 設計稿是三格橫排:到 XXL 都還並排(數字單行縮小)，更大的字級(無障礙字級)才上下堆疊(#124)。
-    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 84
+    /// 設計稿是三格橫排:預設到 XXL 都並排(標籤單行、數字單行縮小)，XXXL 以上與無障礙字級才上下堆疊(#124、#127)。
+    /// 最小寬度連同標籤的字級一起放大:XXL 時每格約 110pt(比 393pt 寬的 iPhone 每格 115pt 放得下)、XXXL 約 120pt(放不下才堆疊);
+    /// 標籤「可支配現金」5 個字 90pt 放得進磚內(扣掉左右留白)。
+    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 92
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        NumberTileLayout(minimumTileWidth: minimumTileWidth, spacing: 12) {
+        NumberTileLayout(minimumTileWidth: minimumTileWidth, spacing: 8) {
             content()
         }
     }

@@ -28,7 +28,7 @@ public final class OverviewModel {
         CreditCardDetailModel(
             card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope.accountScope,
             repository: accountRepository,
-            dataVersion: dataVersion, today: today
+            dataVersion: dataVersion, permissions: permissions, today: today
         )
     }
 
@@ -57,6 +57,7 @@ public final class OverviewModel {
     @ObservationIgnored private let goalRepository: any SavingsGoalRepository
     @ObservationIgnored private let forecastRepository: (any ForecastRepository)?
     @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
@@ -72,6 +73,7 @@ public final class OverviewModel {
         goals: any SavingsGoalRepository,
         forecast: (any ForecastRepository)? = nil,
         dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
         defaults: UserDefaults,
         today: @escaping () -> CalendarDay = { CalendarDay.today() },
         locale: Locale = .autoupdatingCurrent
@@ -82,6 +84,7 @@ public final class OverviewModel {
         goalRepository = goals
         forecastRepository = forecast
         self.dataVersion = dataVersion
+        self.permissions = permissions
         self.defaults = defaults
         self.today = today
         self.locale = locale
@@ -106,6 +109,18 @@ public final class OverviewModel {
 
     /// 信用卡待繳磚(#117):所有信用卡的已出帳待繳款加未出帳款，用後端的合計(跟帳戶頁的信用卡待繳總額同一個算法)。
     public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
+
+    /// 三格數字磚(#127):畫面標籤用簡稱，VoiceOver 念 `CONTEXT.md` 的正名(視角也只寫在 VoiceOver，畫面上的標籤才不會被截斷)。
+    /// 還沒載入時是空的。
+    public var summaryTiles: [SummaryTile] {
+        guard let summary else { return [] }
+        let cardDue = totalCardDue ?? .zero
+        return [
+            SummaryTile(title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero),
+            SummaryTile(title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero),
+            SummaryTile(title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero),
+        ]
+    }
 
     /// 帳戶卡片最多幾張;其餘用「管理」到帳戶頁(#117)。
     public static let accountCardLimit = 6
@@ -174,6 +189,19 @@ public final class OverviewModel {
         guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
     }
+}
+
+/// 總覽的一格數字磚(#127)。
+public struct SummaryTile: Identifiable, Hashable, Sendable {
+    /// 畫面上的簡稱。
+    public let title: String
+    /// VoiceOver 念的正名。
+    public let spokenTitle: String
+    public let amount: Money
+    /// 用警示色(負數的可支配現金與淨收支、有待繳的信用卡)。
+    public let isWarning: Bool
+
+    public var id: String { title }
 }
 
 /// 總覽帳戶卡片的一張(#117):名稱加大金額。信用卡的金額是信用卡待繳總額，有待繳時用警示色，另外有「N 日繳」。

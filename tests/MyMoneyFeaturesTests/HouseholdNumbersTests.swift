@@ -87,11 +87,11 @@ struct HouseholdNumbersTests {
         #expect(model.myAdvance == nil)
     }
 
-    @Test("成員列顯示身分:管理員或一般成員(CONTEXT.md 的詞彙)")
+    @Test("成員列顯示身分:家庭管理員或一般成員(CONTEXT.md 的詞彙)")
     func roleTitles() async throws {
         let model = await loaded()
 
         let household = try #require(model.household)
-        #expect(household.members.map { model.roleTitle(of: $0.userID) } == ["管理員", "一般成員"])
+        #expect(household.members.map { model.roleTitle(of: $0.userID) } == ["家庭管理員", "一般成員"])
     }
 }

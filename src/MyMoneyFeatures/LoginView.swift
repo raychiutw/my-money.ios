@@ -69,12 +69,11 @@ struct LoginView: View {
             }
 
             Section {
-                Button(action: submit) {
-                    Text(model.submitTitle)
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(!model.canSubmit)
-                .accessibilityIdentifier("login.submit")
+                // 單色填滿的玻璃膠囊(#134):淺色黑底白字、深色白底黑字;停用時系統會淡化。
+                PrimaryCapsuleButton(title: model.submitTitle, fillsWidth: true, action: submit)
+                    .disabled(!model.canSubmit)
+                    .accessibilityIdentifier("login.submit")
+                    .clearListRow()
             }
 
             Section {

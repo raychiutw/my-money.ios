@@ -175,12 +175,12 @@ private struct Tour {
         if let menuItem {
             tap(app.buttons[menuItem])
         }
-        let cancel = app.navigationBars.buttons["取消"].firstMatch
+        let cancel = app.navigationBars.buttons["關閉"].firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 5), "沒有打開「\(screen)」")
         captureScrolling(screen)
         inside()
         cancel.tap()
-        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "「\(screen)」按取消之後沒有關閉")
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), "「\(screen)」按關閉之後沒有關閉")
     }
 
     /// 用導覽列的關閉鈕關掉沒有「取消」的 sheet(「我的」)。

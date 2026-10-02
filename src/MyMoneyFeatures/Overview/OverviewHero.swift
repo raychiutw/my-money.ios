@@ -63,7 +63,7 @@ struct ForecastTrendChart: View {
                 if trend.minimum < 0 {
                     RuleMark(y: .value("零", 0))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        // 明確的灰色:`.secondary` 在圖表裡會被主題色染成粉紅。
+                        // 明確的灰色:`.secondary` 在圖表裡會被預設的 tint 染色。
                         .foregroundStyle(Color.secondary)
                         .accessibilityHidden(true)
                 }
@@ -87,7 +87,7 @@ struct ForecastTrendChart: View {
     }
 
     /// 線的顏色:有跨過零線時，零線以上一般色、以下紅色(漸層在零線的位置硬切);全在零以下整條紅色。
-    /// 一般色用主要文字色而不是主題色:這個 app 的主題色是品牌紅，跟警示紅分不出來。
+    /// 一般色用主要文字色:警示紅用在透支與負數，走勢線不用彩色。
     private var lineStyle: AnyShapeStyle {
         if trend.isEntirelyBelowZero { return AnyShapeStyle(.red) }
         guard let zero = trend.zeroFraction else { return AnyShapeStyle(Color.primary) }

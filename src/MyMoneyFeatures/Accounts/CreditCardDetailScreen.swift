@@ -23,15 +23,20 @@ struct CreditCardDetailScreen: View {
         List {
             feesSection
             settingsSection
-            actionsSection
+            // 個人信用卡只有持卡人能繳款、出帳、校準(上游 ADR 0013、#133)。
+            if model.canOperate {
+                actionsSection
+            }
         }
         .navigationTitle(model.card.name)
         .inlineNavigationTitle()
         .toolbar {
             // HIG Toolbars:編輯這類難用符號表達的動作可以用文字。
-            ToolbarItem(placement: .primaryAction) {
-                Button("編輯") { editor = model.makeEditor() }
-                    .accessibilityIdentifier("cardDetail.edit")
+            if model.canEdit {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("編輯") { editor = model.makeEditor() }
+                        .accessibilityIdentifier("cardDetail.edit")
+                }
             }
         }
         .refreshable { await model.load() }

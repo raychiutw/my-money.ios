@@ -67,7 +67,7 @@ struct BotScreen: View {
                             Text("在 LINE 或 Telegram 的聊天室傳送：\(model.pairingCommand)")
                                 .font(.subheadline)
                             CopyButton(title: "複製指令", copiedTitle: "已複製指令", text: model.pairingCommand)
-                                .buttonStyle(.borderless)
+                                .buttonStyle(.glass)
                                 .accessibilityIdentifier("bot.copyCommand")
                         }
                     } else {
@@ -94,7 +94,7 @@ struct BotScreen: View {
             } else if let message = model.bindingsErrorMessage, model.bindings == nil {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
-                Button("重試") {
+                GlassCapsuleButton(title: "重試") {
                     Task { await model.load() }
                 }
             }
@@ -197,7 +197,7 @@ struct BotChatScreen: View {
                             model.draft = example
                             Task { await model.send() }
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.glass)
                         .disabled(model.isThinking)
                     }
                 }
@@ -246,7 +246,7 @@ private struct MessageBubble: View {
         )
     }
 
-    /// 我的訊息用淡色的 tint 底配主要文字色：白字配品牌粉在深色模式只有 2.27:1(DESIGN.md「顏色」)。
+    /// 我的訊息用淡色的 tint 底配主要文字色(單色，DESIGN.md「顏色」)。
     private var background: AnyShapeStyle {
         if message.isError { return AnyShapeStyle(.red.opacity(0.15)) }
         return message.sender == .user ? AnyShapeStyle(.tint.opacity(0.2)) : AnyShapeStyle(.fill.tertiary)

@@ -41,6 +41,46 @@ struct RecurringTranslationTests {
         #expect(items[2].type == .income)
     }
 
+    @Test("讀到繳費月份(month_of_cycle):月繳與舊資料是 1，季繳可以是 2")
+    func listDecodesMonthOfCycle() async throws {
+        try stub.reply(status: 200, fixture: "recurring-list-with-month.json")
+
+        let items = try await repository.items()
+
+        try #require(items.count == 4)
+        #expect(items.map(\.monthOfCycle) == [1, 1, 1, 2])
+        #expect(items[3].cycle == .quarterly)
+        #expect(items[3].name == "iOS 測試保險費")
+    }
+
+    @Test("舊的回應沒有 month_of_cycle 欄位時當成 1，不壞掉")
+    func missingMonthOfCycleDefaultsToOne() async throws {
+        try stub.reply(status: 200, fixture: "recurring-list.json")
+
+        let items = try await repository.items()
+
+        #expect(items.map(\.monthOfCycle) == [1, 1, 1])
+    }
+
+    @Test("新增與更新都送 month_of_cycle")
+    func sendsMonthOfCycle() async throws {
+        try stub.reply(status: 201, fixture: "recurring-create-quarterly.json")
+        try await repository.create(RecurringDraft(
+            name: "iOS 測試保險費", type: .expense, amount: Money(3000), cycle: .quarterly, dayOfCycle: 5, monthOfCycle: 2, accountID: nil
+        ))
+        let created = try body(stub.requests.last)
+        #expect(created["month_of_cycle"] as? Int == 2)
+        #expect(created["cycle"] as? String == "quarterly")
+
+        try stub.reply(status: 200, fixture: "recurring-update-month.json")
+        try await repository.update(RecurringItemID("78aa0705-cb03-402d-bbc4-b3e778f8c732"), with: RecurringDraft(
+            name: "iOS 測試保險費", type: .expense, amount: Money(3000), cycle: .semiannual, dayOfCycle: 5, monthOfCycle: 4, accountID: nil
+        ))
+        let updated = try body(stub.requests.last)
+        #expect(updated["month_of_cycle"] as? Int == 4)
+        #expect(stub.requests.last?.httpMethod == "PUT")
+    }
+
     @Test("分攤平滑用後端算好的每月合計")
     func amortizationDecodes() async throws {
         try stub.reply(status: 200, fixture: "recurring-amortize.json")

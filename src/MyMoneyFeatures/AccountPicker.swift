@@ -84,7 +84,6 @@ private struct AccountChoiceList: View {
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 }
             }

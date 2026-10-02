@@ -47,16 +47,12 @@ public struct AvatarPalette: Equatable, Sendable {
         return (max(first, second) + 0.05) / (min(first, second) + 0.05)
     }
 
-    /// 淺色:深酒紅底配白字(約 8:1);深色:淡粉紅底配近黑字(約 9.7:1);增強對比再拉開(都超過 10:1)。
+    /// 淺色、深色**同一組**(使用者要求，品牌識別一致):淡粉紅底配近黑字(約 9.7:1);增強對比再拉開(都超過 10:1)，淺色與深色也同一組。
     public static func palette(for style: Style) -> AvatarPalette {
         switch style {
-        case .light:
-            AvatarPalette(fill: RGB(red: 143, green: 45, blue: 58), letter: RGB(red: 255, green: 255, blue: 255))
-        case .dark:
+        case .light, .dark:
             AvatarPalette(fill: RGB(red: 255, green: 156, blue: 156), letter: RGB(red: 31, green: 5, blue: 7))
-        case .lightIncreasedContrast:
-            AvatarPalette(fill: RGB(red: 111, green: 29, blue: 42), letter: RGB(red: 255, green: 255, blue: 255))
-        case .darkIncreasedContrast:
+        case .lightIncreasedContrast, .darkIncreasedContrast:
             AvatarPalette(fill: RGB(red: 255, green: 201, blue: 201), letter: RGB(red: 0, green: 0, blue: 0))
         }
     }

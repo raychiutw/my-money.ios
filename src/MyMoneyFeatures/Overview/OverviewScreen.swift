@@ -66,7 +66,7 @@ struct OverviewScreen: View {
                 } description: {
                     Text(message)
                 } actions: {
-                    Button("重試") {
+                    GlassCapsuleButton(title: "重試") {
                         Task { await model.load() }
                     }
                 }
@@ -98,12 +98,11 @@ struct OverviewScreen: View {
             .compactSectionSpacing()
             Section {
                 NumberTileRow {
-                    NumberTile(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
-                    NumberTile(title: model.netTitle, amount: model.monthNet, warnsWhenNegative: true)
-                    NumberTile(
-                        title: "信用卡待繳", amount: model.totalCardDue ?? .zero,
-                        style: (model.totalCardDue ?? .zero) > .zero ? .red : nil
-                    )
+                    ForEach(model.summaryTiles) { tile in
+                        NumberTile(
+                            title: tile.title, amount: tile.amount, style: tile.isWarning ? .red : nil, spokenTitle: tile.spokenTitle
+                        )
+                    }
                 }
                 .clearListRow()
             }
@@ -134,8 +133,7 @@ struct OverviewScreen: View {
                     Text(model.scope.accountScope.emptyAccountsHint)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Button("前往帳戶管理") { show(.accounts) }
-                        .buttonStyle(.borderless)
+                    GlassCapsuleButton(title: "前往帳戶管理") { show(.accounts) }
                 }
             } else {
                 NumberCardGrid {
@@ -146,7 +144,11 @@ struct OverviewScreen: View {
                 .clearListRow()
             }
         } header: {
-            header("帳戶", action: "管理") { show(.accounts) }
+            header("帳戶") {
+                MoreMenu(label: "帳戶的更多動作", identifier: "overview.accounts.more") {
+                    Button("管理帳戶", systemImage: "building.columns") { show(.accounts) }
+                }
+            }
         }
     }
 
@@ -172,15 +174,19 @@ struct OverviewScreen: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("此視角目前尚無交易")
                         .foregroundStyle(.secondary)
-                    Button("記一筆") { isEntryPresented = true }
-                        .buttonStyle(.borderless)
+                    GlassCapsuleButton(title: "記一筆") { isEntryPresented = true }
                 }
             }
             ForEach(model.recentTransactions) { transaction in
                 CompactTransactionRow(transaction: transaction)
             }
         } header: {
-            header("最近", action: "全部") { show(.transactions) }
+            header("最近") {
+                MoreMenu(label: "最近交易的更多動作", identifier: "overview.recent.more") {
+                    Button("查看全部交易", systemImage: "list.bullet") { show(.transactions) }
+                    Button("記一筆", systemImage: "plus") { isEntryPresented = true }
+                }
+            }
         }
     }
 
@@ -195,12 +201,12 @@ struct OverviewScreen: View {
         }
     }
 
-    private func header(_ title: String, action: String, perform: @escaping () -> Void) -> some View {
+    /// 區塊標題:右邊是「…」玻璃圓鈕，點開選單(#134;取代「管理」「全部」這類裸文字按鈕)。
+    private func header(_ title: String, @ViewBuilder more: () -> some View) -> some View {
         HStack {
             Text(title)
             Spacer()
-            Button(action, action: perform)
-                .font(.subheadline)
+            more()
                 .textCase(nil)
         }
     }

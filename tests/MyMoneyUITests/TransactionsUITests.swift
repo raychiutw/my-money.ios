@@ -83,12 +83,206 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "沒有再次打開「篩選」sheet")
         tapRevealing(app.buttons["僅支出"], in: app)
-        sheet.buttons["取消"].tap()
+        sheet.buttons["關閉"].tap()
 
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按取消後篩選 sheet 沒有關閉")
-        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按取消後篩選按鈕的值變了")
-        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按取消後清單變了")
-        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 3), "按關閉後篩選 sheet 沒有關閉")
+        XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按關閉後篩選按鈕的值變了")
+        XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按關閉後清單變了")
+        XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按關閉後清單變了")
+    }
+
+    /// 交易列在「家庭公帳 + 家人記的」下仍是單行(#128):列高跟其他列一樣，金額與小標記不被擠到左下。
+    /// 真機的字級常常不是預設的 L:並列版型在 XXL、XXXL 放不下就會掉進上下堆疊;只有無障礙字級才該堆疊。
+    @MainActor
+    func testFamilyRecordedPublicRowsStaySingleLineAtXXL() throws {
+        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXL")
+    }
+
+    @MainActor
+    func testFamilyRecordedPublicRowsStaySingleLineAtXXXL() throws {
+        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXXL")
+    }
+
+    @MainActor
+    private func assertFamilyRowsStaySingleLine(at category: String) throws {
+        let app = XCUIApplication()
+        // 有家庭才看得到家人記的交易:家庭管理員，家人記的公帳點得開，列版型才是真實使用的樣子。
+        app.launchArguments = [
+            "-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession",
+            "-UIPreferredContentSizeCategoryName", category,
+        ]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+        let long = element(in: app, labelContaining: "餐飲，週末全家一起去大賣場")
+        for _ in 0..<12 where !(lunch.exists && short.exists && long.exists) { app.swipeUp() }
+        XCTAssertTrue(lunch.exists && short.exists && long.exists, "沒有找到範例交易:\(lunch.exists) \(short.exists) \(long.exists)")
+
+        // 自己記的家庭公帳(單行基準)與家人記的家庭公帳:列高要一樣。
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "\(category):家人記的家庭公帳掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+        // 備註很長:名稱最多兩行(多一行)，不是把標記與金額擠成額外的幾行。
+        XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
+    }
+
+    /// 編輯權限防呆(上游 ADR 0013、#133):家人(小美)記的家庭公帳，一般成員點不開、只有鎖定標記，VoiceOver 念出原因;
+    /// 家庭管理員點得開。自己記的照舊。
+    @MainActor
+    func testMemberCannotEditFamilyRecordedPublicRowButAdminCan() throws {
+        for isAdmin in [false, true] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
+                + (isAdmin ? [] : ["-uiTestingMemberRole"])
+            app.launch()
+            signIn(app)
+            app.tabBars.buttons["交易"].tap()
+
+            let role = isAdmin ? "家庭管理員" : "一般成員"
+            let family = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+            let lunch = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "餐飲，午餐，帳戶")).firstMatch
+            for _ in 0..<12 where !(family.exists && lunch.exists) { app.swipeUp() }
+            XCTAssertTrue(lunch.exists, "\(role):自己記的公帳要點得開")
+            XCTAssertTrue(family.exists, "\(role):沒有找到家人記的公帳")
+
+            let familyButton = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "晚餐-水煎包")).firstMatch
+            if isAdmin {
+                // 角色在登入時問一次，晚一點才到。
+                XCTAssertTrue(familyButton.waitForExistence(timeout: 5), "\(role):家人記的公帳應該點得開")
+                XCTAssertFalse(family.label.contains("僅記錄者"), "\(role):不該有鎖定說明:\(family.label)")
+            } else {
+                XCTAssertFalse(familyButton.waitForExistence(timeout: 2), "\(role):家人記的公帳不該點得開")
+                XCTAssertTrue(
+                    family.label.contains("他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除"), "\(role):沒有鎖定說明:\(family.label)"
+                )
+            }
+            app.terminate()
+        }
+    }
+
+    /// 鎖定標記只是金額前面的一個圖示，不影響單行版型(#128、#133):沒有權限的家人公帳，列高跟自己記的一樣。
+    @MainActor
+    func testLockedFamilyRowStaysSingleLineAtXXL() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL",
+        ]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+        for _ in 0..<12 where !(lunch.exists && short.exists) { app.swipeUp() }
+        XCTAssertTrue(lunch.exists && short.exists, "沒有找到範例交易")
+        XCTAssertTrue(short.label.contains("僅記錄者"), "這一列應該是鎖定的:\(short.label)")
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "鎖定標記讓列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+    }
+
+    /// 年月快速切換(#130):上一月、下一月、選任意年月，篩選按鈕的值跟著變;本月時下一月停用。
+    @MainActor
+    func testMonthSwitcherChangesTheFilterRange() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let title = app.buttons["transactions.month.title"]
+        let previous = app.buttons["transactions.month.previous"]
+        let next = app.buttons["transactions.month.next"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "交易頁沒有年月切換")
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 0), "年月不是台灣時間的本月")
+        XCTAssertFalse(next.isEnabled, "本月時下一月沒有停用")
+        let filter = app.buttons["transactions.filter"]
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiThisMonthPeriod())")
+
+        previous.tap()
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 1), "上一月沒有換成上個月")
+        XCTAssertTrue(next.isEnabled, "切到過去的月份後下一月還是停用")
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiWholeMonthPeriod(monthsAgo: 1))", "篩選按鈕的範圍沒有跟著變成整個上個月")
+
+        next.tap()
+        XCTAssertEqual(title.value as? String, Self.taipeiMonthTitle(monthsAgo: 0))
+        XCTAssertEqual(filter.value as? String, "全部・\(Self.taipeiThisMonthPeriod())", "切回本月後範圍不是本月 1 號到今天")
+
+        // 點年月選任意年月:2025 年 3 月。
+        title.tap()
+        let year = app.pickerWheels.element(boundBy: 0)
+        let month = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(year.waitForExistence(timeout: 3), "沒有打開選年月")
+        year.adjust(toPickerWheelValue: "2025年")
+        month.adjust(toPickerWheelValue: "3月")
+        app.buttons["transactions.month.done"].tap()
+        XCTAssertEqual(title.value as? String, "2025年3月", "選了 2025年3月 但年月沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
+    }
+
+    /// 台灣時間往前 `monthsAgo` 個月的「2026年9月」。
+    private static func taipeiMonthTitle(monthsAgo: Int) -> String {
+        let (year, month) = taipeiYearMonth(monthsAgo: monthsAgo)
+        return "\(year)年\(month)月"
+    }
+
+    /// 台灣時間往前 `monthsAgo` 個月的整月範圍，格式跟篩選按鈕的值一樣(同年省略年份)。
+    private static func taipeiWholeMonthPeriod(monthsAgo: Int) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let (year, month) = taipeiYearMonth(monthsAgo: monthsAgo)
+        let nowYear = calendar.component(.year, from: .now)
+        let days = calendar.range(of: .day, in: .month, for: calendar.date(from: DateComponents(year: year, month: month, day: 1))!)!.count
+        let prefix = year == nowYear ? "" : "\(year)年"
+        return "\(prefix)\(month)月1日–\(prefix)\(month)月\(days)日"
+    }
+
+    private static func taipeiYearMonth(monthsAgo: Int) -> (Int, Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        let date = calendar.date(byAdding: .month, value: -monthsAgo, to: .now)!
+        return (calendar.component(.year, from: date), calendar.component(.month, from: date))
+    }
+
+    /// 記一筆與編輯交易共用同一份表單，欄位順序一致(#129):帳戶、日期在最上面，接著歸屬、金額、備註、分類。
+    /// 以前帳戶與日期在最底下，每次都要捲到底才能選。帳戶仍然每次都是空的(上游 ADR 0011)。
+    @MainActor
+    func testFormFieldsStartWithAccountAndDateInQuickEntryAndEditor() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        // 記一筆
+        app.buttons["transactions.add"].tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3), "沒有打開記一筆")
+        assertFormOrder(in: app, context: "記一筆")
+        let account = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        XCTAssertTrue(account.label.contains("請選擇"), "記一筆的帳戶不是空的:\(account.label)")
+        app.buttons["完成"].firstMatch.tap()
+        app.buttons["關閉"].tap()
+
+        // 編輯既有交易:點一筆自己的交易(午餐)
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        for _ in 0..<8 where !(lunch.exists && lunch.isHittable) { app.swipeUp() }
+        lunch.tap()
+        XCTAssertTrue(app.textFields["quickEntry.amount"].waitForExistence(timeout: 3), "沒有打開編輯交易")
+        assertFormOrder(in: app, context: "編輯交易")
+    }
+
+    /// 表單裡各欄位由上到下的順序:帳戶、日期、(歸屬)、金額、備註。
+    @MainActor
+    private func assertFormOrder(in app: XCUIApplication, context: String) {
+        let form = app.collectionViews.firstMatch
+        let account = form.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
+        let date = form.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "日期")).firstMatch
+        let amount = app.textFields["quickEntry.amount"]
+        let note = app.textFields["quickEntry.note"]
+        XCTAssertTrue(account.exists && date.exists && amount.exists && note.exists, "\(context):找不到欄位 帳戶\(account.exists) 日期\(date.exists) 金額\(amount.exists) 備註\(note.exists)")
+        XCTAssertLessThan(account.frame.minY, date.frame.minY, "\(context):帳戶不在日期上面")
+        XCTAssertLessThan(date.frame.minY, amount.frame.minY, "\(context):日期不在金額上面")
+        XCTAssertLessThan(amount.frame.minY, note.frame.minY, "\(context):金額不在備註上面")
     }
 
     /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;

@@ -73,6 +73,8 @@ public final class TransactionsModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let currentUser: UserID?
+    /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
+    @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private var loadedVersion: Int?
 
@@ -82,6 +84,7 @@ public final class TransactionsModel {
         accounts: (any AccountRepository)? = nil,
         dataVersion: DataVersion,
         currentUser: UserID? = nil,
+        permissions: PermissionsModel? = nil,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
@@ -89,6 +92,7 @@ public final class TransactionsModel {
         accountRepository = accounts
         self.dataVersion = dataVersion
         self.currentUser = currentUser
+        self.permissions = permissions
         self.locale = locale
         self.today = today
         let now = today()
@@ -123,6 +127,60 @@ public final class TransactionsModel {
     /// 按「取消」:丟掉草稿，篩選不變，也不查詢。往下滑關掉 sheet 也一樣。
     public func cancelFilter() {
         isEditingFilter = false
+    }
+
+    // MARK: 年月快速切換(#130)
+
+    /// 今天所在的月份(台灣時間)，也是年月控制項能切到的最後一個月。
+    public var currentMonth: CalendarMonth { CalendarMonth(today()) }
+
+    /// 整月的範圍:本月是 1 號到今天，過去的月份是 1 號到月底(台灣時間)。
+    private func range(of month: CalendarMonth) -> (from: CalendarDay, to: CalendarDay) {
+        let first = CalendarDay(year: month.year, month: month.month, day: 1)
+        let last = month == currentMonth ? today() : CalendarDay(year: month.year, month: month.month, day: first.daysInMonth)
+        return (first, last)
+    }
+
+    /// 目前篩選剛好是某個整月時是那個月;在篩選 sheet 設了自訂範圍就是 `nil`。
+    public var selectedMonth: CalendarMonth? {
+        let month = CalendarMonth(filter.from)
+        let whole = range(of: month)
+        return filter.from == whole.from && filter.to == whole.to ? month : nil
+    }
+
+    /// 年月控制項的標題，例如「2026年9月」;自訂範圍時是範圍文字「9月10日–9月20日」。
+    public var monthTitle: String {
+        if let month = selectedMonth { return month.text(locale: locale) }
+        let today = today()
+        return "\(filter.from.text(today: today, locale: locale))–\(filter.to.text(today: today, locale: locale))"
+    }
+
+    /// 上一月、下一月的基準:整月就是那個月，自訂範圍從迄日所在的月份算。
+    private var baseMonth: CalendarMonth { selectedMonth ?? CalendarMonth(filter.to) }
+
+    /// 不能切到未來的月份。
+    public var canGoToNextMonth: Bool { baseMonth < currentMonth }
+
+    public func goToPreviousMonth() async {
+        await selectMonth(baseMonth.previous)
+    }
+
+    public func goToNextMonth() async {
+        guard canGoToNextMonth else { return }
+        await selectMonth(baseMonth.next)
+    }
+
+    /// 切到某個整月:等同改篩選的起迄日，視角、類型、分類不變(關鍵字本來就不在篩選裡)，並重新查詢。
+    /// 未來的月份、或已經是那個月，什麼都不做。篩選 sheet 打開時草稿本來就從目前的篩選開始(`editFilter`)，兩邊永遠一致。
+    public func selectMonth(_ month: CalendarMonth) async {
+        guard month <= currentMonth else { return }
+        let whole = range(of: month)
+        guard filter.from != whole.from || filter.to != whole.to else { return }
+        var next = filter
+        next.from = whole.from
+        next.to = whole.to
+        filter = next
+        await load()
     }
 
     /// 套用了非預設的篩選:視角不是全部、起迄日不是「本月 1 號到今天」、類型或分類不是全部，或搜尋關鍵字不是空白。
@@ -207,6 +265,7 @@ public final class TransactionsModel {
             loaded = transactions
             loadedVersion = version
             phase = .loaded
+            await permissions?.loadIfNeeded()
         } catch {
             guard query == filter.query else { return }
             phase = .failed(error.localizedDescription)
@@ -219,9 +278,17 @@ public final class TransactionsModel {
         await load()
     }
 
-    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕)。
+    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕);
+    /// 再跟權限取交集(上游 ADR 0013、#133):個人私帳只有記錄者，家庭公帳是記錄者或家庭管理員。
     public func canModify(_ transaction: Transaction) -> Bool {
-        !transaction.isSystemRecord
+        !transaction.isSystemRecord && (permissions?.current.canModify(transaction) ?? true)
+    }
+
+    /// 點不開的列，鎖定標記的 VoiceOver 說明;可以改的是 `nil`。
+    public func lockReason(for transaction: Transaction) -> String? {
+        if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
+        if canModify(transaction) { return nil }
+        return transaction.isShared ? "他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除" : "他人的個人私帳，僅記錄者本人可以編輯、刪除"
     }
 
     /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。

@@ -48,12 +48,15 @@ private struct RecurringItemDTO: Decodable {
     let amount: Decimal
     let cycle: String
     let dayOfCycle: Int
+    /// 上游 `feabed3` 起的欄位;舊的回應沒有，當成 1。
+    let monthOfCycle: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, amount, cycle
         case accountID = "account_id"
         case accountName = "account_name"
         case dayOfCycle = "day_of_cycle"
+        case monthOfCycle = "month_of_cycle"
     }
 
     func item() throws -> RecurringItem {
@@ -67,6 +70,7 @@ private struct RecurringItemDTO: Decodable {
             amount: Money(amount),
             cycle: cycle,
             dayOfCycle: dayOfCycle,
+            monthOfCycle: monthOfCycle ?? 1,
             accountID: accountID.map(AccountID.init),
             accountName: accountName
         )
@@ -90,11 +94,13 @@ private struct RecurringBody: Encodable {
     let amount: Decimal
     let cycle: String
     let dayOfCycle: Int
+    let monthOfCycle: Int
     let accountID: String?
 
     enum CodingKeys: String, CodingKey {
         case name, type, amount, cycle
         case dayOfCycle = "day_of_cycle"
+        case monthOfCycle = "month_of_cycle"
         case accountID = "account_id"
     }
 
@@ -104,6 +110,7 @@ private struct RecurringBody: Encodable {
         amount = draft.amount.amount
         cycle = draft.cycle.rawValue
         dayOfCycle = draft.dayOfCycle
+        monthOfCycle = draft.monthOfCycle
         accountID = draft.accountID?.rawValue
     }
 }
