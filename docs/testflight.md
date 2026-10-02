@@ -62,7 +62,8 @@ workflow 會依序做這幾件事:
   - 名稱「我的記帳本」,主要語言繁體中文。
   - bundle ID `com.raychiu.mymoney`,SKU `mymoney-ios-20260928`(建立後不能改)。
 - **簽章**:
-  - 自動簽章，Distribution 憑證由 Apple 雲端管理。
+  - 自動簽章，Distribution 憑證由 Apple 雲端管理(固定的一張，不隨 runner 重建)。
+  - **archive 不簽章，只在匯出時簽章**:archive 帶 `CODE_SIGNING_ALLOWED=NO`，匯出設定在執行時加上 `teamID`。這樣不需要 Apple Development 憑證。以前 archive 也自動簽章，每次都在全新的 runner 上建一張「Created via API」的 Apple Development 憑證;這把 key 跟 vocaby 共用，兩個專案累積到 Apple 帳號的憑證上限就失敗(「Your account has reached the maximum number of certificates」，2026-10-02)。遇到這個錯誤，要到 Certificates, Identifiers & Profiles 撤銷用不到的舊憑證。
   - 建立雲端管理的 Distribution 憑證只有 Account Holder 或 Admin 能做，所以 API key 要用 **Admin** 角色的 team key。
   - 目前和 vocaby 共用「Vocaby GitHub Admin」這把 key。
 - **GitHub environment `testflight`**:
