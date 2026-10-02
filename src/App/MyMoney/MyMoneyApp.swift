@@ -46,7 +46,7 @@ struct MyMoneyApp: App {
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
             let accounts = InMemoryAccountRepository.sample()
-            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday())
+            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: arguments.contains("-uiTestingFamilyEntries")))
             let recurring = InMemoryRecurringRepository.sample()
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。

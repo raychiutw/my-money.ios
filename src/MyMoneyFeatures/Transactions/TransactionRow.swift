@@ -9,7 +9,8 @@ import SwiftUI
 /// - trailing:帶正負號的金額;系統紀錄在金額前面加鎖定標記。
 ///
 /// 資產帳戶名稱與記帳人從列上拿掉(點進編輯可以看到)，但 VoiceOver 照樣念出，整列是一句完整的話。
-/// 放不下時(大字級)改成上下堆疊，金額一律單行。
+/// **只有無障礙字級才改成上下堆疊**(#128)，其他字級一律單行:名稱在左(最多兩行)、小標記與金額靠右;金額一律單行。
+/// 以前用 `ViewThatFits` 依寬度判斷，XXL、XXXL 時小標記一多就掉進堆疊，列高變成兩倍以上。
 struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
     /// 記帳人;自己記的是 `nil`。只用來決定要不要「家人記的」小標記和 VoiceOver 念誰記的。
@@ -20,31 +21,32 @@ struct TransactionRow: View {
     var isLocked = false
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-    /// 左右並列時，名稱欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊。
-    ///
-    /// 不用 `LabeledContent`:它依 label 不折行的寬度判斷，備註一長，預設字級也會變成上下堆疊(#72 的截圖)。
-    @ScaledMetric(relativeTo: .body) private var minimumTextWidth: CGFloat = 120
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                icon
-                    .frame(width: iconWidth)
-                titleText
-                    .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
-                markers
-                amount
-            }
-            // 上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    icon
-                    titleText
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // 無障礙字級才上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        icon
+                        titleText
+                    }
+                    amount
+                    markers
                 }
-                amount
-                markers
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: 12) {
+                    icon
+                        .frame(width: iconWidth)
+                    // 名稱拿剩下的寬度，太長就從結尾截斷(最多兩行);標記與金額不被擠掉。
+                    titleText
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    markers
+                    amount
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)

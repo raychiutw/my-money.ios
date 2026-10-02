@@ -91,6 +91,38 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按取消後清單變了")
     }
 
+    /// 交易列在「家庭公帳 + 家人記的」下仍是單行(#128):列高跟其他列一樣，金額與小標記不被擠到左下。
+    /// 真機的字級常常不是預設的 L:並列版型在 XXL、XXXL 放不下就會掉進上下堆疊;只有無障礙字級才該堆疊。
+    @MainActor
+    func testFamilyRecordedPublicRowsStaySingleLineAtXXL() throws {
+        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXL")
+    }
+
+    @MainActor
+    func testFamilyRecordedPublicRowsStaySingleLineAtXXXL() throws {
+        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXXL")
+    }
+
+    @MainActor
+    private func assertFamilyRowsStaySingleLine(at category: String) throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingFamilyEntries", "-resetSession", "-UIPreferredContentSizeCategoryName", category]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+
+        let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
+        let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
+        let long = element(in: app, labelContaining: "餐飲，週末全家一起去大賣場")
+        for _ in 0..<12 where !(lunch.exists && short.exists && long.exists) { app.swipeUp() }
+        XCTAssertTrue(lunch.exists && short.exists && long.exists, "沒有找到範例交易:\(lunch.exists) \(short.exists) \(long.exists)")
+
+        // 自己記的家庭公帳(單行基準)與家人記的家庭公帳:列高要一樣。
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "\(category):家人記的家庭公帳掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+        // 備註很長:名稱最多兩行(多一行)，不是把標記與金額擠成額外的幾行。
+        XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
+    }
+
     /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;
     /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880(信用卡還款不算)。
     @MainActor
