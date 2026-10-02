@@ -98,12 +98,11 @@ struct OverviewScreen: View {
             .compactSectionSpacing()
             Section {
                 NumberTileRow {
-                    NumberTile(title: "真實可支配現金", amount: summary.disposableCash, warnsWhenNegative: true)
-                    NumberTile(title: model.netTitle, amount: model.monthNet, warnsWhenNegative: true)
-                    NumberTile(
-                        title: "信用卡待繳", amount: model.totalCardDue ?? .zero,
-                        style: (model.totalCardDue ?? .zero) > .zero ? .red : nil
-                    )
+                    ForEach(model.summaryTiles) { tile in
+                        NumberTile(
+                            title: tile.title, amount: tile.amount, style: tile.isWarning ? .red : nil, spokenTitle: tile.spokenTitle
+                        )
+                    }
                 }
                 .clearListRow()
             }
