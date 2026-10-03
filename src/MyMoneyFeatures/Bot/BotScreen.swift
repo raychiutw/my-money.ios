@@ -204,14 +204,21 @@ struct BotChatScreen: View {
                 .padding(.horizontal)
             }
             HStack {
+                // 不用 `.roundedBorder`:它的字和欄位不跟著 Dynamic Type 放大(#157)。
                 TextField("例如：午餐 120、高鐵 1490 信用卡、查帳", text: $model.draft)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 20))
                     .onSubmit { Task { await model.send() } }
                     .accessibilityIdentifier("bot.draft")
                 Button("送出", systemImage: "paperplane.fill") {
                     Task { await model.send() }
                 }
                 .labelStyle(.iconOnly)
+                // 按鈕一律有玻璃外框(ADR-0007):裸圖示看不出是按鈕(#157)。
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
                 .disabled(model.isThinking || model.draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 .accessibilityIdentifier("bot.send")
             }

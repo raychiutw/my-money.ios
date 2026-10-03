@@ -50,7 +50,8 @@ struct MeSheet: View {
             .navigationTitle("我的")
             .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                // 不放 `.confirmationAction`:iOS 26 會把它畫成 accent 填滿的主要動作鈕(ADR-0008)。
+                ToolbarItem(placement: .primaryAction) {
                     Button(role: .close) {
                         dismiss()
                     }
