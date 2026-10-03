@@ -1,6 +1,6 @@
 # 功能對等清單(web → iOS)
 
-**基準**:[`onion523/my-money@4fbf863`](https://github.com/onion523/my-money/tree/4fbf863)(2026-10-03,上游 #50–#55:全站三態視角正名、公帳視角私卡代墊)。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。行號後面的 `@4fbf863` 是現在的基準，`@af5444c`(2026-10-02,#44–#49)、`@0db6c20`(2026-09-30,#105)、`@97f4789`(2026-09-30,#94)與 `@f32ff6c`(2026-09-29,#54)是前幾版基準，沒特別註明版本的行號，指的是更舊的基準 `43a205d`。
+**基準**:[`onion523/my-money@c16dfcc`](https://github.com/onion523/my-money/tree/c16dfcc)(2026-10-03,上游 #56–#62:ADR 0016 預測與週期收支三態視角分流、ADR 0017 繳卡費事件)。其後的 `2e80d4f`(ADR 0018,預測事件勾選已繳)與 `b456545`(ADR 0019,收支明細帳戶篩選、用詞正名)**還沒同步**,見 #159。行號以 `W:` 代表 `web/src/`,`B:` 代表 `backend/src/`。行號後面的 `@e138bd9`、`@c16dfcc` 是現在的基準，`@4fbf863`(2026-10-03,#50–#55)、`@af5444c`(2026-10-02,#44–#49)、`@0db6c20`(2026-09-30,#105)、`@97f4789`(2026-09-30,#94)與 `@f32ff6c`(2026-09-29,#54)是前幾版基準，沒特別註明版本的行號，指的是更舊的基準 `43a205d`。
 
 **規則**(ADR-0001):功能層與 web 對等，互動層照 HIG 轉譯(`DESIGN.md`),照抄程式流程,bug 不照抄。每條清單就是一項驗收標準。跟 web 不同的地方，一律列在「刻意偏離 web」,並回報給 web。舊基準的問題回報於 [onion523/my-money#1](https://github.com/onion523/my-money/issues/1)、[#2](https://github.com/onion523/my-money/issues/2);`bd0507b` 之後的問題回報於 [onion523/my-money#9](https://github.com/onion523/my-money/issues/9)(上游在 `b1382f4` 修正並關閉),`b5cbe09` 之後的問題回報於 [onion523/my-money#19](https://github.com/onion523/my-money/issues/19)(上游在 `da82a11` 修正並關閉),`f32ff6c` 之後的問題回報於 [onion523/my-money#27](https://github.com/onion523/my-money/issues/27)。
 
