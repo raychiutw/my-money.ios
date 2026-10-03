@@ -120,17 +120,16 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["信用卡待繳總額、$15,500"].waitForExistence(timeout: 3), "從總覽進入的詳細頁沒有信用卡待繳總額")
     }
 
-    /// 總覽跟設計稿一致(#124):三格數字磚橫排、帳戶卡片兩欄、淨可用餘額是很大的數字。
-    /// 真機的字級常常不是預設的 L:XXL 時數字磚與卡片不能掉成單欄(設計稿是橫排)，要到更大的字級才上下堆疊。
-    /// 只在預設字級截圖驗收不夠，所以這裡用 XXL 實際量位置。
+    /// 摘要磚與帳戶卡片只在「放得下」時並排(#148):預設字級三格並排、帳戶卡片兩欄;
+    /// XXL、XXXL、無障礙字級放不下，整排改單欄——標籤不折行、金額不被縮小或切到,而且是整排一起改,不是只有某一格。
     @MainActor
-    func testTilesAndAccountCardsStaySideBySideAtXXL() throws {
-        let app = launchAtContentSize("UICTContentSizeCategoryXXL")
+    func testTilesAndAccountCardsAreSideBySideOnlyWhenTheyFit() throws {
+        let app = launchAtContentSize("UICTContentSizeCategoryL")
 
         let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
             .map { row($0.0, value: $0.1, in: app) }
         XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
-        XCTAssertEqual(Set(tiles.map { $0.frame.minY.rounded() }).count, 1, "XXL 時三格數字磚沒有橫排:\(tiles.map(\.frame))")
+        XCTAssertEqual(Set(tiles.map { $0.frame.minY.rounded() }).count, 1, "預設字級三格數字磚沒有橫排:\(tiles.map(\.frame))")
         XCTAssertLessThan(tiles[0].frame.minX, tiles[1].frame.minX)
         XCTAssertLessThan(tiles[1].frame.minX, tiles[2].frame.minX)
 
@@ -139,20 +138,56 @@ final class OverviewUITests: XCTestCase {
         let card = app.buttons["overview.card.sample-card"]
         for _ in 0..<6 where !(bank.exists && card.exists) { app.swipeUp() }
         XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
-        XCTAssertEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "XXL 時帳戶卡片沒有兩欄:\(bank.frame) \(card.frame)")
+        XCTAssertEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "預設字級帳戶卡片沒有兩欄:\(bank.frame) \(card.frame)")
     }
 
-    /// 反過來:無障礙字級(AX5)放不下橫排時，數字磚與帳戶卡片上下堆疊，數字不截斷。
     @MainActor
-    func testTilesStackAtAccessibilityContentSize() throws {
-        let app = launchAtContentSize("UICTContentSizeCategoryAccessibilityXXXL")
+    func testTilesBecomeSingleColumnAtXXL() throws {
+        try assertTilesAreSingleColumn(at: "UICTContentSizeCategoryXXL", labelsStayOnOneLine: true)
+    }
 
-        let first = row("真實可支配現金", value: "21,500 元", in: app)
-        let second = row("當月淨收支", value: "44,000 元", in: app)
-        XCTAssertTrue(first.waitForExistence(timeout: 5), "沒有看到數字磚")
-        for _ in 0..<4 where !second.exists { app.swipeUp() }
-        XCTAssertTrue(second.exists, "沒有看到第二格數字磚")
-        XCTAssertNotEqual(first.frame.minY.rounded(), second.frame.minY.rounded(), "AX5 時數字磚沒有上下堆疊")
+    @MainActor
+    func testTilesBecomeSingleColumnAtXXXL() throws {
+        try assertTilesAreSingleColumn(at: "UICTContentSizeCategoryXXXL", labelsStayOnOneLine: true)
+    }
+
+    @MainActor
+    func testTilesBecomeSingleColumnAtAX5() throws {
+        try assertTilesAreSingleColumn(at: "UICTContentSizeCategoryAccessibilityXXXL", labelsStayOnOneLine: true)
+    }
+
+    /// 放不下就整排單欄:三格上下堆疊、同樣寬;每格標籤只有一行(不再折成「可支配／現金」兩行)、金額沒有被切到。
+    @MainActor
+    private func assertTilesAreSingleColumn(at category: String, labelsStayOnOneLine: Bool) throws {
+        let app = launchAtContentSize(category)
+        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
+            .map { row($0.0, value: $0.1, in: app) }
+        XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
+        for _ in 0..<6 where !tiles.allSatisfy(\.exists) { app.swipeUp() }
+        XCTAssertTrue(tiles.allSatisfy(\.exists), "\(category):沒有看到三格數字磚")
+        XCTAssertEqual(Set(tiles.map { $0.frame.minY.rounded() }).count, 3, "\(category):三格數字磚沒有上下堆疊:\(tiles.map(\.frame))")
+        XCTAssertEqual(Set(tiles.map { $0.frame.width.rounded() }).count, 1, "\(category):單欄的三格不一樣寬:\(tiles.map(\.frame))")
+        XCTAssertGreaterThan(tiles[0].frame.width, app.windows.firstMatch.frame.width * 0.8, "\(category):單欄沒有用滿寬度")
+
+        for (index, tile) in tiles.enumerated() {
+            XCTAssertTrue(ScrollSupport.revealFully(tile, in: app), "\(category):第 \(index + 1) 格捲不到整格都看得到:\(tile.frame)")
+            let bands = try PixelAnalysis.inkBands(of: tile.screenshot().image)
+            XCTAssertFalse(bands.isEmpty, "\(category):第 \(index + 1) 格看不到字")
+            // 標籤一行:標籤與金額同一行(1 條)，或標籤一行在上、金額一行在下(2 條);折成兩行標籤會是 3 條以上。
+            XCTAssertLessThanOrEqual(bands.count, 2, "\(category):第 \(index + 1) 格標籤折行了:\(bands)")
+            // 金額沒有被切到:墨跡沒有貼到元素邊緣。
+            let width = Int(tile.screenshot().image.size.width * tile.screenshot().image.scale)
+            XCTAssertTrue(bands.allSatisfy { $0.minX > 4 && $0.maxX < width - 4 }, "\(category):第 \(index + 1) 格的字貼到邊緣(可能被切到):\(bands) 寬度 \(width)")
+        }
+
+        // 帳戶卡片也單欄(AX5):銀行存款帳戶與第一張信用卡上下排。
+        if category.contains("Accessibility") {
+            let bank = element(in: app, labelContaining: "iOS 測試存款，銀行存款帳戶")
+            let card = app.buttons["overview.card.sample-card"]
+            for _ in 0..<8 where !(bank.exists && card.exists) { app.swipeUp() }
+            XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
+            XCTAssertNotEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "AX5 時帳戶卡片沒有單欄:\(bank.frame) \(card.frame)")
+        }
     }
 
     @MainActor

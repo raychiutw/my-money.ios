@@ -61,10 +61,29 @@ struct BigNumber: View {
     }
 }
 
+/// 數字磚的排法：並排時標籤在上、數字在下;單欄時一格一列。由 `NumberTileRow` 依實際空間決定(#148)。
+enum NumberTileStyle {
+    /// 多欄並排：標籤在上、數字靠底。
+    case column
+    /// 單欄：標籤靠左、金額在右同一行;同一行放不下(無障礙字級)時標籤在上、金額在下一行。
+    case row
+}
+
+private struct NumberTileStyleKey: EnvironmentKey {
+    static let defaultValue = NumberTileStyle.column
+}
+
+extension EnvironmentValues {
+    var numberTileStyle: NumberTileStyle {
+        get { self[NumberTileStyleKey.self] }
+        set { self[NumberTileStyleKey.self] = newValue }
+    }
+}
+
 /// 數字磚(#117):小標籤加一個大數字，各 tab 摘要共用(DESIGN.md「數字磚與卡片」)。
-/// 放在 `NumberTileRow` 裡，一排放得下就並排，放不下就上下堆疊。
+/// 放在 `NumberTileRow` 裡，每格的理想寬度放得下就並排，放不下整排改單欄。
 ///
-/// 數字單行，磚太窄時縮小，不折行、不截斷。VoiceOver 念「標籤，金額」。
+/// 數字單行，不折行、不截斷、不縮小(單欄時有整列的寬度)。VoiceOver 念「標籤，金額」。
 struct NumberTile: View {
     let title: String
     let amount: Money
@@ -76,27 +95,60 @@ struct NumberTile: View {
     /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 CONTEXT.md 的正名(例如「信用卡待繳總額」)。
     var spokenTitle: String?
 
+    @Environment(\.numberTileStyle) private var layoutStyle
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-            // 數字靠底:標籤一行或兩行的磚，數字還是在同一條線上。
-            Spacer(minLength: 0)
-            Text(text ?? amount.formatted())
-                .font(.title3.bold())
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .foregroundStyle(color)
+        content
+            .padding(12)
+            .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(spokenTitle ?? title)
+            .accessibilityValue(amount.spokenText)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch layoutStyle {
+        case .column:
+            VStack(alignment: .leading, spacing: 4) {
+                label
+                // 數字靠底:標籤一行或兩行的磚，數字還是在同一條線上。
+                Spacer(minLength: 0)
+                number
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        case .row:
+            // 一格一列：標籤靠左、金額靠右在同一行;同一行放不下(無障礙字級)就標籤在上、金額在下一行。
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    label
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    number
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    label
+                    number
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(12)
-        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenTitle ?? title)
-        .accessibilityValue(amount.spokenText)
+    }
+
+    private var label: some View {
+        Text(title)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+    }
+
+    private var number: some View {
+        Text(text ?? amount.formatted())
+            .font(.title3.bold())
+            .monospacedDigit()
+            .lineLimit(1)
+            .foregroundStyle(color)
     }
 
     private var color: Color {
@@ -105,66 +157,77 @@ struct NumberTile: View {
     }
 }
 
-/// 一排數字磚:每格至少要有 `minimumTileWidth`(跟著字級變大)，放得下就並排、等寬等高，放不下就上下堆疊。
-/// 只看實際可用的寬度，不看裝置或字級屬性(#117)。
+/// 一排數字磚(#148):每一格的理想寬度(標籤單行、金額原尺寸，加內距)都放得進「可用寬度除以欄數」才並排，
+/// 否則整排改單欄(一格一列)。只看實際可用的寬度，不看裝置或字級屬性(#117)。欄數的判斷見 `TileColumns`。
 struct NumberTileRow<Content: View>: View {
-    /// 設計稿是三格橫排:預設到 XXL 都並排(標籤單行、數字單行縮小)，XXXL 以上與無障礙字級才上下堆疊(#124、#127)。
-    /// 最小寬度連同標籤的字級一起放大:XXL 時每格約 110pt(比 393pt 寬的 iPhone 每格 115pt 放得下)、XXXL 約 120pt(放不下才堆疊);
-    /// 標籤「可支配現金」5 個字 90pt 放得進磚內(扣掉左右留白)。
-    @ScaledMetric(relativeTo: .title3) private var minimumTileWidth: CGFloat = 92
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        NumberTileLayout(minimumTileWidth: minimumTileWidth, spacing: 8) {
-            content()
+        // `ViewThatFits` 取第一個理想寬度放得下的：並排的理想寬度就是 `TileColumns.requiredWidth`。
+        ViewThatFits(in: .horizontal) {
+            EqualColumnsLayout(maxColumns: 3, spacing: 8, rowSpacing: 8) {
+                content()
+            }
+            .environment(\.numberTileStyle, .column)
+            VStack(spacing: 8) {
+                content()
+            }
+            .environment(\.numberTileStyle, .row)
         }
     }
 }
 
-struct NumberTileLayout: Layout {
-    let minimumTileWidth: CGFloat
+/// 等寬的欄：欄數由 `TileColumns` 決定(格子的理想寬度放得下才多欄，否則單欄);每一排的格子一樣高。
+/// 沒有限定寬度時回報「照理想欄數並排需要的寬度」，`ViewThatFits` 靠它判斷放不放得下。
+struct EqualColumnsLayout: Layout {
+    let maxColumns: Int
     let spacing: CGFloat
+    let rowSpacing: CGFloat
 
-    /// 寬度沒有限制時(ideal)並排。
-    private func tileWidth(in width: CGFloat?, count: Int) -> CGFloat? {
-        guard let width else { return nil }
-        let candidate = (width - spacing * CGFloat(count - 1)) / CGFloat(count)
-        return candidate >= minimumTileWidth ? candidate : nil
+    private func idealWidths(_ subviews: Subviews) -> [CGFloat] {
+        subviews.map { $0.sizeThatFits(.unspecified).width }
     }
 
-    private func isSideBySide(_ width: CGFloat?, count: Int) -> Bool {
-        width == nil || tileWidth(in: width, count: count) != nil
+    private struct Arrangement {
+        let columns: Int
+        let columnWidth: CGFloat
+        let rowHeights: [CGFloat]
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> Arrangement {
+        let ideals = idealWidths(subviews)
+        let columns = TileColumns.count(idealWidths: ideals, availableWidth: width, spacing: spacing, maxColumns: maxColumns)
+        let columnWidth = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+        let heights = stride(from: 0, to: subviews.count, by: columns).map { start in
+            subviews[start..<min(start + columns, subviews.count)]
+                .map { $0.sizeThatFits(.init(width: columnWidth, height: nil)).height }.max() ?? 0
+        }
+        return Arrangement(columns: columns, columnWidth: columnWidth, rowHeights: heights)
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let count = subviews.count
-        guard count > 0 else { return .zero }
-        if isSideBySide(proposal.width, count: count) {
-            let width = tileWidth(in: proposal.width, count: count) ?? minimumTileWidth
-            let height = subviews.map { $0.sizeThatFits(.init(width: width, height: nil)).height }.max() ?? 0
-            return CGSize(width: proposal.width ?? (width * CGFloat(count) + spacing * CGFloat(count - 1)), height: height)
-        }
-        let width = proposal.width ?? minimumTileWidth
-        let heights = subviews.map { $0.sizeThatFits(.init(width: width, height: nil)).height }
-        return CGSize(width: width, height: heights.reduce(0, +) + spacing * CGFloat(count - 1))
+        guard !subviews.isEmpty else { return .zero }
+        let width = proposal.width ?? TileColumns.requiredWidth(
+            idealWidths: idealWidths(subviews), spacing: spacing, columns: min(maxColumns, subviews.count)
+        )
+        let layout = arrange(width: width, subviews: subviews)
+        return CGSize(width: width, height: layout.rowHeights.reduce(0, +) + rowSpacing * CGFloat(layout.rowHeights.count - 1))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let count = subviews.count
-        guard count > 0 else { return }
-        if let width = tileWidth(in: bounds.width, count: count) {
-            let height = bounds.height
-            for (index, subview) in subviews.enumerated() {
-                let origin = CGPoint(x: bounds.minX + (width + spacing) * CGFloat(index), y: bounds.minY)
-                subview.place(at: origin, anchor: .topLeading, proposal: .init(width: width, height: height))
+        guard !subviews.isEmpty else { return }
+        let layout = arrange(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for (row, height) in layout.rowHeights.enumerated() {
+            for column in 0..<layout.columns {
+                let index = row * layout.columns + column
+                guard index < subviews.count else { break }
+                let x = bounds.minX + (layout.columnWidth + spacing) * CGFloat(column)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .init(width: layout.columnWidth, height: height)
+                )
             }
-        } else {
-            var y = bounds.minY
-            for subview in subviews {
-                let height = subview.sizeThatFits(.init(width: bounds.width, height: nil)).height
-                subview.place(at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading, proposal: .init(width: bounds.width, height: height))
-                y += height + spacing
-            }
+            y += height + rowSpacing
         }
     }
 }
@@ -226,60 +289,19 @@ struct NumberCard: View {
     }
 }
 
-/// 卡片網格:欄數由實際可用寬度決定(每欄至少 `minimumWidth`,跟著字級變大，大字級自然變一欄)，
-/// 每一排的卡片一樣高。卡片不多(總覽最多 6 張)，所以不用 `LazyVGrid`。
+/// 卡片網格(#148):最多兩欄，每一張的理想寬度(名稱單行、金額原尺寸，加內距)都放得進「可用寬度除以欄數」才並排，
+/// 否則整個網格改單欄;每一排的卡片一樣高。卡片不多(總覽最多 6 張)，所以不用 `LazyVGrid`。欄數的判斷見 `TileColumns`。
 struct NumberCardGrid<Content: View>: View {
-    /// 設計稿是兩欄:到 XXL 都還是兩欄，更大的字級才變單欄(#124)。
-    @ScaledMetric(relativeTo: .body) private var minimumWidth: CGFloat = 136
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        NumberCardGridLayout(minimumWidth: minimumWidth, spacing: 12) {
-            content()
-        }
-    }
-}
-
-struct NumberCardGridLayout: Layout {
-    let minimumWidth: CGFloat
-    let spacing: CGFloat
-
-    private func columns(in width: CGFloat) -> Int {
-        max(1, Int((width + spacing) / (minimumWidth + spacing)))
-    }
-
-    /// 每一排的高度:那一排最高的卡片。
-    private func rowHeights(width: CGFloat, subviews: Subviews) -> (columns: Int, columnWidth: CGFloat, heights: [CGFloat]) {
-        let columns = columns(in: width)
-        let columnWidth = (width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
-        let heights = stride(from: 0, to: subviews.count, by: columns).map { start in
-            subviews[start..<min(start + columns, subviews.count)]
-                .map { $0.sizeThatFits(.init(width: columnWidth, height: nil)).height }.max() ?? 0
-        }
-        return (columns, columnWidth, heights)
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard !subviews.isEmpty else { return .zero }
-        let width = proposal.width ?? minimumWidth
-        let layout = rowHeights(width: width, subviews: subviews)
-        return CGSize(width: width, height: layout.heights.reduce(0, +) + spacing * CGFloat(layout.heights.count - 1))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard !subviews.isEmpty else { return }
-        let layout = rowHeights(width: bounds.width, subviews: subviews)
-        var y = bounds.minY
-        for (row, height) in layout.heights.enumerated() {
-            for column in 0..<layout.columns {
-                let index = row * layout.columns + column
-                guard index < subviews.count else { break }
-                let x = bounds.minX + (layout.columnWidth + spacing) * CGFloat(column)
-                subviews[index].place(
-                    at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .init(width: layout.columnWidth, height: height)
-                )
+        ViewThatFits(in: .horizontal) {
+            EqualColumnsLayout(maxColumns: 2, spacing: 12, rowSpacing: 12) {
+                content()
             }
-            y += height + spacing
+            VStack(spacing: 12) {
+                content()
+            }
         }
     }
 }

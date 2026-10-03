@@ -817,39 +817,12 @@ final class TransactionsUITests: XCTestCase {
         return app
     }
 
-    /// 捲到整列都在畫面上(不被 tab bar 或導覽列蓋住)，才截圖分析。一次只輕輕拖一小段，不會像 `swipeUp` 一次捲過頭來回震盪。
+    /// 捲到整列都在畫面上(不被 tab bar 或導覽列蓋住)，才截圖分析。
     @MainActor
     private func fullyVisibleRow(_ labelContaining: String, in app: XCUIApplication) throws -> XCUIElement {
         let row = element(in: app, labelContaining: labelContaining)
-        let tabBar = app.tabBars.firstMatch
-        let window = app.windows.firstMatch
-        let top = window.frame.minY + 130
-        for _ in 0..<40 {
-            let bottom = (tabBar.exists ? tabBar.frame.minY : window.frame.maxY) - 8
-            guard row.exists else {
-                nudge(app, by: 260)
-                continue
-            }
-            if row.frame.minY < top {
-                nudge(app, by: row.frame.minY - top - 16)
-            } else if row.frame.maxY > bottom {
-                nudge(app, by: min(row.frame.maxY - bottom + 16, row.frame.minY - top))
-            } else {
-                return row
-            }
-        }
-        XCTFail("捲不到整列都看得到:\(labelContaining) \(row.frame)")
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "捲不到整列都看得到:\(labelContaining) \(row.frame)")
         return row
-    }
-
-    /// 內容往上(正)或往下(負)捲 `distance` 點。
-    @MainActor
-    private func nudge(_ app: XCUIApplication, by distance: CGFloat) {
-        let window = app.windows.firstMatch
-        let height = window.frame.height
-        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6 - distance / height))
-        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
     }
 
     @MainActor
