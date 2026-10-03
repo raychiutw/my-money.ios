@@ -164,7 +164,7 @@ struct TransactionsScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)只顯示鎖定標記。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)點不開。
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
@@ -173,7 +173,10 @@ struct TransactionsScreen: View {
                     editor = EditorSheet(model: editorModel)
                 }
             } label: {
-                TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isOpenable: true)
+                TransactionRow(
+                    transaction: transaction, subtitle: model.subtitle(of: transaction),
+                    recorder: model.recorderName(of: transaction), isOpenable: true
+                )
             }
             .tint(.primary)
             .swipeActions {
@@ -192,9 +195,10 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            // 只放鎖定標記，不放說明文字(#63);說明在 VoiceOver。點不開，所以不截斷。
+            // 列上沒有鎖定標記，說明在 VoiceOver(#63、#145);點不開，所以標題不截斷。
             TransactionRow(
-                transaction: transaction, recorder: model.recorderName(of: transaction), lockReason: model.lockReason(for: transaction)
+                transaction: transaction, subtitle: model.subtitle(of: transaction),
+                recorder: model.recorderName(of: transaction), lockReason: model.lockReason(for: transaction)
             )
         }
     }

@@ -91,20 +91,20 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按關閉後清單變了")
     }
 
-    /// 交易列在「家庭公帳 + 家人記的」下仍是單行(#128):列高跟其他列一樣，金額與小標記不被擠到左下。
+    /// 交易列在「家庭公帳 + 家人記的」下固定兩行(#128、#145):列高跟其他列一樣，金額不被擠到左下。
     /// 真機的字級常常不是預設的 L:並列版型在 XXL、XXXL 放不下就會掉進上下堆疊;只有無障礙字級才該堆疊。
     @MainActor
-    func testFamilyRecordedPublicRowsStaySingleLineAtXXL() throws {
-        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXL")
+    func testFamilyRecordedPublicRowsStayTwoLinesAtXXL() throws {
+        try assertFamilyRowsStayTwoLines(at: "UICTContentSizeCategoryXXL")
     }
 
     @MainActor
-    func testFamilyRecordedPublicRowsStaySingleLineAtXXXL() throws {
-        try assertFamilyRowsStaySingleLine(at: "UICTContentSizeCategoryXXXL")
+    func testFamilyRecordedPublicRowsStayTwoLinesAtXXXL() throws {
+        try assertFamilyRowsStayTwoLines(at: "UICTContentSizeCategoryXXXL")
     }
 
     @MainActor
-    private func assertFamilyRowsStaySingleLine(at category: String) throws {
+    private func assertFamilyRowsStayTwoLines(at category: String) throws {
         let app = XCUIApplication()
         // 有家庭才看得到家人記的交易:家庭管理員，家人記的公帳點得開，列版型才是真實使用的樣子。
         app.launchArguments = [
@@ -121,13 +121,13 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<12 where !(lunch.exists && short.exists && long.exists) { app.swipeUp() }
         XCTAssertTrue(lunch.exists && short.exists && long.exists, "沒有找到範例交易:\(lunch.exists) \(short.exists) \(long.exists)")
 
-        // 自己記的家庭公帳(單行基準)與家人記的家庭公帳:列高要一樣。
+        // 自己記的家庭公帳(兩行基準)與家人記的家庭公帳:列高要一樣。
         XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "\(category):家人記的家庭公帳掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
-        // 備註很長:名稱最多兩行(多一行)，不是把標記與金額擠成額外的幾行。
-        XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.8, "\(category):備註很長的列高度超過兩行:\(long.frame.height) vs \(lunch.frame.height)")
+        // 備註很長:標題最多兩行(比基準多一行)，不是把次要文字與金額擠成額外的幾行。
+        XCTAssertLessThan(long.frame.height, lunch.frame.height * 1.6, "\(category):備註很長的列高度超過標題兩行加次要文字:\(long.frame.height) vs \(lunch.frame.height)")
     }
 
-    /// 編輯權限防呆(上游 ADR 0013、#133):家人(小美)記的家庭公帳，一般成員點不開、只有鎖定標記，VoiceOver 念出原因;
+    /// 編輯權限防呆(上游 ADR 0013、#133):家人(小美)記的家庭公帳，一般成員點不開，VoiceOver 念出原因;
     /// 家庭管理員點得開。自己記的照舊。
     @MainActor
     func testMemberCannotEditFamilyRecordedPublicRowButAdminCan() throws {
@@ -154,16 +154,16 @@ final class TransactionsUITests: XCTestCase {
             } else {
                 XCTAssertFalse(familyButton.waitForExistence(timeout: 2), "\(role):家人記的公帳不該點得開")
                 XCTAssertTrue(
-                    family.label.contains("他人記錄的公帳，僅記錄者或家庭管理員可以編輯、刪除"), "\(role):沒有鎖定說明:\(family.label)"
+                    family.label.contains("他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除"), "\(role):沒有鎖定說明:\(family.label)"
                 )
             }
             app.terminate()
         }
     }
 
-    /// 鎖定標記只是金額前面的一個圖示，不影響單行版型(#128、#133):沒有權限的家人公帳，列高跟自己記的一樣。
+    /// 點不開的列不影響版型(#128、#133、#145):沒有權限的家人公帳，列高跟自己記的一樣。
     @MainActor
-    func testLockedFamilyRowStaysSingleLineAtXXL() throws {
+    func testLockedFamilyRowStaysTwoLinesAtXXL() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession",
@@ -178,7 +178,75 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<12 where !(lunch.exists && short.exists) { app.swipeUp() }
         XCTAssertTrue(lunch.exists && short.exists, "沒有找到範例交易")
         XCTAssertTrue(short.label.contains("僅記錄者"), "這一列應該是鎖定的:\(short.label)")
-        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "鎖定標記讓列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "點不開的列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+    }
+
+    /// 次要文字是看得到的字(#145):「記帳人・歸屬」在標題下面，資產帳戶名稱在金額下面;系統紀錄寫「系統紀錄」。
+    /// 列被合成一個 VoiceOver 元素，所以用 OCR 讀畫面上實際寫的字(只比對關鍵字詞，不比對標點)。
+    @MainActor
+    func testRowsShowRecorderOwnershipAndAccountAsText() throws {
+        let app = launchFamily(memberRole: true)
+        let me = "小明"
+        // 家人記的家庭公帳:小美・家庭公帳、帳戶 iOS 測試存款。
+        let family = try fullyVisibleRow("餐飲，晚餐-水煎包，帳戶", in: app)
+        let familyText = try TextRecognition.lines(in: family.screenshot().image).joined(separator: " ")
+        XCTAssertTrue(familyText.contains("小美") && familyText.contains("家庭公帳"), "家人記的列沒有「小美・家庭公帳」:\(familyText)")
+        XCTAssertTrue(familyText.contains("測試存款"), "家人記的列沒有資產帳戶名稱:\(familyText)")
+        // 自己記的家庭公帳也顯示自己的名稱。
+        let lunch = try fullyVisibleRow("餐飲，午餐，帳戶", in: app)
+        let lunchText = try TextRecognition.lines(in: lunch.screenshot().image).joined(separator: " ")
+        XCTAssertTrue(lunchText.contains(me) && lunchText.contains("家庭公帳"), "自己記的家庭公帳沒有「\(me)・家庭公帳」:\(lunchText)")
+        // 自己記的個人私帳,帳戶是信用卡。
+        let headphones = try fullyVisibleRow("耳機", in: app)
+        let headphonesText = try TextRecognition.lines(in: headphones.screenshot().image).joined(separator: " ")
+        XCTAssertTrue(headphonesText.contains("個人私帳") && headphonesText.contains("測試信用卡"), "個人私帳的列不對:\(headphonesText)")
+        // 系統自動產生的紀錄:記帳人換成「系統紀錄」。
+        let repayment = try fullyVisibleRow("繳納【iOS 測試信用卡】卡費", in: app)
+        let repaymentText = try TextRecognition.lines(in: repayment.screenshot().image).joined(separator: " ")
+        XCTAssertTrue(repaymentText.contains("系統紀錄") && repaymentText.contains("家庭公帳"), "系統紀錄的列不對:\(repaymentText)")
+    }
+
+    /// 列的右邊是金額加資產帳戶(#145):兩行的右緣對齊，金額旁邊沒有舊的小圖示(分類圖示之外，第一行只有標題與金額兩群)。
+    /// 預設、XXL、XXXL 都一樣是兩行。
+    @MainActor
+    func testRowAmountAndAccountShareTheRightEdgeWithoutOldMarkers() throws {
+        for category in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXL", "UICTContentSizeCategoryXXXL"] {
+            let app = launchFamily(memberRole: false, category: category)
+            for label in ["餐飲，晚餐-水煎包，帳戶", "餐飲，午餐，帳戶"] {
+                let row = try fullyVisibleRow(label, in: app)
+                let image = row.screenshot().image
+                let scale = Int(image.scale)
+                let bands = try PixelAnalysis.inkBands(of: image, skippingLeadingCluster: true)
+                XCTAssertEqual(bands.count, 2, "\(category) \(label):不是兩行(標題加次要文字):\(bands)")
+                guard bands.count == 2 else { continue }
+                XCTAssertEqual(bands[0].maxX, bands[1].maxX, accuracy: 3 * scale, "\(category) \(label):金額與資產帳戶右緣沒有對齊:\(bands)")
+                XCTAssertEqual(bands[0].clusters(minGap: 8 * scale), 2, "\(category) \(label):第一行(圖示之後)應該只有標題與金額，金額旁邊有多的圖示:\(bands)")
+                XCTAssertEqual(bands[1].clusters(minGap: 14 * scale), 2, "\(category) \(label):第二行應該是「記帳人・歸屬」加資產帳戶:\(bands)")
+            }
+            app.terminate()
+        }
+    }
+
+    /// 無障礙字級才上下堆疊(#145):圖示加標題、記帳人・歸屬、資產帳戶由上往下，**金額在最下面一行、靠右**。
+    @MainActor
+    func testAccessibilityStackKeepsAmountOnTheBottomRight() throws {
+        let app = launchFamily(memberRole: false, category: "UICTContentSizeCategoryAccessibilityXXXL")
+        let row = try fullyVisibleRow("餐飲，晚餐-水煎包，帳戶", in: app)
+        let image = row.screenshot().image
+        let scale = Int(image.scale)
+        let bands = try PixelAnalysis.inkBands(of: image, skippingLeadingCluster: true)
+        XCTAssertGreaterThanOrEqual(bands.count, 4, "無障礙字級應該由上往下是標題、記帳人・歸屬、資產帳戶、金額:\(bands)")
+        guard let amount = bands.last else { return }
+        let rowWidth = Int(image.size.width) * scale
+        XCTAssertGreaterThan(amount.minX, rowWidth / 2, "最下面一行(金額)沒有靠右:\(amount) 寬度 \(rowWidth)")
+        XCTAssertEqual(amount.clusters(minGap: 14 * scale), 1, "金額那一行只該有金額:\(amount)")
+        let gap = rowWidth - amount.maxX
+        XCTAssertTrue(gap >= 6 * scale && gap <= 32 * scale, "金額沒有貼齊列的右內距:右邊空 \(gap) 畫素")
+        // 其他行都在金額上面，而且靠左(不是金額那種靠右)。
+        for band in bands.dropLast() {
+            XCTAssertLessThan(band.maxY, amount.minY, "有一行在金額下面:\(band) vs \(amount)")
+            XCTAssertLessThan(band.minX, rowWidth / 3, "標題、次要文字、資產帳戶應該靠左:\(band)")
+        }
     }
 
     /// 年月快速切換(#130):上一月、下一月、選任意年月，篩選按鈕的值跟著變;本月時下一月停用。
@@ -714,6 +782,54 @@ final class TransactionsUITests: XCTestCase {
     @MainActor
     private func element(in app: XCUIApplication, labelContaining text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// 家庭管理員或一般成員登入，有家人(小美)記的交易。
+    @MainActor
+    private func launchFamily(memberRole: Bool, category: String? = nil) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
+            + (memberRole ? ["-uiTestingMemberRole"] : [])
+            + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+        return app
+    }
+
+    /// 捲到整列都在畫面上(不被 tab bar 或導覽列蓋住)，才截圖分析。一次只輕輕拖一小段，不會像 `swipeUp` 一次捲過頭來回震盪。
+    @MainActor
+    private func fullyVisibleRow(_ labelContaining: String, in app: XCUIApplication) throws -> XCUIElement {
+        let row = element(in: app, labelContaining: labelContaining)
+        let tabBar = app.tabBars.firstMatch
+        let window = app.windows.firstMatch
+        let top = window.frame.minY + 130
+        for _ in 0..<40 {
+            let bottom = (tabBar.exists ? tabBar.frame.minY : window.frame.maxY) - 8
+            guard row.exists else {
+                nudge(app, by: 260)
+                continue
+            }
+            if row.frame.minY < top {
+                nudge(app, by: row.frame.minY - top - 16)
+            } else if row.frame.maxY > bottom {
+                nudge(app, by: min(row.frame.maxY - bottom + 16, row.frame.minY - top))
+            } else {
+                return row
+            }
+        }
+        XCTFail("捲不到整列都看得到:\(labelContaining) \(row.frame)")
+        return row
+    }
+
+    /// 內容往上(正)或往下(負)捲 `distance` 點。
+    @MainActor
+    private func nudge(_ app: XCUIApplication, by distance: CGFloat) {
+        let window = app.windows.firstMatch
+        let height = window.frame.height
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6 - distance / height))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
     }
 
     @MainActor

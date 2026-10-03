@@ -1,51 +1,64 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 一筆交易記錄，交易頁用(DESIGN.md「列與欄位」,#72、#118)。數字優先，只留最重要的:
+/// 一筆交易記錄，交易頁用(DESIGN.md「列與欄位」,#72、#118、#145)。像 Wallet 的列:標題加一行次要文字，金額在右邊:
 ///
 /// - 前緣：分類圖示。
-/// - 名稱：備註，沒有備註時用分類名稱。
-/// - 小標記(只有圖示、不用文字):家庭公帳 `house.fill` 或個人私帳 `person.fill`;家人記的加 `person.2.fill`。
-/// - trailing:帶正負號的金額;系統紀錄在金額前面加鎖定標記。
+/// - 標題：備註，沒有備註時用分類名稱;點得開的列最多兩行。
+/// - 次要文字(固定一行):「記帳人・歸屬」,例如「小美・家庭公帳」;放不下先截記帳人的名稱，歸屬保留。
+/// - trailing:帶正負號的金額，下面一行是資產帳戶名稱(次要文字、靠右、單行、太長從結尾截斷)。
 ///
-/// 資產帳戶名稱與記帳人從列上拿掉(點進編輯可以看到)，但 VoiceOver 照樣念出，整列是一句完整的話。
-/// **只有無障礙字級才改成上下堆疊**(#128)，其他字級一律單行:名稱在左(最多兩行)、小標記與金額靠右;金額一律單行。
-/// 以前用 `ViewThatFits` 依寬度判斷，XXL、XXXL 時小標記一多就掉進堆疊，列高變成兩倍以上。
+/// 不再有金額旁邊的小圖示(家庭公帳、家人記的、鎖定):語意都寫成文字，點不開的列怎麼說明見 #146。
+/// **只有無障礙字級才改成上下堆疊**(#128):圖示加標題、記帳人・歸屬、資產帳戶各一行(靠左)，**金額在最下面一行、靠右**;
+/// 其他字級一律固定兩行，列高一致。金額一律單行。VoiceOver 整列念成一句完整的話。
 struct TransactionRow: View {
     let transaction: MyMoneyDomain.Transaction
-    /// 記帳人;自己記的是 `nil`。只用來決定要不要「家人記的」小標記和 VoiceOver 念誰記的。
+    /// 次要文字;骨架屏之類沒有 model 時由交易本身推出。
+    var subtitle: TransactionSubtitle?
+    /// 記帳人;自己記的是 `nil`。只用來決定 VoiceOver 要不要念誰記的。
     var recorder: String?
-    /// 點得開(可以編輯)的列：名稱最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
+    /// 點得開(可以編輯)的列：標題最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
-    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133):金額前面加鎖定標記，VoiceOver 最後念這段說明，
-    /// 例如「系統紀錄，不能編輯或刪除」(#63)。標記只有一個圖示，不影響單行版型(#128)。
+    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133):VoiceOver 最後念這段說明，
+    /// 例如「系統紀錄，不能編輯或刪除」(#63)。
     var lockReason: String?
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
+    /// 資產帳戶名稱的最大寬度，跟著字級放大;更長的從結尾截斷，金額不被擠掉。
+    @ScaledMetric(relativeTo: .subheadline) private var accountMaxWidth: CGFloat = 120
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                // 無障礙字級才上下堆疊：圖示和名稱一行，金額、小標記各一行，用滿整列的寬度。
+                // 無障礙字級才上下堆疊：圖示、標題、記帳人・歸屬、資產帳戶由上往下，金額最後一行、靠右。
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         icon
-                        titleText
+                        VStack(alignment: .leading, spacing: 2) {
+                            titleText
+                            subtitleText
+                            accountText
+                        }
                     }
                     amount
-                    markers
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 HStack(spacing: 12) {
                     icon
                         .frame(width: iconWidth)
-                    // 名稱拿剩下的寬度，太長就從結尾截斷(最多兩行);標記與金額不被擠掉。
-                    titleText
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    markers
-                    amount
+                    // 標題與次要文字拿剩下的寬度;金額與資產帳戶靠右，金額不被擠掉。
+                    VStack(alignment: .leading, spacing: 2) {
+                        titleText
+                        subtitleText
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        amount
+                        accountText
+                    }
                 }
             }
         }
@@ -63,32 +76,60 @@ struct TransactionRow: View {
             .lineLimit(isOpenable ? 2 : nil)
     }
 
-    /// 家庭公帳或個人私帳，家人記的多一個標記;只有圖示，文字在 VoiceOver。
-    private var markers: some View {
-        HStack(spacing: 6) {
-            Image(systemName: transaction.isShared ? "house.fill" : "person.fill")
-            if recorder != nil {
-                Image(systemName: "person.2.fill")
+    /// 「記帳人・歸屬」固定一行:名稱先被截，歸屬不被截;無障礙字級改成折行、整句顯示。
+    @ViewBuilder
+    private var subtitleText: some View {
+        let subtitle = resolvedSubtitle
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // 無障礙字級有的是縱向空間:整句折行顯示，不截斷。
+                Text(subtitle.text)
+            } else if let recorder = subtitle.recorder {
+                HStack(spacing: 0) {
+                    Text(recorder)
+                        .lineLimit(1)
+                    Text("・\(subtitle.ownership)")
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            } else {
+                Text(subtitle.ownership)
+                    .lineLimit(1)
             }
         }
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(.secondary)
+    }
+
+    /// 資產帳戶名稱;沒有帳戶名稱就不佔一行。
+    @ViewBuilder
+    private var accountText: some View {
+        if let name = transaction.accountName {
+            Text(name)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(
+                    maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : accountMaxWidth,
+                    alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing
+                )
+        }
     }
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amount: some View {
-        HStack(spacing: 4) {
-            if lockReason != nil {
-                Image(systemName: "lock.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Text(transaction.signedAmountText)
-                .monospacedDigit()
-                .foregroundStyle(transaction.amountColor)
-                .lineLimit(1)
-                .fixedSize()
-        }
+        Text(transaction.signedAmountText)
+            .monospacedDigit()
+            .foregroundStyle(transaction.amountColor)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    private var resolvedSubtitle: TransactionSubtitle {
+        subtitle ?? TransactionSubtitle(
+            recorder: transaction.recorderName, ownership: OwnershipName.title(isShared: transaction.isShared)
+        )
     }
 
     private var title: String { transaction.displayTitle }

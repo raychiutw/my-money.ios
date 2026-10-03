@@ -296,6 +296,15 @@ public final class TransactionsModel {
         transaction.recorderName(besides: currentUser)
     }
 
+    /// 交易列的次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;
+    /// 沒有記帳人名稱時只寫歸屬。
+    public func subtitle(of transaction: Transaction) -> TransactionSubtitle {
+        TransactionSubtitle(
+            recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
+            ownership: OwnershipName.title(isShared: transaction.isShared)
+        )
+    }
+
     public func makeEditor(for transaction: Transaction) -> TransactionEditorModel? {
         guard canModify(transaction), let accountRepository else { return nil }
         return TransactionEditorModel(
@@ -390,6 +399,22 @@ extension TransactionsModel {
             let from: CalendarDay
             let to: CalendarDay
         }
+    }
+}
+
+/// 交易列的次要文字:記帳人與歸屬分開存放，畫面放不下時先截記帳人的名稱、歸屬保留(#145)。
+public struct TransactionSubtitle: Equatable, Sendable {
+    public let recorder: String?
+    public let ownership: String
+
+    public init(recorder: String?, ownership: String) {
+        self.recorder = recorder
+        self.ownership = ownership
+    }
+
+    /// 例如「小美・家庭公帳」;沒有記帳人名稱時只有歸屬。
+    public var text: String {
+        [recorder, ownership].compactMap { $0 }.joined(separator: "・")
     }
 }
 

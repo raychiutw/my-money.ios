@@ -132,6 +132,34 @@ struct TransactionsListTests {
         #expect(list.recorderName(of: recorded(by: me.name, id: UserID("another-ming"))) == me.name)
     }
 
+    /// 次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統產生的紀錄記帳人換成「系統紀錄」;沒有記帳人名稱時只寫歸屬。
+    @Test("次要文字是「記帳人・歸屬」:家人記的、自己的公帳、自己的私帳、系統紀錄")
+    func rowSubtitle() {
+        let me = InMemoryAuthRepository.Member.sample.user
+        let list = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: []), dataVersion: DataVersion(),
+            currentUser: me.id, today: { today }
+        )
+        func tx(_ name: String?, _ id: UserID?, shared: Bool, category: TransactionCategory = .dining) -> Transaction {
+            Transaction(
+                id: TransactionID("subtitle"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+                type: .expense, category: category, amount: Money(120), note: "午餐", date: today, isShared: shared,
+                recorderName: name, recorderID: id
+            )
+        }
+
+        #expect(list.subtitle(of: tx("小美", UserID("mei"), shared: true)).text == "小美・家庭公帳")
+        #expect(list.subtitle(of: tx(me.name, me.id, shared: true)).text == "\(me.name)・家庭公帳")
+        #expect(list.subtitle(of: tx(me.name, me.id, shared: false)).text == "\(me.name)・個人私帳")
+        #expect(list.subtitle(of: tx(me.name, me.id, shared: true, category: .creditCardRepayment)).text == "系統紀錄・家庭公帳")
+        #expect(list.subtitle(of: tx("小美", UserID("mei"), shared: false, category: .internalTransfer)).text == "系統紀錄・個人私帳")
+        #expect(list.subtitle(of: tx(nil, nil, shared: true)).text == "家庭公帳")
+        // 截斷時先截名稱、歸屬保留:畫面用 recorder 與 ownership 分開排版。
+        let family = list.subtitle(of: tx("小美", UserID("mei"), shared: true))
+        #expect(family.recorder == "小美")
+        #expect(family.ownership == "家庭公帳")
+    }
+
     private func recorded(by name: String, id: UserID) -> Transaction {
         Transaction(
             id: TransactionID("recorded-by-\(id.rawValue)"), accountID: SampleAccounts.savings.id,
