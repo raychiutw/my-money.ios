@@ -8,54 +8,73 @@ struct MonthPill: View {
     @State private var isPickerPresented = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button {
-                Task { await model.goToPreviousMonth() }
-            } label: {
-                Image(systemName: "chevron.left")
-                    .fontWeight(.semibold)
-                    .frame(width: 48, height: 44)
-                    .contentShape(.rect)
+        // 年月文字照系統字級、不縮小(#156):一行放不下(無障礙字級)就改成年月在上、上一月與下一月在下。
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                previous
+                title
+                next
             }
-            .accessibilityLabel("上一月")
-            .accessibilityIdentifier("transactions.month.previous")
-
-            Button {
-                isPickerPresented = true
-            } label: {
-                Text(model.monthTitle)
-                    .font(.headline)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 6)
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+            VStack(spacing: 0) {
+                title
+                HStack(spacing: 0) {
+                    previous
+                    next
+                }
             }
-            .accessibilityLabel("選擇年月")
-            .accessibilityValue(model.monthTitle)
-            .accessibilityIdentifier("transactions.month.title")
-
-            Button {
-                Task { await model.goToNextMonth() }
-            } label: {
-                Image(systemName: "chevron.right")
-                    .fontWeight(.semibold)
-                    .frame(width: 48, height: 44)
-                    .contentShape(.rect)
-            }
-            .disabled(!model.canGoToNextMonth)
-            .accessibilityLabel("下一月")
-            .accessibilityIdentifier("transactions.month.next")
         }
         .buttonStyle(.plain)
-        .background(.regularMaterial, in: Capsule())
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $isPickerPresented) {
             MonthPickerSheet(selected: model.selectedMonth ?? CalendarMonth(model.filter.to), latest: model.currentMonth) { month in
                 Task { await model.selectMonth(month) }
             }
         }
+    }
+
+    private var previous: some View {
+        Button {
+            Task { await model.goToPreviousMonth() }
+        } label: {
+            Image(systemName: "chevron.left")
+                .fontWeight(.semibold)
+                .frame(width: 48, height: 44)
+                .contentShape(.rect)
+        }
+        .accessibilityLabel("上一月")
+        .accessibilityIdentifier("transactions.month.previous")
+    }
+
+    private var title: some View {
+        Button {
+            isPickerPresented = true
+        } label: {
+            Text(model.monthTitle)
+                .font(.headline)
+                .monospacedDigit()
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+        }
+        .accessibilityLabel("選擇年月")
+        .accessibilityValue(model.monthTitle)
+        .accessibilityIdentifier("transactions.month.title")
+    }
+
+    private var next: some View {
+        Button {
+            Task { await model.goToNextMonth() }
+        } label: {
+            Image(systemName: "chevron.right")
+                .fontWeight(.semibold)
+                .frame(width: 48, height: 44)
+                .contentShape(.rect)
+        }
+        .disabled(!model.canGoToNextMonth)
+        .accessibilityLabel("下一月")
+        .accessibilityIdentifier("transactions.month.next")
     }
 }
 

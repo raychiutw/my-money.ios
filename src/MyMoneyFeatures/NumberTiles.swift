@@ -17,9 +17,10 @@ extension Color {
     }
 }
 
-/// 大數字(#116、#118、#124):全 app 唯一放大的字級(DESIGN.md「字型與數字」)。小標題加 88pt 的粗體金額，
-/// 開頭的符號與貨幣(「$」「-$」)縮小成灰色，數字本身最大(設計稿);`@ScaledMetric` 跟著 Dynamic Type 放大，
-/// 單行，放不下時縮小，不折行也不截斷。整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
+/// 大數字(#116、#118、#124、#156):全 app 唯一放大的字級(DESIGN.md「字型與數字」)，用 HIG 最大的文字樣式 Large Title(粗體)，
+/// 開頭的符號與貨幣(「$」「-$」)是下一級的 Title(半粗、灰色)，數字本身最大。
+/// 只用文字樣式、不寫死 pt 值，完全照系統字級放大縮小;單行，放不下時**不縮小**,改用 Title 樣式的整行(仍是文字樣式)。
+/// 整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
 struct BigNumber: View {
     let title: String
     let amount: Money
@@ -28,17 +29,18 @@ struct BigNumber: View {
     /// 負數用紅色。
     var warnsWhenNegative = true
 
-    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 88
-
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            number
-                .lineLimit(1)
-                .minimumScaleFactor(0.3)
-                .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            // 放不下(極大字級加很長的金額)時整行降一級，不是縮小。
+            ViewThatFits(in: .horizontal) {
+                number(digits: .largeTitle.weight(.bold), symbol: .title.weight(.semibold))
+                number(digits: .title.weight(.bold), symbol: .title3.weight(.semibold))
+            }
+            .lineLimit(1)
+            .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -46,16 +48,15 @@ struct BigNumber: View {
     }
 
     /// 開頭的符號與貨幣(第一個數字之前，例如「$」「-$」)是小的灰字，數字本身是大字。
-    private var number: Text {
+    private func number(digits digitsFont: Font, symbol symbolFont: Font) -> Text {
         let full = text ?? amount.formatted()
         let digitsStart = full.firstIndex(where: \.isNumber) ?? full.startIndex
         let symbol = Text(String(full[..<digitsStart]))
-            .font(.system(size: size * 0.48, weight: .semibold))
+            .font(symbolFont)
             .foregroundStyle(.secondary)
         let digits = Text(String(full[digitsStart...]))
-            .font(.system(size: size, weight: .bold))
+            .font(digitsFont)
             .monospacedDigit()
-            .tracking(-size * 0.02)
         // `Text + Text` 在 iOS 26 已棄用:改用 Text 的字串插值組合不同字級的片段。
         return Text("\(symbol)\(digits)")
     }
@@ -149,8 +150,6 @@ struct NumberTile: View {
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
-            // 理想寬度不受縮小影響(欄數照原尺寸判斷);這只是最後的安全網，放不下時縮小也不要切到。
-            .minimumScaleFactor(0.5)
             .foregroundStyle(color)
     }
 
@@ -298,8 +297,6 @@ struct NumberCard: View {
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
-            // 理想寬度不受縮小影響;只是最後的安全網。
-            .minimumScaleFactor(0.6)
             .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
     }
 }

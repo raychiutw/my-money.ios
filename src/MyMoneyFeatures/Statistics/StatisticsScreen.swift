@@ -129,7 +129,6 @@ struct StatisticsScreen: View {
                     .font(.title.bold())
                     .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
                 Text("平分後每人負擔 \(settlement.perPerson.formatted())")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

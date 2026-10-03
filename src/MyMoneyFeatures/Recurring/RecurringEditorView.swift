@@ -96,11 +96,9 @@ struct RecurringEditorView: View {
                 SheetCloseButton { dismiss() }
                 // 週期支出／週期收入放在導覽列中間(#65,跟記一筆一樣),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
-                    Picker("類型", selection: $model.type) {
-                        Text("週期支出").tag(TransactionType.expense)
-                        Text("週期收入").tag(TransactionType.income)
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedPicker(
+                        "類型", options: [(TransactionType.expense, "週期支出"), (.income, "週期收入")], selection: $model.type
+                    )
                 }
                 SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "recurringEditor.save") {
                     Task {

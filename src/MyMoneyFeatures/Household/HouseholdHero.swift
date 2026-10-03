@@ -55,16 +55,9 @@ struct MemberShareChart: View {
                 ForEach(shares, id: \.userID) { share in
                     BarMark(x: .value("成員", share.userName), y: .value("公帳代墊", share.total.chartValue))
                         .foregroundStyle(.indigo)
-                        .annotation(position: .overlay, alignment: .top) {
-                            Text(share.total.formatted())
-                                .font(.footnote.bold())
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                // 大字級時長條比字窄:縮小到放得下，不截斷成「$6,…」。
-                                .minimumScaleFactor(0.4)
-                                .foregroundStyle(.white)
-                                .padding(.top, 4)
-                                .padding(.horizontal, 4)
+                        // 金額標在長條上方、照系統字級不縮小(#156);字比長條寬也不會被切,加底色才不會被平均線壓住。
+                        .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                            ShareAmountLabel(text: share.total.formatted())
                         }
                         .accessibilityLabel(share.userName)
                         .accessibilityValue("公帳代墊 \(share.total.spokenText)")
@@ -123,5 +116,19 @@ struct MyAdvanceTiles: View {
                 spokenTitle: "我的待報銷"
             )
         }
+    }
+}
+
+/// 長條上方的金額:照系統字級、不縮小;加底色才不會被平均線壓住。
+private struct ShareAmountLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.footnote.bold())
+            .monospacedDigit()
+            .lineLimit(1)
+            .padding(.horizontal, 4)
+            .background(.background, in: Capsule())
     }
 }
