@@ -120,7 +120,10 @@ final class ForecastUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        // 大字級時列表長，「現金流預測」可能在畫面下方。
+        let forecast = app.buttons["現金流預測"]
+        for _ in 0..<6 where !(forecast.exists && forecast.isHittable) { app.swipeUp() }
+        forecast.tap()
         return app
     }
 
