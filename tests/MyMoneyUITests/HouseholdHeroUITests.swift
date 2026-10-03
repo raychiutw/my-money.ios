@@ -38,7 +38,8 @@ final class HouseholdHeroUITests: XCTestCase {
         password.typeText("secret123\n")
         XCTAssertTrue(app.tabBars.buttons["家庭"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
         app.tabBars.buttons["家庭"].tap()
-        XCTAssertTrue(app.buttons["household.leave"].waitForExistence(timeout: 5) || app.staticTexts["我們家"].waitForExistence(timeout: 5), "沒有看到已加入的家庭頁")
+        // 家庭資料是非同步載入的，載入前只有骨架:等到家庭名稱出現(大字級時「離開家庭」在很下面，清單還沒建立它)。
+        XCTAssertTrue(app.staticTexts["我們家"].waitForExistence(timeout: 15), "沒有看到已加入的家庭頁")
 
         let observations = try TextRecognition.observations(in: app.screenshot().image)
         // 字被標註蓋住時，OCR 會把兩者認成同一行(例如「$6,000給小明」)。

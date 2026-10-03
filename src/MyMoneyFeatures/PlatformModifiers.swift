@@ -11,7 +11,8 @@ extension EnvironmentValues {
     /// 只有 `-uiTesting` 的 composition root 會關掉。CI 的錄影顯示：點密碼欄位後出現的是系統的
     /// 「Use Strong Password?」sheet,鍵盤不會出現，`typeText` 只送得進 1 個字元。
     /// 只拿掉 `.newPassword` 不夠，因為系統還會用 heuristics 認出註冊表單;關掉時改標成
-    /// `.oneTimeCode`,讓系統不把它當成密碼欄位。
+    /// `.oneTimeCode`,讓系統不把它當成密碼欄位。登入頁的密碼欄同理:用 Return 登入後，系統偶爾彈出
+    /// 「要儲存密碼嗎？」蓋住畫面，UI 測試的截圖和查詢都會落空。
     @Entry public var suggestsStrongPasswords = true
 
     /// 按下「複製」後，按鈕顯示「已複製」多久才改回來。預設 2 秒，跟 web 的 `setTimeout(..., 2000)` 一樣。

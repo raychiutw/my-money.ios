@@ -5,6 +5,7 @@ struct LoginView: View {
     @Bindable var model: LoginModel
     let register: RegisterModel
     @FocusState private var focusedField: Field?
+    @Environment(\.suggestsStrongPasswords) private var suggestsStrongPasswords
 
     private enum Field {
         case email
@@ -44,7 +45,8 @@ struct LoginView: View {
                 HStack {
                     LabeledContent("密碼") {
                         passwordField
-                            .textContentType(.password)
+                            // UI 測試關掉密碼管理:用 Return 登入後，系統偶爾彈出「要儲存密碼嗎？」蓋住畫面(見 `suggestsStrongPasswords`)。
+                            .textContentType(suggestsStrongPasswords ? .password : .oneTimeCode)
                             .autocorrectionDisabled()
                             .focused($focusedField, equals: .password)
                             .submitLabel(.go)
