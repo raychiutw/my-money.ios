@@ -20,13 +20,9 @@ struct AccountEditorView: View {
                 // 新增時可以切換類型:3 個選項用內嵌選擇列，點一下就選，選項字不會像分段控制一樣被壓小(#65、ADR-0004、#90)。
                 if model.canChangeKind {
                     Section("類型") {
-                        Picker("類型", selection: $model.kind) {
-                            Text("現金錢包").tag(AccountKind.cash)
-                            Text("銀行存款帳戶").tag(AccountKind.bank)
-                            Text("信用卡").tag(AccountKind.creditCard)
-                        }
-                        .pickerStyle(.inline)
-                        .labelsHidden()
+                        InlineChoiceRows(
+                            [(AccountKind.cash, "現金錢包"), (.bank, "銀行存款帳戶"), (.creditCard, "信用卡")], selection: $model.kind
+                        )
                     }
                 }
 
@@ -42,15 +38,9 @@ struct AccountEditorView: View {
                     }
                 }
 
-                // 所有類型都能設歸屬，選項是私帳和公帳(上游 ADR 0014);預設私帳。
+                // 所有類型都能設歸屬，選項是個人私帳和家庭公帳(上游 ADR 0014);預設個人私帳。
                 Section("歸屬") {
-                    Picker("歸屬", selection: $model.isJointFund) {
-                        ForEach(model.ownershipChoices, id: \.isJointFund) { choice in
-                            Text(choice.title).tag(choice.isJointFund)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
+                    InlineChoiceRows(model.ownershipChoices.map { ($0.isJointFund, $0.title) }, selection: $model.isJointFund)
                 }
 
                 if model.kind == .creditCard {

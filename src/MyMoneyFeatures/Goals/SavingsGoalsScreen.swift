@@ -192,10 +192,12 @@ private struct SavingsGoalRow: View {
                     Spacer()
                     target
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                // 堆疊時金額靠右(#149)。
+                VStack(alignment: .trailing, spacing: 2) {
                     saved
                     target
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             ProgressView(value: goal.progress)
                 .tint(goal.isAchieved ? .green : .accentColor)

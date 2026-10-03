@@ -11,31 +11,44 @@ protocol ScopeFilterOption: Hashable, CaseIterable {
 }
 
 extension ViewScope {
-    /// 預設的視角是「全部」;其他就是套用了篩選(篩選按鈕改實心圖示，#107)。
+    /// 預設的視角是「全部」;其他就是套用了篩選(篩選按鈕改粉紅空心圓圈，#107、#147)。
     public var isDefaultFilter: Bool { self == .all }
 }
 
 extension AccountScope {
-    /// 預設的檢視範圍是「全部」;其他就是套用了篩選(篩選按鈕改實心圖示，#107)。
+    /// 預設的檢視範圍是「全部」;其他就是套用了篩選(篩選按鈕改粉紅空心圓圈，#107、#147)。
     public var isDefaultFilter: Bool { self == .all }
 }
 
-/// 篩選按鈕的圖示:預設用一般的圖示，套用了非預設篩選時改實心，不只靠顏色(DESIGN.md「導覽」)。
-func filterSymbolName(isActive: Bool) -> String {
-    isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease"
+/// 篩選按鈕的圖示(#147、ADR-0008):沒套用篩選是一般的三條線(主要文字色);套用了非預設篩選時改成
+/// **品牌粉紅的空心圓圈**,圓圈的有無讓人不只靠顏色分辨(DESIGN.md「導覽」)。不填色,所以不是實心圓。
+public enum FilterIcon {
+    public static func symbolName(isActive: Bool) -> String {
+        isActive ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease"
+    }
+}
+
+/// 篩選按鈕 toolbar 上的圖示:套用中是品牌粉紅,否則是主要文字色。
+struct FilterIconImage: View {
+    let isActive: Bool
+
+    var body: some View {
+        Image(systemName: FilterIcon.symbolName(isActive: isActive))
+            .foregroundStyle(isActive ? Color.brandPink : Color.primary)
+    }
 }
 
 extension ViewScope: ScopeFilterOption {
-    /// 視角的名稱:全部、公帳、私帳(上游 ADR 0014，#138;CONTEXT.md)。
+    /// 視角的名稱:全部、家庭公帳、個人私帳(CONTEXT.md、#150;上游 ADR 0014 的短名不採用)。
     var title: String {
         switch self {
         case .all: "全部"
-        case .household: "公帳"
-        case .personal: "私帳"
+        case .household: OwnershipName.household
+        case .personal: OwnershipName.personal
         }
     }
 
-    /// 全部是地球、公帳是房子、私帳是鎖(上游 ADR 0014 的 🌐🏠🔒)。
+    /// 全部是地球、家庭公帳是房子、個人私帳是鎖(上游 ADR 0014 的 🌐🏠🔒)。
     var symbolName: String {
         switch self {
         case .all: "globe"
@@ -46,12 +59,12 @@ extension ViewScope: ScopeFilterOption {
 }
 
 extension AccountScope: ScopeFilterOption {
-    /// 帳戶檢視範圍的名稱:全部、公帳、私帳(上游 ADR 0014，#138;CONTEXT.md)。
+    /// 帳戶檢視範圍的名稱:全部、家庭公帳、個人私帳(CONTEXT.md、#150)。
     public var title: String {
         switch self {
         case .all: "全部"
-        case .household: "公帳"
-        case .personal: "私帳"
+        case .household: OwnershipName.household
+        case .personal: OwnershipName.personal
         }
     }
 
@@ -64,8 +77,8 @@ extension AccountScope: ScopeFilterOption {
     }
 }
 
-/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、公帳、私帳),
-/// 帳戶頁篩選帳戶檢視範圍(全部、公帳、私帳)。
+/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、家庭公帳、個人私帳),
+/// 帳戶頁篩選帳戶檢視範圍(全部、家庭公帳、個人私帳)。
 ///
 /// 目前的選擇由畫面用 `.navigationSubtitle(scope.title)` 顯示在導覽列副標題。VoiceOver 念篩選的名稱(例如「視角」)和目前的選擇。
 struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
@@ -91,8 +104,10 @@ struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
             } label: {
                 // label 用 `Label` 時,toolbar 上的 `accessibilityValue` 會被丟掉(VoiceOver 念不到目前的選擇),
                 // 所以只放 symbol,標籤另外用 `accessibilityLabel` 補上。
-                Image(systemName: filterSymbolName(isActive: !scope.isDefaultFilter))
+                FilterIconImage(isActive: !scope.isDefaultFilter)
             }
+            // 選單裡勾選的項目，勾勾維持系統樣式:系統選單的勾勾不吃 tint(試過 `.tint(.brandPink)`,
+            // 只有選項前面的符號變粉紅，勾勾還是白的)，不為了這個自己重做選單(#147、ADR-0008)。
             .accessibilityLabel(name)
             .accessibilityValue(scope.title)
             .accessibilityIdentifier(identifier)

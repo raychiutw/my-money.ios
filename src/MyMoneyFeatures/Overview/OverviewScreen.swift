@@ -156,7 +156,7 @@ struct OverviewScreen: View {
     private func accountCard(_ card: OverviewAccountCard) -> some View {
         let view = NumberCard(
             title: card.name, symbol: card.symbolName, symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.amount,
-            isWarning: card.isDue, trailingText: card.dueDayText, spokenText: card.spokenText
+            isWarning: card.isDue, caption: card.dueDayText, spokenText: card.spokenText
         )
         if case .creditCard(let creditCard) = card.kind {
             Button { cardPath.append(creditCard) } label: { view }

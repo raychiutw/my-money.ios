@@ -38,17 +38,18 @@ struct CategoryGrid: View {
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .padding(.vertical, 4)
-            // 選取單色化(#134):主要文字色填滿、字與圖示反色(淺色黑底白字、深色白底黑字);沒選的是細外框。
-            .foregroundStyle(isSelected ? Color.inverseOfPrimary : Color.primary)
-            .background(isSelected ? Color.primary : Color.clear, in: shape)
-            .overlay(shape.strokeBorder(isSelected ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1))
+            // 選取不填色(#147、ADR-0008):較粗的品牌粉紅外框加粉紅勾勾，字與圖示維持原色;沒選的是細外框。
+            .foregroundStyle(Color.primary)
+            .overlay(
+                shape.strokeBorder(isSelected ? Color.brandPink : Color.secondary.opacity(0.3), lineWidth: isSelected ? 3 : 1)
+            )
             .overlay(alignment: .topTrailing) {
                 if isSelected {
-                    // overlay 不會繼承上面的 foregroundStyle:明確指定反色，不然黑底黑勾、白底白勾。
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color.inverseOfPrimary)
-                        .padding(4)
+                    // overlay 不會繼承上面的 foregroundStyle:明確指定粉紅。
+                    Image(systemName: "checkmark")
+                        .font(.footnote.bold())
+                        .foregroundStyle(Color.brandPink)
+                        .padding(6)
                 }
             }
             .contentShape(shape)

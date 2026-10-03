@@ -34,14 +34,14 @@ struct PrivateCardAdvanceTests {
         #expect(all.creditCards.map(\.name).sorted() == ["iOS 測試信用卡", "iOS 測試小額卡"].sorted(), "他人的私卡只在公帳範圍")
     }
 
-    @Test("卡片小字:公帳範圍的個人卡寫「私卡代墊」加繳款日;其他範圍照舊寫公帳或私帳")
+    @Test("卡片小字:公帳範圍的個人卡寫「私卡代墊」加繳款日;其他範圍照舊寫家庭公帳或個人私帳")
     func captions() async {
         let household = await accountsModel(scope: .household)
         #expect(household.caption(for: SampleAccounts.meiCardAdvance) == "私卡代墊・25 日繳")
         #expect(household.caption(for: SampleAccounts.card) == "私卡代墊・5 日繳", "自己的私卡在公帳範圍也標私卡代墊")
 
         let all = await accountsModel(scope: .all)
-        #expect(all.caption(for: SampleAccounts.card) == "私帳・5 日繳")
+        #expect(all.caption(for: SampleAccounts.card) == "個人私帳・5 日繳")
     }
 
     @Test("切換範圍重新載入期間畫面還是舊內容:小字與念法跟著已載入的內容走，不跟著新範圍(code review)")
@@ -54,7 +54,7 @@ struct PrivateCardAdvanceTests {
         #expect(model.spokenSummary(of: SampleAccounts.meiCardAdvance).contains("私卡代墊"))
 
         await model.load()
-        #expect(model.caption(for: SampleAccounts.card) == "私帳・5 日繳")
+        #expect(model.caption(for: SampleAccounts.card) == "個人私帳・5 日繳")
     }
 
     @Test("總覽的公帳視角:私卡代墊的卡念私卡代墊，脫敏的卡念持卡人與家庭代墊待繳額;全部視角照舊")
@@ -100,7 +100,7 @@ struct PrivateCardAdvanceTests {
         #expect(household.spokenSummary(of: SampleAccounts.card).hasPrefix("iOS 測試信用卡，私卡代墊，信用卡待繳總額"))
 
         let all = await accountsModel(scope: .all)
-        #expect(all.spokenSummary(of: SampleAccounts.card) == "iOS 測試信用卡，私帳，信用卡待繳總額 15,500 元，每月 5 日繳款")
+        #expect(all.spokenSummary(of: SampleAccounts.card) == "iOS 測試信用卡，個人私帳，信用卡待繳總額 15,500 元，每月 5 日繳款")
     }
 
     @Test("他人的卡是脫敏的:後端標了 is_masked;自己的卡與家庭卡不是")

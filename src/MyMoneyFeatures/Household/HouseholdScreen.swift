@@ -343,7 +343,9 @@ private struct MemberRow: View {
                     avatar
                     names
                 }
+                // 堆疊時待報銷金額在最下面一行、靠右(#149)。
                 pending
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .accessibilityElement(children: .ignore)

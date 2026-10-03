@@ -284,16 +284,33 @@ public final class TransactionsModel {
         !transaction.isSystemRecord && (permissions?.current.canModify(transaction) ?? true)
     }
 
-    /// 點不開的列，鎖定標記的 VoiceOver 說明;可以改的是 `nil`。
+    /// 點不開的列為什麼不能編輯(點一下跳出的說明);可以改的是 `nil`。
     public func lockReason(for transaction: Transaction) -> String? {
         if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
         if canModify(transaction) { return nil }
-        return transaction.isShared ? "他人記錄的公帳，僅記錄者或家庭管理員可以編輯、刪除" : "他人的私帳，僅記錄者本人可以編輯、刪除"
+        return transaction.isShared ? "他人記錄的\(OwnershipName.household)，僅記錄者或家庭管理員可以編輯、刪除" : "他人的\(OwnershipName.personal)，僅記錄者本人可以編輯、刪除"
+    }
+
+    /// 說明 alert 的標題(#146)。
+    public let lockAlertTitle = "不能編輯這筆交易"
+
+    /// 點不開的列的 VoiceOver 提示;原因不再塞在整句最後，點了才跳出說明(#146)。可以改的是 `nil`。
+    public func lockHint(for transaction: Transaction) -> String? {
+        lockReason(for: transaction) == nil ? nil : "點兩下查看為什麼不能編輯"
     }
 
     /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。
     public func recorderName(of transaction: Transaction) -> String? {
         transaction.recorderName(besides: currentUser)
+    }
+
+    /// 交易列的次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;
+    /// 沒有記帳人名稱時只寫歸屬。
+    public func subtitle(of transaction: Transaction) -> TransactionSubtitle {
+        TransactionSubtitle(
+            recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
+            ownership: OwnershipName.title(isShared: transaction.isShared)
+        )
     }
 
     public func makeEditor(for transaction: Transaction) -> TransactionEditorModel? {
@@ -390,6 +407,22 @@ extension TransactionsModel {
             let from: CalendarDay
             let to: CalendarDay
         }
+    }
+}
+
+/// 交易列的次要文字:記帳人與歸屬分開存放，畫面放不下時先截記帳人的名稱、歸屬保留(#145)。
+public struct TransactionSubtitle: Equatable, Sendable {
+    public let recorder: String?
+    public let ownership: String
+
+    public init(recorder: String?, ownership: String) {
+        self.recorder = recorder
+        self.ownership = ownership
+    }
+
+    /// 例如「小美・家庭公帳」;沒有記帳人名稱時只有歸屬。
+    public var text: String {
+        [recorder, ownership].compactMap { $0 }.joined(separator: "・")
     }
 }
 

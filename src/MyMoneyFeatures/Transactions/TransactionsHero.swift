@@ -48,8 +48,11 @@ struct TransactionsHero: View {
             }
             VStack(alignment: .leading, spacing: 12) {
                 net
+                // 收入與支出堆疊時靠右;淨收支是「大數字」，維持靠左(#149)。
                 income
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 expense
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
     }

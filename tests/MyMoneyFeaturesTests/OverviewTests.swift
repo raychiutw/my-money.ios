@@ -77,8 +77,8 @@ struct OverviewTests {
 
     @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
         (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
-        (.household, "目前無公帳帳戶", "至帳戶管理將帳戶歸屬設為公帳即可在此呈現"),
-        (.personal, "目前無私帳帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (.household, "目前無家庭公帳帳戶", "至帳戶管理將帳戶歸屬設為家庭公帳即可在此呈現"),
+        (.personal, "目前無個人私帳帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
     ])
     func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
         #expect(scope.emptyAccountsTitle == title)
@@ -168,7 +168,7 @@ struct OverviewTests {
 
     /// web 的總覽只算個人私帳(parity 刻意偏離第 9 項);iOS 的「個人」是我記的全部。
     @Test("當月淨收支的標題隨視角改變", arguments: [
-        (ViewScope.all, "當月淨收支"), (.household, "當月淨收支(公帳)"), (.personal, "當月淨收支(私帳)"),
+        (ViewScope.all, "當月淨收支"), (.household, "當月淨收支(家庭公帳)"), (.personal, "當月淨收支(個人私帳)"),
     ])
     func netTitle(scope: ViewScope, expected: String) {
         let model = model()
@@ -262,6 +262,6 @@ struct OverviewTests {
 struct AccountScopeTitleTests {
     @Test("帳戶檢視範圍是「全部」「公帳」「私帳」(上游 ADR 0014，#138)")
     func titles() {
-        #expect(AccountScope.allCases.map(\.title) == ["全部", "公帳", "私帳"])
+        #expect(AccountScope.allCases.map(\.title) == ["全部", "家庭公帳", "個人私帳"])
     }
 }

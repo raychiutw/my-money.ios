@@ -306,7 +306,9 @@ private struct BudgetRowView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Label(row.category.name, systemImage: row.category.symbolName)
+                    // 堆疊時金額在最下面一行、靠右(#149)。
                     figures
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
             if let budget = row.budget {

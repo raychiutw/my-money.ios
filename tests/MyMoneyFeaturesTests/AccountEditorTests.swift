@@ -195,7 +195,7 @@ struct AccountEditorTests {
     func ownershipChoicesAreSharedAndPrivate(kind: AccountKind) {
         let editor = adding(kind)
 
-        #expect(editor.ownershipChoices.map(\.title) == ["私帳", "公帳"])
+        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭公帳"])
         #expect(editor.ownershipChoices.map(\.isJointFund) == [false, true])
     }
 
@@ -206,7 +206,7 @@ struct AccountEditorTests {
 
         editor.kind = .creditCard
 
-        #expect(editor.ownershipChoices.map(\.title) == ["私帳", "公帳"])
+        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭公帳"])
         #expect(editor.isJointFund)
     }
 

@@ -13,6 +13,8 @@ struct TransactionsScreen: View {
     @State private var isEntryPresented = false
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: MyMoneyDomain.Transaction?
+    /// 點了點不開的列:跳出簡短說明(#146)。
+    @State private var explained: MyMoneyDomain.Transaction?
 
     var body: some View {
         NavigationStack {
@@ -32,7 +34,7 @@ struct TransactionsScreen: View {
                         Button {
                             model.editFilter()
                         } label: {
-                            Image(systemName: filterSymbolName(isActive: model.isFilterActive))
+                            FilterIconImage(isActive: model.isFilterActive)
                         }
                         .accessibilityLabel("篩選")
                         .accessibilityValue(model.filterSummary)
@@ -73,6 +75,15 @@ struct TransactionsScreen: View {
                     Button("取消", role: .cancel) {}
                 } message: { _ in
                     Text(model.deleteConfirmation)
+                }
+                .alert(
+                    model.lockAlertTitle,
+                    isPresented: Binding(get: { explained != nil }, set: { if !$0 { explained = nil } }),
+                    presenting: explained
+                ) { _ in
+                    Button("好") {}
+                } message: { transaction in
+                    Text("\(model.lockReason(for: transaction) ?? "")。")
                 }
                 .alert(
                     "無法刪除",
@@ -164,7 +175,7 @@ struct TransactionsScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)只顯示鎖定標記。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)點不開。
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
@@ -173,7 +184,10 @@ struct TransactionsScreen: View {
                     editor = EditorSheet(model: editorModel)
                 }
             } label: {
-                TransactionRow(transaction: transaction, recorder: model.recorderName(of: transaction), isOpenable: true)
+                TransactionRow(
+                    transaction: transaction, subtitle: model.subtitle(of: transaction),
+                    recorder: model.recorderName(of: transaction), isOpenable: true
+                )
             }
             .tint(.primary)
             .swipeActions {
@@ -192,10 +206,16 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            // 只放鎖定標記，不放說明文字(#63);說明在 VoiceOver。點不開，所以不截斷。
-            TransactionRow(
-                transaction: transaction, recorder: model.recorderName(of: transaction), lockReason: model.lockReason(for: transaction)
-            )
+            // 列上沒有鎖定標記(#145);點一下跳出簡短說明(#146)。沒有左滑刪除與長按選單。點不開，所以標題不截斷。
+            Button {
+                explained = transaction
+            } label: {
+                TransactionRow(
+                    transaction: transaction, subtitle: model.subtitle(of: transaction),
+                    recorder: model.recorderName(of: transaction), lockHint: model.lockHint(for: transaction)
+                )
+            }
+            .tint(.primary)
         }
     }
 }
@@ -214,7 +234,9 @@ private struct DayHeader: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(day.title)
+                // 堆疊時淨額在最下面一行、靠右(#149)。
                 net
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .monospacedDigit()
