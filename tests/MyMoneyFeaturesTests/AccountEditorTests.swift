@@ -191,24 +191,22 @@ struct AccountEditorTests {
         #expect(card.unbilledDebt == Money(4000))
     }
 
-    @Test("歸屬的選項是「個人私帳」和依類型變化的名稱:現金錢包與銀行存款帳戶叫家庭共同基金，信用卡叫家庭信用卡(上游 97f4789)", arguments: [
-        (AccountKind.cash, "家庭共同基金"), (.bank, "家庭共同基金"), (.creditCard, "家庭信用卡"),
-    ])
-    func ownershipChoicesFollowTheKind(kind: AccountKind, jointTitle: String) {
+    @Test("歸屬的選項是「私帳」和「公帳」,所有類型都一樣(上游 ADR 0014，#138)", arguments: [AccountKind.cash, .bank, .creditCard])
+    func ownershipChoicesAreSharedAndPrivate(kind: AccountKind) {
         let editor = adding(kind)
 
-        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", jointTitle])
+        #expect(editor.ownershipChoices.map(\.title) == ["私帳", "公帳"])
         #expect(editor.ownershipChoices.map(\.isJointFund) == [false, true])
     }
 
-    @Test("新增時切換類型，歸屬選項的名稱跟著變，已選的歸屬不變")
+    @Test("新增時切換類型，歸屬選項不變，已選的歸屬也不變")
     func ownershipChoicesFollowKindSwitch() {
         let editor = adding(.bank)
         editor.isJointFund = true
 
         editor.kind = .creditCard
 
-        #expect(editor.ownershipChoices.map(\.title) == ["個人私帳", "家庭信用卡"])
+        #expect(editor.ownershipChoices.map(\.title) == ["私帳", "公帳"])
         #expect(editor.isJointFund)
     }
 

@@ -78,6 +78,35 @@ struct EditingPermissionsTests {
         #expect(!permissions(nil).canModify(transaction(recorder: other, shared: true)), "沒有家庭時不可能是管理員")
     }
 
+    @Test("脫敏的卡:後端標了 is_masked，或擁有者明確不是我的個人卡;家庭卡、自己的卡、不知道是誰時都不算(上游 ADR 0015)")
+    func maskedCards() {
+        let mine = permissions(.member)
+        #expect(mine.isMasked(card(owner: other, joint: false)), "他人的個人卡")
+        #expect(!mine.isMasked(card(owner: me, joint: false)))
+        #expect(!mine.isMasked(card(owner: other, joint: true)), "家庭卡不脫敏")
+        #expect(!mine.isMasked(card(owner: nil, joint: false)), "不知道擁有者時不擅自遮蔽")
+        #expect(!permissions(.member, user: nil).isMasked(card(owner: other, joint: false)), "不知道登入的是誰時不擅自遮蔽")
+
+        var flagged = card(owner: me, joint: false)
+        flagged = CreditCard(
+            id: flagged.id, name: flagged.name, colorHex: flagged.colorHex, billedDebt: flagged.billedDebt,
+            unbilledDebt: flagged.unbilledDebt, creditLimit: nil, statementDay: nil, paymentDueDay: nil, ownerID: me, isMasked: true
+        )
+        #expect(mine.isMasked(flagged), "後端標了 is_masked")
+    }
+
+    @Test("後端標了脫敏的卡即使沒回擁有者，也不能操作、編輯、刪除(code review)")
+    func maskedFlagBlocksEvenWithoutAnOwner() {
+        let masked = CreditCard(
+            id: AccountID("m"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: Money(100), creditLimit: nil,
+            statementDay: nil, paymentDueDay: nil, ownerID: nil, isMasked: true
+        )
+        for role: HouseholdRole? in [nil, .admin, .member] {
+            #expect(!permissions(role).canOperate(masked), "角色 \(String(describing: role))")
+            #expect(!permissions(role).canModify(.creditCard(masked)))
+        }
+    }
+
     @Test("不知道登入的是誰、或資料沒有擁有者時，不擅自擋(後端仍會判斷，跟 web 一樣)")
     func unknownIsPermissive() {
         #expect(permissions(.member, user: nil).canModify(bank(owner: other, joint: false)))

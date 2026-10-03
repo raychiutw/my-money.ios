@@ -140,6 +140,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-list-with-cash.json` | `GET /accounts?scope=all`,上面那個現金錢包建立之後 | 200 | `type: "cash"` 解讀成現金錢包;把它改成不認得的類型時只略過那一個 |
 | `accounts-balance-with-cash.json` | `GET /accounts/balance?scope=all`,同上 | 200 | `cashTotal` 1500;`available` 由後端算好，含現金(1500 + 101700 − 24380 − 5000 = 73820) |
 | `accounts-list-household.json` | `GET /accounts?scope=household` | 200 | 只回傳歸屬家庭共同基金(`is_joint = 1`)的帳戶:「iOS 家庭共同基金」 |
+| `accounts-list-household-card-advance.json` | `GET /accounts?scope=household`(2026-10-03,上游 `4fbf863`),測試帳號的個人信用卡記了一筆公帳支出 777 之後;錄完把交易刪掉，帳號還原 | 200 | 公帳範圍多回自己有家庭代墊欠款的個人信用卡(`shared_debt` 777、`unbilled` 777、沒有 `is_masked`);確認 prod 已部署 ADR 0015。**錄不到他人的脫敏卡**(需要第二個帳號)，`is_masked` 的解碼測試用這份真實回應手改欄位，測試裡有註明 |
+| `accounts-balance-household-card-advance.json` | `GET /accounts/balance?scope=household`,同上 | 200 | 私卡的家庭代墊算進信用卡待繳:`ccUnbilled` 777、淨可用餘額 `available` 6123 = 6900 − 777 |
 | `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含歸屬家庭共同基金的帳戶：銀行存款 94700(少了共同基金 7000)、淨可用餘額 66820 |
 | `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易記錄 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |

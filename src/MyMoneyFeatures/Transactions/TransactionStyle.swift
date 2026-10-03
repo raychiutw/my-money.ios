@@ -53,12 +53,12 @@ extension MyMoneyDomain.Transaction {
     }
 }
 
-/// 家庭公帳或個人私帳的標記：symbol 加文字，不只靠顏色(DESIGN.md「顏色」)。
+/// 公帳或私帳的標記：symbol 加文字，不只靠顏色(DESIGN.md「顏色」)。
 struct LedgerBadge: View {
     let isShared: Bool
 
     var body: some View {
-        Label(isShared ? "家庭公帳" : "個人私帳", systemImage: isShared ? "house.fill" : "lock.fill")
+        Label(isShared ? "公帳" : "私帳", systemImage: isShared ? "house.fill" : "lock.fill")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .labelStyle(.titleAndIcon)

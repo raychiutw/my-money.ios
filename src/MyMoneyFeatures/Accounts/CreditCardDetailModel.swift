@@ -54,14 +54,56 @@ public final class CreditCardDetailModel {
         permissions?.current.canOperate(card) ?? true
     }
 
-    /// 「繳款」選單的項目。
-    public var paymentPresets: [CardPaymentModel.Preset] {
-        card.paymentPresets
+    /// 這張卡在畫面上要脫敏(上游 ADR 0015):他人的個人卡只看得到家庭代墊待繳額。
+    public var isMasked: Bool {
+        permissions?.current.isMasked(card) ?? card.isMasked
     }
 
-    /// 有未出帳款才顯示「出帳作業」。
+    /// 「卡費」區塊的各列。脫敏的卡只有家庭代墊是真的，個人帳單與個人消費顯示「隱私遮蔽」。
+    public var feeRows: [CardDetailRow] {
+        if isMasked {
+            return [
+                CardDetailRow("家庭公帳代墊待繳總額", card.sharedDebt.formatted()),
+                CardDetailRow("個人帳單狀態", "隱私遮蔽"),
+                CardDetailRow("公帳代墊待清償", card.sharedDebt.formatted()),
+                CardDetailRow("個人私帳消費", "隱私遮蔽"),
+            ]
+        }
+        return [
+            CardDetailRow("信用卡待繳總額", card.totalDue.formatted()),
+            CardDetailRow("已出帳待繳款", card.billedDebt.formatted()),
+            CardDetailRow("未出帳款", card.unbilledDebt.formatted()),
+            // 欠款公私拆解(畫面上原本叫「負債性質拆解」,section 標題已經表達，不加前綴)。
+            CardDetailRow("家庭代墊公帳", card.sharedDebt.formatted()),
+            CardDetailRow("個人私帳消費", card.personalDebt.formatted()),
+        ]
+    }
+
+    /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
+    /// 沒有設定信用額度時沒有剩餘額度(CONTEXT.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
+    public var limitRows: [CardDetailRow] {
+        guard !isMasked else { return [] }
+        var rows = [CardDetailRow("信用額度", card.creditLimit?.formatted() ?? "未設定")]
+        if let remaining = card.remainingCredit {
+            rows.append(CardDetailRow("剩餘額度", remaining.formatted()))
+        }
+        return rows
+    }
+
+    /// 「繳款」的項目。他人的個人卡只能繳家庭代墊(上游 ADR 0015、#140);其他卡看有沒有操作權限。
+    public var paymentPresets: [CardPaymentModel.Preset] {
+        if isMasked { return card.sharedDebt > .zero ? [.shared] : [] }
+        return canOperate ? card.paymentPresets : []
+    }
+
+    /// 「操作」區有東西可以顯示:能操作這張卡，或是可以繳家庭代墊。
+    public var showsActions: Bool {
+        canOperate || !paymentPresets.isEmpty
+    }
+
+    /// 有未出帳款、而且能操作這張卡才顯示「出帳作業」。
     public var showsRollover: Bool {
-        card.canRollOver
+        canOperate && card.canRollOver
     }
 
     /// 操作失敗時顯示的訊息(alert)。
@@ -114,7 +156,8 @@ public final class CreditCardDetailModel {
     /// 信用卡扣款還款的 sheet(「繳款」選單的項目):扣款帳戶是同一個帳戶檢視範圍的銀行存款帳戶。
     public func makePayment(_ preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
-            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
+            isMaskedCard: isMasked, today: today
         )
     }
 
@@ -166,11 +209,24 @@ extension CreditCard {
 
     /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。
     /// 詳細頁的「繳款」選單和帳戶頁的長按選單共用。
-    var paymentPresets: [CardPaymentModel.Preset] {
+    public var paymentPresets: [CardPaymentModel.Preset] {
         var presets: [CardPaymentModel.Preset] = []
         if sharedDebt > .zero { presets.append(.shared) }
         if personalDebt > .zero { presets.append(.personal) }
         if totalDue > .zero { presets.append(.full) }
         return presets
+    }
+}
+
+/// 信用卡詳細頁的一列:標題加值(`LabeledContent`)。
+public struct CardDetailRow: Identifiable, Hashable, Sendable {
+    public let title: String
+    public let value: String
+
+    public var id: String { title }
+
+    init(_ title: String, _ value: String) {
+        self.title = title
+        self.value = value
     }
 }

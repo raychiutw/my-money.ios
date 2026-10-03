@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部、公帳、私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
@@ -35,22 +35,67 @@ public final class AccountsModel {
     @ObservationIgnored private let today: () -> CalendarDay
     /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
     @ObservationIgnored private let permissions: PermissionsModel?
+    /// 公帳範圍的待報銷橫幅用(上游 ADR 0015、#141);沒有就不顯示橫幅。
+    @ObservationIgnored private let households: (any HouseholdRepository)?
+
+    /// 公帳範圍:各成員待報銷的代墊款加總(web 也是這樣加，不是 iOS 重算業務規則);其他範圍、取不到、沒有家庭時是 `nil`。
+    public private(set) var pendingAdvanceTotal: Money?
 
     public init(
         repository: any AccountRepository,
         dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
+        households: (any HouseholdRepository)? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.dataVersion = dataVersion
         self.permissions = permissions
+        self.households = households
         self.today = today
+    }
+
+    /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。
+    public var showsPendingAdvanceBanner: Bool {
+        loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
+    }
+
+    /// 橫幅的一句話，例如「家庭公帳待報銷代墊款 $850」。
+    public var pendingAdvanceBannerText: String {
+        "家庭公帳待報銷代墊款 \((pendingAdvanceTotal ?? .zero).formatted())"
+    }
+
+    /// 公帳範圍:各成員待報銷的加總;只在公帳範圍多問一次，取不到(或沒有家庭)是 `nil`，不影響帳戶頁其他區塊。
+    private func fetchPendingAdvanceTotal(for scope: AccountScope) async -> Money? {
+        guard scope == .household, let households else { return nil }
+        guard let advances = try? await households.advances() else { return nil }
+        return advances.reduce(Money.zero) { $0 + $1.pendingReimbursement }
     }
 
     /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
     public func canModify(_ account: Account) -> Bool {
         permissions?.current.canModify(account) ?? true
+    }
+
+    /// 這張卡在畫面上要脫敏(上游 ADR 0015):他人的個人卡在公帳範圍只看得到家庭代墊待繳額。
+    public func isMasked(_ card: CreditCard) -> Bool {
+        permissions?.current.isMasked(card) ?? card.isMasked
+    }
+
+    /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。看的是畫面上已載入的範圍:切換範圍重新載入期間，
+    /// 畫面還是舊範圍的內容，念法與標籤要跟著內容走。
+    func isPrivateCardAdvance(_ card: CreditCard) -> Bool {
+        (loadedScope ?? scope) == .household && !card.isJointFund
+    }
+
+    /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「公帳／私帳・N 日繳」。
+    public func caption(for card: CreditCard) -> String {
+        isPrivateCardAdvance(card) ? card.advanceCaption() : card.cardCaption
+    }
+
+    /// VoiceOver 念的整句。
+    public func spokenSummary(of card: CreditCard) -> String {
+        isPrivateCardAdvance(card) ? card.spokenAdvanceSummary(isMasked: isMasked(card)) : card.spokenSummary
     }
 
     /// 信用卡的還款沖銷、出帳作業、校準:個人信用卡只有持卡人;家庭信用卡全員都可以。
@@ -60,7 +105,13 @@ public final class AccountsModel {
 
     /// 有未出帳款就能做結帳日出帳作業(長按選單)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.canRollOver
+        canOperate(card) && card.canRollOver
+    }
+
+    /// 長按選單的還款項目:他人的個人卡只能繳家庭代墊(上游 ADR 0015、#140);其他卡看有沒有操作權限。
+    public func paymentPresets(for card: CreditCard) -> [CardPaymentModel.Preset] {
+        if isMasked(card) { return card.sharedDebt > .zero ? [.shared] : [] }
+        return canOperate(card) ? card.paymentPresets : []
     }
 
     /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」,跟詳細頁的一樣。
@@ -82,7 +133,8 @@ public final class AccountsModel {
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
-            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
+            isMaskedCard: isMasked(card), today: today
         )
     }
 
@@ -173,13 +225,16 @@ public final class AccountsModel {
         do {
             async let accounts = repository.accounts(scope: scope)
             async let summary = repository.balanceSummary(scope: scope)
+            async let pendingAdvances = fetchPendingAdvanceTotal(for: scope)
             let (loadedAccounts, loadedSummary) = try await (accounts, summary)
+            let loadedPendingAdvances = await pendingAdvances
             // 被取消(換了範圍)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
+            pendingAdvanceTotal = loadedPendingAdvances
             loadedVersion = version
             loadedScope = scope
             phase = .loaded
@@ -204,9 +259,10 @@ extension AccountKind {
 }
 
 extension Account {
-    /// 帳戶選單項目的副標題：類型，例如「現金錢包」。選擇列的值只放名稱，餘額另起一列「可用餘額」
-    /// (DESIGN.md「列與欄位」第 7 條，#78)。類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
-    public var menuSubtitle: String { kind.title }
+    /// 帳戶選單項目的副標題：類型加歸屬，例如「現金錢包・私帳」。選擇列的值只放名稱，餘額另起一列「可用餘額」
+    /// (DESIGN.md「列與欄位」第 7 條，#78)。類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄);
+    /// 歸屬寫公帳或私帳(上游 ADR 0014，#138)。
+    public var menuSubtitle: String { "\(kind.title)・\(isJointFund ? "公帳" : "私帳")" }
 
     /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有「餘額」,是 `nil`。
     public var fundsBalance: Money? {

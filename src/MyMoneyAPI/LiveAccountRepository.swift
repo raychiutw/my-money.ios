@@ -190,9 +190,15 @@ private struct AccountDTO: Decodable {
     /// 欠款公私拆解，只有信用卡帳戶有。
     let sharedDebt: Decimal?
     let personalDebt: Decimal?
+    /// 擁有者的名稱。
+    let ownerName: String?
+    /// 他人的個人信用卡在公帳範圍經過脫敏(上游 ADR 0015);沒有這個欄位時是 `nil`。
+    let isMasked: LenientBool?
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, balance, unbilled, color
+        case ownerName = "owner_name"
+        case isMasked = "is_masked"
         case userID = "user_id"
         case sharedDebt = "shared_debt"
         case personalDebt = "personal_debt"
@@ -232,7 +238,9 @@ private struct AccountDTO: Decodable {
                 sharedDebt: Money(sharedDebt ?? 0),
                 personalDebt: Money(personalDebt ?? 0),
                 isJointFund: isJoint == 1,
-                ownerID: userID.map(UserID.init)
+                ownerID: userID.map(UserID.init),
+                ownerName: ownerName,
+                isMasked: isMasked?.value ?? false
             ))
         default:
             return nil
@@ -263,5 +271,20 @@ private struct BalanceSummaryDTO: Decodable {
             monthlySavingsReserve: Money(monthlyGoals),
             disposableCash: Money(disposable)
         )
+    }
+}
+
+/// 旗標欄位可能是 true／false 或 0／1(資料庫旗標是 0／1，計算出來的是 true／false，CLAUDE.md「規則」);
+/// 還沒在 prod 看過 `is_masked` 的實際型別(需要第二個帳號)，兩種都接受，不因為型別不同讓整份帳戶清單解碼失敗。
+private struct LenientBool: Decodable {
+    let value: Bool
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let flag = try? container.decode(Bool.self) {
+            value = flag
+        } else {
+            value = try container.decode(Int.self) != 0
+        }
     }
 }

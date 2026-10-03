@@ -10,9 +10,10 @@ struct AccountsTests {
     /// 類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
     @Test("帳戶選單：標題只放名稱，副標題是正確的類型")
     func menuTitlesShowAccountKind() {
-        #expect(Account.cash(SampleAccounts.wallet).menuSubtitle == "現金錢包")
-        #expect(Account.bank(SampleAccounts.savings).menuSubtitle == "銀行存款帳戶")
-        #expect(Account.creditCard(SampleAccounts.card).menuSubtitle == "信用卡")
+        #expect(Account.cash(SampleAccounts.wallet).menuSubtitle == "現金錢包・私帳")
+        #expect(Account.bank(SampleAccounts.savings).menuSubtitle == "銀行存款帳戶・私帳")
+        #expect(Account.creditCard(SampleAccounts.card).menuSubtitle == "信用卡・私帳")
+        #expect(Account.bank(SampleAccounts.meiJointFund).menuSubtitle == "銀行存款帳戶・公帳")
         #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuSubtitle == "銀行存款帳戶")
     }
 
@@ -49,7 +50,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(23000))
     }
 
-    @Test("帳戶檢視範圍預設全部;切到家庭共同基金時，帳戶和資金指標都照這個範圍重新取得")
+    @Test("帳戶檢視範圍預設全部;切到公帳時，帳戶和資金指標都照這個範圍重新取得(公帳範圍多一張有家庭代墊欠款的個人信用卡)")
     func scopeAppliesToAccountsAndSummary() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = AccountsModel(repository: repository, dataVersion: DataVersion())
@@ -61,7 +62,8 @@ struct AccountsTests {
 
         #expect(await repository.requestedScopes == [.all, .household])
         #expect(await repository.requestedSummaryScopes == [.all, .household])
-        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
+        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty)
+        #expect(model.creditCards.map(\.name) == ["iOS 測試信用卡"], "公帳範圍只留有家庭代墊欠款的個人信用卡(上游 ADR 0015)")
     }
 
     @Test("切換帳戶檢視範圍重新載入期間，維持已載入的內容，不回到骨架屏(web 的二度篩選過渡)", .timeLimit(.minutes(1)))

@@ -93,12 +93,12 @@ public final class OverviewModel {
 
     public var monthNet: Money { monthIncome - monthExpense }
 
-    /// 標題隨視角改變;「個人」是我記的全部(parity 刻意偏離第 9 項)。
+    /// 標題隨視角改變;「私帳」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
         switch scope {
         case .all: "當月淨收支"
-        case .household: "當月淨收支(家庭)"
-        case .personal: "當月淨收支(個人)"
+        case .household: "當月淨收支(公帳)"
+        case .personal: "當月淨收支(私帳)"
         }
     }
 
@@ -128,7 +128,13 @@ public final class OverviewModel {
     /// 總覽的帳戶卡片:順序跟帳戶頁一樣(現金錢包、銀行存款帳戶、信用卡)，最多 `accountCardLimit` 張。
     public var accountCards: [OverviewAccountCard] {
         let all = cashWallets.map(OverviewAccountCard.init) + bankAccounts.map(OverviewAccountCard.init)
-            + creditCards.map(OverviewAccountCard.init)
+            + creditCards.map { card in
+                // 公帳視角裡的個人卡是「私卡代墊」(上游 ADR 0015);他人的卡脫敏。
+                OverviewAccountCard(
+                    card, isPrivateCardAdvance: scope.accountScope == .household && !card.isJointFund,
+                    isMasked: permissions?.current.isMasked(card) ?? card.isMasked
+                )
+            }
         return Array(all.prefix(Self.accountCardLimit))
     }
 
@@ -217,17 +223,23 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     public let colorHex: String
     public let amount: Money
     public let kind: Kind
+    /// 公帳視角裡的個人信用卡(私卡代墊，上游 ADR 0015)，以及它是不是脫敏的他人私卡:VoiceOver 念法不同。
+    private let isPrivateCardAdvance: Bool
+    private let isMasked: Bool
 
     init(_ wallet: CashWallet) {
         (id, name, colorHex, amount, kind) = (wallet.id, wallet.name, wallet.colorHex, wallet.balance, .cash)
+        (isPrivateCardAdvance, isMasked) = (false, false)
     }
 
     init(_ account: BankAccount) {
         (id, name, colorHex, amount, kind) = (account.id, account.name, account.colorHex, account.balance, .bank)
+        (isPrivateCardAdvance, isMasked) = (false, false)
     }
 
-    init(_ card: CreditCard) {
+    init(_ card: CreditCard, isPrivateCardAdvance: Bool = false, isMasked: Bool = false) {
         (id, name, colorHex, amount, kind) = (card.id, card.name, card.colorHex, card.totalDue, .creditCard(card))
+        (self.isPrivateCardAdvance, self.isMasked) = (isPrivateCardAdvance, isMasked)
     }
 
     /// 卡片上的類型圖示(用帳戶的代表色)。
@@ -258,8 +270,12 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
         case .cash: "\(name)，現金錢包，餘額 \(amount.spokenText)"
         case .bank: "\(name)，銀行存款帳戶，餘額 \(amount.spokenText)"
         case .creditCard(let card):
-            ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
-                .compactMap { $0 }.joined(separator: "，")
+            if isPrivateCardAdvance {
+                card.spokenAdvanceSummary(isMasked: isMasked)
+            } else {
+                ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
+                    .compactMap { $0 }.joined(separator: "，")
+            }
         }
     }
 }
@@ -300,15 +316,15 @@ extension AccountScope {
     public var emptyAccountsTitle: String {
         switch self {
         case .all: "尚未建立帳戶"
-        case .household: "目前無家庭公用帳戶"
-        case .personal: "目前無個人私帳"
+        case .household: "目前無公帳帳戶"
+        case .personal: "目前無私帳帳戶"
         }
     }
 
     /// 空狀態的說明，附「前往帳戶管理」。
     public var emptyAccountsHint: String {
         switch self {
-        case .household: "至帳戶管理將帳戶屬性設為家庭公用（共同基金或家庭卡）即可在此呈現"
+        case .household: "至帳戶管理將帳戶歸屬設為公帳即可在此呈現"
         case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
         }
     }

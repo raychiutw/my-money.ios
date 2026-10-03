@@ -22,12 +22,20 @@ public struct EditingPermissions: Hashable, Sendable {
 
     /// 帳戶(含信用卡)的編輯與刪除:個人私帳只有本人，家庭管理員也不行;家庭共同帳戶是建立者或家庭管理員。
     public func canModify(_ account: Account) -> Bool {
-        account.isJointFund ? (isMine(account.ownerID) || isAdmin) : isMine(account.ownerID)
+        // 後端標了脫敏的卡一定是他人的個人卡(即使沒回擁有者)，不能改。
+        if case .creditCard(let card) = account, card.isMasked { return false }
+        return account.isJointFund ? (isMine(account.ownerID) || isAdmin) : isMine(account.ownerID)
     }
 
     /// 信用卡的還款沖銷、出帳作業、校準:個人信用卡只有持卡人;家庭信用卡全員都可以。
     public func canOperate(_ card: CreditCard) -> Bool {
-        card.isJointFund || isMine(card.ownerID)
+        !card.isMasked && (card.isJointFund || isMine(card.ownerID))
+    }
+
+    /// 這張卡在畫面上要脫敏(上游 ADR 0015):後端標了 `is_masked`，或是擁有者明確不是我的個人卡。
+    /// 家庭卡不脫敏;不知道登入的是誰、或資料沒有擁有者時不擅自遮蔽。
+    public func isMasked(_ card: CreditCard) -> Bool {
+        card.isMasked || (!card.isJointFund && !isMine(card.ownerID))
     }
 
     /// 交易的編輯與刪除:個人私帳只有記錄者，家庭管理員也不行;家庭公帳是記錄者或家庭管理員。

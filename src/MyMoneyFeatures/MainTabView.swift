@@ -29,7 +29,7 @@ struct MainTabView: View {
                     .tint(.primary)
             }
             Tab("帳戶", systemImage: "creditcard", value: .accounts) {
-                AccountsScreen(model: screens.accounts)
+                AccountsScreen(model: screens.accounts) { selection = $0 }
                     .tint(.primary)
             }
             Tab("家庭", systemImage: "person.2", value: .household) {

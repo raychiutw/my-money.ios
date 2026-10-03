@@ -8,6 +8,8 @@ import SwiftUI
 /// 每個帳戶是一張卡片(整列);信用卡點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
+    /// 切到別的 tab(待報銷橫幅的「前往家庭」)。
+    var showTab: (AppTab) -> Void = { _ in }
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
@@ -231,6 +233,12 @@ struct AccountsScreen: View {
     /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
     @ViewBuilder
     private var summarySection: some View {
+        if model.showsPendingAdvanceBanner {
+            Section {
+                PendingAdvancesBanner(text: model.pendingAdvanceBannerText) { showTab(.household) }
+                    .clearListRow()
+            }
+        }
         Section {
             AccountsHero(
                 balance: model.availableBalance ?? .zero, segments: model.composition, summary: model.compositionSummary
@@ -308,16 +316,16 @@ struct AccountsScreen: View {
         }
     }
 
-    /// 現金錢包、銀行存款帳戶的卡片(#119):名稱加大金額，家庭共同基金多一行小字。
-    /// VoiceOver 念名稱、歸屬、餘額(跟以前的列一樣)。
+    /// 現金錢包、銀行存款帳戶的卡片(#119、#138):名稱加大金額，下面一行小字是歸屬(公帳或私帳)。
+    /// VoiceOver 念名稱、餘額、歸屬。
     private func fundCard(
         name: String, symbol: String, colorHex: String, isJointFund: Bool, balance: Money, balanceTitle: String,
         warnsWhenNegative: Bool = false
     ) -> some View {
         NumberCard(
             title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray, amount: balance,
-            isWarning: warnsWhenNegative && balance < .zero, caption: isJointFund ? "家庭共同基金" : nil,
-            spokenText: "\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)"
+            isWarning: warnsWhenNegative && balance < .zero, caption: isJointFund ? "公帳" : "私帳",
+            spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(isJointFund ? "公帳" : "私帳")"
         )
     }
 
@@ -330,7 +338,7 @@ struct AccountsScreen: View {
         } label: {
             NumberCard(
                 title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.totalDue,
-                isWarning: card.isDue, caption: card.cardCaption, spokenText: card.spokenSummary
+                isWarning: card.isDue, caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
             )
         }
         .buttonStyle(.plain)
@@ -345,9 +353,10 @@ struct AccountsScreen: View {
         }
         .contextMenu {
             // 還款、出帳作業只有能操作這張卡的人;編輯、刪除只有能修改這個帳戶的人(上游 ADR 0013、#133)。
-            if model.canOperate(card) {
+            let presets = model.paymentPresets(for: card)
+            if !presets.isEmpty || model.showsRollover(card) {
                 Section {
-                    ForEach(card.paymentPresets, id: \.self) { preset in
+                    ForEach(presets, id: \.self) { preset in
                         Button(preset.title, systemImage: preset.systemImage) {
                             payment = model.makePayment(for: card, preset: preset)
                         }
@@ -388,5 +397,28 @@ private struct SectionEmptyState: View {
             GlassCapsuleButton(title: actionTitle, action: action)
                 .accessibilityIdentifier(identifier)
         }
+    }
+}
+
+/// 公帳範圍的「家庭公帳待報銷代墊款」橫幅(上游 ADR 0015、#141):金額單行，附玻璃膠囊「前往家庭」報銷。
+/// VoiceOver 念一句完整的話，按鈕另外一個元素。
+private struct PendingAdvancesBanner: View {
+    let text: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(text, systemImage: "doc.text")
+                .font(.headline)
+                .monospacedDigit()
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .accessibilityIdentifier("accounts.pendingAdvances")
+            GlassCapsuleButton(title: "前往家庭", systemImage: "arrow.right", action: action)
+                .accessibilityIdentifier("accounts.pendingAdvances.open")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
     }
 }

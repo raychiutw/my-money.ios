@@ -66,8 +66,8 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "3000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
         // 歸屬是內嵌選擇列(2 列，點一下就選)，表單裡沒有分段控制(#65、ADR-0004、#90)。
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
-        XCTAssertTrue(form.buttons["個人私帳"].exists, "信用卡扣款還款的歸屬缺少「個人私帳」這一列")
-        XCTAssertTrue(form.buttons["家庭公帳"].isSelected, "「繳家庭代墊」的歸屬不是家庭公帳")
+        XCTAssertTrue(form.buttons["私帳"].exists, "信用卡扣款還款的歸屬缺少「私帳」這一列")
+        XCTAssertTrue(form.buttons["公帳"].isSelected, "「繳家庭代墊」的歸屬不是公帳")
         XCTAssertEqual(form.segmentedControls.count, 0, "信用卡扣款還款的表單裡還有分段控制")
         // 扣款帳戶是空的(上游 ADR 0011、#112):顯示佔位文字，選了扣款銀行之後才另起一列顯示可用餘額。
         let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch

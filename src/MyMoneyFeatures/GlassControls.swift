@@ -107,8 +107,8 @@ struct GlassCapsuleButton: View {
     }
 }
 
-/// 區塊標題右邊的「…」玻璃圓鈕，點開選單(取代「管理」「全部」這類裸文字按鈕)。
-/// 視覺 32pt，點擊範圍 44pt(HIG);VoiceOver 念 `label`，例如「帳戶的更多動作」。
+/// 區塊標題右邊的「…」，點開選單(取代「管理」「全部」這類裸文字按鈕)。
+/// 只有符號、**沒有外框**(使用者要求，#137、ADR-0007 的例外);點擊範圍 44×44pt(HIG),VoiceOver 念 `label`，例如「帳戶的更多動作」。
 struct MoreMenu<Content: View>: View {
     let label: String
     let identifier: String
@@ -119,8 +119,6 @@ struct MoreMenu<Content: View>: View {
             Image(systemName: "ellipsis")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
-                .frame(width: 32, height: 32)
-                .glassEffect(.regular.interactive(), in: .circle)
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
         }

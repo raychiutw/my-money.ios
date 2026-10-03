@@ -4,6 +4,8 @@ import SwiftUI
 /// toolbar 篩選選單的選項：視角、帳戶檢視範圍。`title` 是選單裡的文字，也是導覽列副標題。
 protocol ScopeFilterOption: Hashable, CaseIterable {
     var title: String { get }
+    /// 選單項目前面的 SF Symbol(地球、房子、鎖;上游用 emoji，iOS 用 SF Symbols)。
+    var symbolName: String { get }
     /// 是不是預設的選擇;不是的時候篩選按鈕改實心圖示。
     var isDefaultFilter: Bool { get }
 }
@@ -24,29 +26,46 @@ func filterSymbolName(isActive: Bool) -> String {
 }
 
 extension ViewScope: ScopeFilterOption {
-    /// 視角的名稱(CONTEXT.md)。
+    /// 視角的名稱:全部、公帳、私帳(上游 ADR 0014，#138;CONTEXT.md)。
     var title: String {
         switch self {
         case .all: "全部"
-        case .household: "家庭公帳"
-        case .personal: "個人"
+        case .household: "公帳"
+        case .personal: "私帳"
+        }
+    }
+
+    /// 全部是地球、公帳是房子、私帳是鎖(上游 ADR 0014 的 🌐🏠🔒)。
+    var symbolName: String {
+        switch self {
+        case .all: "globe"
+        case .household: "house"
+        case .personal: "lock"
         }
     }
 }
 
 extension AccountScope: ScopeFilterOption {
-    /// 帳戶檢視範圍的名稱(CONTEXT.md)。
+    /// 帳戶檢視範圍的名稱:全部、公帳、私帳(上游 ADR 0014，#138;CONTEXT.md)。
     public var title: String {
         switch self {
         case .all: "全部"
-        case .household: "家庭公用"
-        case .personal: "個人私帳"
+        case .household: "公帳"
+        case .personal: "私帳"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .all: "globe"
+        case .household: "house"
+        case .personal: "lock"
         }
     }
 }
 
-/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、家庭、個人),
-/// 帳戶頁篩選帳戶檢視範圍(全部、家庭公用、個人私帳)。
+/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、公帳、私帳),
+/// 帳戶頁篩選帳戶檢視範圍(全部、公帳、私帳)。
 ///
 /// 目前的選擇由畫面用 `.navigationSubtitle(scope.title)` 顯示在導覽列副標題。VoiceOver 念篩選的名稱(例如「視角」)和目前的選擇。
 struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
@@ -66,7 +85,7 @@ struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
             Menu {
                 Picker(name, selection: $scope) {
                     ForEach(Array(Scope.allCases), id: \.self) { option in
-                        Text(option.title).tag(option)
+                        Label(option.title, systemImage: option.symbolName).tag(option)
                     }
                 }
             } label: {
