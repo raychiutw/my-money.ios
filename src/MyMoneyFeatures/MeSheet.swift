@@ -34,14 +34,9 @@ struct MeSheet: View {
                     header(of: user)
                 }
                 Section {
-                    Picker("分頁", selection: $page) {
-                        ForEach(MePage.allCases, id: \.self) { page in
-                            Text(page.title).tag(page)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .accessibilityIdentifier("me.page")
+                    SegmentedPicker(
+                        "分頁", options: MePage.allCases.map { ($0, $0.title) }, selection: $page, identifier: "me.page", fillsWidth: true
+                    )
                 }
                 .listRowBackground(Color.clear)
 

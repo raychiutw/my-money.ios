@@ -16,25 +16,41 @@ public final class RecurringModel {
     public private(set) var items: [RecurringItem] = []
     private var amortization: RecurringAmortization = .zero
 
+    /// 視角(上游 ADR 0016):預設全部;選過的視角記在 UserDefaults，下次沿用。
+    public var scope: ViewScope {
+        didSet { defaults.set(scope.rawValue, forKey: Self.scopeKey) }
+    }
+
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
     @ObservationIgnored private let repository: any RecurringRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored public let dataVersion: DataVersion
+    /// 編輯權限(登入的人與家庭角色);沒有時所有項目都當作能改，交給後端的 403 把關。
+    @ObservationIgnored private let permissions: PermissionsModel?
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: ViewScope?
+
+    private static let scopeKey = "recurring.scope"
 
     public init(
         repository: any RecurringRepository,
         accounts: any AccountRepository,
         dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
+        defaults: UserDefaults = .standard,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
+        self.permissions = permissions
+        self.defaults = defaults
         self.today = today
+        scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     public var expenses: [RecurringItem] { items.filter { $0.type == .expense } }
@@ -51,23 +67,52 @@ public final class RecurringModel {
     /// (web 用 `.catch(() => null)` 顯示 $0,parity 刻意偏離第 27 項)。重新載入時保留舊資料。
     public func load() async {
         let version = dataVersion.value
+        let scope = scope
         do {
-            async let items = repository.items()
-            async let amortization = repository.amortization()
+            async let items = repository.items(scope: scope)
+            async let amortization = repository.amortization(scope: scope)
             let (loadedItems, loadedAmortization) = try await (items, amortization)
+            // 被取消(換了視角)或已經過期的結果不套用。
+            guard !Task.isCancelled, scope == self.scope else { return }
             self.items = loadedItems
             self.amortization = loadedAmortization
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
+            // 被取消的載入不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
+    }
+
+    // MARK: 編輯權限(上游 ADR 0016)
+
+    /// 這一項我能不能改:個人私帳只有建立者本人;家庭公帳是建立者本人或家庭管理員。
+    public func canModify(_ item: RecurringItem) -> Bool {
+        permissions?.current.canModify(item) ?? true
+    }
+
+    /// 說明 alert 的標題。
+    public let lockAlertTitle = "不能編輯這個週期收支"
+
+    /// 點不開的項目為什麼不能編輯(點一下跳出的說明);可以改的是 `nil`。
+    public func lockReason(for item: RecurringItem) -> String? {
+        if canModify(item) { return nil }
+        return item.isShared
+            ? "他人建立的\(OwnershipName.household)，僅建立者或家庭管理員可以編輯、刪除"
+            : "他人的\(OwnershipName.personal)，僅建立者本人可以編輯、刪除"
+    }
+
+    /// 點不開的項目的 VoiceOver 提示;可以改的是 `nil`。
+    public func lockHint(for item: RecurringItem) -> String? {
+        lockReason(for: item) == nil ? nil : "點兩下查看為什麼不能編輯"
     }
 
     public func deleteConfirmation(for item: RecurringItem) -> String {
@@ -84,8 +129,12 @@ public final class RecurringModel {
         }
     }
 
+    /// 新增：歸屬預設隨視角(家庭公帳視角 → 家庭公帳，其他 → 個人私帳，跟 web 一致)。
     public func makeEditor() -> RecurringEditorModel {
-        RecurringEditorModel(adding: (), repository: repository, accounts: accountRepository, dataVersion: dataVersion)
+        RecurringEditorModel(
+            adding: (), sharedByDefault: scope == .household, repository: repository, accounts: accountRepository,
+            dataVersion: dataVersion
+        )
     }
 
     public func makeEditor(editing item: RecurringItem) -> RecurringEditorModel {
@@ -121,7 +170,12 @@ extension RecurringItem {
         type == .expense && cycle != .monthly
     }
 
-    /// 列的第 3 行：資產帳戶名稱，不加「關聯扣款帳戶：」前綴;沒設就不顯示(DESIGN.md「列與欄位」,#77)。
+    /// 列的「建立者・歸屬」,例如「小美・家庭公帳」;自己建立的也顯示。不知道建立者時只有歸屬。
+    public var ownerText: String {
+        [ownerName, OwnershipName.title(isShared: isShared)].compactMap { $0 }.joined(separator: "・")
+    }
+
+    /// 列的資產帳戶名稱，不加「關聯扣款帳戶：」前綴;沒設就不顯示(DESIGN.md「列與欄位」,#77)。
     public var accountText: String? { accountName }
 
     /// 金額下方的每月分攤平滑，例如「$2,000／月」;只有週期不是每月的週期支出才有。
@@ -132,6 +186,8 @@ extension RecurringItem {
     /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，分攤平滑每月 2,000 元」。
     public var spokenText: String {
         var parts = [name, "\(type == .income ? "週期收入" : "週期支出") \(amount.spokenText)", scheduleText]
+        if let ownerName { parts.append("建立者 \(ownerName)") }
+        parts.append(OwnershipName.title(isShared: isShared))
         if let accountText { parts.append("帳戶 \(accountText)") }
         if showsMonthlyAmortization { parts.append("分攤平滑每月 \(monthlyAmortization.spokenText)") }
         return parts.joined(separator: "，")

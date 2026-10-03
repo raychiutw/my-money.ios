@@ -22,9 +22,9 @@ struct RecurringTranslationTests {
     func listDecodesItems() async throws {
         try stub.reply(status: 200, fixture: "recurring-list.json")
 
-        let items = try await repository.items()
+        let items = try await repository.items(scope: .all)
 
-        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "recurring"))
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "recurring").appending(queryItems: [URLQueryItem(name: "scope", value: "all")]))
         try #require(items.count == 3)
         #expect(items[0] == RecurringItem(
             id: RecurringItemID("46105044-a9d2-4e49-bf37-215361aabf32"),
@@ -34,7 +34,8 @@ struct RecurringTranslationTests {
             cycle: .monthly,
             dayOfCycle: 5,
             accountID: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"),
-            accountName: "iOS 測試存款"
+            accountName: "iOS 測試存款",
+            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
         ))
         #expect(items[1].cycle == .annual)
         #expect(items[1].accountID == nil)
@@ -45,7 +46,7 @@ struct RecurringTranslationTests {
     func listDecodesMonthOfCycle() async throws {
         try stub.reply(status: 200, fixture: "recurring-list-with-month.json")
 
-        let items = try await repository.items()
+        let items = try await repository.items(scope: .all)
 
         try #require(items.count == 4)
         #expect(items.map(\.monthOfCycle) == [1, 1, 1, 2])
@@ -57,7 +58,7 @@ struct RecurringTranslationTests {
     func missingMonthOfCycleDefaultsToOne() async throws {
         try stub.reply(status: 200, fixture: "recurring-list.json")
 
-        let items = try await repository.items()
+        let items = try await repository.items(scope: .all)
 
         #expect(items.map(\.monthOfCycle) == [1, 1, 1])
     }
@@ -85,10 +86,50 @@ struct RecurringTranslationTests {
     func amortizationDecodes() async throws {
         try stub.reply(status: 200, fixture: "recurring-amortize.json")
 
-        let amortization = try await repository.amortization()
+        let amortization = try await repository.amortization(scope: .all)
 
-        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "recurring/amortize"))
+        #expect(stub.requests.first?.url == stub.baseURL.appending(path: "recurring/amortize").appending(queryItems: [URLQueryItem(name: "scope", value: "all")]))
         #expect(amortization == RecurringAmortization(monthlyExpense: Money(14000), monthlyIncome: Money(45000)))
+    }
+
+    @Test("視角:列表與分攤平滑一律明確帶 scope(全部也帶)", arguments: [ViewScope.all, .household, .personal])
+    func sendsScope(scope: ViewScope) async throws {
+        try stub.reply(status: 200, fixture: "recurring-list-scope-\(scope == .all ? "all" : scope == .household ? "household" : "personal").json")
+        _ = try await repository.items(scope: scope)
+        try stub.reply(status: 200, fixture: "recurring-amortize-scope-\(scope == .household ? "household" : "all").json")
+        _ = try await repository.amortization(scope: scope)
+
+        #expect(stub.requests.first?.url?.query() == "scope=\(scope.rawValue)")
+        #expect(stub.requests.last?.url?.query() == "scope=\(scope.rawValue)")
+    }
+
+    @Test("上游 ADR 0016 起的欄位:歸屬(is_shared 0/1)、建立者 ID 與名稱(user_id、user_name)")
+    func decodesOwnershipAndOwner() async throws {
+        try stub.reply(status: 200, fixture: "recurring-list-scope-all.json")
+
+        let items = try await repository.items(scope: .all)
+
+        try #require(items.count == 3)
+        #expect(items.allSatisfy { !$0.isShared }, "測試帳號的項目都沒綁家庭共同帳戶，是個人私帳")
+        #expect(items.allSatisfy { $0.ownerID == UserID("ff646114-6f6b-4a37-9e27-4757868af51d") && $0.ownerName == "iOS 測試帳號" })
+    }
+
+    @Test("舊的回應沒有 is_shared、user_id、user_name 時：當個人私帳、不知道建立者，不壞掉")
+    func missingOwnershipFieldsAreTolerated() async throws {
+        try stub.reply(status: 200, fixture: "recurring-list.json")
+
+        let items = try await repository.items(scope: .all)
+
+        #expect(items.allSatisfy { !$0.isShared && $0.ownerName == nil })
+    }
+
+    @Test("家庭公帳視角沒有項目時是空清單，分攤平滑是 0")
+    func householdScopeCanBeEmpty() async throws {
+        try stub.reply(status: 200, fixture: "recurring-list-scope-household.json")
+        #expect(try await repository.items(scope: .household).isEmpty)
+
+        try stub.reply(status: 200, fixture: "recurring-amortize-scope-household.json")
+        #expect(try await repository.amortization(scope: .household) == .zero)
     }
 
     @Test("新增時 POST /recurring;沒有關聯帳戶時不送 account_id")
@@ -108,6 +149,21 @@ struct RecurringTranslationTests {
         #expect(json["cycle"] as? String == "annual")
         #expect(json["day_of_cycle"] as? Int == 15)
         #expect(json["account_id"] == nil)
+    }
+
+    @Test("新增與更新送 is_shared(0/1):家庭公帳 1、個人私帳 0")
+    func sendsOwnership() async throws {
+        try stub.reply(status: 201, fixture: "recurring-create-shared.json")
+        try await repository.create(RecurringDraft(
+            name: "iOS 測試網路費", type: .expense, amount: Money(899), cycle: .monthly, dayOfCycle: 12, accountID: nil, isShared: true
+        ))
+        #expect(try body(stub.requests.last)["is_shared"] as? Int == 1)
+
+        try stub.reply(status: 200, fixture: "recurring-update-ownership.json")
+        try await repository.update(RecurringItemID("35510e57-9131-4544-a8fa-0483316fd68a"), with: RecurringDraft(
+            name: "iOS 測試網路費", type: .expense, amount: Money(899), cycle: .monthly, dayOfCycle: 12, accountID: nil, isShared: false
+        ))
+        #expect(try body(stub.requests.last)["is_shared"] as? Int == 0)
     }
 
     @Test("編輯時 PUT /recurring/:id")

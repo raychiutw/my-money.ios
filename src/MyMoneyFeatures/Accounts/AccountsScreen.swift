@@ -411,8 +411,7 @@ private struct PendingAdvancesBanner: View {
             Label(text, systemImage: "doc.text")
                 .font(.headline)
                 .monospacedDigit()
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                // 照系統字級、不縮小(#156):放不下就折行。
                 .accessibilityIdentifier("accounts.pendingAdvances")
             GlassCapsuleButton(title: "前往家庭", systemImage: "arrow.right", action: action)
                 .accessibilityIdentifier("accounts.pendingAdvances.open")

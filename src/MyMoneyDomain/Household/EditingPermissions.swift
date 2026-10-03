@@ -38,6 +38,11 @@ public struct EditingPermissions: Hashable, Sendable {
         card.isMasked || (!card.isJointFund && !isMine(card.ownerID))
     }
 
+    /// 週期收支的編輯與刪除(上游 ADR 0016):個人私帳只有建立者本人，家庭管理員也不行;家庭公帳是建立者或家庭管理員。
+    public func canModify(_ item: RecurringItem) -> Bool {
+        item.isShared ? (isMine(item.ownerID) || isAdmin) : isMine(item.ownerID)
+    }
+
     /// 交易的編輯與刪除:個人私帳只有記錄者，家庭管理員也不行;家庭公帳是記錄者或家庭管理員。
     public func canModify(_ transaction: Transaction) -> Bool {
         transaction.isShared ? (isMine(transaction.recorderID) || isAdmin) : isMine(transaction.recorderID)

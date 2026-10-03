@@ -32,11 +32,11 @@ final class LoginFlowUITests: XCTestCase {
         XCTAssertFalse(app.buttons["me.household"].exists, "家庭已經升為 tab,「我的」不該還有它的入口")
         XCTAssertTrue(app.buttons["機器人記帳"].exists)
 
-        app.segmentedControls["me.page"].buttons["規劃"].tap()
+        app.selectMePage("規劃")
         for item in ["週期收支", "儲蓄目標", "現金流預測"] {
             XCTAssertTrue(app.buttons[item].waitForExistence(timeout: 3), "規劃缺少「\(item)」")
         }
-        app.segmentedControls["me.page"].buttons["設定"].tap()
+        app.selectMePage("設定")
 
         app.buttons["me.signOut"].tap()
 

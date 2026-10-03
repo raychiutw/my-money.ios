@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("總覽的 30 天走勢:後端的現金流預測，只在視角「全部」顯示，失敗不影響其他區塊(#116)")
+@Suite("總覽的 30 天走勢:後端依視角算的現金流預測，每個視角都顯示，失敗不影響其他區塊(#116、#153)")
 struct OverviewForecastTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let defaults: UserDefaults
@@ -53,8 +53,8 @@ struct OverviewForecastTests {
         #expect(overview.forecastSummary?.hasSuffix("不會透支") == true)
     }
 
-    @Test("視角不是「全部」時沒有走勢圖資料，也不去取預測(預測是整體現金流，不分家庭公帳或個人)", arguments: [ViewScope.household, .personal])
-    func noForecastForOtherScopes(scope: ViewScope) async {
+    @Test("每個視角都有走勢圖資料，而且用該視角的預測(上游 ADR 0016:預測依視角分流)", arguments: [ViewScope.household, .personal])
+    func forecastForEveryScope(scope: ViewScope) async {
         let repository = InMemoryForecastRepository.sample(today: today)
         let overview = model(forecast: repository)
         overview.scope = scope
@@ -62,23 +62,24 @@ struct OverviewForecastTests {
         await overview.load()
 
         #expect(overview.phase == .loaded)
-        #expect(overview.forecast == nil)
-        #expect(await repository.fetchCount == 0)
+        #expect(overview.forecast?.dailyBalances.count == 30)
+        #expect(overview.forecast?.minBalance == (scope == .household ? Money(18000) : Money(35440)))
+        #expect(await repository.requestedScopes == [scope], "總覽用目前的視角取預測")
     }
 
-    @Test("切換視角時走勢圖資料跟著：切到家庭公帳就沒有，切回全部又有")
+    @Test("切換視角時走勢圖資料跟著：換成該視角的預測，切回全部又是整體的")
     func forecastFollowsTheScope() async {
         let overview = model(forecast: InMemoryForecastRepository.sample(today: today))
         await overview.load()
-        #expect(overview.forecast != nil)
+        #expect(overview.forecast?.minBalance == Money(53440))
 
         overview.scope = .household
         await overview.load()
-        #expect(overview.forecast == nil)
+        #expect(overview.forecast?.minBalance == Money(18000))
 
         overview.scope = .all
         await overview.load()
-        #expect(overview.forecast != nil)
+        #expect(overview.forecast?.minBalance == Money(53440))
     }
 
     @Test("預測載入失敗時，總覽其他資料照常載入、整體不是失敗狀態，只是沒有走勢圖")

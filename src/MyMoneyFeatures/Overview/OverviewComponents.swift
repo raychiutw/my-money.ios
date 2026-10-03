@@ -41,7 +41,8 @@ struct CompactTransactionRow: View {
 struct GoalRingRow: View {
     let goal: SavingsGoal
 
-    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 52
+    /// 圓環跟環中的字(`footnote`)同一個文字樣式放大，字照系統大小、不用縮小就放得進環裡(#156)。
+    @ScaledMetric(relativeTo: .footnote) private var ringSize: CGFloat = 52
 
     var body: some View {
         HStack(spacing: 12) {
@@ -66,7 +67,6 @@ struct GoalRingRow: View {
                 .font(.footnote.bold())
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
                 .padding(8)
         }
         .frame(width: ringSize, height: ringSize)

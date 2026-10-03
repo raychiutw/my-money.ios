@@ -13,13 +13,10 @@ struct TransactionFilterView: View {
             Form {
                 // 分段控制的標籤不會顯示，用 section 標題當看得見的標籤(DESIGN.md「列與欄位」第 8 條)。
                 Section("視角") {
-                    Picker("視角", selection: $model.filterDraft.scope) {
-                        ForEach(ViewScope.allCases, id: \.self) { scope in
-                            Text(scope.title).tag(scope)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("transactionFilter.scope")
+                    SegmentedPicker(
+                        "視角", options: ViewScope.allCases.map { ($0, $0.title) }, selection: $model.filterDraft.scope,
+                        identifier: "transactionFilter.scope", fillsWidth: true
+                    )
                 }
 
                 Section {

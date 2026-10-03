@@ -184,10 +184,10 @@ public final class OverviewModel {
         }
     }
 
-    /// 只有視角是「全部」才取預測;失敗是 `nil`。
+    /// 用目前視角的預測(上游 ADR 0016:預測依視角分流);失敗是 `nil`，不影響其他區塊。
     private static func fetchForecast(_ repository: (any ForecastRepository)?, scope: ViewScope) async -> CashFlowForecast? {
-        guard scope == .all, let repository else { return nil }
-        return try? await repository.forecast()
+        guard let repository else { return nil }
+        return try? await repository.forecast(scope: scope)
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。

@@ -75,6 +75,13 @@ struct RecurringEditorView: View {
                     )
                 }
 
+                // 歸屬(上游 ADR 0016):2 個選項用內嵌選擇列，點一下就選(ADR-0004、#90);選了資產帳戶會依帳戶帶入，仍可手動改。
+                Section("歸屬") {
+                    InlineChoiceRows(
+                        [(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared
+                    )
+                }
+
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
@@ -89,11 +96,9 @@ struct RecurringEditorView: View {
                 SheetCloseButton { dismiss() }
                 // 週期支出／週期收入放在導覽列中間(#65,跟記一筆一樣),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
-                    Picker("類型", selection: $model.type) {
-                        Text("週期支出").tag(TransactionType.expense)
-                        Text("週期收入").tag(TransactionType.income)
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedPicker(
+                        "類型", options: [(TransactionType.expense, "週期支出"), (.income, "週期收入")], selection: $model.type
+                    )
                 }
                 SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "recurringEditor.save") {
                     Task {

@@ -93,7 +93,7 @@ final class ScreenTourUITests: XCTestCase {
 
         // 「我的」的規劃分頁，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
         tour.tap(app.buttons["toolbar.me"])
-        tour.tap(app.segmentedControls["me.page"].buttons["規劃"])
+        app.selectMePage("規劃")
         tour.captureScrolling("me-planning")
         tour.push(app.buttons["週期收支"], capturing: "recurring") {
             tour.present(app.buttons["recurring.add"], capturing: "recurring-editor")

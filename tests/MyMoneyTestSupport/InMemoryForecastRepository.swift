@@ -3,18 +3,34 @@ import MyMoneyDomain
 
 /// 不連網路的現金流預測與購買力試算，記下每一次試算的金額。
 public actor InMemoryForecastRepository: ForecastRepository {
-    private let stored: CashFlowForecast
-    private let check: @Sendable (Money) -> PurchaseCheck
+    private let stored: [ViewScope: CashFlowForecast]
+    private let check: @Sendable (Money, ViewScope) -> PurchaseCheck
+    private let gate: Gate?
     private var failure: RepositoryError?
 
     public private(set) var checkedAmounts: [Money] = []
+    /// 每次試算帶的視角，用來確認一律明確帶 `scope`。
+    public private(set) var checkedScopes: [ViewScope] = []
+    /// 每次查詢預測帶的視角。
+    public private(set) var requestedScopes: [ViewScope] = []
 
-    /// `forecast()` 被呼叫的次數，用來確認有沒有重抓。
+    /// `forecast(scope:)` 被呼叫的次數，用來確認有沒有重抓。
     public private(set) var fetchCount = 0
 
-    public init(forecast: CashFlowForecast, check: @escaping @Sendable (Money) -> PurchaseCheck) {
-        stored = forecast
+    /// 每個視角各自的預測(後端依視角算)。`gate`:查詢停在這裡直到放行(觀察換視角時舊回應被丟掉)。
+    public init(
+        forecasts: [ViewScope: CashFlowForecast], gate: Gate? = nil, check: @escaping @Sendable (Money, ViewScope) -> PurchaseCheck
+    ) {
+        stored = forecasts
+        self.gate = gate
         self.check = check
+    }
+
+    /// 三個視角都是同一份預測。
+    public init(forecast: CashFlowForecast, check: @escaping @Sendable (Money) -> PurchaseCheck) {
+        stored = Dictionary(uniqueKeysWithValues: ViewScope.allCases.map { ($0, forecast) })
+        gate = nil
+        self.check = { amount, _ in check(amount) }
     }
 
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
@@ -22,26 +38,46 @@ public actor InMemoryForecastRepository: ForecastRepository {
         sample(today: CalendarDay.today())
     }
 
-    /// 起始餘額 65440;第 8 天房租 -12000,第 28 天薪水 +45000(跟 prod 的 fixture 同樣的形狀)。
+    /// 全部:起始餘額 65440;第 8 天房租 -12000,第 28 天薪水 +45000(跟 prod 的 fixture 同樣的形狀)。
     /// 試算：超過 53440 會透支(不建議購買),超過 45440 會壓縮沖繩旅遊的每月預留(審慎評估)。
+    /// 家庭公帳:起始餘額 30000,只有房租 -12000,最低餘額 18000;個人私帳:起始餘額 35440,只有薪水 +45000,最低餘額 35440。
+    /// 公帳視角的試算不檢核個人儲蓄目標(跟後端一樣)。
     public static func sample(today: CalendarDay) -> InMemoryForecastRepository {
-        let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(12000))
-        let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000))
-        var balance = Money(65440)
-        let dailyBalances = (0..<30).map { offset in
-            let date = day(today, plus: offset)
-            for event in [rent, salary] where event.date == date {
-                balance = event.type == .income ? balance + event.amount : balance - event.amount
+        func build(start: Int, _ events: [ForecastEvent]) -> CashFlowForecast {
+            var balance = Money(Decimal(start))
+            let dailyBalances = (0..<30).map { offset in
+                let date = day(today, plus: offset)
+                for event in events where event.date == date {
+                    balance = event.type == .income ? balance + event.amount : balance - event.amount
+                }
+                return DailyBalance(date: date, balance: balance)
             }
-            return DailyBalance(date: date, balance: balance)
+            let low = dailyBalances.min { $0.balance < $1.balance }
+            return CashFlowForecast(
+                dailyBalances: dailyBalances, minBalance: low?.balance ?? .zero,
+                minDate: dailyBalances.first { $0.balance == low?.balance }?.date,
+                willOverdraft: (low?.balance ?? .zero) < .zero, events: events
+            )
         }
-        let forecast = CashFlowForecast(
-            dailyBalances: dailyBalances, minBalance: Money(53440), minDate: rent.date, willOverdraft: false, events: [rent, salary]
+        let rent = ForecastEvent(
+            date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(12000), isShared: true,
+            accountName: SampleAccounts.savings.name
         )
-        return InMemoryForecastRepository(forecast: forecast) { amount in
-            let minBalance = Money(53440) - amount
-            let verdict: PurchaseVerdict = minBalance < .zero ? .danger : (Money(45440) < amount ? .caution : .safe)
-            return PurchaseCheck(amount: amount, verdict: verdict, minBalance: minBalance, affectedGoalNames: ["沖繩旅遊"])
+        let salary = ForecastEvent(
+            date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000), accountName: SampleAccounts.savings.name
+        )
+        let forecasts: [ViewScope: CashFlowForecast] = [
+            .all: build(start: 65440, [rent, salary]),
+            .household: build(start: 30000, [rent]),
+            .personal: build(start: 35440, [salary]),
+        ]
+        return InMemoryForecastRepository(forecasts: forecasts) { amount, scope in
+            let minBalance = (forecasts[scope]?.minBalance ?? .zero) - amount
+            let caution = scope == .all && Money(45440) < amount
+            let verdict: PurchaseVerdict = minBalance < .zero ? .danger : (caution ? .caution : .safe)
+            return PurchaseCheck(
+                amount: amount, verdict: verdict, minBalance: minBalance, affectedGoalNames: scope == .household ? [] : ["沖繩旅遊"]
+            )
         }
     }
 
@@ -67,16 +103,20 @@ public actor InMemoryForecastRepository: ForecastRepository {
         }
     }
 
-    public func forecast() async throws -> CashFlowForecast {
+    public func forecast(scope: ViewScope) async throws -> CashFlowForecast {
         fetchCount += 1
+        requestedScopes.append(scope)
+        await gate?.pass()
+        if gate != nil { try Task.checkCancellation() }
         if let failure { throw failure }
-        return stored
+        return stored[scope] ?? stored[.all]!
     }
 
-    public func checkPurchase(_ amount: Money) async throws -> PurchaseCheck {
+    public func checkPurchase(_ amount: Money, scope: ViewScope) async throws -> PurchaseCheck {
         if let failure { throw failure }
         checkedAmounts.append(amount)
-        return check(amount)
+        checkedScopes.append(scope)
+        return check(amount, scope)
     }
 
     /// 之後的請求都以這個錯誤失敗。

@@ -114,11 +114,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 SheetCloseButton { dismiss() }
                 // 支出／收入放在導覽列中間(#65,HIG 分段控制一節舉的行事曆「新增事件」),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
-                    Picker("類型", selection: $model.type) {
-                        Text("支出").tag(TransactionType.expense)
-                        Text("收入").tag(TransactionType.income)
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedPicker("類型", options: [(TransactionType.expense, "支出"), (.income, "收入")], selection: $model.type)
                 }
                 SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "quickEntry.save") {
                     Task {

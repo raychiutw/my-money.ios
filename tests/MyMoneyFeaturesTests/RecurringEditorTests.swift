@@ -191,4 +191,81 @@ struct RecurringEditorTests {
         #expect(await repository.updatedDrafts[salary.id]?.amount == Money(46000))
         #expect(dataVersion.value == 1)
     }
+
+    // MARK: 歸屬(上游 ADR 0016、#154)
+
+    private func addingWithJointAccount(sharedByDefault: Bool = false) async -> RecurringEditorModel {
+        let accounts = InMemoryAccountRepository(
+            accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund)], summary: SampleAccounts.summary
+        )
+        let editor = RecurringEditorModel(
+            adding: (), sharedByDefault: sharedByDefault, repository: repository, accounts: accounts, dataVersion: dataVersion
+        )
+        await editor.prepare()
+        return editor
+    }
+
+    @Test("新增的歸屬預設:家庭公帳視角 → 家庭公帳，其他視角 → 個人私帳")
+    func ownershipDefaultFollowsTheScope() async {
+        #expect(await addingWithJointAccount(sharedByDefault: false).isShared == false)
+        #expect(await addingWithJointAccount(sharedByDefault: true).isShared == true)
+    }
+
+    @Test("選了家庭公帳的帳戶就帶入家庭公帳，個人帳戶帶入個人私帳;選「無特定帳戶」不動;之後仍可手動改")
+    func ownershipFollowsTheChosenAccount() async {
+        let editor = await addingWithJointAccount()
+
+        editor.accountID = SampleAccounts.meiJointFund.id
+        #expect(editor.isShared, "家庭公帳的帳戶 → 家庭公帳")
+
+        editor.accountID = nil
+        #expect(editor.isShared, "選「無特定帳戶」不動歸屬")
+
+        editor.accountID = SampleAccounts.savings.id
+        #expect(!editor.isShared, "個人帳戶 → 個人私帳")
+
+        editor.isShared = true
+        #expect(editor.isShared, "選完帳戶之後仍可手動改")
+        editor.accountID = SampleAccounts.card.id
+        #expect(!editor.isShared, "手動改過之後再換帳戶，仍依帳戶重新帶入(與 web 的 onChange 一致)")
+    }
+
+    @Test("編輯既有項目時一開始是它目前的歸屬，不被帳戶蓋掉")
+    func editingKeepsTheItemsOwnership() async {
+        let shared = RecurringItem(
+            id: RecurringItemID("x"), name: "網路費", type: .expense, amount: Money(899), cycle: .monthly, dayOfCycle: 12,
+            accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, isShared: true
+        )
+        let editor = RecurringEditorModel(
+            editing: shared, repository: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion
+        )
+        await editor.prepare()
+
+        #expect(editor.isShared, "個人帳戶綁的家庭公帳項目，開啟編輯時不能被改成個人私帳")
+    }
+
+    @Test("儲存時草稿帶歸屬")
+    func savedDraftCarriesOwnership() async throws {
+        let editor = await addingWithJointAccount()
+        editor.name = "網路費"
+        editor.amountText = "899"
+        editor.accountID = SampleAccounts.meiJointFund.id
+
+        #expect(await editor.save())
+
+        let draft = try #require(await repository.createdDrafts.last)
+        #expect(draft.isShared)
+        #expect(draft.accountID == SampleAccounts.meiJointFund.id)
+    }
+
+    @Test("後端的 403 原文顯示(個人私帳項目僅限建立者本人修改)")
+    func forbiddenMessageIsShownVerbatim() async {
+        await repository.fail(with: .rejected("權限不足：個人私帳週期項目僅限建立者本人修改"))
+        let editor = await adding()
+        editor.name = "x"
+        editor.amountText = "100"
+
+        #expect(await editor.save() == false)
+        #expect(editor.errorMessage == "權限不足：個人私帳週期項目僅限建立者本人修改")
+    }
 }

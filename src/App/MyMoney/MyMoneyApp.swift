@@ -51,7 +51,7 @@ struct MyMoneyApp: App {
                 ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
                 : InMemoryAccountRepository.sample()
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: includesFamily))
-            let recurring = InMemoryRecurringRepository.sample()
+            let recurring = InMemoryRecurringRepository.sample(includesFamilyEntries: includesFamily)
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。
             let statistics = arguments.contains("-uiTestingManyCategories")
@@ -155,15 +155,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        // 分段控制的字預設是 13pt(footnote 的大小),跟其他小字一樣往上一級到 subheadline(#43)。
-        // ponytail: 啟動時取一次 Dynamic Type 的大小，執行中改字級要重開 app 才會跟著變。
-        // 上限 21pt(subheadline 在 xxxLarge 的大小):分段控制的高度固定，無障礙字級時字會超出控制項、上緣被切掉(#78,AX5 截圖)。
-        let font = UIFont.systemFont(ofSize: min(UIFont.preferredFont(forTextStyle: .subheadline).pointSize, 21))
-        UISegmentedControl.appearance().setTitleTextAttributes([.font: font], for: .normal)
-        UISegmentedControl.appearance().setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)],
-            for: .selected
-        )
+        // 分段控制的字不再用 appearance 設定:改由 `SegmentedPicker` 用 UIFontMetrics 即時跟著系統字級(#156)。
         return true
     }
 }

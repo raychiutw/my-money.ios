@@ -11,7 +11,19 @@ extension XCUIApplication {
     @MainActor
     func openPlanning() {
         openMe()
-        segmentedControls["me.page"].buttons["規劃"].tap()
+        selectMePage("規劃")
+    }
+
+    /// 切換「我的」的分頁(設定｜規劃):一般字級是分段控制，無障礙字級換成選單(#156)。
+    @MainActor
+    func selectMePage(_ title: String) {
+        let segmented = segmentedControls["me.page"]
+        if segmented.waitForExistence(timeout: 3) {
+            segmented.buttons[title].tap()
+        } else {
+            buttons["me.page"].tap()
+            buttons[title].tap()
+        }
     }
 }
 
