@@ -168,6 +168,23 @@ struct EditingPermissionsFeatureTests {
         #expect(member.lockReason(for: meiPrivate) == "他人的個人私帳，僅記錄者本人可以編輯、刪除")
     }
 
+    /// 點不開的列(#146):VoiceOver 的整句不再塞原因，改成提示「點兩下查看為什麼不能編輯」;點了才跳出說明。
+    @Test("點不開的列才有 VoiceOver 提示;可以改的沒有")
+    func lockHints() async {
+        let mineShared = transaction("mine-shared", recorder: me, shared: true)
+        let meiShared = transaction("mei-shared", recorder: mei, shared: true)
+        let mineSystem = transaction("mine-system", recorder: me, shared: true, category: .creditCardRepayment)
+        let (member, _) = await transactionsModel(.member, [mineShared, meiShared, mineSystem])
+        let (admin, _) = await transactionsModel(.admin, [mineShared, meiShared, mineSystem])
+
+        #expect(member.lockHint(for: mineShared) == nil)
+        #expect(member.lockHint(for: meiShared) == "點兩下查看為什麼不能編輯")
+        #expect(member.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯")
+        #expect(admin.lockHint(for: meiShared) == nil, "家庭管理員改得了家人的家庭公帳")
+        #expect(admin.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯", "系統紀錄連家庭管理員也不能改")
+        #expect(member.lockAlertTitle == "不能編輯這筆交易")
+    }
+
     // MARK: 權限本身
 
     @Test("角色第一次需要時向後端問;沒有家庭是沒有角色;家庭頁載入之後同步")

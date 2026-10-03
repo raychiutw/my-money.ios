@@ -284,11 +284,19 @@ public final class TransactionsModel {
         !transaction.isSystemRecord && (permissions?.current.canModify(transaction) ?? true)
     }
 
-    /// 點不開的列，鎖定標記的 VoiceOver 說明;可以改的是 `nil`。
+    /// 點不開的列為什麼不能編輯(點一下跳出的說明);可以改的是 `nil`。
     public func lockReason(for transaction: Transaction) -> String? {
         if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
         if canModify(transaction) { return nil }
         return transaction.isShared ? "他人記錄的\(OwnershipName.household)，僅記錄者或家庭管理員可以編輯、刪除" : "他人的\(OwnershipName.personal)，僅記錄者本人可以編輯、刪除"
+    }
+
+    /// 說明 alert 的標題(#146)。
+    public let lockAlertTitle = "不能編輯這筆交易"
+
+    /// 點不開的列的 VoiceOver 提示;原因不再塞在整句最後，點了才跳出說明(#146)。可以改的是 `nil`。
+    public func lockHint(for transaction: Transaction) -> String? {
+        lockReason(for: transaction) == nil ? nil : "點兩下查看為什麼不能編輯"
     }
 
     /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。

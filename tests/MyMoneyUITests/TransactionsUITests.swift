@@ -147,15 +147,30 @@ final class TransactionsUITests: XCTestCase {
             XCTAssertTrue(family.exists, "\(role):沒有找到家人記的公帳")
 
             let familyButton = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "晚餐-水煎包")).firstMatch
+            // 原因不再塞在整句最後(#146),VoiceOver 念提示、點了才說明。
+            XCTAssertFalse(family.label.contains("僅記錄者"), "\(role):整句不該再有鎖定說明:\(family.label)")
             if isAdmin {
                 // 角色在登入時問一次，晚一點才到。
                 XCTAssertTrue(familyButton.waitForExistence(timeout: 5), "\(role):家人記的公帳應該點得開")
-                XCTAssertFalse(family.label.contains("僅記錄者"), "\(role):不該有鎖定說明:\(family.label)")
+                familyButton.tap()
+                XCTAssertTrue(app.buttons["quickEntry.save"].waitForExistence(timeout: 3), "\(role):點家人記的公帳沒有打開編輯")
             } else {
-                XCTAssertFalse(familyButton.waitForExistence(timeout: 2), "\(role):家人記的公帳不該點得開")
+                // 點得到(是按鈕)，但點了跳出說明，不是編輯。
+                XCTAssertTrue(familyButton.waitForExistence(timeout: 5), "\(role):點不開的列也要能點，才有說明")
+                familyButton.tap()
+                let alert = app.alerts["不能編輯這筆交易"]
+                XCTAssertTrue(alert.waitForExistence(timeout: 3), "\(role):點了沒有說明")
                 XCTAssertTrue(
-                    family.label.contains("他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除"), "\(role):沒有鎖定說明:\(family.label)"
+                    alert.staticTexts["他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除。"].exists, "\(role):說明文字不對:\(alert.debugDescription)"
                 )
+                XCTAssertFalse(app.buttons["quickEntry.save"].exists, "\(role):點不開的列卻打開了編輯")
+                alert.buttons["好"].tap()
+                XCTAssertTrue(alert.waitForNonExistence(timeout: 3), "\(role):按「好」沒有關閉說明")
+                // 沒有權限的列仍然沒有左滑刪除與長按選單。
+                familyButton.swipeLeft()
+                XCTAssertFalse(app.buttons["刪除"].waitForExistence(timeout: 1), "\(role):沒有權限的列不該有左滑刪除")
+                familyButton.press(forDuration: 1.0)
+                XCTAssertFalse(app.buttons["編輯"].waitForExistence(timeout: 1), "\(role):沒有權限的列不該有長按選單")
             }
             app.terminate()
         }
@@ -498,12 +513,17 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        // 系統分類的交易記錄只顯示鎖定標記，不再有說明文字(#63);VoiceOver 念出不能編輯或刪除。
-        let locked = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "信用卡還款", "系統紀錄，不能編輯或刪除")
-        ).firstMatch
+        // 系統分類的交易記錄點不開(#63、#146):點一下說明「系統紀錄，不能編輯或刪除」,列上沒有鎖定標記或說明文字。
+        let locked = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "信用卡還款")).firstMatch
         for _ in 0..<5 where !locked.exists { app.swipeUp() }
-        XCTAssertTrue(locked.exists, "信用卡還款沒有鎖定標記，或 VoiceOver 沒有念出「系統紀錄，不能編輯或刪除」")
+        XCTAssertTrue(locked.exists, "信用卡還款的列不見了")
+        XCTAssertFalse(locked.label.contains("系統紀錄"), "整句不該再有說明:\(locked.label)")
+        locked.tap()
+        let alert = app.alerts["不能編輯這筆交易"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 3), "點信用卡還款沒有說明")
+        XCTAssertTrue(alert.staticTexts["系統紀錄，不能編輯或刪除。"].exists, "說明文字不對:\(alert.debugDescription)")
+        alert.buttons["好"].tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
 
         // 搜尋欄在最上面，捲回去才點得到。
         let search = app.searchFields.firstMatch

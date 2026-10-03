@@ -13,6 +13,8 @@ struct TransactionsScreen: View {
     @State private var isEntryPresented = false
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: MyMoneyDomain.Transaction?
+    /// 點了點不開的列:跳出簡短說明(#146)。
+    @State private var explained: MyMoneyDomain.Transaction?
 
     var body: some View {
         NavigationStack {
@@ -73,6 +75,15 @@ struct TransactionsScreen: View {
                     Button("取消", role: .cancel) {}
                 } message: { _ in
                     Text(model.deleteConfirmation)
+                }
+                .alert(
+                    model.lockAlertTitle,
+                    isPresented: Binding(get: { explained != nil }, set: { if !$0 { explained = nil } }),
+                    presenting: explained
+                ) { _ in
+                    Button("好") {}
+                } message: { transaction in
+                    Text("\(model.lockReason(for: transaction) ?? "")。")
                 }
                 .alert(
                     "無法刪除",
@@ -195,11 +206,16 @@ struct TransactionsScreen: View {
                 }
             }
         } else {
-            // 列上沒有鎖定標記，說明在 VoiceOver(#63、#145);點不開，所以標題不截斷。
-            TransactionRow(
-                transaction: transaction, subtitle: model.subtitle(of: transaction),
-                recorder: model.recorderName(of: transaction), lockReason: model.lockReason(for: transaction)
-            )
+            // 列上沒有鎖定標記(#145);點一下跳出簡短說明(#146)。沒有左滑刪除與長按選單。點不開，所以標題不截斷。
+            Button {
+                explained = transaction
+            } label: {
+                TransactionRow(
+                    transaction: transaction, subtitle: model.subtitle(of: transaction),
+                    recorder: model.recorderName(of: transaction), lockHint: model.lockHint(for: transaction)
+                )
+            }
+            .tint(.primary)
         }
     }
 }

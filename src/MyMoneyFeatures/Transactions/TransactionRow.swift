@@ -19,9 +19,9 @@ struct TransactionRow: View {
     var recorder: String?
     /// 點得開(可以編輯)的列：標題最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
-    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133):VoiceOver 最後念這段說明，
-    /// 例如「系統紀錄，不能編輯或刪除」(#63)。
-    var lockReason: String?
+    /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133)的 VoiceOver 提示，例如「點兩下查看為什麼不能編輯」(#146);
+    /// 原因在點了之後的說明，不塞在整句裡。可以改的列是 `nil`。
+    var lockHint: String?
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
     /// 資產帳戶名稱的最大寬度，跟著字級放大;更長的從結尾截斷，金額不被擠掉。
@@ -64,6 +64,7 @@ struct TransactionRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
+        .accessibilityHint(lockHint ?? "")
     }
 
     private var icon: some View {
@@ -146,7 +147,6 @@ struct TransactionRow: View {
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(OwnershipName.title(isShared: transaction.isShared))
         parts.append(transaction.spokenAmount)
-        if let lockReason { parts.append(lockReason) }
         return parts.joined(separator: "，")
     }
 }
