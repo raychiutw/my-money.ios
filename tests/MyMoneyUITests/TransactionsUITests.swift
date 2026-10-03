@@ -192,8 +192,12 @@ final class TransactionsUITests: XCTestCase {
         let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
         for _ in 0..<12 where !(lunch.exists && short.exists) { app.swipeUp() }
         XCTAssertTrue(lunch.exists && short.exists, "沒有找到範例交易")
-        XCTAssertTrue(short.label.contains("僅記錄者"), "這一列應該是鎖定的:\(short.label)")
+        // 量完列高再點:一般成員點不開家人的家庭公帳,點了是說明(#146),原因不在整句裡。
         XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "點不開的列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+        XCTAssertFalse(short.label.contains("僅記錄者"), "整句不該再有鎖定說明:\(short.label)")
+        XCTAssertTrue(ScrollSupport.revealFully(short, in: app), "捲不到這一列")
+        short.tap()
+        XCTAssertTrue(app.alerts["不能編輯這筆交易"].waitForExistence(timeout: 3), "這一列應該是點不開的(點了要有說明)")
     }
 
     /// 次要文字是看得到的字(#145):「記帳人・歸屬」在標題下面，資產帳戶名稱在金額下面;系統紀錄寫「系統紀錄」。
@@ -252,6 +256,9 @@ final class TransactionsUITests: XCTestCase {
         let bands = try PixelAnalysis.inkBands(of: image, skippingLeadingCluster: true)
         XCTAssertGreaterThanOrEqual(bands.count, 4, "無障礙字級應該由上往下是標題、記帳人・歸屬、資產帳戶、金額:\(bands)")
         guard let amount = bands.last else { return }
+        // 無障礙字級不截斷:資產帳戶、記帳人・歸屬都完整折行(辨識出來的字裡沒有「…」)。
+        let recognized = try TextRecognition.lines(in: image).joined(separator: " ")
+        XCTAssertFalse(recognized.contains("…") || recognized.contains("..."), "無障礙字級有字被截斷:\(recognized)")
         let rowWidth = Int(image.size.width) * scale
         XCTAssertGreaterThan(amount.minX, rowWidth / 2, "最下面一行(金額)沒有靠右:\(amount) 寬度 \(rowWidth)")
         XCTAssertEqual(amount.clusters(minGap: 14 * scale), 1, "金額那一行只該有金額:\(amount)")

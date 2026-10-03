@@ -109,7 +109,8 @@ struct TransactionRow: View {
             Text(name)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                // 無障礙字級有的是縱向空間:折行顯示、不截斷(HIG 盡量少截斷);其他字級單行、太長從結尾截斷。
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 .truncationMode(.tail)
                 .frame(
                     maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : accountMaxWidth,

@@ -98,15 +98,7 @@ struct MeSheet: View {
 
         // 三列打勾，點一下就生效;字級是 body,不縮小(ADR-0004)。
         Section("外觀") {
-            Picker("外觀", selection: appearance) {
-                ForEach(Appearance.allCases, id: \.self) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.inline)
-            // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
-            .tint(Color.brandPink)
-            .labelsHidden()
+            InlineChoiceRows(Appearance.allCases.map { ($0, $0.title) }, selection: appearance)
         }
 
         Section {

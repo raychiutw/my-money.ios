@@ -35,15 +35,10 @@ struct TransactionFilterView: View {
 
                 // 類型只有 3 個選項:內嵌選擇列，點一下就選(ADR-0004、#91)。
                 Section("類型") {
-                    Picker("類型", selection: $model.filterDraft.type) {
-                        Text("全部類型").tag(TransactionsModel.TypeFilter.all)
-                        Text("僅支出").tag(TransactionsModel.TypeFilter.expense)
-                        Text("僅收入").tag(TransactionsModel.TypeFilter.income)
-                    }
-                    .pickerStyle(.inline)
-                    // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
-                    .tint(Color.brandPink)
-                    .labelsHidden()
+                    InlineChoiceRows(
+                        [(TransactionsModel.TypeFilter.all, "全部類型"), (.expense, "僅支出"), (.income, "僅收入")],
+                        selection: $model.filterDraft.type
+                    )
                 }
 
                 // 分類(含「全部分類」)的選項多:推入清單頁，選了自動返回。

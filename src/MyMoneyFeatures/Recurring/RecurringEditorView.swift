@@ -14,22 +14,16 @@ struct RecurringEditorView: View {
 
     @ViewBuilder
     private var monthPicker: some View {
-        let picker = Picker(model.monthTitle, selection: $model.monthOfCycle) {
-            ForEach(model.monthOptions) { option in
-                Text(option.title).tag(option.value)
-            }
-        }
         if model.monthOptions.count <= 3 {
-            picker
-                .pickerStyle(.inline)
-                // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
-                .tint(Color.brandPink)
-                .labelsHidden()
-                .accessibilityIdentifier("recurringEditor.month")
+            InlineChoiceRows(model.monthOptions.map { ($0.value, $0.title) }, selection: $model.monthOfCycle)
         } else {
-            picker
-                .navigationLinkStyle()
-                .accessibilityIdentifier("recurringEditor.month")
+            Picker(model.monthTitle, selection: $model.monthOfCycle) {
+                ForEach(model.monthOptions) { option in
+                    Text(option.title).tag(option.value)
+                }
+            }
+            .navigationLinkStyle()
+            .accessibilityIdentifier("recurringEditor.month")
         }
     }
 
@@ -57,15 +51,7 @@ struct RecurringEditorView: View {
 
                 // 週期只有 5 個選項:內嵌選擇列，點一下就選(ADR-0004、#91)。
                 Section("週期") {
-                    Picker("週期", selection: $model.cycle) {
-                        ForEach(RecurringCycle.allCases, id: \.self) { cycle in
-                            Text(cycle.pickerLabel).tag(cycle)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
-                    .tint(Color.brandPink)
-                    .labelsHidden()
+                    InlineChoiceRows(RecurringCycle.allCases.map { ($0, $0.pickerLabel) }, selection: $model.cycle)
                 }
 
                 // 繳費月份(#131):月繳沒有;雙月繳 2 個、季繳 3 個用內嵌選擇列，半年繳 6 個、年繳 12 個推入清單頁。

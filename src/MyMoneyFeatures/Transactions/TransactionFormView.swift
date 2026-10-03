@@ -73,14 +73,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
 
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
                 Section("歸屬") {
-                    Picker("歸屬", selection: $model.isShared) {
-                        Text(OwnershipName.household).tag(true)
-                        Text(OwnershipName.personal).tag(false)
-                    }
-                    .pickerStyle(.inline)
-                    // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
-                    .tint(Color.brandPink)
-                    .labelsHidden()
+                    InlineChoiceRows([(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared)
                 }
 
                 Section {

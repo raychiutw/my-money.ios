@@ -48,6 +48,15 @@ final class GlassButtonsUITests: XCTestCase {
             XCTAssertGreaterThan(ring, 0.3, "\(name):\(label) 沒有玻璃外框(外緣一圈只有 \(ring) 跟背景不同)")
         }
 
+        // 內嵌選擇列(歸屬):選取那一列的勾勾是品牌粉紅，沒選的那列沒有粉紅(ADR-0008)。
+        let household = app.buttons["家庭公帳"], personal = app.buttons["個人私帳"]
+        XCTAssertTrue(household.exists && personal.exists, "\(name):記一筆沒有歸屬的選擇列")
+        XCTAssertTrue(household.isSelected, "\(name):歸屬預設不是家庭公帳")
+        let selectedRow = try PixelAnalysis.statistics(of: household.screenshot().image)
+        XCTAssertGreaterThan(selectedRow.brandPink, 30, "\(name):選取那列的勾勾不是品牌粉紅(粉紅像素 \(selectedRow.brandPink))")
+        let otherRow = try PixelAnalysis.statistics(of: personal.screenshot().image)
+        XCTAssertEqual(otherRow.brandPink, 0, "\(name):沒選的那列也有粉紅")
+
         // 預設選取的分類格(餐飲)是粉紅外框加粉紅勾勾、不填色:在表單最下面，要捲下去。
         // 金額欄一打開就對焦，鍵盤蓋住分類格:先收起。
         let done = app.keyboards.firstMatch.exists ? app.buttons["完成"].firstMatch : nil

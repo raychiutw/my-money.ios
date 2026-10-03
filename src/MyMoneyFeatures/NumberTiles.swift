@@ -249,13 +249,16 @@ struct NumberCard: View {
     /// VoiceOver 念的整句。
     let spokenText: String
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label {
                 Text(title)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    // 無障礙字級有的是縱向空間:名稱完整折行、不截斷(HIG 盡量少截斷);其他字級最多兩行。
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             } icon: {
                 Image(systemName: symbol)
                     .foregroundStyle(symbolColor)
