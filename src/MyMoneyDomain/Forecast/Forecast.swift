@@ -9,18 +9,26 @@ public struct DailyBalance: Hashable, Sendable {
     }
 }
 
-/// 預定收支：未來 30 天內，週期收支預計發生的一次。
+/// 預定收支：未來 30 天內，週期收支或信用卡繳款日(「繳卡費」,上游 ADR 0017)預計發生的一次。
 public struct ForecastEvent: Hashable, Sendable {
     public let date: CalendarDay
     public let name: String
     public let type: TransactionType
     public let amount: Money
+    /// 歸屬(後端 `is_shared`):家庭公帳是 `true`;舊回應沒有時是個人私帳。
+    public let isShared: Bool
+    /// 資產帳戶名稱(後端 `account_name`):週期項目綁的帳戶，或「繳卡費」那張卡;沒有就是 `nil`。
+    public let accountName: String?
 
-    public init(date: CalendarDay, name: String, type: TransactionType, amount: Money) {
+    public init(
+        date: CalendarDay, name: String, type: TransactionType, amount: Money, isShared: Bool = false, accountName: String? = nil
+    ) {
         self.date = date
         self.name = name
         self.type = type
         self.amount = amount
+        self.isShared = isShared
+        self.accountName = accountName
     }
 }
 

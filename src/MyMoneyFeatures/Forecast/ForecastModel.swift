@@ -61,6 +61,22 @@ public final class ForecastModel {
         day.text(today: today(), locale: locale)
     }
 
+    /// 預定收支列左邊的次要文字「日期・歸屬」，例如「10月5日・家庭公帳」(#155)。
+    public func subtitle(of event: ForecastEvent) -> String {
+        "\(dateText(event.date))・\(OwnershipName.title(isShared: event.isShared))"
+    }
+
+    /// 預定收支列右邊金額下面的資產帳戶名稱;沒有帳戶就沒有這一行。
+    public func accountText(of event: ForecastEvent) -> String? { event.accountName }
+
+    /// VoiceOver 念的整句，例如「房租,10月5日,家庭公帳,帳戶 洋蔥玉山-共同基金,支出 12,000 元」。
+    public func spokenText(of event: ForecastEvent) -> String {
+        var parts = [event.name, dateText(event.date), OwnershipName.title(isShared: event.isShared)]
+        if let account = event.accountName { parts.append("帳戶 \(account)") }
+        parts.append("\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)")
+        return parts.joined(separator: ",")
+    }
+
     /// 最低餘額發生的日期;沒有變動時是「無變動」。
     public func minDateText(of forecast: CashFlowForecast) -> String {
         guard let minDate = forecast.minDate else { return "無變動" }

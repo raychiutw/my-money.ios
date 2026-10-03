@@ -66,7 +66,7 @@ public struct MainScreens {
         )
         goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
         statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
-        forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion)
+        forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion, defaults: defaults)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
             currentUser: currentUser, permissions: permissions, dataVersion: dataVersion

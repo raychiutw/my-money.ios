@@ -250,4 +250,35 @@ struct ForecastTests {
         #expect(model.forecast == nil, "全部視角的舊回應不該套用到個人私帳")
         #expect(model.phase == .loading)
     }
+
+    // MARK: 預定收支列:歸屬與資產帳戶(上游 ADR 0016、0017,#155)
+
+    @Test("預定收支列：左邊「日期・歸屬」，右邊金額下面是資產帳戶名稱(沒有帳戶就沒有這一行)")
+    func eventRowTexts() {
+        let model = ForecastModel(
+            repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(),
+            defaults: UserDefaults(suiteName: "ForecastTests.\(UUID().uuidString)")!, locale: Locale(identifier: "zh_Hant_TW"),
+            today: { today }
+        )
+        let rent = ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000),
+            isShared: true, accountName: "洋蔥玉山-共同基金"
+        )
+        let cardDue = ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 20), name: "💳 繳卡費 · 玉山 U Bear", type: .expense, amount: Money(8586),
+            isShared: false, accountName: "玉山 U Bear"
+        )
+        let salary = ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 25), name: "薪水", type: .income, amount: Money(52000)
+        )
+
+        #expect(model.subtitle(of: rent) == "10月5日・家庭公帳")
+        #expect(model.subtitle(of: cardDue) == "10月20日・個人私帳")
+        #expect(model.subtitle(of: salary) == "10月25日・個人私帳")
+        #expect(model.accountText(of: rent) == "洋蔥玉山-共同基金")
+        #expect(model.accountText(of: salary) == nil)
+        #expect(model.spokenText(of: rent) == "房租,10月5日,家庭公帳,帳戶 洋蔥玉山-共同基金,支出 12,000 元")
+        #expect(model.spokenText(of: salary) == "薪水,10月25日,個人私帳,收入 52,000 元")
+        #expect(model.spokenText(of: cardDue).contains("繳卡費"), "事件名稱照後端念")
+    }
 }

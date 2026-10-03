@@ -59,8 +59,13 @@ public actor InMemoryForecastRepository: ForecastRepository {
                 willOverdraft: (low?.balance ?? .zero) < .zero, events: events
             )
         }
-        let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(12000))
-        let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000))
+        let rent = ForecastEvent(
+            date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(12000), isShared: true,
+            accountName: SampleAccounts.savings.name
+        )
+        let salary = ForecastEvent(
+            date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000), accountName: SampleAccounts.savings.name
+        )
         let forecasts: [ViewScope: CashFlowForecast] = [
             .all: build(start: 65440, [rent, salary]),
             .household: build(start: 30000, [rent]),

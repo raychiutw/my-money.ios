@@ -61,10 +61,22 @@ private struct EventDTO: Decodable {
     let name: String
     let type: String
     let amount: Decimal
+    /// 上游 ADR 0016 起的欄位(0/1，snake_case);舊的回應沒有，當成個人私帳。
+    let isShared: Int?
+    let accountName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case date, name, type, amount
+        case isShared = "is_shared"
+        case accountName = "account_name"
+    }
 
     func event() throws -> ForecastEvent {
         guard let type = TransactionType(rawValue: type) else { throw RepositoryError.unreadableResponse }
-        return ForecastEvent(date: try LiveForecastRepository.day(date), name: name, type: type, amount: Money(amount))
+        return ForecastEvent(
+            date: try LiveForecastRepository.day(date), name: name, type: type, amount: Money(amount),
+            isShared: (isShared ?? 0) != 0, accountName: accountName
+        )
     }
 }
 

@@ -106,4 +106,30 @@ struct ForecastTranslationTests {
             #expect(check.affectedGoalNames == ["沖繩旅遊"])
         }
     }
+
+    @Test("預定收支帶歸屬(is_shared 0/1)與資產帳戶名稱(account_name，可能沒有);繳卡費事件的名稱照後端")
+    func eventsCarryOwnershipAndAccount() async throws {
+        try stub.reply(status: 200, fixture: "forecast-scope-all.json")
+
+        let events = try await repository.forecast(scope: .all).events
+
+        try #require(events.count == 4)
+        #expect(events[0] == ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000)
+        ))
+        #expect(events[1].name == "💳 繳卡費 · iOS 測試信用卡", "事件名稱照後端，client 不加工")
+        #expect(events[1].accountName == "iOS 測試信用卡")
+        #expect(events[1].amount == Money(16380))
+        #expect(events.allSatisfy { !$0.isShared }, "測試帳號沒有家庭公帳的事件")
+        #expect(events[3].accountName == nil)
+    }
+
+    @Test("舊的回應事件沒有 is_shared、account_name 時：當個人私帳、沒有帳戶，不壞掉")
+    func legacyEventsAreTolerated() async throws {
+        try stub.reply(status: 200, fixture: "forecast.json")
+
+        let events = try await repository.forecast(scope: .all).events
+
+        #expect(events.allSatisfy { !$0.isShared && $0.accountName == nil })
+    }
 }

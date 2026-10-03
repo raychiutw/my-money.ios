@@ -144,22 +144,9 @@ struct ForecastScreen: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(Array(forecast.events.enumerated()), id: \.offset) { _, event in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(event.name)
-                        Text(model.dateText(event.date))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    Spacer()
-                    Text(event.type == .income ? "+\(event.amount.formatted())" : "-\(event.amount.formatted())")
-                        .monospacedDigit()
-                        .foregroundStyle(event.type == .income ? .green : .red)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(
-                    "\(event.name),\(model.dateText(event.date)),\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"
+                ForecastEventRow(
+                    event: event, subtitle: model.subtitle(of: event), account: model.accountText(of: event),
+                    spokenText: model.spokenText(of: event)
                 )
             }
         }
@@ -215,5 +202,78 @@ struct ForecastScreen: View {
         case .caution: .orange
         case .danger: .red
         }
+    }
+}
+
+/// 一筆預定收支(#155)：跟交易列同一種讀法——左邊名稱加「日期・歸屬」，右邊帶正負號的金額，金額下面是資產帳戶名稱
+/// (靠右、單行、太長從結尾截斷)。無障礙字級上下堆疊:名稱、日期・歸屬、資產帳戶，**金額在最下面一行、靠右**。
+private struct ForecastEventRow: View {
+    let event: ForecastEvent
+    let subtitle: String
+    let account: String?
+    let spokenText: String
+
+    @ScaledMetric(relativeTo: .subheadline) private var accountMaxWidth: CGFloat = 120
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.name)
+                    subtitleText
+                    accountText
+                    amount
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.name)
+                        subtitleText
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        amount
+                        accountText
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenText)
+    }
+
+    private var subtitleText: some View {
+        Text(subtitle)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+    }
+
+    @ViewBuilder
+    private var accountText: some View {
+        if let account {
+            Text(account)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                // 無障礙字級折行、不截斷;其他字級單行、太長從結尾截斷。
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .truncationMode(.tail)
+                .frame(
+                    maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : accountMaxWidth,
+                    alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing
+                )
+        }
+    }
+
+    /// 金額一律單行，帶正負號(收入綠、支出紅)。
+    private var amount: some View {
+        Text(event.type == .income ? "+\(event.amount.formatted())" : "-\(event.amount.formatted())")
+            .monospacedDigit()
+            .foregroundStyle(event.type == .income ? .green : .red)
+            .lineLimit(1)
+            .fixedSize()
     }
 }
