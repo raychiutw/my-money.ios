@@ -5,6 +5,7 @@ struct LoginView: View {
     @Bindable var model: LoginModel
     let register: RegisterModel
     @FocusState private var focusedField: Field?
+    @Environment(\.suggestsStrongPasswords) private var suggestsStrongPasswords
 
     private enum Field {
         case email
@@ -29,23 +30,30 @@ struct LoginView: View {
             }
 
             Section {
-                TextField("電子郵件", text: $model.email, prompt: Text(verbatim: "your@email.com"))
-                    .textContentType(.username)
-                    .emailKeyboard()
-                    .autocorrectionDisabled()
-                    .focused($focusedField, equals: .email)
-                    .submitLabel(.next)
-                    .onSubmit { focusedField = .password }
-                    .accessibilityIdentifier("login.email")
+                LabeledContent("電子郵件") {
+                    TextField("電子郵件", text: $model.email, prompt: Text(verbatim: "your@email.com"))
+                        .textContentType(.username)
+                        .emailKeyboard()
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .password }
+                        .accessibilityIdentifier("login.email")
+                }
+                .tapToFocus($focusedField, equals: .email)
 
                 HStack {
-                    passwordField
-                        .textContentType(.password)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .password)
-                        .submitLabel(.go)
-                        .onSubmit(submit)
-                        .accessibilityIdentifier("login.password")
+                    LabeledContent("密碼") {
+                        passwordField
+                            // UI 測試關掉密碼管理:用 Return 登入後，系統偶爾彈出「要儲存密碼嗎？」蓋住畫面(見 `suggestsStrongPasswords`)。
+                            .textContentType(suggestsStrongPasswords ? .password : .oneTimeCode)
+                            .autocorrectionDisabled()
+                            .focused($focusedField, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit(submit)
+                            .accessibilityIdentifier("login.password")
+                    }
+                    .tapToFocus($focusedField, equals: .password)
 
                     Button {
                         model.isPasswordVisible.toggle()
@@ -101,9 +109,9 @@ struct LoginView: View {
     @ViewBuilder
     private var passwordField: some View {
         if model.isPasswordVisible {
-            TextField("密碼", text: $model.password)
+            TextField("密碼", text: $model.password, prompt: Text("輸入密碼"))
         } else {
-            SecureField("密碼", text: $model.password)
+            SecureField("密碼", text: $model.password, prompt: Text("輸入密碼"))
         }
     }
 

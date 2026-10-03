@@ -89,9 +89,13 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 // 備註放在格子下面就看不到也捲不到;放這裡，打完金額就是備註，推薦提示緊貼在備註下面，
                 // 分類格就在下面跟著變(#99)。
                 Section {
-                    TextField("備註(選填)", text: $model.note)
-                        .focused($focusedField, equals: .note)
-                        .accessibilityIdentifier("quickEntry.note")
+                    // 欄位要有看得見的標籤，placeholder 打了字就消失(DESIGN.md「列與欄位」第 8 條，#157)。
+                    LabeledContent("備註") {
+                        TextField("備註", text: $model.note, prompt: Text("選填"))
+                            .focused($focusedField, equals: .note)
+                            .accessibilityIdentifier("quickEntry.note")
+                    }
+                    .tapToFocus($focusedField, equals: .note)
                 } footer: {
                     // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。
                     if let hint = model.categoryHintText {

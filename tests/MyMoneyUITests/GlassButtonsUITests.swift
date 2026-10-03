@@ -83,6 +83,45 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(save.waitForNonExistence(timeout: 3), "\(name):按「關閉」(圓鈕外 4pt)之後 sheet 沒有關閉，觸控範圍不到 44pt")
     }
 
+    @MainActor
+    func testMeSheetCloseIsUnfilledInLight() throws {
+        try assertMeCloseIsUnfilled(appearance: .light)
+    }
+
+    @MainActor
+    func testMeSheetCloseIsUnfilledInDark() throws {
+        try assertMeCloseIsUnfilled(appearance: .dark)
+    }
+
+    /// 「我的」sheet 的 ✕ 跟其他 sheet 的 ✕ 一樣是不填色的玻璃圓鈕(#157:放在 `.confirmationAction` 會被系統自動填成主要動作鈕)。
+    @MainActor
+    private func assertMeCloseIsUnfilled(appearance: XCUIDevice.Appearance) throws {
+        XCUIDevice.shared.appearance = appearance
+        let app = launchSignedIn()
+        let name = appearance == .dark ? "深色" : "淺色"
+        app.openMe()
+        let close = app.buttons["me.close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 3), "\(name):「我的」沒有關閉鈕")
+        try assertNotFilled(close, appearance: appearance, "\(name):「我的」的 ✕ 被填色了")
+        let ring = try PixelAnalysis.ringFrameFraction(of: close.screenshot().image)
+        XCTAssertGreaterThan(ring, 0.3, "\(name):「我的」的 ✕ 沒有玻璃外框(外緣一圈只有 \(ring) 跟背景不同)")
+    }
+
+    /// 機器人模擬對話的送出鈕是帶玻璃外框的圓鈕，不是裸圖示(#157);沒打字時停用，停用的玻璃鈕一樣有外框。
+    @MainActor
+    func testBotSendButtonHasGlassFrame() throws {
+        let app = launchSignedIn()
+        app.openMe()
+        app.buttons["機器人記帳"].tap()
+        app.buttons["模擬對話"].tap()
+        let send = app.buttons["bot.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5), "沒有看到送出鈕")
+        XCTAssertGreaterThanOrEqual(send.frame.width, 44, "送出鈕寬度不到 44pt:\(send.frame)")
+        XCTAssertGreaterThanOrEqual(send.frame.height, 44, "送出鈕高度不到 44pt:\(send.frame)")
+        let ring = try PixelAnalysis.ringFrameFraction(of: send.screenshot().image)
+        XCTAssertGreaterThan(ring, 0.3, "送出鈕沒有玻璃外框(外緣一圈只有 \(ring) 跟背景不同)")
+    }
+
     /// 區塊標題沒有「管理」「全部」這類裸文字按鈕，改成「…」玻璃圓鈕(視覺 32pt、點擊範圍至少 44pt)，點開選單。
     @MainActor
     func testSectionHeadersUseMoreMenusInsteadOfTextButtons() throws {

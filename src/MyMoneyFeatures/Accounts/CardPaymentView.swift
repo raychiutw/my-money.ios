@@ -52,8 +52,12 @@ struct CardPaymentView: View {
                         displayedComponents: .date
                     )
                     .calendarDayTimeZone()
-                    TextField("備註", text: $model.note)
-                        .focused($focusedField, equals: .note)
+                    LabeledContent("備註") {
+                        TextField("備註", text: $model.note, prompt: Text("選填"))
+                            .focused($focusedField, equals: .note)
+                            .accessibilityIdentifier("cardPayment.note")
+                    }
+                    .tapToFocus($focusedField, equals: .note)
                 }
 
                 if model.isMaskedCard {

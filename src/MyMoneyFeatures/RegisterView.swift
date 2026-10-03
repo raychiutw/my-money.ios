@@ -32,35 +32,48 @@ struct RegisterView: View {
             }
 
             Section {
-                TextField("姓名", text: $model.name, prompt: Text("家庭成員名稱"))
-                    .textContentType(.name)
-                    .focused($focusedField, equals: .name)
-                    .submitLabel(.next)
-                    .onSubmit { focusedField = .email }
-                    .accessibilityIdentifier("register.name")
+                // 欄位要有看得見的標籤，placeholder 只放範例或提示(DESIGN.md「列與欄位」第 8 條，#157)。
+                LabeledContent("姓名") {
+                    TextField("姓名", text: $model.name, prompt: Text("家庭成員名稱"))
+                        .textContentType(.name)
+                        .focused($focusedField, equals: .name)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .email }
+                        .accessibilityIdentifier("register.name")
+                }
+                .tapToFocus($focusedField, equals: .name)
 
-                TextField("電子郵件", text: $model.email, prompt: Text(verbatim: "your@email.com"))
-                    .textContentType(.username)
-                    .emailKeyboard()
-                    .autocorrectionDisabled()
-                    .focused($focusedField, equals: .email)
-                    .submitLabel(.next)
-                    .onSubmit { focusedField = .password }
-                    .accessibilityIdentifier("register.email")
+                LabeledContent("電子郵件") {
+                    TextField("電子郵件", text: $model.email, prompt: Text(verbatim: "your@email.com"))
+                        .textContentType(.username)
+                        .emailKeyboard()
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .password }
+                        .accessibilityIdentifier("register.email")
+                }
+                .tapToFocus($focusedField, equals: .email)
 
-                SecureField("密碼", text: $model.password, prompt: Text("至少 6 個字元"))
-                    .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
-                    .focused($focusedField, equals: .password)
-                    .submitLabel(.next)
-                    .onSubmit { focusedField = .confirmation }
-                    .accessibilityIdentifier("register.password")
+                LabeledContent("密碼") {
+                    SecureField("密碼", text: $model.password, prompt: Text("至少 6 個字元"))
+                        .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
+                        .focused($focusedField, equals: .password)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .confirmation }
+                        .accessibilityIdentifier("register.password")
+                }
+                .tapToFocus($focusedField, equals: .password)
 
-                SecureField("確認密碼", text: $model.confirmation, prompt: Text("再輸入一次密碼"))
-                    .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
-                    .focused($focusedField, equals: .confirmation)
-                    .submitLabel(.go)
-                    .onSubmit(submit)
-                    .accessibilityIdentifier("register.confirmation")
+                LabeledContent("確認密碼") {
+                    SecureField("確認密碼", text: $model.confirmation, prompt: Text("再輸入一次"))
+                        .textContentType(suggestsStrongPasswords ? .newPassword : .oneTimeCode)
+                        .focused($focusedField, equals: .confirmation)
+                        .submitLabel(.go)
+                        .onSubmit(submit)
+                        .accessibilityIdentifier("register.confirmation")
+                }
+                .tapToFocus($focusedField, equals: .confirmation)
             } footer: {
                 if let message = model.errorMessage {
                     Text(message)

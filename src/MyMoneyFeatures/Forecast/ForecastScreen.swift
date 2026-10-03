@@ -7,6 +7,7 @@ import SwiftUI
 struct ForecastScreen: View {
     @Bindable var model: ForecastModel
     @FocusState private var focusedField: Field?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private enum Field {
         case amount
@@ -76,7 +77,7 @@ struct ForecastScreen: View {
                         .font(.headline)
                     // 只留透支的警告;安全時不另外解釋(DESIGN.md「說明文字」第 2 類)。
                     if forecast.willOverdraft {
-                        Text("預計餘額會跌破 0,請及早調整")
+                        Text("預計餘額會跌破 0，請及早調整")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -114,8 +115,9 @@ struct ForecastScreen: View {
             // x 軸用台灣時間(#77,洛杉磯時區的截圖證實):資料點是台灣時間的午夜，裝置在別的時區時，
             // 刻度會偏到前一天，預設的日期標籤也照裝置時區格式化。刻度位置依 environment 的 calendar
             // (曆法沿用系統設定，只換時區;只設 timeZone 沒有作用),標籤自己用台灣時間的日期。
+            // 日期刻度的字照系統字級放大，放不下就少放幾個刻度，不讓標籤被截成「10月1…」(#157)。
             .chartXAxis {
-                AxisMarks { value in
+                AxisMarks(values: .automatic(desiredCount: axisLabelCount)) { value in
                     AxisGridLine()
                     AxisTick()
                     AxisValueLabel {
@@ -129,6 +131,11 @@ struct ForecastScreen: View {
             .frame(height: 220)
             .padding(.vertical, 8)
         }
+    }
+
+    /// x 軸的日期刻度數;預設字級交給系統決定。
+    private var axisLabelCount: Int? {
+        if dynamicTypeSize.isAccessibilitySize { 2 } else if dynamicTypeSize >= .xxLarge { 3 } else { nil }
     }
 
     private var taipeiCalendar: Calendar {

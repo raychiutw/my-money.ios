@@ -13,7 +13,8 @@ enum ScrollSupport {
         for _ in 0..<40 {
             let bottom = (tabBar.exists ? tabBar.frame.minY : window.frame.maxY) - 8
             guard element.exists else {
-                nudge(app, by: 260)
+                // 還沒出現(清單只建立畫面附近的列):一次捲大半個畫面找它。AX5 的總覽有七、八個畫面長，260pt 一步 40 次找不到。
+                nudge(app, by: 520)
                 continue
             }
             if element.frame.minY < top {
