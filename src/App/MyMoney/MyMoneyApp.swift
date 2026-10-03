@@ -51,7 +51,7 @@ struct MyMoneyApp: App {
                 ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
                 : InMemoryAccountRepository.sample()
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: includesFamily))
-            let recurring = InMemoryRecurringRepository.sample()
+            let recurring = InMemoryRecurringRepository.sample(includesFamilyEntries: includesFamily)
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。
             let statistics = arguments.contains("-uiTestingManyCategories")

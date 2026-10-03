@@ -83,6 +83,11 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-list-with-month.json` | `GET /recurring`,上面那項存在時 | 200 | 每項都帶 `month_of_cycle`;舊項目是 `1` |
 | `recurring-update-month.json` | `PUT /recurring/:id`,把上面那項改成每半年、`month_of_cycle` 4 | 200 | 回傳更新後的 `month_of_cycle` |
 | `recurring-delete-quarterly.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` |
+| `recurring-list-scope-all.json` | `GET /recurring?scope=all`(上游 ADR 0016 起) | 200 | 多了 `is_shared`(0/1)、`account_is_joint`、`user_name`;全部 = 我建立的加上家人的家庭公帳 |
+| `recurring-list-scope-household.json` | `GET /recurring?scope=household` | 200 | 測試帳號沒有家庭公帳項目,回空陣列 |
+| `recurring-list-scope-personal.json` | `GET /recurring?scope=personal` | 200 | 我建立的個人私帳項目 |
+| `recurring-amortize-scope-all.json` | `GET /recurring/amortize?scope=all` | 200 | 除了 `monthly_expense`、`monthly_income`,後端也回 `items`(iOS 不解碼) |
+| `recurring-amortize-scope-household.json` | `GET /recurring/amortize?scope=household` | 200 | 兩個合計都是 0 |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 | `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
 | `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |

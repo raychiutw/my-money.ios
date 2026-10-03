@@ -9,13 +9,16 @@ public struct LiveRecurringRepository: RecurringRepository {
         self.client = client
     }
 
-    public func items() async throws -> [RecurringItem] {
-        let dtos: [RecurringItemDTO] = try await client.get("/recurring")
+    /// 一律明確帶 `scope`(`all` 也帶)，不依賴後端的預設範圍。
+    public func items(scope: ViewScope) async throws -> [RecurringItem] {
+        let dtos: [RecurringItemDTO] = try await client.get("/recurring", query: [URLQueryItem(name: "scope", value: scope.rawValue)])
         return try dtos.map { try $0.item() }
     }
 
-    public func amortization() async throws -> RecurringAmortization {
-        let dto: AmortizationDTO = try await client.get("/recurring/amortize")
+    public func amortization(scope: ViewScope) async throws -> RecurringAmortization {
+        let dto: AmortizationDTO = try await client.get(
+            "/recurring/amortize", query: [URLQueryItem(name: "scope", value: scope.rawValue)]
+        )
         return RecurringAmortization(monthlyExpense: Money(dto.monthlyExpense), monthlyIncome: Money(dto.monthlyIncome))
     }
 
@@ -38,9 +41,13 @@ public struct LiveRecurringRepository: RecurringRepository {
     }
 }
 
-/// `GET /recurring` 的一筆：資料表欄位加上 JOIN 的 `account_name`。
+/// `GET /recurring` 的一筆：資料表欄位加上 JOIN 的 `account_name`、`user_name`。
 private struct RecurringItemDTO: Decodable {
     let id: String
+    let userID: String?
+    let userName: String?
+    /// 上游 ADR 0016 起的欄位(0/1);舊的回應沒有，當成個人私帳。
+    let isShared: Int?
     let accountID: String?
     let accountName: String?
     let name: String
@@ -53,6 +60,9 @@ private struct RecurringItemDTO: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, amount, cycle
+        case userID = "user_id"
+        case userName = "user_name"
+        case isShared = "is_shared"
         case accountID = "account_id"
         case accountName = "account_name"
         case dayOfCycle = "day_of_cycle"
@@ -72,7 +82,10 @@ private struct RecurringItemDTO: Decodable {
             dayOfCycle: dayOfCycle,
             monthOfCycle: monthOfCycle ?? 1,
             accountID: accountID.map(AccountID.init),
-            accountName: accountName
+            accountName: accountName,
+            isShared: (isShared ?? 0) != 0,
+            ownerID: userID.map(UserID.init),
+            ownerName: userName
         )
     }
 }

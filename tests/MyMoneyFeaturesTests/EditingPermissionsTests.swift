@@ -185,6 +185,25 @@ struct EditingPermissionsFeatureTests {
         #expect(member.lockAlertTitle == "不能編輯這筆交易")
     }
 
+    @Test("週期收支:個人私帳只有建立者，家庭管理員也不行;家庭公帳是建立者或家庭管理員(上游 ADR 0016、#152)")
+    func recurringModification() {
+        func item(_ owner: UserID?, shared: Bool) -> RecurringItem {
+            RecurringItem(
+                id: RecurringItemID("r"), name: "x", type: .expense, amount: Money(100), cycle: .monthly, dayOfCycle: 1,
+                accountID: nil, accountName: nil, isShared: shared, ownerID: owner, ownerName: nil
+            )
+        }
+        let member = EditingPermissions(userID: me, role: .member)
+        let admin = EditingPermissions(userID: me, role: .admin)
+
+        #expect(member.canModify(item(me, shared: false)) && admin.canModify(item(me, shared: false)))
+        #expect(member.canModify(item(me, shared: true)) && admin.canModify(item(me, shared: true)))
+        #expect(!member.canModify(item(mei, shared: true)), "一般成員改不了他人的家庭公帳")
+        #expect(admin.canModify(item(mei, shared: true)), "家庭管理員改得了他人的家庭公帳")
+        #expect(!member.canModify(item(mei, shared: false)) && !admin.canModify(item(mei, shared: false)), "他人的個人私帳誰都不行")
+        #expect(EditingPermissions(userID: nil, role: nil).canModify(item(mei, shared: false)), "不知道登入的是誰時交給後端判斷")
+    }
+
     // MARK: 權限本身
 
     @Test("角色第一次需要時向後端問;沒有家庭是沒有角色;家庭頁載入之後同步")

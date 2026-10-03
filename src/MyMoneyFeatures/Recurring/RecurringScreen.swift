@@ -7,12 +7,16 @@ struct RecurringScreen: View {
     @Bindable var model: RecurringModel
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: RecurringItem?
+    /// 點了點不開的項目:跳出簡短說明。
+    @State private var explained: RecurringItem?
 
     var body: some View {
         content
             .skeletonTransition(value: model.phase)
             .navigationTitle("週期收支")
+            .navigationSubtitle(model.scope.title)
             .toolbar {
+                ScopeFilter("視角", scope: $model.scope, identifier: "recurring.scope")
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         editor = EditorSheet(model.makeEditor())
@@ -30,7 +34,8 @@ struct RecurringScreen: View {
                     }
                 }
             }
-            .task(id: model.dataVersion.value) {
+            // 視角或資料版本改變就重抓。
+            .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
                 await model.refreshIfStale()
             }
             .sheet(item: $editor) { sheet in
@@ -50,6 +55,15 @@ struct RecurringScreen: View {
                 Text(model.deleteConfirmation(for: item))
             }
             .alert(
+                model.lockAlertTitle,
+                isPresented: Binding(get: { explained != nil }, set: { if !$0 { explained = nil } }),
+                presenting: explained
+            ) { _ in
+                Button("好") {}
+            } message: { item in
+                Text("\(model.lockReason(for: item) ?? "")。")
+            }
+            .alert(
                 "無法刪除",
                 isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
             ) {
@@ -57,6 +71,11 @@ struct RecurringScreen: View {
             } message: {
                 Text(model.alertMessage ?? "")
             }
+    }
+
+    private struct QueryKey: Hashable {
+        let scope: ViewScope
+        let version: Int
     }
 
     /// 編輯 sheet 需要 `Identifiable`。
@@ -130,26 +149,37 @@ struct RecurringScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。
+    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。不能改的項目(他人建立的家庭公帳，自己不是家庭管理員)
+    /// 點一下跳出說明,沒有左滑刪除與長按選單(上游 ADR 0016)。
+    @ViewBuilder
     private func row(_ item: RecurringItem) -> some View {
-        Button {
-            editor = EditorSheet(model.makeEditor(editing: item))
-        } label: {
-            RecurringRow(item: item)
-        }
-        .tint(.primary)
-        .swipeActions {
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = item
-            }
-        }
-        .contextMenu {
-            Button("編輯", systemImage: "pencil") {
+        if model.canModify(item) {
+            Button {
                 editor = EditorSheet(model.makeEditor(editing: item))
+            } label: {
+                RecurringRow(item: item)
             }
-            Button("刪除", systemImage: "trash", role: .destructive) {
-                pendingDeletion = item
+            .tint(.primary)
+            .swipeActions {
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = item
+                }
             }
+            .contextMenu {
+                Button("編輯", systemImage: "pencil") {
+                    editor = EditorSheet(model.makeEditor(editing: item))
+                }
+                Button("刪除", systemImage: "trash", role: .destructive) {
+                    pendingDeletion = item
+                }
+            }
+        } else {
+            Button {
+                explained = item
+            } label: {
+                RecurringRow(item: item, lockHint: model.lockHint(for: item))
+            }
+            .tint(.primary)
         }
     }
 }
@@ -158,12 +188,15 @@ struct RecurringScreen: View {
 ///
 /// - 第 1 行：名稱。
 /// - 第 2 行：週期與日期，例如「每月 5 號扣款」。
-/// - 第 3 行：資產帳戶名稱，不加前綴;沒設就不顯示。
+/// - 第 3 行：「建立者・歸屬」，例如「小美・家庭公帳」;自己建立的也顯示。
+/// - 第 4 行：資產帳戶名稱，不加前綴;沒設就不顯示。
 /// - trailing:帶正負號的每期金額，下面是非每月週期支出的每月分攤平滑，例如「$2,000／月」。
 ///
 /// 放不下時(大字級)改成上下堆疊，金額一律單行。VoiceOver 把整列念成一句。
 private struct RecurringRow: View {
     let item: RecurringItem
+    /// 點不開的項目的 VoiceOver 提示(「點兩下查看為什麼不能編輯」)。
+    var lockHint: String?
 
     /// 左右並列時，文字欄至少要有的寬度，跟著字級變大;放不下就改成上下堆疊(同 `TransactionRow`)。
     @ScaledMetric(relativeTo: .body) private var minimumTextWidth: CGFloat = 120
@@ -192,6 +225,7 @@ private struct RecurringRow: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.spokenText)
+        .accessibilityHint(lockHint ?? "")
     }
 
     @ViewBuilder
@@ -200,6 +234,10 @@ private struct RecurringRow: View {
             Text(item.name)
                 .font(.headline)
             Text(item.scheduleText)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            // 建立者・歸屬:自己建立的也顯示(上游 ADR 0016)。
+            Text(item.ownerText)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if let account = item.accountText {

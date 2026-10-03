@@ -38,7 +38,8 @@ public enum RecurringCycle: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// 週期收支(RecurringItem):只是提醒與估算，**不會**自動產生交易記錄。只有自己的項目。
+/// 週期收支(RecurringItem):只是提醒與估算，**不會**自動產生交易記錄。
+/// 上游 ADR 0016 起有歸屬(家庭公帳或個人私帳)，視角是「全部」或「家庭公帳」時也包含家人建立的家庭公帳項目。
 public struct RecurringItem: Hashable, Sendable, Identifiable {
     public let id: RecurringItemID
     public let name: String
@@ -53,6 +54,11 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
     /// 關聯帳戶;沒有指定時是 `nil`。
     public let accountID: AccountID?
     public let accountName: String?
+    /// 歸屬(後端 `is_shared`):家庭公帳是 `true`，個人私帳是 `false`;舊資料沒有這個欄位時是個人私帳。
+    public let isShared: Bool
+    /// 建立者(後端 `user_id`、`user_name`):判斷能不能改、畫面寫「建立者・歸屬」。不知道時是 `nil`。
+    public let ownerID: UserID?
+    public let ownerName: String?
 
     public init(
         id: RecurringItemID,
@@ -63,7 +69,10 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
         dayOfCycle: Int,
         monthOfCycle: Int = 1,
         accountID: AccountID?,
-        accountName: String?
+        accountName: String?,
+        isShared: Bool = false,
+        ownerID: UserID? = nil,
+        ownerName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -74,6 +83,9 @@ public struct RecurringItem: Hashable, Sendable, Identifiable {
         self.monthOfCycle = monthOfCycle
         self.accountID = accountID
         self.accountName = accountName
+        self.isShared = isShared
+        self.ownerID = ownerID
+        self.ownerName = ownerName
     }
 
     /// 分攤平滑：每期金額平均到每個月(跟 web 一樣是 `amount / 月數`)。
@@ -121,10 +133,12 @@ public struct RecurringAmortization: Hashable, Sendable {
 
 /// 週期收支(`/recurring`)。
 public protocol RecurringRepository: Sendable {
-    /// 自己的週期收支，帶上關聯帳戶的名稱。
-    func items() async throws -> [RecurringItem]
+    /// 這個視角的週期收支，帶上關聯帳戶的名稱與建立者:全部是我建立的加上家人的家庭公帳;
+    /// 家庭公帳是全家人的家庭公帳項目;個人私帳是我建立的個人私帳項目(上游 ADR 0016)。
+    func items(scope: ViewScope) async throws -> [RecurringItem]
 
-    func amortization() async throws -> RecurringAmortization
+    /// 這個視角的分攤平滑合計。
+    func amortization(scope: ViewScope) async throws -> RecurringAmortization
 
     func create(_ draft: RecurringDraft) async throws
 
