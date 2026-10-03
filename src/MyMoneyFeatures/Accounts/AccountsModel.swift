@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部(本人 + 家庭公用)、家庭公用、個人私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部、公帳、私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
@@ -55,9 +55,9 @@ public final class AccountsModel {
         self.today = today
     }
 
-    /// 公帳範圍且有成員待報銷代墊款(大於 0)才顯示橫幅。
+    /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。
     public var showsPendingAdvanceBanner: Bool {
-        (pendingAdvanceTotal ?? .zero) > .zero
+        loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
     }
 
     /// 橫幅的一句話，例如「家庭公帳待報銷代墊款 $850」。
@@ -65,15 +65,11 @@ public final class AccountsModel {
         "家庭公帳待報銷代墊款 \((pendingAdvanceTotal ?? .zero).formatted())"
     }
 
-    /// 只在公帳範圍多問一次代墊統計;取不到不影響帳戶頁其他區塊。
-    private func refreshPendingAdvances(for scope: AccountScope) async {
-        guard scope == .household, let households else {
-            pendingAdvanceTotal = nil
-            return
-        }
-        let advances = try? await households.advances()
-        guard !Task.isCancelled, scope == self.scope else { return }
-        pendingAdvanceTotal = advances.map { $0.reduce(Money.zero) { $0 + $1.pendingReimbursement } }
+    /// 公帳範圍:各成員待報銷的加總;只在公帳範圍多問一次，取不到(或沒有家庭)是 `nil`，不影響帳戶頁其他區塊。
+    private func fetchPendingAdvanceTotal(for scope: AccountScope) async -> Money? {
+        guard scope == .household, let households else { return nil }
+        guard let advances = try? await households.advances() else { return nil }
+        return advances.reduce(Money.zero) { $0 + $1.pendingReimbursement }
     }
 
     /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
@@ -86,9 +82,10 @@ public final class AccountsModel {
         permissions?.current.isMasked(card) ?? card.isMasked
     }
 
-    /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。
+    /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。看的是畫面上已載入的範圍:切換範圍重新載入期間，
+    /// 畫面還是舊範圍的內容，念法與標籤要跟著內容走。
     func isPrivateCardAdvance(_ card: CreditCard) -> Bool {
-        scope == .household && !card.isJointFund
+        (loadedScope ?? scope) == .household && !card.isJointFund
     }
 
     /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「公帳／私帳・N 日繳」。
@@ -228,18 +225,20 @@ public final class AccountsModel {
         do {
             async let accounts = repository.accounts(scope: scope)
             async let summary = repository.balanceSummary(scope: scope)
+            async let pendingAdvances = fetchPendingAdvanceTotal(for: scope)
             let (loadedAccounts, loadedSummary) = try await (accounts, summary)
+            let loadedPendingAdvances = await pendingAdvances
             // 被取消(換了範圍)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
+            pendingAdvanceTotal = loadedPendingAdvances
             loadedVersion = version
             loadedScope = scope
             phase = .loaded
             await permissions?.loadIfNeeded()
-            await refreshPendingAdvances(for: scope)
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }

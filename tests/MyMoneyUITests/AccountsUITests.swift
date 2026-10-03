@@ -442,7 +442,7 @@ final class AccountsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["accounts.pendingAdvances"].exists, "全部範圍不該有待報銷橫幅")
+        XCTAssertFalse(element(in: app, labelContaining: "家庭公帳待報銷代墊款").exists, "全部範圍不該有待報銷橫幅")
 
         let filter = app.buttons["accounts.scope"]
         filter.tap()

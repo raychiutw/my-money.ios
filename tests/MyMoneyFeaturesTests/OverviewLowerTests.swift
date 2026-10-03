@@ -81,7 +81,7 @@ struct OverviewLowerTests {
 
         let net = try #require(overview.summaryTiles.dropFirst().first)
         #expect(net.title == "當月淨收支")
-        #expect(net.spokenTitle == "當月淨收支(家庭)")
+        #expect(net.spokenTitle == "當月淨收支(公帳)")
     }
 
     @Test("警示色:可支配現金與當月淨收支是負數時、信用卡待繳大於 0 時")

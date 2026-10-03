@@ -44,6 +44,51 @@ struct PrivateCardAdvanceTests {
         #expect(all.caption(for: SampleAccounts.card) == "私帳・5 日繳")
     }
 
+    @Test("切換範圍重新載入期間畫面還是舊內容:小字與念法跟著已載入的內容走，不跟著新範圍(code review)")
+    func captionsFollowTheLoadedContent() async {
+        let model = await accountsModel(scope: .household)
+        #expect(model.caption(for: SampleAccounts.meiCardAdvance) == "私卡代墊・25 日繳")
+
+        model.scope = .all // 還沒重新載入，畫面上仍是公帳範圍的卡
+        #expect(model.caption(for: SampleAccounts.meiCardAdvance) == "私卡代墊・25 日繳")
+        #expect(model.spokenSummary(of: SampleAccounts.meiCardAdvance).contains("私卡代墊"))
+
+        await model.load()
+        #expect(model.caption(for: SampleAccounts.card) == "私帳・5 日繳")
+    }
+
+    @Test("總覽的公帳視角:私卡代墊的卡念私卡代墊，脫敏的卡念持卡人與家庭代墊待繳額;全部視角照舊")
+    func overviewCards() async {
+        let suite = "PrivateCardAdvanceTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let today = CalendarDay(year: 2026, month: 10, day: 3)
+        let overview = OverviewModel(
+            accounts: InMemoryAccountRepository(
+                accounts: SampleAccounts.all + [.creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary
+            ),
+            transactions: InMemoryTransactionRepository(transactions: []),
+            statistics: InMemoryStatisticsRepository.sample(month: CalendarMonth(today)),
+            goals: InMemorySavingsGoalRepository.sample(), dataVersion: dataVersion,
+            permissions: PermissionsModel(userID: me, role: .member), defaults: defaults, today: { today },
+            locale: Locale(identifier: "zh_Hant_TW")
+        )
+        overview.scope = .household
+        await overview.load()
+
+        let mei = overview.accountCards.first { $0.id == SampleAccounts.meiCardAdvance.id }
+        #expect(mei?.amount == Money(1200), "金額是家庭代墊待繳額")
+        #expect(mei?.spokenText == "小美的信用卡，私卡代墊，持卡人 小美，家庭代墊待繳額 1,200 元，每月 25 日繳款")
+        let own = overview.accountCards.first { $0.id == SampleAccounts.card.id }
+        #expect(own?.spokenText.hasPrefix("iOS 測試信用卡，私卡代墊，信用卡待繳總額") == true)
+
+        overview.scope = .all
+        await overview.load()
+        let ownInAll = overview.accountCards.first { $0.id == SampleAccounts.card.id }
+        #expect(ownInAll?.spokenText == "iOS 測試信用卡，信用卡待繳總額 $15,500，每月 5 日繳款".replacingOccurrences(of: "$15,500", with: "15,500 元"))
+        #expect(overview.accountCards.contains { $0.id == SampleAccounts.meiCardAdvance.id } == false, "他人的私卡只在公帳視角")
+    }
+
     @Test("VoiceOver:脫敏的卡念私卡代墊、持卡人與家庭代墊待繳額，不念被遮蔽的欄位")
     func maskedSpokenSummary() async {
         let household = await accountsModel(scope: .household)

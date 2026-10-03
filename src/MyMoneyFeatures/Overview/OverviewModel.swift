@@ -93,12 +93,12 @@ public final class OverviewModel {
 
     public var monthNet: Money { monthIncome - monthExpense }
 
-    /// 標題隨視角改變;「個人」是我記的全部(parity 刻意偏離第 9 項)。
+    /// 標題隨視角改變;「私帳」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
         switch scope {
         case .all: "當月淨收支"
-        case .household: "當月淨收支(家庭)"
-        case .personal: "當月淨收支(個人)"
+        case .household: "當月淨收支(公帳)"
+        case .personal: "當月淨收支(私帳)"
         }
     }
 

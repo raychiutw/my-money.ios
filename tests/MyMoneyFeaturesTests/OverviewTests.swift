@@ -168,7 +168,7 @@ struct OverviewTests {
 
     /// web 的總覽只算個人私帳(parity 刻意偏離第 9 項);iOS 的「個人」是我記的全部。
     @Test("當月淨收支的標題隨視角改變", arguments: [
-        (ViewScope.all, "當月淨收支"), (.household, "當月淨收支(家庭)"), (.personal, "當月淨收支(個人)"),
+        (ViewScope.all, "當月淨收支"), (.household, "當月淨收支(公帳)"), (.personal, "當月淨收支(私帳)"),
     ])
     func netTitle(scope: ViewScope, expected: String) {
         let model = model()

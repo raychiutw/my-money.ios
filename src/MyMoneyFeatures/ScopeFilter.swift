@@ -64,8 +64,8 @@ extension AccountScope: ScopeFilterOption {
     }
 }
 
-/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、家庭、個人),
-/// 帳戶頁篩選帳戶檢視範圍(全部、家庭公用、個人私帳)。
+/// toolbar 上的篩選按鈕：可勾選的選單(DESIGN.md「導覽」)。總覽、統計篩選視角(全部、公帳、私帳),
+/// 帳戶頁篩選帳戶檢視範圍(全部、公帳、私帳)。
 ///
 /// 目前的選擇由畫面用 `.navigationSubtitle(scope.title)` 顯示在導覽列副標題。VoiceOver 念篩選的名稱(例如「視角」)和目前的選擇。
 struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {

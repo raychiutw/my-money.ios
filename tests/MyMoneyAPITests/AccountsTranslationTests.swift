@@ -110,6 +110,26 @@ struct AccountsTranslationTests {
         #expect(card.totalDue == Money(777), "待繳總額就是家庭代墊待繳額")
     }
 
+    @Test("is_masked 的型別還沒在 prod 看過(需要第二個帳號):true／false 與 0／1 都接受，不讓整份清單解碼失敗")
+    func maskedFlagAcceptsBooleanOrNumber() async throws {
+        let recorded = try Fixture.data("accounts-list-household-card-advance.json")
+        for (flag, expected) in [(true as Any, true), (1, true), (0, false), (false, false)] {
+            var envelope = try #require(try JSONSerialization.jsonObject(with: recorded) as? [String: Any])
+            var rows = try #require(envelope["data"] as? [[String: Any]])
+            rows[0]["is_masked"] = flag
+            envelope["data"] = rows
+            stub.reply(status: 200, json: try JSONSerialization.data(withJSONObject: envelope))
+
+            let accounts = try await repository.accounts(scope: .household)
+
+            guard case .creditCard(let card) = accounts[0] else {
+                Issue.record("第一個不是信用卡")
+                return
+            }
+            #expect(card.isMasked == expected, "is_masked = \(flag)")
+        }
+    }
+
     @Test("公帳範圍的餘額摘要把私卡的家庭代墊算進信用卡待繳與淨可用餘額(後端算好，iOS 照用)")
     func householdBalanceIncludesPrivateCardAdvance() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-household-card-advance.json")

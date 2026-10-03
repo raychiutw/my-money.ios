@@ -176,7 +176,7 @@ final class OverviewUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
 
         choose("公帳", from: filter, in: app)
-        XCTAssertTrue(element(in: app, labelContaining: "當月淨收支(家庭)").waitForExistence(timeout: 5), "切到家庭視角後，當月淨收支的標題沒有跟著變")
+        XCTAssertTrue(element(in: app, labelContaining: "當月淨收支(公帳)").waitForExistence(timeout: 5), "切到家庭視角後，當月淨收支的標題沒有跟著變")
         XCTAssertEqual(filter.value as? String, "公帳", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
         app.terminate()
 

@@ -95,6 +95,18 @@ struct EditingPermissionsTests {
         #expect(mine.isMasked(flagged), "後端標了 is_masked")
     }
 
+    @Test("後端標了脫敏的卡即使沒回擁有者，也不能操作、編輯、刪除(code review)")
+    func maskedFlagBlocksEvenWithoutAnOwner() {
+        let masked = CreditCard(
+            id: AccountID("m"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: Money(100), creditLimit: nil,
+            statementDay: nil, paymentDueDay: nil, ownerID: nil, isMasked: true
+        )
+        for role: HouseholdRole? in [nil, .admin, .member] {
+            #expect(!permissions(role).canOperate(masked), "角色 \(String(describing: role))")
+            #expect(!permissions(role).canModify(.creditCard(masked)))
+        }
+    }
+
     @Test("不知道登入的是誰、或資料沒有擁有者時，不擅自擋(後端仍會判斷，跟 web 一樣)")
     func unknownIsPermissive() {
         #expect(permissions(.member, user: nil).canModify(bank(owner: other, joint: false)))
