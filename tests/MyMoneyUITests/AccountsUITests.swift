@@ -332,6 +332,48 @@ final class AccountsUITests: XCTestCase {
         }
     }
 
+    /// 公帳範圍的私卡代墊(上游 ADR 0015、#139):小美的個人信用卡替家庭墊了 1,200，公帳範圍看得到(脫敏);
+    /// 全部範圍看不到。點進詳細頁:卡費只有家庭代墊，個人帳單與個人消費「隱私遮蔽」，沒有信用額度，也沒有編輯。
+    @MainActor
+    func testHouseholdScopeShowsMaskedPrivateCardAdvance() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+
+        // 全部範圍:他人的私卡不在。
+        let tabBarTop = app.tabBars.firstMatch.frame.minY
+        for _ in 0..<8 where !element(in: app, labelContaining: "iOS 測試信用卡，私帳").exists { app.swipeUp() }
+        XCTAssertFalse(element(in: app, labelContaining: "小美的信用卡").exists, "全部範圍不該看到他人的私卡")
+        for _ in 0..<8 { app.swipeDown() }
+
+        let filter = app.buttons["accounts.scope"]
+        filter.tap()
+        app.buttons["公帳"].tap()
+        XCTAssertEqual(filter.value as? String, "公帳")
+
+        let mei = app.buttons["小美的信用卡，私卡代墊，持卡人 小美，家庭代墊待繳額 1,200 元，每月 25 日繳款"]
+        for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
+        XCTAssertTrue(mei.exists, "公帳範圍沒有看到小美的私卡代墊")
+        XCTAssertTrue(
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 測試信用卡，私卡代墊，信用卡待繳總額")).firstMatch.exists,
+            "自己有家庭代墊的私卡在公帳範圍也標私卡代墊"
+        )
+
+        mei.tap()
+        XCTAssertTrue(app.navigationBars["小美的信用卡"].waitForExistence(timeout: 3), "沒有進入詳細頁")
+        for (title, value) in [("家庭公帳代墊待繳總額", "$1,200"), ("個人帳單狀態", "隱私遮蔽"), ("公帳代墊待清償", "$1,200"), ("個人私帳消費", "隱私遮蔽")] {
+            // `LabeledContent`:VoiceOver 把標籤和值合成一個元素，例如「家庭公帳代墊待繳總額、$1,200」。
+            XCTAssertTrue(app.staticTexts["\(title)、\(value)"].exists, "詳細頁沒有「\(title) \(value)」")
+        }
+        XCTAssertFalse(app.staticTexts["信用額度"].exists, "他人的信用額度不該揭露")
+        XCTAssertFalse(app.staticTexts["剩餘額度"].exists, "他人的剩餘額度不該揭露")
+        XCTAssertFalse(app.buttons["cardDetail.edit"].exists, "不能編輯他人的卡")
+        XCTAssertFalse(app.buttons["cardDetail.reconcile"].exists, "不能校準他人的卡")
+    }
+
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {

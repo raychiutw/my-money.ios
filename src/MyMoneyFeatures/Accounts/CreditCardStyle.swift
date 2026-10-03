@@ -15,6 +15,22 @@ extension CreditCard {
         return parts.joined(separator: "，")
     }
 
+    /// 公帳範圍裡的個人卡:卡片小字寫「私卡代墊」加繳款日(上游 ADR 0015)。
+    func advanceCaption() -> String {
+        ["私卡代墊", paymentDueDay.map { "\($0) 日繳" }].compactMap { $0 }.joined(separator: "・")
+    }
+
+    /// 公帳範圍裡的個人卡，VoiceOver 念「私卡代墊」代替歸屬;脫敏的卡再改念持卡人與家庭代墊待繳額，不念被遮蔽的欄位。
+    func spokenAdvanceSummary(isMasked: Bool) -> String {
+        var parts: [String?]
+        if isMasked {
+            parts = [name, "私卡代墊", ownerName.map { "持卡人 \($0)" }, "家庭代墊待繳額 \(sharedDebt.spokenText)", summaryLine]
+        } else {
+            parts = [name, "私卡代墊", "信用卡待繳總額 \(totalDue.spokenText)", summaryLine]
+        }
+        return parts.compactMap { $0 }.joined(separator: "，")
+    }
+
     /// 有待繳款:卡片上的金額用警示色(#119)。
     public var isDue: Bool { totalDue > .zero }
 

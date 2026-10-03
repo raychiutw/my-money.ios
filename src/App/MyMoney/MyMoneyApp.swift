@@ -45,10 +45,10 @@ struct MyMoneyApp: App {
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
-            // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金(版型與編輯權限防呆的 UI 測試)。
+            // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
             let accounts = includesFamily
-                ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund)], summary: SampleAccounts.summary)
+                ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
                 : InMemoryAccountRepository.sample()
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: includesFamily))
             let recurring = InMemoryRecurringRepository.sample()

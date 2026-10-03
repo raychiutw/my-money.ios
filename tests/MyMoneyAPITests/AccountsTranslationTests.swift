@@ -52,6 +52,75 @@ struct AccountsTranslationTests {
         #expect(accounts.map(\.isJointFund) == [false, false, false, true, false])
     }
 
+    @Test("公帳範圍會多回自己有家庭代墊欠款的個人信用卡(上游 ADR 0015):解成一般信用卡，沒有脫敏")
+    func householdScopeIncludesOwnPrivateCardWithSharedDebt() async throws {
+        // 2026-10-03 從 prod 錄的真實回應:在測試帳號的個人信用卡記一筆公帳支出 777 之後的 `GET /accounts?scope=household`。
+        try stub.reply(status: 200, fixture: "accounts-list-household-card-advance.json")
+
+        let accounts = try await repository.accounts(scope: .household)
+
+        try #require(accounts.count == 2)
+        guard case .creditCard(let card) = accounts[0] else {
+            Issue.record("第一個不是信用卡")
+            return
+        }
+        #expect(card.name == "iOS 測試信用卡")
+        #expect(!card.isJointFund)
+        #expect(!card.isMasked, "自己的卡不脫敏(沒有 is_masked)")
+        #expect(card.ownerName == "iOS 測試帳號")
+        #expect(card.ownerID == UserID("ff646114-6f6b-4a37-9e27-4757868af51d"))
+        #expect(card.billedDebt == Money(16380))
+        #expect(card.unbilledDebt == Money(777))
+        #expect(card.sharedDebt == Money(777))
+        #expect(card.personalDebt == Money(16380))
+        #expect(accounts[1].name == "iOS 家庭共同基金")
+    }
+
+    @Test("他人的個人信用卡在公帳範圍是脫敏的:is_masked 解成脫敏，額度空白、已出帳 0、未出帳款等於家庭代墊、個人消費 0")
+    func maskedCardIsDecoded() async throws {
+        // 測試帳號只有自己一人，錄不到真正的脫敏回應(需要第二個帳號):把上面真實 fixture 的信用卡改成後端 ADR 0015 描述的脫敏樣子。
+        // 這是手改的案例，欄位名稱與型別都沿用真實回應。
+        let recorded = try Fixture.data("accounts-list-household-card-advance.json")
+        var envelope = try #require(try JSONSerialization.jsonObject(with: recorded) as? [String: Any])
+        var rows = try #require(envelope["data"] as? [[String: Any]])
+        rows[0]["user_id"] = "sample-mei"
+        rows[0]["owner_name"] = "小美"
+        rows[0]["credit_limit"] = NSNull()
+        rows[0]["balance"] = 0
+        rows[0]["unbilled"] = 777
+        rows[0]["personal_debt"] = 0
+        rows[0]["is_masked"] = true
+        envelope["data"] = rows
+        stub.reply(status: 200, json: try JSONSerialization.data(withJSONObject: envelope))
+
+        let accounts = try await repository.accounts(scope: .household)
+
+        guard case .creditCard(let card) = accounts[0] else {
+            Issue.record("第一個不是信用卡")
+            return
+        }
+        #expect(card.isMasked)
+        #expect(card.ownerID == UserID("sample-mei"))
+        #expect(card.ownerName == "小美")
+        #expect(card.creditLimit == nil)
+        #expect(card.billedDebt == .zero)
+        #expect(card.unbilledDebt == Money(777))
+        #expect(card.sharedDebt == Money(777))
+        #expect(card.personalDebt == .zero)
+        #expect(card.totalDue == Money(777), "待繳總額就是家庭代墊待繳額")
+    }
+
+    @Test("公帳範圍的餘額摘要把私卡的家庭代墊算進信用卡待繳與淨可用餘額(後端算好，iOS 照用)")
+    func householdBalanceIncludesPrivateCardAdvance() async throws {
+        try stub.reply(status: 200, fixture: "accounts-balance-household-card-advance.json")
+
+        let summary = try await repository.balanceSummary(scope: .household)
+
+        #expect(summary.bankBalanceTotal == Money(6900))
+        #expect(summary.unbilledDebtTotal == Money(777))
+        #expect(summary.availableBalance == Money(6123))
+    }
+
     @Test("帳戶檢視範圍：個人私帳的餘額摘要帶 scope=personal,不含歸屬家庭共同基金的帳戶")
     func personalScopeBalanceSummary() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-personal.json")
@@ -128,7 +197,8 @@ struct AccountsTranslationTests {
             paymentDueDay: 5,
             sharedDebt: .zero,
             personalDebt: Money(15500),
-            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
+            ownerID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d"),
+            ownerName: "iOS 測試帳號"
         )))
     }
 

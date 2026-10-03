@@ -53,6 +53,26 @@ public final class AccountsModel {
         permissions?.current.canModify(account) ?? true
     }
 
+    /// 這張卡在畫面上要脫敏(上游 ADR 0015):他人的個人卡在公帳範圍只看得到家庭代墊待繳額。
+    public func isMasked(_ card: CreditCard) -> Bool {
+        permissions?.current.isMasked(card) ?? card.isMasked
+    }
+
+    /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。
+    func isPrivateCardAdvance(_ card: CreditCard) -> Bool {
+        scope == .household && !card.isJointFund
+    }
+
+    /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「公帳／私帳・N 日繳」。
+    public func caption(for card: CreditCard) -> String {
+        isPrivateCardAdvance(card) ? card.advanceCaption() : card.cardCaption
+    }
+
+    /// VoiceOver 念的整句。
+    public func spokenSummary(of card: CreditCard) -> String {
+        isPrivateCardAdvance(card) ? card.spokenAdvanceSummary(isMasked: isMasked(card)) : card.spokenSummary
+    }
+
     /// 信用卡的還款沖銷、出帳作業、校準:個人信用卡只有持卡人;家庭信用卡全員都可以。
     public func canOperate(_ card: CreditCard) -> Bool {
         permissions?.current.canOperate(card) ?? true

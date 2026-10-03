@@ -190,9 +190,15 @@ private struct AccountDTO: Decodable {
     /// 欠款公私拆解，只有信用卡帳戶有。
     let sharedDebt: Decimal?
     let personalDebt: Decimal?
+    /// 擁有者的名稱。
+    let ownerName: String?
+    /// 他人的個人信用卡在公帳範圍經過脫敏(上游 ADR 0015);沒有這個欄位時是 `nil`。
+    let isMasked: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, balance, unbilled, color
+        case ownerName = "owner_name"
+        case isMasked = "is_masked"
         case userID = "user_id"
         case sharedDebt = "shared_debt"
         case personalDebt = "personal_debt"
@@ -232,7 +238,9 @@ private struct AccountDTO: Decodable {
                 sharedDebt: Money(sharedDebt ?? 0),
                 personalDebt: Money(personalDebt ?? 0),
                 isJointFund: isJoint == 1,
-                ownerID: userID.map(UserID.init)
+                ownerID: userID.map(UserID.init),
+                ownerName: ownerName,
+                isMasked: isMasked ?? false
             ))
         default:
             return nil

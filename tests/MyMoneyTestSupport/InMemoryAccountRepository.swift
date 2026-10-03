@@ -34,7 +34,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 每次查詢帶的帳戶檢視範圍，依順序。
     public private(set) var requestedScopes: [AccountScope] = []
 
-    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):家庭共同基金只留歸屬家庭共同基金的，個人私帳只留個人私帳。
+    /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):公帳範圍只留歸屬公帳的，加上有家庭代墊欠款的個人信用卡;私帳範圍只留私帳。
     public func accounts(scope: AccountScope) async throws -> [Account] {
         await gate?.pass()
         try checkCancellationIfGated()
@@ -42,9 +42,11 @@ public actor InMemoryAccountRepository: AccountRepository {
         requestedScopes.append(scope)
         if let failure { throw failure }
         return switch scope {
-        case .all: storedAccounts
-        case .household: storedAccounts.filter(\.isJointFund)
-        case .personal: storedAccounts.filter { !$0.isJointFund }
+        // 他人的私卡(脫敏的)只在公帳範圍看得到。
+        case .all: storedAccounts.filter { !$0.isMaskedCard }
+        // 跟後端(上游 ADR 0015)一樣:公帳範圍除了歸屬公帳的帳戶，還有「有家庭代墊欠款的個人信用卡」。
+        case .household: storedAccounts.filter { $0.isJointFund || $0.hasSharedDebt }
+        case .personal: storedAccounts.filter { !$0.isJointFund && !$0.isMaskedCard }
         }
     }
 
@@ -312,6 +314,24 @@ public enum SampleAccounts {
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
 
+    /// 家人(小美)的個人信用卡，替家庭代墊了 1,200:公帳範圍才看得到，經過脫敏(上游 ADR 0015)——
+    /// 沒有額度、已出帳 0、未出帳款等於家庭代墊待繳額、個人消費 0。
+    public static let meiCardAdvance = CreditCard(
+        id: AccountID("sample-mei-card"),
+        name: "小美的信用卡",
+        colorHex: "#F38181",
+        billedDebt: .zero,
+        unbilledDebt: Money(1200),
+        creditLimit: nil,
+        statementDay: 10,
+        paymentDueDay: 25,
+        sharedDebt: Money(1200),
+        personalDebt: .zero,
+        ownerID: UserID("sample-mei"),
+        ownerName: "小美",
+        isMasked: true
+    )
+
     /// 個人私帳的現金錢包。
     public static let wallet = CashWallet(
         id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false, ownerID: me
@@ -338,4 +358,16 @@ public enum SampleAccounts {
         monthlySavingsReserve: .zero,
         disposableCash: Money(21500)
     )
+}
+
+extension Account {
+    /// 他人的個人信用卡(經過脫敏)。
+    fileprivate var isMaskedCard: Bool {
+        if case .creditCard(let card) = self { card.isMasked } else { false }
+    }
+
+    /// 個人信用卡上有家庭代墊欠款(公帳範圍會看到這張卡)。
+    fileprivate var hasSharedDebt: Bool {
+        if case .creditCard(let card) = self { !card.isJointFund && card.sharedDebt > .zero } else { false }
+    }
 }

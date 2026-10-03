@@ -50,7 +50,7 @@ struct AccountsTests {
         #expect(model.availableBalance == Money(23000))
     }
 
-    @Test("帳戶檢視範圍預設全部;切到家庭共同基金時，帳戶和資金指標都照這個範圍重新取得")
+    @Test("帳戶檢視範圍預設全部;切到公帳時，帳戶和資金指標都照這個範圍重新取得(公帳範圍多一張有家庭代墊欠款的個人信用卡)")
     func scopeAppliesToAccountsAndSummary() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
         let model = AccountsModel(repository: repository, dataVersion: DataVersion())
@@ -62,7 +62,8 @@ struct AccountsTests {
 
         #expect(await repository.requestedScopes == [.all, .household])
         #expect(await repository.requestedSummaryScopes == [.all, .household])
-        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty && model.creditCards.isEmpty)
+        #expect(model.cashWallets.isEmpty && model.bankAccounts.isEmpty)
+        #expect(model.creditCards.map(\.name) == ["iOS 測試信用卡"], "公帳範圍只留有家庭代墊欠款的個人信用卡(上游 ADR 0015)")
     }
 
     @Test("切換帳戶檢視範圍重新載入期間，維持已載入的內容，不回到骨架屏(web 的二度篩選過渡)", .timeLimit(.minutes(1)))

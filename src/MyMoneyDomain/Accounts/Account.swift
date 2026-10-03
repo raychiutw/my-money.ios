@@ -143,6 +143,13 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 持卡人(後端的 `user_id`):個人信用卡的還款沖銷、出帳作業、校準只有持卡人;資料沒有時是 `nil`。
     public let ownerID: UserID?
 
+    /// 持卡人的名稱(後端的 `owner_name`);資料沒有時是 `nil`。
+    public let ownerName: String?
+
+    /// 他人的個人信用卡在公帳範圍經過脫敏(後端的 `is_masked`，上游 ADR 0015):沒有額度、已出帳 0、
+    /// 未出帳款等於家庭代墊待繳額、個人消費 0，只有家庭代墊待繳額是真的。
+    public let isMasked: Bool
+
     public init(
         id: AccountID,
         name: String,
@@ -155,10 +162,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         sharedDebt: Money = .zero,
         personalDebt: Money = .zero,
         isJointFund: Bool = false,
-        ownerID: UserID? = nil
+        ownerID: UserID? = nil,
+        ownerName: String? = nil,
+        isMasked: Bool = false
     ) {
         self.isJointFund = isJointFund
         self.ownerID = ownerID
+        self.ownerName = ownerName
+        self.isMasked = isMasked
         self.id = id
         self.name = name
         self.colorHex = colorHex

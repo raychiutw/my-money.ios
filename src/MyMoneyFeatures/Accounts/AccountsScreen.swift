@@ -330,7 +330,7 @@ struct AccountsScreen: View {
         } label: {
             NumberCard(
                 title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.totalDue,
-                isWarning: card.isDue, caption: card.cardCaption, spokenText: card.spokenSummary
+                isWarning: card.isDue, caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
             )
         }
         .buttonStyle(.plain)

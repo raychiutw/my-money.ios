@@ -92,22 +92,17 @@ struct CreditCardDetailScreen: View {
 
     private var feesSection: some View {
         Section("卡費") {
-            LabeledContent("信用卡待繳總額", value: card.totalDue.formatted())
-            LabeledContent("已出帳待繳款", value: card.billedDebt.formatted())
-            LabeledContent("未出帳款", value: card.unbilledDebt.formatted())
-            // 欠款公私拆解(畫面上原本叫「負債性質拆解」,section 標題已經表達，不加前綴)。
-            LabeledContent("家庭代墊公帳", value: card.sharedDebt.formatted())
-            LabeledContent("個人私帳消費", value: card.personalDebt.formatted())
+            ForEach(model.feeRows) { row in
+                LabeledContent(row.title, value: row.value)
+            }
         }
         .monospacedDigit()
     }
 
     private var settingsSection: some View {
         Section("設定") {
-            LabeledContent("信用額度", value: card.creditLimit?.formatted() ?? "未設定")
-            // 沒有設定信用額度時沒有剩餘額度(CONTEXT.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
-            if let remaining = card.remainingCredit {
-                LabeledContent("剩餘額度", value: remaining.formatted())
+            ForEach(model.limitRows) { row in
+                LabeledContent(row.title, value: row.value)
             }
             LabeledContent("結帳日", value: Self.monthlyDay(card.statementDay))
             LabeledContent("繳款日", value: Self.monthlyDay(card.paymentDueDay))

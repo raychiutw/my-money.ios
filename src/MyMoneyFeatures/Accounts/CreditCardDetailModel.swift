@@ -54,6 +54,42 @@ public final class CreditCardDetailModel {
         permissions?.current.canOperate(card) ?? true
     }
 
+    /// 這張卡在畫面上要脫敏(上游 ADR 0015):他人的個人卡只看得到家庭代墊待繳額。
+    public var isMasked: Bool {
+        permissions?.current.isMasked(card) ?? card.isMasked
+    }
+
+    /// 「卡費」區塊的各列。脫敏的卡只有家庭代墊是真的，個人帳單與個人消費顯示「隱私遮蔽」。
+    public var feeRows: [CardDetailRow] {
+        if isMasked {
+            return [
+                CardDetailRow("家庭公帳代墊待繳總額", card.sharedDebt.formatted()),
+                CardDetailRow("個人帳單狀態", "隱私遮蔽"),
+                CardDetailRow("公帳代墊待清償", card.sharedDebt.formatted()),
+                CardDetailRow("個人私帳消費", "隱私遮蔽"),
+            ]
+        }
+        return [
+            CardDetailRow("信用卡待繳總額", card.totalDue.formatted()),
+            CardDetailRow("已出帳待繳款", card.billedDebt.formatted()),
+            CardDetailRow("未出帳款", card.unbilledDebt.formatted()),
+            // 欠款公私拆解(畫面上原本叫「負債性質拆解」,section 標題已經表達，不加前綴)。
+            CardDetailRow("家庭代墊公帳", card.sharedDebt.formatted()),
+            CardDetailRow("個人私帳消費", card.personalDebt.formatted()),
+        ]
+    }
+
+    /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
+    /// 沒有設定信用額度時沒有剩餘額度(CONTEXT.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
+    public var limitRows: [CardDetailRow] {
+        guard !isMasked else { return [] }
+        var rows = [CardDetailRow("信用額度", card.creditLimit?.formatted() ?? "未設定")]
+        if let remaining = card.remainingCredit {
+            rows.append(CardDetailRow("剩餘額度", remaining.formatted()))
+        }
+        return rows
+    }
+
     /// 「繳款」選單的項目。
     public var paymentPresets: [CardPaymentModel.Preset] {
         card.paymentPresets
@@ -172,5 +208,18 @@ extension CreditCard {
         if personalDebt > .zero { presets.append(.personal) }
         if totalDue > .zero { presets.append(.full) }
         return presets
+    }
+}
+
+/// 信用卡詳細頁的一列:標題加值(`LabeledContent`)。
+public struct CardDetailRow: Identifiable, Hashable, Sendable {
+    public let title: String
+    public let value: String
+
+    public var id: String { title }
+
+    init(_ title: String, _ value: String) {
+        self.title = title
+        self.value = value
     }
 }

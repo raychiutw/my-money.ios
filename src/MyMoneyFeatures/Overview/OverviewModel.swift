@@ -128,7 +128,13 @@ public final class OverviewModel {
     /// 總覽的帳戶卡片:順序跟帳戶頁一樣(現金錢包、銀行存款帳戶、信用卡)，最多 `accountCardLimit` 張。
     public var accountCards: [OverviewAccountCard] {
         let all = cashWallets.map(OverviewAccountCard.init) + bankAccounts.map(OverviewAccountCard.init)
-            + creditCards.map(OverviewAccountCard.init)
+            + creditCards.map { card in
+                // 公帳視角裡的個人卡是「私卡代墊」(上游 ADR 0015);他人的卡脫敏。
+                OverviewAccountCard(
+                    card, isPrivateCardAdvance: scope.accountScope == .household && !card.isJointFund,
+                    isMasked: permissions?.current.isMasked(card) ?? card.isMasked
+                )
+            }
         return Array(all.prefix(Self.accountCardLimit))
     }
 
@@ -217,17 +223,23 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     public let colorHex: String
     public let amount: Money
     public let kind: Kind
+    /// 公帳視角裡的個人信用卡(私卡代墊，上游 ADR 0015)，以及它是不是脫敏的他人私卡:VoiceOver 念法不同。
+    private let isPrivateCardAdvance: Bool
+    private let isMasked: Bool
 
     init(_ wallet: CashWallet) {
         (id, name, colorHex, amount, kind) = (wallet.id, wallet.name, wallet.colorHex, wallet.balance, .cash)
+        (isPrivateCardAdvance, isMasked) = (false, false)
     }
 
     init(_ account: BankAccount) {
         (id, name, colorHex, amount, kind) = (account.id, account.name, account.colorHex, account.balance, .bank)
+        (isPrivateCardAdvance, isMasked) = (false, false)
     }
 
-    init(_ card: CreditCard) {
+    init(_ card: CreditCard, isPrivateCardAdvance: Bool = false, isMasked: Bool = false) {
         (id, name, colorHex, amount, kind) = (card.id, card.name, card.colorHex, card.totalDue, .creditCard(card))
+        (self.isPrivateCardAdvance, self.isMasked) = (isPrivateCardAdvance, isMasked)
     }
 
     /// 卡片上的類型圖示(用帳戶的代表色)。
@@ -258,8 +270,12 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
         case .cash: "\(name)，現金錢包，餘額 \(amount.spokenText)"
         case .bank: "\(name)，銀行存款帳戶，餘額 \(amount.spokenText)"
         case .creditCard(let card):
-            ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
-                .compactMap { $0 }.joined(separator: "，")
+            if isPrivateCardAdvance {
+                card.spokenAdvanceSummary(isMasked: isMasked)
+            } else {
+                ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
+                    .compactMap { $0 }.joined(separator: "，")
+            }
         }
     }
 }
