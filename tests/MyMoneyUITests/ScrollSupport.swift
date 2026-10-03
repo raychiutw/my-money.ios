@@ -5,8 +5,9 @@ import XCTest
 enum ScrollSupport {
     /// 回傳是不是已經整個露出。找不到或捲不到時回傳 false。
     @MainActor
-    static func revealFully(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
-        let tabBar = app.tabBars.firstMatch
+    static func revealFully(_ element: XCUIElement, in app: XCUIApplication, inSheet: Bool = false) -> Bool {
+        // sheet 蓋住 tab bar:底下只有畫面的下緣。
+        let tabBar = inSheet ? app.tabBars.element(boundBy: 99) : app.tabBars.firstMatch
         let window = app.windows.firstMatch
         let top = window.frame.minY + 130
         for _ in 0..<40 {

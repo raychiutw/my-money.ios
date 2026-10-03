@@ -19,8 +19,16 @@ public final class RecurringEditorModel {
     public var dayOfCycle = 1
     /// 繳費月份(`month_of_cycle`，#131):月繳沒有這個欄位(固定 1)，其他週期依 `monthOptions` 選。
     public var monthOfCycle = 1
-    /// 關聯帳戶;`nil` 是「無特定帳戶」。
-    public var accountID: AccountID?
+    /// 關聯帳戶;`nil` 是「無特定帳戶」。選了帳戶就依帳戶帶入歸屬(家庭公帳的帳戶 → 家庭公帳，個人帳戶 → 個人私帳)，
+    /// 選「無特定帳戶」不動歸屬;之後仍可手動改(上游 ADR 0016，跟 web 的 onChange 一致)。
+    public var accountID: AccountID? {
+        didSet {
+            guard let accountID, let account = accounts.first(where: { $0.id == accountID }) else { return }
+            isShared = account.isJointFund
+        }
+    }
+    /// 歸屬:家庭公帳是 `true`。新增時預設隨視角(`sharedByDefault`)，編輯時是項目目前的歸屬。
+    public var isShared: Bool
 
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
@@ -32,10 +40,14 @@ public final class RecurringEditorModel {
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
 
-    /// 新增：預設週期支出、每月、1 號，關聯帳戶是第一個資產帳戶(在 `prepare()` 帶入)。
-    public init(adding: Void, repository: any RecurringRepository, accounts: any AccountRepository, dataVersion: DataVersion) {
+    /// 新增：預設週期支出、每月、1 號、無特定帳戶;歸屬預設隨視角:家庭公帳視角 → 家庭公帳，其他 → 個人私帳(`sharedByDefault`)。
+    public init(
+        adding: Void, sharedByDefault: Bool = false, repository: any RecurringRepository, accounts: any AccountRepository,
+        dataVersion: DataVersion
+    ) {
         title = "新增週期收支"
         editingID = nil
+        isShared = sharedByDefault
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
@@ -51,6 +63,7 @@ public final class RecurringEditorModel {
         dayOfCycle = item.dayOfCycle
         monthOfCycle = item.monthOfCycle
         accountID = item.accountID
+        isShared = item.isShared
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
@@ -105,7 +118,7 @@ public final class RecurringEditorModel {
         }
         let draft = RecurringDraft(
             name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle,
-            monthOfCycle: cycle.clampedMonth(monthOfCycle), accountID: accountID
+            monthOfCycle: cycle.clampedMonth(monthOfCycle), accountID: accountID, isShared: isShared
         )
         isSaving = true
         defer { isSaving = false }

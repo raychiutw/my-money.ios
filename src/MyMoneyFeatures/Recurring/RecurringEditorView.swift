@@ -75,6 +75,13 @@ struct RecurringEditorView: View {
                     )
                 }
 
+                // 歸屬(上游 ADR 0016):2 個選項用內嵌選擇列，點一下就選(ADR-0004、#90);選了資產帳戶會依帳戶帶入，仍可手動改。
+                Section("歸屬") {
+                    InlineChoiceRows(
+                        [(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared
+                    )
+                }
+
                 if let message = model.errorMessage {
                     Section {
                         Text(message)

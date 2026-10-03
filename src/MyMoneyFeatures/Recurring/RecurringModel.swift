@@ -129,8 +129,12 @@ public final class RecurringModel {
         }
     }
 
+    /// 新增：歸屬預設隨視角(家庭公帳視角 → 家庭公帳，其他 → 個人私帳，跟 web 一致)。
     public func makeEditor() -> RecurringEditorModel {
-        RecurringEditorModel(adding: (), repository: repository, accounts: accountRepository, dataVersion: dataVersion)
+        RecurringEditorModel(
+            adding: (), sharedByDefault: scope == .household, repository: repository, accounts: accountRepository,
+            dataVersion: dataVersion
+        )
     }
 
     public func makeEditor(editing item: RecurringItem) -> RecurringEditorModel {

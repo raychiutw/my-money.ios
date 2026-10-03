@@ -151,6 +151,21 @@ struct RecurringTranslationTests {
         #expect(json["account_id"] == nil)
     }
 
+    @Test("新增與更新送 is_shared(0/1):家庭公帳 1、個人私帳 0")
+    func sendsOwnership() async throws {
+        try stub.reply(status: 201, fixture: "recurring-create-shared.json")
+        try await repository.create(RecurringDraft(
+            name: "iOS 測試網路費", type: .expense, amount: Money(899), cycle: .monthly, dayOfCycle: 12, accountID: nil, isShared: true
+        ))
+        #expect(try body(stub.requests.last)["is_shared"] as? Int == 1)
+
+        try stub.reply(status: 200, fixture: "recurring-update-ownership.json")
+        try await repository.update(RecurringItemID("35510e57-9131-4544-a8fa-0483316fd68a"), with: RecurringDraft(
+            name: "iOS 測試網路費", type: .expense, amount: Money(899), cycle: .monthly, dayOfCycle: 12, accountID: nil, isShared: false
+        ))
+        #expect(try body(stub.requests.last)["is_shared"] as? Int == 0)
+    }
+
     @Test("編輯時 PUT /recurring/:id")
     func updateSendsBody() async throws {
         try stub.reply(status: 200, fixture: "recurring-update.json")

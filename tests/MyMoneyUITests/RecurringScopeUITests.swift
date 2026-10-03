@@ -107,6 +107,36 @@ final class RecurringScopeUITests: XCTestCase {
         XCTAssertGreaterThan(amount.minX, width / 3, "金額貼在左邊:\(amount)")
     }
 
+    /// 新增表單的歸屬(#154):內嵌兩列，勾勾是粉紅;預設隨視角;選了家庭公帳的資產帳戶自動帶成家庭公帳，個人帳戶帶成個人私帳。
+    @MainActor
+    func testOwnershipRowsDefaultAndFollowTheChosenAccount() throws {
+        let app = openRecurring(memberRole: false)
+        app.buttons["recurring.add"].tap()
+        let name = app.textFields["recurringEditor.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3), "沒有打開編輯器")
+        let household = app.buttons["家庭公帳"], personal = app.buttons["個人私帳"]
+        for _ in 0..<6 where !(household.exists && household.isHittable) { app.swipeUp() }
+        XCTAssertTrue(household.exists && personal.exists, "表單沒有歸屬的兩列")
+        XCTAssertTrue(personal.isSelected, "全部視角新增時，歸屬預設是個人私帳")
+        if app.keyboards.firstMatch.exists, app.buttons["完成"].firstMatch.exists { app.buttons["完成"].firstMatch.tap() }
+        XCTAssertTrue(ScrollSupport.revealFully(personal, in: app, inSheet: true), "捲不到歸屬那一列")
+        XCTAssertGreaterThan(try PixelAnalysis.statistics(of: personal.screenshot().image).brandPink, 30, "選取那列的勾勾不是粉紅")
+        XCTAssertEqual(try PixelAnalysis.statistics(of: household.screenshot().image).brandPink, 0, "沒選的那列也有粉紅")
+
+        let account = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "關聯帳戶")).firstMatch
+        for _ in 0..<6 where !(account.exists && account.isHittable) { app.swipeUp() }
+        account.tap()
+        let joint = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "小美的共同基金")).firstMatch
+        XCTAssertTrue(joint.waitForExistence(timeout: 3), "帳戶清單沒有家庭共同基金")
+        joint.tap()
+        for _ in 0..<6 where !household.isHittable { app.swipeUp() }
+        XCTAssertTrue(household.isSelected, "選了家庭公帳的帳戶，歸屬沒有自動帶成家庭公帳")
+
+        // 手動改回個人私帳;再選個人帳戶，會依帳戶重新帶入。
+        personal.tap()
+        XCTAssertTrue(personal.isSelected, "手動改歸屬沒有生效")
+    }
+
     // MARK: 輔助
 
     @MainActor

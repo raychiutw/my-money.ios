@@ -272,4 +272,13 @@ struct RecurringTests {
         let (model, _) = await scoped()
         #expect(model.lockAlertTitle == "不能編輯這個週期收支")
     }
+
+    @Test("新增週期收支的歸屬預設隨視角:家庭公帳視角 → 家庭公帳，其他視角 → 個人私帳")
+    func makeEditorDefaultsOwnershipFromTheScope() async {
+        let (model, _) = await scoped()
+        for (scope, expectedShared) in [(ViewScope.all, false), (.household, true), (.personal, false)] {
+            model.scope = scope
+            #expect(model.makeEditor().isShared == expectedShared, "\(scope)")
+        }
+    }
 }

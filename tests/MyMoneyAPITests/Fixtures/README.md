@@ -93,6 +93,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
 | `forecast-purchase-scope-household.json` | `POST /forecast/purchase-check {amount:10000, scope:household}` | 200 | 不建議購買、`affectedGoals` 空(公帳視角不檢核個人儲蓄目標) |
 | `forecast-purchase-scope-personal.json` | `POST /forecast/purchase-check {amount:10000, scope:personal}` | 200 | 放心購買、`affectedGoals` 帶出儲蓄目標 |
+| `recurring-create-shared.json` | `POST /recurring`,週期支出「iOS 測試網路費」899,`is_shared: 1` | 201 | 回傳 `is_shared`、`user_name`(上游 ADR 0016) |
+| `recurring-update-ownership.json` | `PUT /recurring/:id`,把上面那項改成 `is_shared: 0` | 200 | 回傳更新後的 `is_shared` |
+| `recurring-delete-shared.json` | `DELETE /recurring/:id`,刪除上面那個暫時項目 | 200 | `{success, data: null}` |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 | `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
 | `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |

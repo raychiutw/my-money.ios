@@ -103,10 +103,12 @@ public struct RecurringDraft: Hashable, Sendable {
     public let dayOfCycle: Int
     public let monthOfCycle: Int
     public let accountID: AccountID?
+    /// 歸屬(後端 `is_shared`，上游 ADR 0016):家庭公帳是 `true`。
+    public let isShared: Bool
 
     public init(
         name: String, type: TransactionType, amount: Money, cycle: RecurringCycle, dayOfCycle: Int, monthOfCycle: Int = 1,
-        accountID: AccountID?
+        accountID: AccountID?, isShared: Bool = false
     ) {
         self.name = name
         self.type = type
@@ -115,6 +117,7 @@ public struct RecurringDraft: Hashable, Sendable {
         self.dayOfCycle = dayOfCycle
         self.monthOfCycle = monthOfCycle
         self.accountID = accountID
+        self.isShared = isShared
     }
 }
 

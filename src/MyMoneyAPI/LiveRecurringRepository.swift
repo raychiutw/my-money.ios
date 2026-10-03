@@ -109,12 +109,15 @@ private struct RecurringBody: Encodable {
     let dayOfCycle: Int
     let monthOfCycle: Int
     let accountID: String?
+    /// 0/1(資料表旗標);家庭公帳是 1。
+    let isShared: Int
 
     enum CodingKeys: String, CodingKey {
         case name, type, amount, cycle
         case dayOfCycle = "day_of_cycle"
         case monthOfCycle = "month_of_cycle"
         case accountID = "account_id"
+        case isShared = "is_shared"
     }
 
     init(_ draft: RecurringDraft) {
@@ -125,5 +128,6 @@ private struct RecurringBody: Encodable {
         dayOfCycle = draft.dayOfCycle
         monthOfCycle = draft.monthOfCycle
         accountID = draft.accountID?.rawValue
+        isShared = draft.isShared ? 1 : 0
     }
 }
