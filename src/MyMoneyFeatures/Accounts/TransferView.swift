@@ -52,9 +52,12 @@ struct TransferView: View {
                         displayedComponents: .date
                     )
                     .calendarDayTimeZone()
-                    TextField("備註(選填)", text: $model.note, prompt: Text("例如：超商 ATM 提款"))
-                        .focused($focusedField, equals: .note)
-                        .accessibilityIdentifier("transfer.note")
+                    LabeledContent("備註") {
+                        TextField("備註", text: $model.note, prompt: Text("例如：超商 ATM 提款"))
+                            .focused($focusedField, equals: .note)
+                            .accessibilityIdentifier("transfer.note")
+                    }
+                    .tapToFocus($focusedField, equals: .note)
                 }
 
                 if let message = model.errorMessage {
