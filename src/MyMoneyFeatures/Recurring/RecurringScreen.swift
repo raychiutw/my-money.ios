@@ -174,12 +174,18 @@ private struct RecurringRow: View {
                 texts
                     .frame(minWidth: minimumTextWidth, idealWidth: minimumTextWidth, maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: 4) {
-                    amounts
+                    amountText
+                    amortization
                 }
             }
+            // 堆疊時(無障礙字級):分攤平滑在上、金額在最下面一行，都靠右(#149)。
             VStack(alignment: .leading, spacing: 4) {
                 texts
-                amounts
+                VStack(alignment: .trailing, spacing: 4) {
+                    amortization
+                    amountText
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -205,14 +211,18 @@ private struct RecurringRow: View {
     }
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
-    @ViewBuilder
-    private var amounts: some View {
+    private var amountText: some View {
         // 金額一律帶正負號，收入綠色、支出紅色(DESIGN.md「顏色」)。
         Text(item.type == .income ? "+\(item.amount.formatted())" : "-\(item.amount.formatted())")
             .monospacedDigit()
             .foregroundStyle(item.type == .income ? .green : .red)
             .lineLimit(1)
             .fixedSize()
+    }
+
+    /// 非每月週期支出的每月分攤平滑，例如「$2,000／月」。
+    @ViewBuilder
+    private var amortization: some View {
         if let amortization = item.amortizationText {
             Text(amortization)
                 .font(.subheadline)

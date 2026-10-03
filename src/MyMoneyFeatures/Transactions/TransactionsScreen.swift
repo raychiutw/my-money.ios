@@ -234,7 +234,9 @@ private struct DayHeader: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(day.title)
+                // 堆疊時淨額在最下面一行、靠右(#149)。
                 net
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .monospacedDigit()

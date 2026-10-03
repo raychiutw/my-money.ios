@@ -14,4 +14,22 @@ enum TextRecognition {
         try VNImageRequestHandler(cgImage: cgImage).perform([request])
         return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
     }
+
+    /// 辨識出的一段字與它在圖片裡的位置(0 到 1 的比例,原點在左下)。
+    struct Observation {
+        let text: String
+        let box: CGRect
+    }
+
+    static func observations(in image: UIImage) throws -> [Observation] {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["zh-Hant", "en-US"]
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: cgImage).perform([request])
+        return (request.results ?? []).compactMap { result in
+            result.topCandidates(1).first.map { Observation(text: $0.string, box: result.boundingBox) }
+        }
+    }
 }

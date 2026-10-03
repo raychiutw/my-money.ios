@@ -112,9 +112,10 @@ struct NumberTile: View {
         case .column:
             VStack(alignment: .leading, spacing: 4) {
                 label
-                // 數字靠底:標籤一行或兩行的磚，數字還是在同一條線上。
+                // 數字靠底、靠右:標籤一行或兩行的磚，數字還是在同一條線上(#149:金額一律靠右)。
                 Spacer(minLength: 0)
                 number
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .row:
@@ -148,6 +149,8 @@ struct NumberTile: View {
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
+            // 理想寬度不受縮小影響(欄數照原尺寸判斷);這只是最後的安全網，放不下時縮小也不要切到。
+            .minimumScaleFactor(0.5)
             .foregroundStyle(color)
     }
 
@@ -232,8 +235,8 @@ struct EqualColumnsLayout: Layout {
     }
 }
 
-/// 帳戶卡片(#117):圖示加名稱，下面是大金額，最下面是選填的小字(信用卡的「N 日繳」)。
-/// 放在 `NumberCardGrid` 裡，同一排的卡片一樣高。
+/// 帳戶卡片(#117、#149):第一行圖示加名稱;第二行左邊是選填的小字(歸屬、信用卡的「N 日繳」)，右邊是金額，**金額靠右**單行。
+/// 放在 `NumberCardGrid` 裡，同一排的卡片一樣高。同一行放不下(無障礙字級)時上下堆疊:小字在上、**金額在最下面一行靠右**。
 struct NumberCard: View {
     let title: String
     let symbol: String
@@ -241,9 +244,8 @@ struct NumberCard: View {
     let amount: Money
     /// 警示狀態(例如信用卡有待繳):金額用紅色。
     var isWarning = false
+    /// 金額同一行左邊的小字，例如「個人私帳・5 日繳」;沒有就只有金額。
     var caption: String?
-    /// 金額同一行右邊的小字(總覽信用卡的「5 日繳」，設計稿);放不下時金額先縮小。
-    var trailingText: String?
     /// VoiceOver 念的整句。
     let spokenText: String
 
@@ -258,27 +260,17 @@ struct NumberCard: View {
                 Image(systemName: symbol)
                     .foregroundStyle(symbolColor)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(amount.formatted())
-                    .font(.title3.bold())
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                if let trailingText {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    captionText
                     Spacer(minLength: 4)
-                    Text(trailingText)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .fixedSize()
+                    amountText
                 }
-            }
-            if let caption {
-                Text(caption)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 4) {
+                    captionText
+                    amountText
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -286,6 +278,26 @@ struct NumberCard: View {
         .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
+    }
+
+    @ViewBuilder
+    private var captionText: some View {
+        if let caption {
+            Text(caption)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private var amountText: some View {
+        Text(amount.formatted())
+            .font(.title3.bold())
+            .monospacedDigit()
+            .lineLimit(1)
+            // 理想寬度不受縮小影響;只是最後的安全網。
+            .minimumScaleFactor(0.6)
+            .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
     }
 }
 

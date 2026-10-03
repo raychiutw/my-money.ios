@@ -122,6 +122,7 @@ enum PixelAnalysis {
         func clusters(minGap: Int) -> Int {
             1 + zip(inkColumns, inkColumns.dropFirst()).filter { $1 - $0 >= minGap }.count
         }
+
     }
 
     /// 交易列之類的版面檢查:把截圖切成一條一條有墨跡(跟背景亮度差夠大)的橫帶，回傳每一條的左右邊界與墨跡群數。
