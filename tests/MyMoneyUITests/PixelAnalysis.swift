@@ -25,6 +25,48 @@ enum PixelAnalysis {
     /// 元件中央的範圍(去掉圓角外露的背景):按鈕的填色與字用它判斷。
     static let center = CGRect(x: 0.2, y: 0.2, width: 0.6, height: 0.6)
 
+    /// 元件外緣有沒有外框(圓形底或邊線):沿著貼近邊緣的圓環取樣，有幾成的角度比背景(左上角那一點)亮或暗至少 `minimumDifference`。
+    /// 有玻璃圓鈕時外緣一圈都有邊線或底色(接近 1);只有符號時外緣是背景(接近 0)。淺色玻璃跟背景只差幾個亮度(有些角度幾乎看不出來)，所以門檻很小,但沒有外框時外緣一圈就是背景本身，差距是 0 到 1。
+    static func ringFrameFraction(of image: UIImage, minimumDifference: Int = 4) throws -> Double {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let width = cgImage.width
+        let height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let space = CGColorSpace(name: CGColorSpace.sRGB),
+                let context = CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                )
+            else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        XCTAssertTrue(drawn, "沒辦法讀取截圖的像素")
+        func luma(_ x: Int, _ y: Int) -> Int {
+            let index = (y * width + x) * 4
+            return (Int(pixels[index]) * 299 + Int(pixels[index + 1]) * 587 + Int(pixels[index + 2]) * 114) / 1000
+        }
+        let background = luma(0, 0)
+        let center = (Double(width) / 2, Double(height) / 2)
+        var framed = 0
+        var total = 0
+        for degrees in stride(from: 0, to: 360, by: 5) {
+            let angle = Double(degrees) * .pi / 180
+            var found = false
+            for fraction in stride(from: 0.38, through: 0.495, by: 0.01) {
+                let radius = fraction * Double(width)
+                let x = Int(center.0 + radius * cos(angle)), y = Int(center.1 + radius * sin(angle))
+                guard x >= 0, x < width, y >= 0, y < height else { continue }
+                if abs(luma(x, y) - background) >= minimumDifference { found = true; break }
+            }
+            total += 1
+            if found { framed += 1 }
+        }
+        return Double(framed) / Double(max(total, 1))
+    }
+
     /// `region` 是要看的範圍，座標是圖片的比例(0 到 1);預設整張。
     static func statistics(of image: UIImage, region: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)) throws -> Statistics {
         let cgImage = try XCTUnwrap(image.cgImage)

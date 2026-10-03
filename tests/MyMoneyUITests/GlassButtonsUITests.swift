@@ -89,6 +89,42 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
+    func testMoreMenusHaveNoFrameInLight() throws {
+        try assertMoreMenusHaveNoFrame(appearance: .light)
+    }
+
+    @MainActor
+    func testMoreMenusHaveNoFrameInDark() throws {
+        try assertMoreMenusHaveNoFrame(appearance: .dark)
+    }
+
+    /// 區塊標題的「…」只剩符號、沒有外框(使用者要求，#137):元件外緣一圈跟背景一樣;有玻璃圓鈕時外緣一圈都有邊線或底色。
+    /// 可點範圍仍至少 44×44pt，選單項目還在。
+    @MainActor
+    private func assertMoreMenusHaveNoFrame(appearance: XCUIDevice.Appearance) throws {
+        XCUIDevice.shared.appearance = appearance
+        let app = launchSignedIn()
+        let name = appearance == .dark ? "深色" : "淺色"
+        for identifier in ["overview.accounts.more", "overview.recent.more"] {
+            let more = app.buttons[identifier]
+            for _ in 0..<8 where !(more.exists && more.isHittable) { app.swipeUp() }
+            XCTAssertTrue(more.exists, "\(name):沒有 \(identifier)")
+            XCTAssertGreaterThanOrEqual(more.frame.width, 44, "\(name):\(identifier) 寬度不到 44pt:\(more.frame)")
+            XCTAssertGreaterThanOrEqual(more.frame.height, 44, "\(name):\(identifier) 高度不到 44pt:\(more.frame)")
+            let image = more.screenshot().image
+            let ring = try PixelAnalysis.ringFrameFraction(of: image)
+            XCTAssertLessThan(ring, 0.1, "\(name):\(identifier) 還有外框(外緣一圈有 \(ring) 跟背景不同)")
+            // 符號本身(三個點)還在:元件中央有跟背景不同的像素。
+            let symbol = try PixelAnalysis.statistics(of: image, region: PixelAnalysis.center)
+            XCTAssertGreaterThan(symbol.darkFraction + symbol.lightFraction, 0.005, "\(name):\(identifier) 連符號都看不到")
+        }
+        let recentMore = app.buttons["overview.recent.more"]
+        recentMore.tap()
+        XCTAssertTrue(app.buttons["查看全部交易"].waitForExistence(timeout: 3), "\(name):選單沒有「查看全部交易」")
+        XCTAssertTrue(app.buttons["記一筆"].exists, "\(name):選單沒有「記一筆」")
+    }
+
+    @MainActor
     func testTransferCapsuleIsFilledMonochromeInLight() throws {
         try assertTransferCapsule(appearance: .light)
     }
