@@ -16,6 +16,15 @@ public final class ForecastModel {
     /// 資料回來之前是 `nil`:畫面不會先顯示「安全」或 $0(parity 刻意偏離第 7 項)。
     public private(set) var forecast: CashFlowForecast?
 
+    /// 視角(上游 ADR 0016):預設全部;選過的視角記在 UserDefaults。換視角時購買力試算的結果清掉。
+    public var scope: ViewScope {
+        didSet {
+            defaults.set(scope.rawValue, forKey: Self.scopeKey)
+            purchaseCheck = nil
+            purchaseError = nil
+        }
+    }
+
     public var purchaseAmountText = ""
     public private(set) var purchaseCheck: PurchaseCheck?
     public private(set) var purchaseError: String?
@@ -24,20 +33,27 @@ public final class ForecastModel {
     @ObservationIgnored private let repository: any ForecastRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var loadedScope: ViewScope?
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
+
+    private static let scopeKey = "forecast.scope"
 
     /// `locale` 決定日期的格式，預設跟著系統;`today` 決定日期要不要寫年份。
     public init(
         repository: any ForecastRepository,
         dataVersion: DataVersion,
+        defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.dataVersion = dataVersion
+        self.defaults = defaults
         self.locale = locale
         self.today = today
+        scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
     }
 
     /// 預測裡的日期(預定收支日、逐日餘額),例如「10月5日」,不是今年的加上年份(DESIGN.md「日期」)。
@@ -53,18 +69,25 @@ public final class ForecastModel {
 
     public func load() async {
         let version = dataVersion.value
+        let scope = scope
         do {
-            forecast = try await repository.forecast()
+            let loaded = try await repository.forecast(scope: scope)
+            // 被取消(換了視角)或已經過期的結果不套用。
+            guard !Task.isCancelled, scope == self.scope else { return }
+            forecast = loaded
             loadedVersion = version
+            loadedScope = scope
             phase = .loaded
         } catch {
+            // 被取消的載入不是載入失敗;下一次載入會更新畫面。
+            guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
     }
 
-    /// 資料版本在上一次載入之後改變過，才重新載入。
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
     }
 
@@ -78,9 +101,14 @@ public final class ForecastModel {
         }
         isChecking = true
         defer { isChecking = false }
+        let scope = scope
         do {
-            purchaseCheck = try await repository.checkPurchase(amount)
+            let check = try await repository.checkPurchase(amount, scope: scope)
+            // 試算期間換了視角:舊視角的結論不套用。
+            guard scope == self.scope else { return }
+            purchaseCheck = check
         } catch {
+            guard scope == self.scope else { return }
             purchaseCheck = nil
             let message = error.localizedDescription
             purchaseError = message.isEmpty ? "檢查失敗" : message

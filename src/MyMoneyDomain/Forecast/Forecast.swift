@@ -71,7 +71,9 @@ public struct PurchaseCheck: Hashable, Sendable {
 
 /// 現金流預測(`/forecast`)。
 public protocol ForecastRepository: Sendable {
-    func forecast() async throws -> CashFlowForecast
+    /// 這個視角的 30 天預測(上游 ADR 0016):起始餘額、預定收支都由後端依視角算好。
+    func forecast(scope: ViewScope) async throws -> CashFlowForecast
 
-    func checkPurchase(_ amount: Money) async throws -> PurchaseCheck
+    /// 這個視角的購買力試算;公帳視角後端不檢核成員個人的儲蓄目標。
+    func checkPurchase(_ amount: Money, scope: ViewScope) async throws -> PurchaseCheck
 }

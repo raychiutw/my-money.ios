@@ -88,6 +88,11 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-list-scope-personal.json` | `GET /recurring?scope=personal` | 200 | 我建立的個人私帳項目 |
 | `recurring-amortize-scope-all.json` | `GET /recurring/amortize?scope=all` | 200 | 除了 `monthly_expense`、`monthly_income`,後端也回 `items`(iOS 不解碼) |
 | `recurring-amortize-scope-household.json` | `GET /recurring/amortize?scope=household` | 200 | 兩個合計都是 0 |
+| `forecast-scope-all.json` | `GET /forecast?scope=all`(上游 ADR 0016、0017 起) | 200 | 含「💳 繳卡費 · 卡名」事件(信用卡繳款日,金額是該視角應負擔的已出帳待繳款);`minDate` 永遠有值 |
+| `forecast-scope-household.json` | `GET /forecast?scope=household` | 200 | 測試帳號不在任何家庭:起始餘額 6900、沒有事件、最低餘額發生在第一天 |
+| `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
+| `forecast-purchase-scope-household.json` | `POST /forecast/purchase-check {amount:10000, scope:household}` | 200 | 不建議購買、`affectedGoals` 空(公帳視角不檢核個人儲蓄目標) |
+| `forecast-purchase-scope-personal.json` | `POST /forecast/purchase-check {amount:10000, scope:personal}` | 200 | 放心購買、`affectedGoals` 帶出儲蓄目標 |
 | `export-recurring.csv` | `GET /export/recurring` | 200,`text/csv` | UTF-8 加 BOM 的 CSV 原樣回傳 |
 | `goals-list-empty.json` | `GET /goals`,測試帳號還沒有任何儲蓄目標時 | 200 | 空清單 |
 | `goals-create-trip.json` | `POST /goals`,✈️「沖繩旅遊」60000,每月預留 5000,截止日 2027-03-31 | 201 | 建立成功 |

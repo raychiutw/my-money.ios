@@ -12,11 +12,21 @@ struct ForecastScreen: View {
         case amount
     }
 
+    private struct QueryKey: Hashable {
+        let scope: ViewScope
+        let version: Int
+    }
+
     var body: some View {
         content
             .skeletonTransition(value: model.phase)
             .navigationTitle("現金流預測")
-            .task(id: model.dataVersion.value) {
+            .navigationSubtitle(model.scope.title)
+            .toolbar {
+                ScopeFilter("視角", scope: $model.scope, identifier: "forecast.scope")
+            }
+            // 視角或資料版本改變就重抓。
+            .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
                 await model.refreshIfStale()
             }
             .keyboardDismissal(clearing: $focusedField)

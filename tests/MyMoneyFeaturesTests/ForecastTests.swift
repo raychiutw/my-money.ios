@@ -168,4 +168,86 @@ struct ForecastTests {
         await model.refreshIfStale()
         #expect(await repository.fetchCount > fetches)
     }
+
+    // MARK: 視角(上游 ADR 0016、#153)
+
+    private func scoped(
+        gate: Gate? = nil, defaults: UserDefaults? = nil
+    ) -> (ForecastModel, InMemoryForecastRepository) {
+        let sample = InMemoryForecastRepository.sample(today: today)
+        let repository = gate == nil ? sample : InMemoryForecastRepository(
+            forecasts: Dictionary(uniqueKeysWithValues: ViewScope.allCases.map { ($0, CashFlowForecast(
+                dailyBalances: [DailyBalance(date: today, balance: Money(Decimal($0 == .all ? 1 : 2)))],
+                minBalance: Money(Decimal($0 == .all ? 1 : 2)), minDate: today, willOverdraft: false, events: []
+            )) }),
+            gate: gate
+        ) { amount, _ in PurchaseCheck(amount: amount, verdict: .safe, minBalance: .zero, affectedGoalNames: []) }
+        let model = ForecastModel(
+            repository: repository, dataVersion: DataVersion(),
+            defaults: defaults ?? UserDefaults(suiteName: "ForecastTests.\(UUID().uuidString)")!, today: { today }
+        )
+        return (model, repository)
+    }
+
+    @Test("視角預設是全部;選過的視角記在 UserDefaults，下次沿用")
+    func scopeIsRemembered() {
+        let suite = "ForecastTests.remember.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let (first, _) = scoped(defaults: defaults)
+        #expect(first.scope == .all)
+
+        first.scope = .personal
+        let (second, _) = scoped(defaults: defaults)
+
+        #expect(second.scope == .personal)
+    }
+
+    @Test("預測與購買力試算一律明確帶視角(全部也帶);起始餘額、最低餘額隨視角")
+    func requestsFollowTheScope() async {
+        let (model, repository) = scoped()
+
+        await model.load()
+        #expect(model.forecast?.minBalance == Money(53440))
+
+        model.scope = .household
+        await model.load()
+        #expect(model.forecast?.minBalance == Money(18000), "公帳視角只算家庭公帳的帳戶與項目")
+
+        model.purchaseAmountText = "10000"
+        await model.checkPurchase()
+        #expect(model.purchaseCheck?.minBalance == Money(8000))
+        #expect(model.purchaseCheck?.affectedGoalNames == [], "公帳視角的試算不檢核個人儲蓄目標")
+        #expect(await repository.requestedScopes == [.all, .household])
+        #expect(await repository.checkedScopes == [.household])
+    }
+
+    @Test("換視角時購買力試算的結果清掉(不留上一個視角的結論)")
+    func changingScopeClearsThePurchaseCheck() async {
+        let (model, _) = scoped()
+        await model.load()
+        model.purchaseAmountText = "1000"
+        await model.checkPurchase()
+        #expect(model.purchaseCheck != nil)
+
+        model.scope = .personal
+
+        #expect(model.purchaseCheck == nil)
+        #expect(model.purchaseError == nil)
+    }
+
+    @Test("換了視角之後才回來的舊視角回應不蓋掉畫面", .timeLimit(.minutes(1)))
+    func staleScopeResponseIsDropped() async {
+        let gate = Gate()
+        let (model, _) = scoped(gate: gate)
+
+        let loading = Task { await model.load() }
+        await gate.waitUntilReached()
+        model.scope = .personal
+        await gate.open()
+        await loading.value
+
+        #expect(model.forecast == nil, "全部視角的舊回應不該套用到個人私帳")
+        #expect(model.phase == .loading)
+    }
 }
