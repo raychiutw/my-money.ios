@@ -41,12 +41,12 @@ final class AccountsUITests: XCTestCase {
         for _ in 0..<5 where !bank.exists { app.swipeUp() }
         XCTAssertTrue(bank.exists)
         // 信用卡標示公帳或私帳(web 的 bd0507b、上游 ADR 0014)。整列念成一句話，第 2 行只放繳款日(#73)。
-        let card = app.buttons["iOS 測試信用卡，私帳，信用卡待繳總額 15,500 元，每月 5 日繳款"]
+        let card = app.buttons["iOS 測試信用卡，個人私帳，信用卡待繳總額 15,500 元，每月 5 日繳款"]
         for _ in 0..<5 where !card.exists { app.swipeUp() }
         XCTAssertTrue(card.exists, "信用卡不是卡片(名稱、私帳、信用卡待繳總額、繳款日)")
         XCTAssertEqual(card.identifier, "accounts.card.sample-card", "信用卡卡片的識別碼不對")
         // 小額卡在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        let lowLimit = app.buttons["iOS 測試小額卡，私帳，信用卡待繳總額 13,000 元，每月 20 日繳款"]
+        let lowLimit = app.buttons["iOS 測試小額卡，個人私帳，信用卡待繳總額 13,000 元，每月 20 日繳款"]
         for _ in 0..<5 where !lowLimit.exists { app.swipeUp() }
         XCTAssertTrue(lowLimit.exists, "小額卡不是卡片")
         XCTAssertFalse(element(in: app, labelContaining: "負債性質拆解").exists, "帳戶頁還有負債性質拆解，應該移到詳細頁")
@@ -68,11 +68,11 @@ final class AccountsUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的帳戶檢視範圍")
 
         filter.tap()
-        for option in ["全部", "公帳", "私帳"] {
+        for option in ["全部", "家庭公帳", "個人私帳"] {
             XCTAssertTrue(app.buttons[option].waitForExistence(timeout: 3), "帳戶檢視範圍選單裡沒有「\(option)」")
         }
-        app.buttons["公帳"].tap()
-        XCTAssertEqual(filter.value as? String, "公帳", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
+        app.buttons["家庭公帳"].tap()
+        XCTAssertEqual(filter.value as? String, "家庭公帳", "切換帳戶檢視範圍後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 銀行存款帳戶區塊在統計卡和現金錢包區塊下面，捲下去才在 UI 階層裡。
         let empty = element(in: app, labelContaining: "目前此範圍無銀行存款帳戶")
@@ -305,7 +305,7 @@ final class AccountsUITests: XCTestCase {
             app.tabBars.buttons["帳戶"].tap()
             XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
 
-            let mei = element(in: app, labelContaining: "小美的共同基金,餘額 8,000 元,公帳")
+            let mei = element(in: app, labelContaining: "小美的共同基金,餘額 8,000 元,家庭公帳")
             let tabBarTop = app.tabBars.firstMatch.frame.minY
             for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
             XCTAssertTrue(mei.exists, "沒有看到小美建立的家庭共同基金")
@@ -345,14 +345,14 @@ final class AccountsUITests: XCTestCase {
 
         // 全部範圍:他人的私卡不在。
         let tabBarTop = app.tabBars.firstMatch.frame.minY
-        for _ in 0..<8 where !element(in: app, labelContaining: "iOS 測試信用卡，私帳").exists { app.swipeUp() }
+        for _ in 0..<8 where !element(in: app, labelContaining: "iOS 測試信用卡，個人私帳").exists { app.swipeUp() }
         XCTAssertFalse(element(in: app, labelContaining: "小美的信用卡").exists, "全部範圍不該看到他人的私卡")
         for _ in 0..<8 { app.swipeDown() }
 
         let filter = app.buttons["accounts.scope"]
         filter.tap()
-        app.buttons["公帳"].tap()
-        XCTAssertEqual(filter.value as? String, "公帳")
+        app.buttons["家庭公帳"].tap()
+        XCTAssertEqual(filter.value as? String, "家庭公帳")
 
         let mei = app.buttons["小美的信用卡，私卡代墊，持卡人 小美，家庭代墊待繳額 1,200 元，每月 25 日繳款"]
         for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
@@ -386,7 +386,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
         let filter = app.buttons["accounts.scope"]
         filter.tap()
-        app.buttons["公帳"].tap()
+        app.buttons["家庭公帳"].tap()
 
         let mei = app.buttons["小美的信用卡，私卡代墊，持卡人 小美，家庭代墊待繳額 1,200 元，每月 25 日繳款"]
         let tabBarTop = app.tabBars.firstMatch.frame.minY
@@ -405,7 +405,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertEqual(amount.value as? String, "1200", "金額沒有帶入家庭代墊待繳額")
         XCTAssertTrue(app.staticTexts["cardPayment.fixedShared"].exists || element(in: app, labelContaining: "僅限自家庭共同帳戶沖抵他人私卡之家庭代墊款").exists, "沒有說明歸屬固定公帳")
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
-        XCTAssertFalse(form.buttons["私帳"].exists, "他人私卡的還款不該有私帳可選")
+        XCTAssertFalse(form.buttons["個人私帳"].exists, "他人私卡的還款不該有私帳可選")
 
         let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
         bankRow.tap()
@@ -446,7 +446,7 @@ final class AccountsUITests: XCTestCase {
 
         let filter = app.buttons["accounts.scope"]
         filter.tap()
-        app.buttons["公帳"].tap()
+        app.buttons["家庭公帳"].tap()
         let banner = element(in: app, labelContaining: "家庭公帳待報銷代墊款 $850")
         XCTAssertTrue(banner.waitForExistence(timeout: 5), "公帳範圍沒有待報銷橫幅")
         let open = app.buttons["accounts.pendingAdvances.open"]

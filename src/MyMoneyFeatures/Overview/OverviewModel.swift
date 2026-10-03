@@ -93,12 +93,12 @@ public final class OverviewModel {
 
     public var monthNet: Money { monthIncome - monthExpense }
 
-    /// 標題隨視角改變;「私帳」是我記的全部(parity 刻意偏離第 9 項)。
+    /// 標題隨視角改變;「個人私帳」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
         switch scope {
         case .all: "當月淨收支"
-        case .household: "當月淨收支(公帳)"
-        case .personal: "當月淨收支(私帳)"
+        case .household: "當月淨收支(\(OwnershipName.household))"
+        case .personal: "當月淨收支(\(OwnershipName.personal))"
         }
     }
 
@@ -316,15 +316,15 @@ extension AccountScope {
     public var emptyAccountsTitle: String {
         switch self {
         case .all: "尚未建立帳戶"
-        case .household: "目前無公帳帳戶"
-        case .personal: "目前無私帳帳戶"
+        case .household: "目前無\(OwnershipName.household)帳戶"
+        case .personal: "目前無\(OwnershipName.personal)帳戶"
         }
     }
 
     /// 空狀態的說明，附「前往帳戶管理」。
     public var emptyAccountsHint: String {
         switch self {
-        case .household: "至帳戶管理將帳戶歸屬設為公帳即可在此呈現"
+        case .household: "至帳戶管理將帳戶歸屬設為\(OwnershipName.household)即可在此呈現"
         case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
         }
     }

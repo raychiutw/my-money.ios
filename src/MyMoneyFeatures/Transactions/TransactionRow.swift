@@ -103,7 +103,7 @@ struct TransactionRow: View {
         if !transaction.note.isEmpty { parts.append(transaction.note) }
         parts.append("帳戶 \(account)")
         if let recorder { parts.append("記帳人 \(recorder)") }
-        parts.append(transaction.isShared ? "公帳" : "私帳")
+        parts.append(OwnershipName.title(isShared: transaction.isShared))
         parts.append(transaction.spokenAmount)
         if let lockReason { parts.append(lockReason) }
         return parts.joined(separator: "，")

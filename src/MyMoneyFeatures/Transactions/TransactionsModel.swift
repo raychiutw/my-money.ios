@@ -288,7 +288,7 @@ public final class TransactionsModel {
     public func lockReason(for transaction: Transaction) -> String? {
         if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
         if canModify(transaction) { return nil }
-        return transaction.isShared ? "他人記錄的公帳，僅記錄者或家庭管理員可以編輯、刪除" : "他人的私帳，僅記錄者本人可以編輯、刪除"
+        return transaction.isShared ? "他人記錄的\(OwnershipName.household)，僅記錄者或家庭管理員可以編輯、刪除" : "他人的\(OwnershipName.personal)，僅記錄者本人可以編輯、刪除"
     }
 
     /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。

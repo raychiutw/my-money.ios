@@ -25,9 +25,9 @@ final class StatisticsUITests: XCTestCase {
         XCTAssertEqual(filter.label, "視角", "篩選按鈕的 VoiceOver 標籤不是「視角」")
         XCTAssertEqual(filter.value as? String, "全部", "篩選按鈕的 VoiceOver 值不是目前的視角")
 
-        choose("私帳", from: filter, in: app)
+        choose("個人私帳", from: filter, in: app)
         XCTAssertTrue(element(in: app, labelContaining: "當月家庭公帳總額").waitForNonExistence(timeout: 5), "私帳視角還看得到公帳代墊款")
-        XCTAssertEqual(filter.value as? String, "私帳", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
+        XCTAssertEqual(filter.value as? String, "個人私帳", "切換視角後篩選按鈕的 VoiceOver 值沒有跟著變")
 
         // 範例的預算額度：餐飲 100,已花 120。
         let dining = app.buttons["budgets.row.餐飲"]

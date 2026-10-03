@@ -22,7 +22,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(expense.exists, "沒有看到本月的交易記錄")
         for _ in 0..<6 where !element(in: app, labelContaining: "收入 45,000 元").exists { app.swipeUp() }
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
-        XCTAssertTrue(element(in: app, labelContaining: "私帳").exists)
+        XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         for _ in 0..<8 where !app.buttons["transactions.filter"].isHittable { app.swipeDown() }
         // 預設的範圍是本月 1 號到台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertEqual(
@@ -64,7 +64,7 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         let sheet = app.navigationBars["篩選"]
         XCTAssertTrue(sheet.waitForExistence(timeout: 3), "點篩選按鈕沒有打開「篩選」sheet")
-        XCTAssertTrue(app.segmentedControls.buttons["公帳"].exists, "篩選 sheet 裡沒有視角的分段控制")
+        XCTAssertTrue(app.segmentedControls.buttons["家庭公帳"].exists, "篩選 sheet 裡沒有視角的分段控制")
         // 迄日的 DatePicker 是台灣時間的今天。CI 的模擬器在 UTC,以前會顯示成前一天。
         XCTAssertTrue(
             app.buttons.matching(NSPredicate(format: "value == %@", Self.taipeiToday())).firstMatch.exists,
@@ -343,7 +343,7 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["交易"].tap()
 
-        let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，公帳，支出 120 元"]
+        let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元"]
         XCTAssertTrue(lunch.waitForExistence(timeout: 5), "午餐那一列沒有念成一句完整的話")
         XCTAssertTrue(
             app.staticTexts[Self.taipeiTodayHeader()].exists,
@@ -357,7 +357,7 @@ final class TransactionsUITests: XCTestCase {
         )
 
         // 沒有備註的列用分類名稱，不重複念兩次。薪資在本月 1 號，在清單最下面。
-        let salary = app.descendants(matching: .any)["薪資，帳戶 iOS 測試存款，公帳，收入 45,000 元"]
+        let salary = app.descendants(matching: .any)["薪資，帳戶 iOS 測試存款，家庭公帳，收入 45,000 元"]
         for _ in 0..<5 where !salary.exists { app.swipeUp() }
         XCTAssertTrue(salary.exists, "沒有備註的列沒有用分類名稱念成一句話")
     }
@@ -383,16 +383,16 @@ final class TransactionsUITests: XCTestCase {
         let form = app.collectionViews.containing(.textField, identifier: "quickEntry.amount").firstMatch
         XCTAssertEqual(form.segmentedControls.count, 0, "記一筆的表單裡還有分段控制")
         // 歸屬是內嵌選擇列:兩列都攤開，預設選在家庭公帳，點一下就換(ADR-0004、#90)。
-        XCTAssertTrue(app.buttons["公帳"].isSelected, "記一筆的歸屬預設不是公帳")
-        app.buttons["私帳"].tap()
-        XCTAssertTrue(app.buttons["私帳"].isSelected, "點一下私帳之後沒有選起來")
+        XCTAssertTrue(app.buttons["家庭公帳"].isSelected, "記一筆的歸屬預設不是公帳")
+        app.buttons["個人私帳"].tap()
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "點一下私帳之後沒有選起來")
 
         amount.tap()
         amount.typeText("250")
         app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
         let added = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "收入 250 元", "私帳")
+            NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "收入 250 元", "個人私帳")
         ).firstMatch
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有私帳的收入 250 元")
     }
@@ -409,15 +409,15 @@ final class TransactionsUITests: XCTestCase {
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
-        XCTAssertTrue(element(in: app, labelContaining: "私帳").exists)
+        XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         headphones.tap()
-        let shared = app.buttons["公帳"]
+        let shared = app.buttons["家庭公帳"]
         XCTAssertTrue(shared.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選項")
-        XCTAssertTrue(app.buttons["私帳"].isSelected, "編輯的是私帳，歸屬卻沒有選在私帳")
+        XCTAssertTrue(app.buttons["個人私帳"].isSelected, "編輯的是私帳，歸屬卻沒有選在私帳")
         shared.tap()
         app.buttons["quickEntry.save"].tap()
         // 範例資料裡只有耳機是個人私帳;改成家庭公帳之後，列表上就沒有個人私帳了。
-        XCTAssertTrue(element(in: app, labelContaining: "私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
+        XCTAssertTrue(element(in: app, labelContaining: "個人私帳").waitForNonExistence(timeout: 5), "編輯後歸屬沒有更新")
 
         // 上面有摘要，列表可能在畫面下方。iOS 26 的 tab bar 浮在內容上，被它蓋住的列 isHittable 仍然是 true,
         // 左滑卻會滑在 tab bar 上:先捲到畫面上方 3/4 以內，左滑才滑得出「刪除」。

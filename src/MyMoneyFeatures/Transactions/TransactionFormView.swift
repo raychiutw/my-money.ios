@@ -74,8 +74,8 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
-                        Text("公帳").tag(true)
-                        Text("私帳").tag(false)
+                        Text(OwnershipName.household).tag(true)
+                        Text(OwnershipName.personal).tag(false)
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()

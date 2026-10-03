@@ -15,7 +15,7 @@ public final class AccountsModel {
 
     public private(set) var phase: Phase = .loading
 
-    /// 帳戶檢視範圍(web 的「檢視範圍」):全部、公帳、私帳。
+    /// 帳戶檢視範圍(web 的「檢視範圍」):全部、家庭公帳、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
     public var scope: AccountScope = .all
 
@@ -88,7 +88,7 @@ public final class AccountsModel {
         (loadedScope ?? scope) == .household && !card.isJointFund
     }
 
-    /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「公帳／私帳・N 日繳」。
+    /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「家庭公帳／個人私帳・N 日繳」。
     public func caption(for card: CreditCard) -> String {
         isPrivateCardAdvance(card) ? card.advanceCaption() : card.cardCaption
     }
@@ -259,10 +259,10 @@ extension AccountKind {
 }
 
 extension Account {
-    /// 帳戶選單項目的副標題：類型加歸屬，例如「現金錢包・私帳」。選擇列的值只放名稱，餘額另起一列「可用餘額」
+    /// 帳戶選單項目的副標題：類型加歸屬，例如「現金錢包・個人私帳」。選擇列的值只放名稱，餘額另起一列「可用餘額」
     /// (DESIGN.md「列與欄位」第 7 條，#78)。類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄);
-    /// 歸屬寫公帳或私帳(上游 ADR 0014，#138)。
-    public var menuSubtitle: String { "\(kind.title)・\(isJointFund ? "公帳" : "私帳")" }
+    /// 歸屬寫完整名稱(#150)。
+    public var menuSubtitle: String { "\(kind.title)・\(OwnershipName.title(isShared: isJointFund))" }
 
     /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有「餘額」,是 `nil`。
     public var fundsBalance: Money? {

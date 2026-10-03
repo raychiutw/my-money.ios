@@ -24,8 +24,8 @@ struct CardPaymentView: View {
                         LabeledContent("信用卡待繳總額", value: model.card.totalDue.formatted())
                         LabeledContent("已出帳待繳款", value: model.card.billedDebt.formatted())
                         LabeledContent("未出帳款", value: model.card.unbilledDebt.formatted())
-                        LabeledContent("公帳", value: model.card.sharedDebt.formatted())
-                        LabeledContent("私帳", value: model.card.personalDebt.formatted())
+                        LabeledContent(OwnershipName.household, value: model.card.sharedDebt.formatted())
+                        LabeledContent(OwnershipName.personal, value: model.card.personalDebt.formatted())
                     }
                 } header: {
                     Text(model.card.name)
@@ -59,15 +59,15 @@ struct CardPaymentView: View {
                 if model.isMaskedCard {
                     // 他人的私卡只能從共同基金繳家庭代墊，歸屬固定公帳，不給選(上游 ADR 0015)。
                     Section("歸屬") {
-                        Label("公帳（僅限自家庭共同帳戶沖抵他人私卡之家庭代墊款）", systemImage: "house.fill")
+                        Label("\(OwnershipName.household)（僅限自家庭共同帳戶沖抵他人私卡之家庭代墊款）", systemImage: "house.fill")
                             .accessibilityIdentifier("cardPayment.fixedShared")
                     }
                 } else {
                     // 歸屬:2 個選項用內嵌選擇列，點一下就選(ADR-0004、#90)。
                     Section("歸屬") {
                         Picker("歸屬", selection: $model.isShared) {
-                            Text("公帳").tag(true)
-                            Text("私帳").tag(false)
+                            Text(OwnershipName.household).tag(true)
+                            Text(OwnershipName.personal).tag(false)
                         }
                         .pickerStyle(.inline)
                         .labelsHidden()

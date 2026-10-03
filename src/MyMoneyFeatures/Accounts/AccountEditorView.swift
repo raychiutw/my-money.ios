@@ -42,7 +42,7 @@ struct AccountEditorView: View {
                     }
                 }
 
-                // 所有類型都能設歸屬，選項是私帳和公帳(上游 ADR 0014);預設私帳。
+                // 所有類型都能設歸屬，選項是個人私帳和家庭公帳(上游 ADR 0014);預設個人私帳。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isJointFund) {
                         ForEach(model.ownershipChoices, id: \.isJointFund) { choice in

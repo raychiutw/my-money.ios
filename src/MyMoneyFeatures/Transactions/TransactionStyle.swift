@@ -58,7 +58,7 @@ struct LedgerBadge: View {
     let isShared: Bool
 
     var body: some View {
-        Label(isShared ? "公帳" : "私帳", systemImage: isShared ? "house.fill" : "lock.fill")
+        Label(OwnershipName.title(isShared: isShared), systemImage: isShared ? "house.fill" : "lock.fill")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .labelStyle(.titleAndIcon)

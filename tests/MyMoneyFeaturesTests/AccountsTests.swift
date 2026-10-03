@@ -10,10 +10,10 @@ struct AccountsTests {
     /// 類型照實標示(web 的週期收支把現金錢包標成「信用卡」,不照抄)。
     @Test("帳戶選單：標題只放名稱，副標題是正確的類型")
     func menuTitlesShowAccountKind() {
-        #expect(Account.cash(SampleAccounts.wallet).menuSubtitle == "現金錢包・私帳")
-        #expect(Account.bank(SampleAccounts.savings).menuSubtitle == "銀行存款帳戶・私帳")
-        #expect(Account.creditCard(SampleAccounts.card).menuSubtitle == "信用卡・私帳")
-        #expect(Account.bank(SampleAccounts.meiJointFund).menuSubtitle == "銀行存款帳戶・公帳")
+        #expect(Account.cash(SampleAccounts.wallet).menuSubtitle == "現金錢包・個人私帳")
+        #expect(Account.bank(SampleAccounts.savings).menuSubtitle == "銀行存款帳戶・個人私帳")
+        #expect(Account.creditCard(SampleAccounts.card).menuSubtitle == "信用卡・個人私帳")
+        #expect(Account.bank(SampleAccounts.meiJointFund).menuSubtitle == "銀行存款帳戶・家庭公帳")
         #expect(ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank).menuSubtitle == "銀行存款帳戶")
     }
 

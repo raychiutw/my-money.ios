@@ -108,7 +108,7 @@ final class HouseholdUITests: XCTestCase {
         fundAmount.typeText("5000")
         // 歸屬選「公帳」(所有類型都一樣，跟 web 一樣;上游 ADR 0014 起叫公帳)。歸屬是內嵌選擇列，只在編輯表單裡找這一列。
         let form = app.collectionViews.containing(.textField, identifier: "accountEditor.name").firstMatch
-        let jointFund = form.buttons["公帳"]
+        let jointFund = form.buttons["家庭公帳"]
         XCTAssertTrue(jointFund.waitForExistence(timeout: 3), "歸屬沒有「公帳」這個選項")
         jointFund.tap()
         app.buttons["accountEditor.save"].tap()
