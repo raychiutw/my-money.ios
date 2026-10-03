@@ -34,7 +34,7 @@ struct TransactionsScreen: View {
                         Button {
                             model.editFilter()
                         } label: {
-                            Image(systemName: filterSymbolName(isActive: model.isFilterActive))
+                            FilterIconImage(isActive: model.isFilterActive)
                         }
                         .accessibilityLabel("篩選")
                         .accessibilityValue(model.filterSummary)

@@ -22,6 +22,8 @@ struct RecurringEditorView: View {
         if model.monthOptions.count <= 3 {
             picker
                 .pickerStyle(.inline)
+                // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
+                .tint(Color.brandPink)
                 .labelsHidden()
                 .accessibilityIdentifier("recurringEditor.month")
         } else {
@@ -61,6 +63,8 @@ struct RecurringEditorView: View {
                         }
                     }
                     .pickerStyle(.inline)
+                    // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
+                    .tint(Color.brandPink)
                     .labelsHidden()
                 }
 

@@ -1,26 +1,11 @@
 import SwiftUI
-#if os(iOS)
-import UIKit
-#else
-import AppKit
-#endif
 
-extension Color {
-    /// 主要文字色的反色(系統背景色:淺色白、深色黑)。單色填滿的主要動作與選取格的字、圖示用它。
-    static var inverseOfPrimary: Color {
-        #if os(iOS)
-        Color(uiColor: .systemBackground)
-        #else
-        Color(nsColor: .windowBackgroundColor)
-        #endif
-    }
-}
-
-// 單色玻璃按鈕(#134、ADR-0007):互動元素不靠顏色表達，可點的東西靠 Liquid Glass 外框。
-// 淺色黑字白底、深色白字黑底(accent 色是單色，見 AccentColor 資產);玻璃只給控制層(按鈕、工具列)，卡片、列、圖表不加。
+// 玻璃按鈕(#134、ADR-0007,#147 以 ADR-0008 修正):按鈕一律**不填色**——背景跟主題底色一樣，只有 Liquid Glass 外框;
+// 主要動作靠粗體與位置區分，不靠反白填滿。淺色黑字、深色白字(accent 色是單色，見 AccentColor 資產);
+// 玻璃只給控制層(按鈕、工具列)，卡片、列、圖表不加。
 //
-// 驗證結果(研究筆記 §11):`.glass` 在淺色、深色、增強對比都正常;`.glassProminent` 的字色固定是白色，
-// 深色模式 accent 是白色時會變成白底白字，所以主要動作的字要明確指定成反色(系統背景色)。
+// 驗證結果(研究筆記 §11):`.glass` 在淺色、深色、增強對比都正常。以前主要動作用 `.glassProminent` 單色填滿,
+// 字色固定是白色，深色模式白底白字還要特地指定反色;使用者在真機看過後不要填色，所以整套反白填滿作廢。
 
 /// Sheet 左上的關閉鈕:✕ 玻璃圓鈕。VoiceOver 念「關閉」。
 struct SheetCloseButton: ToolbarContent {
@@ -33,8 +18,8 @@ struct SheetCloseButton: ToolbarContent {
     }
 }
 
-/// Sheet 右上的確認鈕:✓ 單色填滿玻璃圓鈕，每個畫面只有這一個 primary action。VoiceOver 念 `title`(「儲存」「完成」等)。
-/// 系統依 accent(單色)自動選反色的勾勾，淺色黑底白勾、深色白底黑勾。
+/// Sheet 右上的確認鈕:✓ 玻璃圓鈕，跟左上的 ✕ 一樣不填色，靠勾勾與 VoiceOver 標籤區分，每個畫面只有這一個確認。
+/// VoiceOver 念 `title`(「儲存」「完成」等)。不加 `role: .confirm`、也不放 `.confirmationAction`:這兩個在 iOS 26 都會自動畫成 accent 填滿的主要動作鈕,所以放 `.primaryAction`。
 struct SheetConfirmButton: ToolbarContent {
     let title: String
     var isDisabled = false
@@ -49,16 +34,15 @@ struct SheetConfirmButton: ToolbarContent {
     }
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .confirmationAction) {
-            Button(title, systemImage: "checkmark", role: .confirm, action: action)
+        ToolbarItem(placement: .primaryAction) {
+            Button(title, systemImage: "checkmark", action: action)
                 .disabled(isDisabled)
                 .accessibilityIdentifier(identifier)
         }
     }
 }
 
-/// 需要文字的主要動作(「登入」「ATM 提款／轉帳」):單色填滿的玻璃膠囊，淺色黑底白字、深色白底黑字。
-/// `fillsWidth` 時撐滿一行。停用時系統會淡化。
+/// 需要文字的主要動作(「登入」「ATM 提款／轉帳」):玻璃膠囊，不填色，字是粗體。`fillsWidth` 時撐滿一行。停用時系統會淡化。
 struct PrimaryCapsuleButton: View {
     let title: String
     var systemImage: String?
@@ -70,10 +54,8 @@ struct PrimaryCapsuleButton: View {
             label
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: fillsWidth ? .infinity : nil)
-                // 明確的反色字:`.glassProminent` 的字色固定是白色，深色模式白底白字會看不見。
-                .foregroundStyle(Color.inverseOfPrimary)
         }
-        .buttonStyle(.glassProminent)
+        .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
     }

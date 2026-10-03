@@ -104,6 +104,8 @@ struct MeSheet: View {
                 }
             }
             .pickerStyle(.inline)
+            // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
+            .tint(Color.brandPink)
             .labelsHidden()
         }
 

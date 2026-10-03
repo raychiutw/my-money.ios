@@ -1,7 +1,8 @@
 import XCTest
 
-/// 單色玻璃按鈕(#134、ADR-0007):淺色黑字白底、深色白字黑底;可點的東西靠 Liquid Glass 外框，不靠顏色。
-/// 沒有裸文字按鈕;sheet 的取消與確認是 ✕ 與 ✓;需要文字的主要動作是單色填滿的玻璃膠囊;選取狀態單色化。
+/// 玻璃按鈕(#134、ADR-0007,#147、ADR-0008 修正):按鈕一律不填色，背景跟主題底色一樣，只有玻璃外框;
+/// 沒有裸文字按鈕;sheet 的取消與確認是 ✕ 與 ✓ 兩顆一樣的玻璃圓鈕;需要文字的主要動作是玻璃膠囊(粗體字，不反白);
+/// 選取的外框與勾勾、套用中的篩選用品牌粉紅(CI 色)，不填色。
 final class GlassButtonsUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -9,17 +10,17 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
-    func testSheetToolbarAndSelectionAreMonochromeInLight() throws {
+    func testSheetToolbarAndSelectionAreUnfilledInLight() throws {
         try assertSheetToolbarAndSelection(appearance: .light)
     }
 
     @MainActor
-    func testSheetToolbarAndSelectionAreMonochromeInDark() throws {
+    func testSheetToolbarAndSelectionAreUnfilledInDark() throws {
         try assertSheetToolbarAndSelection(appearance: .dark)
     }
 
-    /// 記一筆 sheet:✕ 玻璃圓鈕(VoiceOver 念「關閉」)與 ✓ 單色填滿圓鈕(念「儲存」)，觸控範圍至少 44×44pt;
-    /// 預設選取的分類格是單色填滿(淺色黑底、深色白底)。
+    /// 記一筆 sheet:✕ 玻璃圓鈕(VoiceOver 念「關閉」)與 ✓ 玻璃圓鈕(念「儲存」)是同一種樣式、都不填色，觸控範圍至少 44×44pt;
+    /// 預設選取的分類格是粉紅外框加粉紅勾勾、不填色。
     @MainActor
     private func assertSheetToolbarAndSelection(appearance: XCUIDevice.Appearance) throws {
         XCUIDevice.shared.appearance = appearance
@@ -39,9 +40,15 @@ final class GlassButtonsUITests: XCTestCase {
         }
         XCTAssertFalse(app.navigationBars.buttons["取消"].exists, "\(name):sheet 還有文字的「取消」")
 
-        try assertFilled(save, appearance: appearance, "\(name):✓ 不是單色填滿")
+        // ✓ 跟 ✕ 一樣是不填色的玻璃圓鈕:中央沒有大面積反白，外緣一圈有玻璃外框，勾勾與叉叉看得到。
+        try assertNotFilled(save, appearance: appearance, "\(name):✓ 又被填色了")
+        try assertNotFilled(close, appearance: appearance, "\(name):✕ 被填色了")
+        for (button, label) in [(close, "✕"), (save, "✓")] {
+            let ring = try PixelAnalysis.ringFrameFraction(of: button.screenshot().image)
+            XCTAssertGreaterThan(ring, 0.3, "\(name):\(label) 沒有玻璃外框(外緣一圈只有 \(ring) 跟背景不同)")
+        }
 
-        // 預設選取的分類格(餐飲)是單色填滿:在表單最下面，要捲下去。
+        // 預設選取的分類格(餐飲)是粉紅外框加粉紅勾勾、不填色:在表單最下面，要捲下去。
         // 金額欄一打開就對焦，鍵盤蓋住分類格:先收起。
         let done = app.keyboards.firstMatch.exists ? app.buttons["完成"].firstMatch : nil
         done?.tap()
@@ -49,13 +56,16 @@ final class GlassButtonsUITests: XCTestCase {
         for _ in 0..<8 where !(category.exists && category.isHittable) { app.swipeUp() }
         XCTAssertTrue(category.exists, "\(name):沒有找到分類格")
         XCTAssertTrue(category.isSelected, "\(name):餐飲不是選取狀態")
-        try assertFilled(category, appearance: appearance, "\(name):選取的分類格不是單色填滿", minimum: 0.5)
+        try assertNotFilled(category, appearance: appearance, "\(name):選取的分類格又被填色了", minimumInk: 0.002)
+        let selectedPixels = try PixelAnalysis.statistics(of: category.screenshot().image)
+        XCTAssertGreaterThan(selectedPixels.brandPink, 200, "\(name):選取的分類格沒有品牌粉紅的外框與勾勾(粉紅像素 \(selectedPixels.brandPink))")
         let other = app.buttons["交通"]
         if other.exists, other.isHittable {
             let unselected = try PixelAnalysis.statistics(of: other.screenshot().image)
             XCTAssertLessThan(
-                appearance == .dark ? unselected.lightFraction : unselected.darkFraction, 0.3, "\(name):沒選的分類格也是填滿的"
+                appearance == .dark ? unselected.lightFraction : unselected.darkFraction, 0.3, "\(name):沒選的分類格是填滿的"
             )
+            XCTAssertEqual(unselected.brandPink, 0, "\(name):沒選的分類格也有粉紅")
         }
 
         // 在 ✕ 左邊緣外 4pt 點一下(44pt 的觸控範圍):要關得掉 sheet。
@@ -125,16 +135,16 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
-    func testTransferCapsuleIsFilledMonochromeInLight() throws {
+    func testTransferCapsuleIsUnfilledInLight() throws {
         try assertTransferCapsule(appearance: .light)
     }
 
     @MainActor
-    func testTransferCapsuleIsFilledMonochromeInDark() throws {
+    func testTransferCapsuleIsUnfilledInDark() throws {
         try assertTransferCapsule(appearance: .dark)
     }
 
-    /// 需要文字的主要動作(帳戶頁的「ATM 提款／轉帳」)是單色填滿的玻璃膠囊，不再用粉紅底配特例字色。
+    /// 需要文字的主要動作(帳戶頁的「ATM 提款／轉帳」)是玻璃膠囊，不填色(#147):中央沒有大面積反白，字是粗體、看得到。
     @MainActor
     private func assertTransferCapsule(appearance: XCUIDevice.Appearance) throws {
         XCUIDevice.shared.appearance = appearance
@@ -145,27 +155,67 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(transfer.exists, "沒有「ATM 提款／轉帳」膠囊")
         let name = appearance == .dark ? "深色" : "淺色"
         XCTAssertGreaterThanOrEqual(transfer.frame.height, 44, "\(name):膠囊高度不到 44pt:\(transfer.frame)")
-        try assertFilled(transfer, appearance: appearance, "\(name):膠囊不是單色填滿", minimum: 0.55)
+        try assertNotFilled(transfer, appearance: appearance, "\(name):膠囊又被填色了", minimumInk: 0.02)
+    }
+
+    @MainActor
+    func testActiveFilterIsAHollowBrandPinkCircleInLight() throws {
+        try assertActiveFilter(appearance: .light)
+    }
+
+    @MainActor
+    func testActiveFilterIsAHollowBrandPinkCircleInDark() throws {
+        try assertActiveFilter(appearance: .dark)
+    }
+
+    /// 套用中的篩選(#147):圖示是品牌粉紅(CI 色)的空心圓圈，不是反白填滿的圓;沒套用時是一般的圖示、沒有粉紅。
+    @MainActor
+    private func assertActiveFilter(appearance: XCUIDevice.Appearance) throws {
+        XCUIDevice.shared.appearance = appearance
+        let app = launchSignedIn()
+        let name = appearance == .dark ? "深色" : "淺色"
+        let filter = app.buttons["overview.scope"]
+        XCTAssertTrue(filter.waitForExistence(timeout: 5), "\(name):總覽沒有視角篩選")
+
+        let inactive = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
+        XCTAssertEqual(inactive.brandPink, 0, "\(name):沒套用篩選卻有粉紅")
+
+        filter.tap()
+        let household = app.buttons["家庭公帳"]
+        XCTAssertTrue(household.waitForExistence(timeout: 3), "\(name):視角選單沒有「家庭公帳」")
+        household.tap()
+        XCTAssertEqual(filter.value as? String, "家庭公帳", "\(name):沒有切到家庭公帳")
+        var active = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
+        for _ in 0..<6 where active.brandPink < 30 {
+            Thread.sleep(forTimeInterval: 0.5)
+            active = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
+        }
+        XCTAssertGreaterThan(active.brandPink, 30, "\(name):套用中的篩選圖示沒有品牌粉紅(粉紅像素 \(active.brandPink))")
+        // 空心:中央沒有大面積反白(以前是白色或黑色的實心圓)。
+        XCTAssertLessThan(
+            appearance == .dark ? active.lightFraction : active.darkFraction, 0.3, "\(name):套用中的篩選圖示又變成反白填滿的實心圓"
+        )
     }
 
     // MARK: 輔助
 
-    /// 填滿的是黑(淺色)或白(深色)。切換外觀、動畫剛結束時截圖可能還是舊的樣子，最多重試幾次。
+    /// 不填色(#147):中央區域沒有大面積的反白(淺色黑、深色白),而且字或圖示看得到(有最少的墨跡)。
+    /// 切換外觀、動畫剛結束時截圖可能還是舊的樣子，最多重試幾次。
     @MainActor
-    private func assertFilled(
-        _ element: XCUIElement, appearance: XCUIDevice.Appearance, _ message: String, minimum: Double = 0.45
+    private func assertNotFilled(
+        _ element: XCUIElement, appearance: XCUIDevice.Appearance, _ message: String, maxFill: Double = 0.3, minimumInk: Double = 0.003
     ) throws {
-        var fraction = 0.0
-        var content = 0.0
+        var fill = 1.0
+        var ink = 0.0
         for _ in 0..<6 {
             let stats = try PixelAnalysis.statistics(of: element.screenshot().image, region: PixelAnalysis.center)
-            fraction = appearance == .dark ? stats.lightFraction : stats.darkFraction
-            // 字與圖示是反色(淺色白字、深色黑字):底色填滿但字沒有反色(白底白字)時，反色的像素幾乎是 0。
-            content = appearance == .dark ? stats.darkFraction : stats.lightFraction
-            if fraction > minimum, content > 0.01 { return }
+            // 字與圖示是主要文字色(淺色黑、深色白);填色時同一種顏色會鋪滿整個中央區域。
+            fill = appearance == .dark ? stats.lightFraction : stats.darkFraction
+            ink = fill
+            if fill < maxFill, ink > minimumInk { return }
             Thread.sleep(forTimeInterval: 0.5)
         }
-        XCTFail("\(message)(\(appearance == .dark ? "白" : "黑")色底占 \(fraction),反色的字或圖示占 \(content)，要有至少 0.01)")
+        XCTFail("\(message)(\(appearance == .dark ? "白" : "黑")色占 \(fill),要在 \(minimumInk) 到 \(maxFill) 之間:太高是被填色，太低是看不到字或圖示)")
     }
 
     @MainActor

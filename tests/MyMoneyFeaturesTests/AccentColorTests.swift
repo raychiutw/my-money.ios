@@ -3,7 +3,7 @@ import MyMoneyFeatures
 import Testing
 
 /// AccentColor 資產(#134、ADR-0007):互動元素用單色，不用品牌粉紅也不用系統藍。
-/// 淺色黑、深色白，增強對比同;主要動作的字用反色(系統背景色)，對比用 WCAG 公式驗證。
+/// 淺色黑、深色白，增強對比同。主要動作不再填色(#147、ADR-0008)，字用主要文字色。
 @Suite("AccentColor:單色")
 struct AccentColorTests {
     private struct Variant {
@@ -46,16 +46,6 @@ struct AccentColorTests {
             let expected = variant.isDark ? 255 : 0
             let channels: [Int] = [variant.rgb.red, variant.rgb.green, variant.rgb.blue]
             #expect(channels.allSatisfy { $0 == expected }, "\(variant.name):不是單色\(variant.isDark ? "白" : "黑")(\(channels))")
-        }
-    }
-
-    @Test("主要動作:底色是 accent、字是反色(淺色白、深色黑)，對比至少 4.5:1(WCAG AA)")
-    func primaryButtonTextContrast() throws {
-        for variant in try variants() {
-            let inverse = variant.isDark ? 0 : 255
-            let text = AvatarPalette.RGB(red: inverse, green: inverse, blue: inverse)
-            let ratio = AvatarPalette(fill: variant.rgb, letter: text).contrastRatio
-            #expect(ratio >= 4.5, "\(variant.name):按鈕字與底色只有 \(ratio):1")
         }
     }
 

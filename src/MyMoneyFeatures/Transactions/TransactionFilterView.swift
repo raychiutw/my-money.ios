@@ -41,6 +41,8 @@ struct TransactionFilterView: View {
                         Text("僅收入").tag(TransactionsModel.TypeFilter.income)
                     }
                     .pickerStyle(.inline)
+                    // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
+                    .tint(Color.brandPink)
                     .labelsHidden()
                 }
 

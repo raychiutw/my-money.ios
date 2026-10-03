@@ -90,11 +90,10 @@ private struct EmojiChoices: View {
                     Text(emoji)
                         .font(.title2)
                         .frame(width: 44, height: 44)
-                        // 選取單色化(#134):淡淡的主要文字色底加實線外框。
-                        .background(selection == emoji ? Color.primary.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                        // 選取不填色(#147、ADR-0008):品牌粉紅的外框。
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selection == emoji ? Color.primary : .clear, lineWidth: 2)
+                                .strokeBorder(selection == emoji ? Color.brandPink : .clear, lineWidth: 2)
                         )
                 }
                 .buttonStyle(.plain)
