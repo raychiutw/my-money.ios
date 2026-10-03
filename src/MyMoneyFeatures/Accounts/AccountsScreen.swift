@@ -8,6 +8,8 @@ import SwiftUI
 /// 每個帳戶是一張卡片(整列);信用卡點進信用卡詳細頁(#73)。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
+    /// 切到別的 tab(待報銷橫幅的「前往家庭」)。
+    var showTab: (AppTab) -> Void = { _ in }
     @State private var editor: EditorSheet?
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
@@ -231,6 +233,12 @@ struct AccountsScreen: View {
     /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
     @ViewBuilder
     private var summarySection: some View {
+        if model.showsPendingAdvanceBanner {
+            Section {
+                PendingAdvancesBanner(text: model.pendingAdvanceBannerText) { showTab(.household) }
+                    .clearListRow()
+            }
+        }
         Section {
             AccountsHero(
                 balance: model.availableBalance ?? .zero, segments: model.composition, summary: model.compositionSummary
@@ -389,5 +397,28 @@ private struct SectionEmptyState: View {
             GlassCapsuleButton(title: actionTitle, action: action)
                 .accessibilityIdentifier(identifier)
         }
+    }
+}
+
+/// 公帳範圍的「家庭公帳待報銷代墊款」橫幅(上游 ADR 0015、#141):金額單行，附玻璃膠囊「前往家庭」報銷。
+/// VoiceOver 念一句完整的話，按鈕另外一個元素。
+private struct PendingAdvancesBanner: View {
+    let text: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(text, systemImage: "doc.text")
+                .font(.headline)
+                .monospacedDigit()
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .accessibilityIdentifier("accounts.pendingAdvances")
+            GlassCapsuleButton(title: "前往家庭", systemImage: "arrow.right", action: action)
+                .accessibilityIdentifier("accounts.pendingAdvances.open")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
     }
 }

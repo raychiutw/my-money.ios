@@ -421,6 +421,49 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(mei.waitForNonExistence(timeout: 8), "繳清之後小美的卡還在公帳範圍")
     }
 
+    /// 公帳範圍的「家庭公帳待報銷代墊款」橫幅(上游 ADR 0015、#141):各成員待報銷加總(範例是 250 + 600)，
+    /// 「前往家庭」切到家庭 tab;全部範圍沒有橫幅。
+    @MainActor
+    func testPendingAdvancesBannerAppearsInHouseholdScopeAndOpensFamily() throws {
+        try assertPendingAdvancesBanner(contentSize: nil)
+    }
+
+    @MainActor
+    func testPendingAdvancesBannerFitsAtXXL() throws {
+        try assertPendingAdvancesBanner(contentSize: "UICTContentSizeCategoryXXL")
+    }
+
+    @MainActor
+    private func assertPendingAdvancesBanner(contentSize: String?) throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-resetSession"]
+            + (contentSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["accounts.pendingAdvances"].exists, "全部範圍不該有待報銷橫幅")
+
+        let filter = app.buttons["accounts.scope"]
+        filter.tap()
+        app.buttons["公帳"].tap()
+        let banner = element(in: app, labelContaining: "家庭公帳待報銷代墊款 $850")
+        XCTAssertTrue(banner.waitForExistence(timeout: 5), "公帳範圍沒有待報銷橫幅")
+        let open = app.buttons["accounts.pendingAdvances.open"]
+        XCTAssertTrue(open.exists && open.isHittable, "橫幅沒有可點的「前往家庭」")
+        XCTAssertLessThanOrEqual(banner.frame.maxX, app.frame.maxX + 1, "橫幅超出螢幕寬度")
+        XCTAssertGreaterThanOrEqual(open.frame.minY, banner.frame.maxY - 1, "按鈕沒有在橫幅文字下面")
+
+        open.tap()
+        XCTAssertTrue(app.buttons["household.leave"].waitForExistence(timeout: 5) || element(in: app, labelContaining: "我的角色").waitForExistence(timeout: 5), "「前往家庭」沒有切到家庭 tab")
+
+        // 切回帳戶頁、再切到全部:橫幅不在。
+        app.tabBars.buttons["帳戶"].tap()
+        filter.tap()
+        app.buttons["全部"].tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "全部範圍還有待報銷橫幅")
+    }
+
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {

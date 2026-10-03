@@ -52,7 +52,9 @@ public struct MainScreens {
             goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, permissions: permissions,
             defaults: defaults
         )
-        accounts = AccountsModel(repository: accountRepository, dataVersion: dataVersion, permissions: permissions)
+        accounts = AccountsModel(
+            repository: accountRepository, dataVersion: dataVersion, permissions: permissions, households: householdRepository
+        )
         transactions = TransactionsModel(
             repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
             permissions: permissions

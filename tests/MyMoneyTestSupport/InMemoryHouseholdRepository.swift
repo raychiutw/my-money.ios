@@ -50,7 +50,11 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         receivingAccounts: [ReceivingAccount(id: AccountID("mei-bank"), name: "小美薪轉", kind: .bank)]
     )
 
+    /// 取過幾次代墊統計(帳戶頁的待報銷橫幅只在公帳範圍才取)。
+    public private(set) var advancesCallCount = 0
+
     public func advances() async throws -> [HouseholdAdvance] {
+        advancesCallCount += 1
         if let failure { throw failure }
         return stored == nil ? [] : storedAdvances
     }

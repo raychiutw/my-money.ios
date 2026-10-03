@@ -35,17 +35,45 @@ public final class AccountsModel {
     @ObservationIgnored private let today: () -> CalendarDay
     /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
     @ObservationIgnored private let permissions: PermissionsModel?
+    /// 公帳範圍的待報銷橫幅用(上游 ADR 0015、#141);沒有就不顯示橫幅。
+    @ObservationIgnored private let households: (any HouseholdRepository)?
+
+    /// 公帳範圍:各成員待報銷的代墊款加總(web 也是這樣加，不是 iOS 重算業務規則);其他範圍、取不到、沒有家庭時是 `nil`。
+    public private(set) var pendingAdvanceTotal: Money?
 
     public init(
         repository: any AccountRepository,
         dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
+        households: (any HouseholdRepository)? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.repository = repository
         self.dataVersion = dataVersion
         self.permissions = permissions
+        self.households = households
         self.today = today
+    }
+
+    /// 公帳範圍且有成員待報銷代墊款(大於 0)才顯示橫幅。
+    public var showsPendingAdvanceBanner: Bool {
+        (pendingAdvanceTotal ?? .zero) > .zero
+    }
+
+    /// 橫幅的一句話，例如「家庭公帳待報銷代墊款 $850」。
+    public var pendingAdvanceBannerText: String {
+        "家庭公帳待報銷代墊款 \((pendingAdvanceTotal ?? .zero).formatted())"
+    }
+
+    /// 只在公帳範圍多問一次代墊統計;取不到不影響帳戶頁其他區塊。
+    private func refreshPendingAdvances(for scope: AccountScope) async {
+        guard scope == .household, let households else {
+            pendingAdvanceTotal = nil
+            return
+        }
+        let advances = try? await households.advances()
+        guard !Task.isCancelled, scope == self.scope else { return }
+        pendingAdvanceTotal = advances.map { $0.reduce(Money.zero) { $0 + $1.pendingReimbursement } }
     }
 
     /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
@@ -211,6 +239,7 @@ public final class AccountsModel {
             loadedScope = scope
             phase = .loaded
             await permissions?.loadIfNeeded()
+            await refreshPendingAdvances(for: scope)
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
