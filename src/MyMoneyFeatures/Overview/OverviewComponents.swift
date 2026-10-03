@@ -8,23 +8,49 @@ struct CompactTransactionRow: View {
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: transaction.category.symbolName)
-                .foregroundStyle(.tint)
-                .frame(width: iconWidth)
-            Text(transaction.displayTitle)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            // 金額一律單行(DESIGN.md「列與欄位」)。
-            Text(transaction.signedAmountText)
-                .monospacedDigit()
-                .foregroundStyle(transaction.amountColor)
-                .lineLimit(1)
-                .fixedSize()
+        // 無障礙字級名稱和金額左右放不下:上下排,金額在最下面靠右(跟交易頁的列一樣);不讓名稱被擠成一字一行(#157)。
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        icon
+                        title
+                    }
+                    amount.frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    icon
+                    title.frame(maxWidth: .infinity, alignment: .leading)
+                    amount
+                }
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
+    }
+
+    private var icon: some View {
+        Image(systemName: transaction.category.symbolName)
+            .foregroundStyle(.tint)
+            .frame(width: iconWidth)
+    }
+
+    private var title: some View {
+        Text(transaction.displayTitle)
+            .lineLimit(2)
+    }
+
+    /// 金額一律單行(DESIGN.md「列與欄位」)。
+    private var amount: some View {
+        Text(transaction.signedAmountText)
+            .monospacedDigit()
+            .foregroundStyle(transaction.amountColor)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     /// 例如「餐飲，午餐，支出 120 元」;沒有備註時不重複念分類。
@@ -42,7 +68,7 @@ struct GoalRingRow: View {
     let goal: SavingsGoal
 
     /// 圓環跟環中的字(`footnote`)同一個文字樣式放大，字照系統大小、不用縮小就放得進環裡(#156)。
-    @ScaledMetric(relativeTo: .footnote) private var ringSize: CGFloat = 52
+    @ScaledMetric(relativeTo: .footnote) private var ringSize: CGFloat = 60
 
     var body: some View {
         HStack(spacing: 12) {
@@ -67,7 +93,8 @@ struct GoalRingRow: View {
                 .font(.footnote.bold())
                 .monospacedDigit()
                 .lineLimit(1)
-                .padding(8)
+                // 環內可用寬度 = 環徑 - 兩道線寬(6);「100%」是最長的字,內距要小,不然預設字級就被截成「10…」(#157)。
+                .padding(.horizontal, 6)
         }
         .frame(width: ringSize, height: ringSize)
     }

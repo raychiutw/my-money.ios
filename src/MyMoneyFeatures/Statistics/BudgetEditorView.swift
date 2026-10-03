@@ -14,13 +14,16 @@ struct BudgetEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // 月份放區塊標題:放在標籤裡「2026年10月的預算」大字級會被截成「2026年10月的…」(#157)。
                 Section {
-                    LabeledContent("\(model.monthTitle)的預算") {
+                    LabeledContent("預算") {
                         AmountField(
                             "預算", text: $model.amountText, prompt: Text("例如：8000"),
                             focus: $focusedField, equals: .amount, identifier: "budgetEditor.amount"
                         )
                     }
+                } header: {
+                    Text(model.monthTitle)
                 } footer: {
                     // 只留警告(DESIGN.md「說明文字」第 2 類)。
                     Text("設定後無法刪除。")
