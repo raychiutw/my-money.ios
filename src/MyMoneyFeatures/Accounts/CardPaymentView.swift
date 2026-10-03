@@ -20,8 +20,8 @@ struct CardPaymentView: View {
                     LabeledContent("信用卡待繳總額", value: model.card.totalDue.formatted())
                     LabeledContent("已出帳待繳款", value: model.card.billedDebt.formatted())
                     LabeledContent("未出帳款", value: model.card.unbilledDebt.formatted())
-                    LabeledContent("家庭公帳", value: model.card.sharedDebt.formatted())
-                    LabeledContent("個人私帳", value: model.card.personalDebt.formatted())
+                    LabeledContent("公帳", value: model.card.sharedDebt.formatted())
+                    LabeledContent("私帳", value: model.card.personalDebt.formatted())
                 } header: {
                     Text(model.card.name)
                 }
@@ -54,8 +54,8 @@ struct CardPaymentView: View {
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選(ADR-0004、#90)。
                 Section("歸屬") {
                     Picker("歸屬", selection: $model.isShared) {
-                        Text("家庭公帳").tag(true)
-                        Text("個人私帳").tag(false)
+                        Text("公帳").tag(true)
+                        Text("私帳").tag(false)
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()

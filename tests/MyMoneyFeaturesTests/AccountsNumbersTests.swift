@@ -66,12 +66,12 @@ struct AccountsNumbersTests {
 
     @Test("信用卡卡片的說明:歸屬與繳款日;有待繳才有警示色")
     func creditCardCaption() {
-        #expect(SampleAccounts.card.cardCaption == "個人卡・5 日繳")
+        #expect(SampleAccounts.card.cardCaption == "私帳・5 日繳")
         let joint = CreditCard(
             id: AccountID("joint"), name: "家庭卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero, creditLimit: nil,
             statementDay: nil, paymentDueDay: nil, isJointFund: true
         )
-        #expect(joint.cardCaption == "家庭信用卡")
+        #expect(joint.cardCaption == "公帳")
         #expect(!joint.isDue)
         #expect(SampleAccounts.card.isDue)
     }

@@ -164,8 +164,8 @@ struct EditingPermissionsFeatureTests {
 
         #expect(member.lockReason(for: mineShared) == nil)
         #expect(member.lockReason(for: mineSystem) == "系統紀錄，不能編輯或刪除")
-        #expect(member.lockReason(for: meiShared) == "他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除")
-        #expect(member.lockReason(for: meiPrivate) == "他人的個人私帳，僅記錄者本人可以編輯、刪除")
+        #expect(member.lockReason(for: meiShared) == "他人記錄的公帳，僅記錄者或家庭管理員可以編輯、刪除")
+        #expect(member.lockReason(for: meiPrivate) == "他人的私帳，僅記錄者本人可以編輯、刪除")
     }
 
     // MARK: 權限本身

@@ -308,16 +308,16 @@ struct AccountsScreen: View {
         }
     }
 
-    /// 現金錢包、銀行存款帳戶的卡片(#119):名稱加大金額，家庭共同基金多一行小字。
-    /// VoiceOver 念名稱、歸屬、餘額(跟以前的列一樣)。
+    /// 現金錢包、銀行存款帳戶的卡片(#119、#138):名稱加大金額，下面一行小字是歸屬(公帳或私帳)。
+    /// VoiceOver 念名稱、餘額、歸屬。
     private func fundCard(
         name: String, symbol: String, colorHex: String, isJointFund: Bool, balance: Money, balanceTitle: String,
         warnsWhenNegative: Bool = false
     ) -> some View {
         NumberCard(
             title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray, amount: balance,
-            isWarning: warnsWhenNegative && balance < .zero, caption: isJointFund ? "家庭共同基金" : nil,
-            spokenText: "\(name)\(isJointFund ? ",家庭共同基金" : ""),\(balanceTitle) \(balance.spokenText)"
+            isWarning: warnsWhenNegative && balance < .zero, caption: isJointFund ? "公帳" : "私帳",
+            spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(isJointFund ? "公帳" : "私帳")"
         )
     }
 

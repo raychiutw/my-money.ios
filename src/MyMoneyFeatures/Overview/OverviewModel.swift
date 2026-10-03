@@ -300,15 +300,15 @@ extension AccountScope {
     public var emptyAccountsTitle: String {
         switch self {
         case .all: "尚未建立帳戶"
-        case .household: "目前無家庭公用帳戶"
-        case .personal: "目前無個人私帳"
+        case .household: "目前無公帳帳戶"
+        case .personal: "目前無私帳帳戶"
         }
     }
 
     /// 空狀態的說明，附「前往帳戶管理」。
     public var emptyAccountsHint: String {
         switch self {
-        case .household: "至帳戶管理將帳戶屬性設為家庭公用（共同基金或家庭卡）即可在此呈現"
+        case .household: "至帳戶管理將帳戶歸屬設為公帳即可在此呈現"
         case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
         }
     }
