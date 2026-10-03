@@ -80,7 +80,13 @@ public final class AccountsModel {
 
     /// 有未出帳款就能做結帳日出帳作業(長按選單)。
     public func showsRollover(_ card: CreditCard) -> Bool {
-        card.canRollOver
+        canOperate(card) && card.canRollOver
+    }
+
+    /// 長按選單的還款項目:他人的個人卡只能繳家庭代墊(上游 ADR 0015、#140);其他卡看有沒有操作權限。
+    public func paymentPresets(for card: CreditCard) -> [CardPaymentModel.Preset] {
+        if isMasked(card) { return card.sharedDebt > .zero ? [.shared] : [] }
+        return canOperate(card) ? card.paymentPresets : []
     }
 
     /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」,跟詳細頁的一樣。
@@ -102,7 +108,8 @@ public final class AccountsModel {
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
-            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
+            isMaskedCard: isMasked(card), today: today
         )
     }
 

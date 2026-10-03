@@ -23,8 +23,8 @@ struct CreditCardDetailScreen: View {
         List {
             feesSection
             settingsSection
-            // 個人信用卡只有持卡人能繳款、出帳、校準(上游 ADR 0013、#133)。
-            if model.canOperate {
+            // 個人信用卡只有持卡人能出帳、校準、繳個人私帳(上游 ADR 0013、#133);他人的卡只能繳家庭代墊(ADR 0015、#140)。
+            if model.showsActions {
                 actionsSection
             }
         }
@@ -117,8 +117,14 @@ struct CreditCardDetailScreen: View {
 
     private var actionsSection: some View {
         Section("操作") {
-            // 三個還款入口收進一個 pull-down(HIG Pull-down buttons),沒有對應欠款的項目隱藏。
-            if !model.paymentPresets.isEmpty {
+            // 他人的卡只有「繳家庭代墊」一個入口:1 項直接放按鈕(HIG:pull-down 至少 3 項才值得)。
+            if model.paymentPresets == [.shared], model.isMasked {
+                Button(CardPaymentModel.Preset.shared.title, systemImage: CardPaymentModel.Preset.shared.systemImage) {
+                    payment = model.makePayment(.shared)
+                }
+                .accessibilityIdentifier("cardDetail.paySharedDebt")
+            } else if !model.paymentPresets.isEmpty {
+                // 三個還款入口收進一個 pull-down(HIG Pull-down buttons),沒有對應欠款的項目隱藏。
                 Menu {
                     ForEach(model.paymentPresets, id: \.self) { preset in
                         Button(preset.title, systemImage: preset.systemImage) {
@@ -137,11 +143,13 @@ struct CreditCardDetailScreen: View {
                 Button("出帳作業", systemImage: "calendar.badge.clock") { isConfirmingRollover = true }
                     .accessibilityIdentifier("cardDetail.rollover")
             }
-            Button(model.isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath") {
-                isConfirmingReconcile = true
+            if model.canOperate {
+                Button(model.isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath") {
+                    isConfirmingReconcile = true
+                }
+                .disabled(model.isReconciling)
+                .accessibilityIdentifier("cardDetail.reconcile")
             }
-            .disabled(model.isReconciling)
-            .accessibilityIdentifier("cardDetail.reconcile")
         }
     }
 }

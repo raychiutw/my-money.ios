@@ -345,9 +345,10 @@ struct AccountsScreen: View {
         }
         .contextMenu {
             // 還款、出帳作業只有能操作這張卡的人;編輯、刪除只有能修改這個帳戶的人(上游 ADR 0013、#133)。
-            if model.canOperate(card) {
+            let presets = model.paymentPresets(for: card)
+            if !presets.isEmpty || model.showsRollover(card) {
                 Section {
-                    ForEach(card.paymentPresets, id: \.self) { preset in
+                    ForEach(presets, id: \.self) { preset in
                         Button(preset.title, systemImage: preset.systemImage) {
                             payment = model.makePayment(for: card, preset: preset)
                         }

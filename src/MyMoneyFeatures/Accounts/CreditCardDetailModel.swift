@@ -90,14 +90,20 @@ public final class CreditCardDetailModel {
         return rows
     }
 
-    /// 「繳款」選單的項目。
+    /// 「繳款」的項目。他人的個人卡只能繳家庭代墊(上游 ADR 0015、#140);其他卡看有沒有操作權限。
     public var paymentPresets: [CardPaymentModel.Preset] {
-        card.paymentPresets
+        if isMasked { return card.sharedDebt > .zero ? [.shared] : [] }
+        return canOperate ? card.paymentPresets : []
     }
 
-    /// 有未出帳款才顯示「出帳作業」。
+    /// 「操作」區有東西可以顯示:能操作這張卡，或是可以繳家庭代墊。
+    public var showsActions: Bool {
+        canOperate || !paymentPresets.isEmpty
+    }
+
+    /// 有未出帳款、而且能操作這張卡才顯示「出帳作業」。
     public var showsRollover: Bool {
-        card.canRollOver
+        canOperate && card.canRollOver
     }
 
     /// 操作失敗時顯示的訊息(alert)。
@@ -150,7 +156,8 @@ public final class CreditCardDetailModel {
     /// 信用卡扣款還款的 sheet(「繳款」選單的項目):扣款帳戶是同一個帳戶檢視範圍的銀行存款帳戶。
     public func makePayment(_ preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
-            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion, today: today
+            card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
+            isMaskedCard: isMasked, today: today
         )
     }
 
@@ -202,7 +209,7 @@ extension CreditCard {
 
     /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。
     /// 詳細頁的「繳款」選單和帳戶頁的長按選單共用。
-    var paymentPresets: [CardPaymentModel.Preset] {
+    public var paymentPresets: [CardPaymentModel.Preset] {
         var presets: [CardPaymentModel.Preset] = []
         if sharedDebt > .zero { presets.append(.shared) }
         if personalDebt > .zero { presets.append(.personal) }

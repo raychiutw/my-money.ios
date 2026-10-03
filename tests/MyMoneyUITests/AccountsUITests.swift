@@ -374,6 +374,53 @@ final class AccountsUITests: XCTestCase {
         XCTAssertFalse(app.buttons["cardDetail.reconcile"].exists, "不能校準他人的卡")
     }
 
+    /// 非持卡人繳他人私卡的家庭代墊(上游 ADR 0015、#140):詳細頁只有「繳家庭代墊」(沒有繳款選單、出帳作業、校準);
+    /// 還款表單歸屬固定公帳、沒有私帳可選、金額帶入家庭代墊待繳額;繳清之後這張卡就不在公帳範圍了(後端只回有家庭代墊欠款的私卡)。
+    @MainActor
+    func testNonHolderPaysSharedDebtOfAnothersPrivateCard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+        let filter = app.buttons["accounts.scope"]
+        filter.tap()
+        app.buttons["公帳"].tap()
+
+        let mei = app.buttons["小美的信用卡，私卡代墊，持卡人 小美，家庭代墊待繳額 1,200 元，每月 25 日繳款"]
+        let tabBarTop = app.tabBars.firstMatch.frame.minY
+        for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
+        mei.tap()
+        let pay = app.buttons["cardDetail.paySharedDebt"]
+        for _ in 0..<5 where !pay.exists { app.swipeUp() }
+        XCTAssertTrue(pay.exists, "他人私卡的詳細頁沒有「繳家庭代墊」")
+        XCTAssertFalse(app.buttons["cardDetail.pay"].exists, "他人私卡不該有繳款選單(繳個人私帳、全額結清)")
+        XCTAssertFalse(app.buttons["cardDetail.rollover"].exists, "他人私卡不該有出帳作業")
+        XCTAssertFalse(app.buttons["cardDetail.reconcile"].exists, "他人私卡不該有校準")
+
+        pay.tap()
+        let amount = app.textFields["cardPayment.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡扣款還款")
+        XCTAssertEqual(amount.value as? String, "1200", "金額沒有帶入家庭代墊待繳額")
+        XCTAssertTrue(app.staticTexts["cardPayment.fixedShared"].exists || element(in: app, labelContaining: "僅限自家庭共同帳戶沖抵他人私卡之家庭代墊款").exists, "沒有說明歸屬固定公帳")
+        let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
+        XCTAssertFalse(form.buttons["私帳"].exists, "他人私卡的還款不該有私帳可選")
+
+        let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
+        bankRow.tap()
+        // 公帳範圍的扣款帳戶只有家庭共同基金。
+        let bankOption = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "小美的共同基金")).firstMatch
+        XCTAssertTrue(bankOption.waitForExistence(timeout: 3), "沒有推入扣款帳戶清單頁，或清單裡沒有家庭共同基金")
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 測試存款")).firstMatch.exists, "公帳範圍的扣款帳戶不該有私帳的銀行")
+        bankOption.tap()
+        app.buttons["cardPayment.submit"].tap()
+        XCTAssertTrue(amount.waitForNonExistence(timeout: 5), "還款後信用卡扣款還款沒有關閉")
+
+        // 家庭代墊繳清:這張卡不再有家庭代墊欠款，公帳範圍看不到它，詳細頁自動返回。
+        XCTAssertTrue(mei.waitForNonExistence(timeout: 8), "繳清之後小美的卡還在公帳範圍")
+    }
+
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {

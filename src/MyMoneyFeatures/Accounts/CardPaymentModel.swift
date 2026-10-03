@@ -28,6 +28,9 @@ public final class CardPaymentModel {
     public var note: String
     public var isShared: Bool
 
+    /// 繳的是他人的個人信用卡(上游 ADR 0015、#140):只能從共同基金繳家庭代墊，歸屬固定公帳，金額上限是家庭代墊待繳額。
+    public let isMaskedCard: Bool
+
     public private(set) var errorMessage: String?
     public private(set) var lowBalanceConfirmation: String?
     public private(set) var isSaving = false
@@ -53,14 +56,18 @@ public final class CardPaymentModel {
         bankAccounts: [BankAccount],
         repository: any AccountRepository,
         dataVersion: DataVersion,
+        isMaskedCard: Bool = false,
         today: () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.card = card
         self.bankAccounts = bankAccounts
         self.repository = repository
         self.dataVersion = dataVersion
+        self.isMaskedCard = isMaskedCard
         // 扣款帳戶是空的:不預設「第一個餘額大於 0 的銀行存款帳戶」,要使用者自己選(上游 ADR 0011，#112)。
         bankAccountID = nil
+        // 他人的私卡不管從哪個入口打開，都只繳家庭代墊。
+        let preset = isMaskedCard ? Preset.shared : preset
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
         case .shared: (card.sharedDebt, true, "家庭公帳代墊")
         case .personal: (card.personalDebt, false, "個人私帳")
@@ -85,7 +92,12 @@ public final class CardPaymentModel {
             errorMessage = "請輸入大於 0 的繳款金額"
             return .invalid
         }
-        if card.totalDue > .zero, card.totalDue < amount {
+        if isMaskedCard {
+            if card.sharedDebt > .zero, card.sharedDebt < amount {
+                errorMessage = "繳款金額不可超過家庭代墊公帳待繳額 \(card.sharedDebt.formatted())"
+                return .invalid
+            }
+        } else if card.totalDue > .zero, card.totalDue < amount {
             errorMessage = "繳款金額不可超過信用卡待繳總額 \(card.totalDue.formatted())"
             return .invalid
         }

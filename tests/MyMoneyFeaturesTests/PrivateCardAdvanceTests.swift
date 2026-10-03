@@ -94,4 +94,101 @@ struct PrivateCardAdvanceTests {
         #expect(model.feeRows.map(\.title) == ["信用卡待繳總額", "已出帳待繳款", "未出帳款", "家庭代墊公帳", "個人私帳消費"])
         #expect(model.limitRows.map(\.title) == ["信用額度", "剩餘額度"])
     }
+
+    // MARK: 非持卡人繳家庭代墊(#140)
+
+    @Test("他人的私卡只有「繳家庭代墊」:沒有繳個人私帳、全額結清、出帳作業、校準、編輯;家庭代墊清償完連繳款都沒有")
+    func maskedCardOnlyAllowsPayingSharedDebt() {
+        let model = detail(SampleAccounts.meiCardAdvance)
+
+        #expect(model.paymentPresets == [.shared])
+        #expect(model.showsActions, "操作區還在，只留繳家庭代墊")
+        #expect(!model.canOperate && !model.canEdit && !model.showsRollover)
+
+        let settled = CreditCard(
+            id: SampleAccounts.meiCardAdvance.id, name: "小美的信用卡", colorHex: "#F38181", billedDebt: .zero, unbilledDebt: .zero,
+            creditLimit: nil, statementDay: 10, paymentDueDay: 25, sharedDebt: .zero, personalDebt: .zero,
+            ownerID: UserID("sample-mei"), ownerName: "小美", isMasked: true
+        )
+        let paidOff = detail(settled)
+        #expect(paidOff.paymentPresets.isEmpty)
+        #expect(!paidOff.showsActions)
+    }
+
+    @Test("自己的私卡與家庭卡:操作區照舊(三個還款入口、出帳作業、校準)")
+    func ownCardKeepsEveryAction() {
+        let model = detail(SampleAccounts.card)
+
+        #expect(model.paymentPresets == [.shared, .personal, .full])
+        #expect(model.showsActions && model.canOperate && model.showsRollover)
+    }
+
+    @Test("帳戶頁長按選單:他人私卡只有「繳家庭代墊」，沒有出帳作業;自己的卡照舊")
+    func accountsMenuPresets() async {
+        let model = await accountsModel(scope: .household)
+
+        #expect(model.paymentPresets(for: SampleAccounts.meiCardAdvance) == [.shared])
+        #expect(!model.showsRollover(SampleAccounts.meiCardAdvance))
+        #expect(model.paymentPresets(for: SampleAccounts.card) == SampleAccounts.card.paymentPresets)
+        #expect(model.showsRollover(SampleAccounts.card))
+    }
+
+    private func payment(
+        _ card: CreditCard, preset: CardPaymentModel.Preset, isMasked: Bool, repository: InMemoryAccountRepository = .sample()
+    ) -> CardPaymentModel {
+        let model = CardPaymentModel(
+            card: card, preset: preset, bankAccounts: [SampleAccounts.savings], repository: repository, dataVersion: dataVersion,
+            isMaskedCard: isMasked, today: { CalendarDay(year: 2026, month: 10, day: 3) }
+        )
+        model.bankAccountID = SampleAccounts.savings.id
+        return model
+    }
+
+    @Test("繳他人私卡:不管從哪個入口打開都固定繳家庭代墊、歸屬固定公帳、金額帶入家庭代墊待繳額")
+    func paymentIsFixedToSharedDebt() {
+        for preset in [CardPaymentModel.Preset.shared, .personal, .full] {
+            let model = payment(SampleAccounts.meiCardAdvance, preset: preset, isMasked: true)
+
+            #expect(model.isMaskedCard)
+            #expect(model.isShared, "歸屬固定公帳")
+            #expect(model.amountText == "1200", "帶入家庭代墊待繳額")
+            #expect(model.note == "扣繳【小美的信用卡】卡費 (家庭公帳代墊)")
+        }
+    }
+
+    @Test("繳他人私卡的金額上限是家庭代墊待繳額，超過時提示專屬訊息;沒超過就送出公帳的還款")
+    func paymentCapIsSharedDebt() async {
+        let repository = InMemoryAccountRepository.sample()
+        let model = payment(SampleAccounts.meiCardAdvance, preset: .shared, isMasked: true, repository: repository)
+
+        model.amountText = "1500"
+        #expect(await model.submit() == .invalid)
+        #expect(model.errorMessage == "繳款金額不可超過家庭代墊公帳待繳額 $1,200")
+
+        model.amountText = "1200"
+        #expect(await model.submit() == .paid)
+        let sent = await repository.payments.last
+        #expect(sent?.isShared == true && sent?.amount == Money(1200) && sent?.creditCardID == SampleAccounts.meiCardAdvance.id)
+    }
+
+    @Test("後端對違規的繳款回 403:訊息原樣顯示，不換成通用錯誤")
+    func forbiddenReasonIsShown() async {
+        let repository = InMemoryAccountRepository.sample()
+        await repository.fail(with: .rejected("權限不足：個人信用卡還款沖銷僅限持卡人本人操作"))
+        let model = payment(SampleAccounts.meiCardAdvance, preset: .shared, isMasked: true, repository: repository)
+
+        #expect(await model.submit() == .failed)
+        #expect(model.errorMessage == "權限不足：個人信用卡還款沖銷僅限持卡人本人操作")
+    }
+
+    @Test("自己的卡的還款照舊:上限是信用卡待繳總額、歸屬看打開的入口")
+    func ownCardPaymentUnchanged() async {
+        let model = payment(SampleAccounts.card, preset: .personal, isMasked: false)
+
+        #expect(!model.isMaskedCard && !model.isShared)
+        model.amountText = "99999"
+        #expect(await model.submit() == .invalid)
+        #expect(model.errorMessage == "繳款金額不可超過信用卡待繳總額 $15,500")
+    }
 }
+

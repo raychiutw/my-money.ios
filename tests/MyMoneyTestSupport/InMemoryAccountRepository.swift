@@ -126,7 +126,12 @@ public actor InMemoryAccountRepository: AccountRepository {
             case .creditCard(let card) where card.id == payment.creditCardID:
                 let billed = max(card.billedDebt - payment.amount, .zero)
                 let rest = payment.amount - (card.billedDebt - billed)
-                return .creditCard(Self.card(card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero)))
+                // 後端是用最近的支出估算公帳、私帳各占多少;這裡簡化成:公帳的還款沖公帳，私帳的還款沖私帳。
+                let shared = payment.isShared ? max(card.sharedDebt - payment.amount, .zero) : card.sharedDebt
+                let personal = payment.isShared ? card.personalDebt : max(card.personalDebt - payment.amount, .zero)
+                return .creditCard(Self.card(
+                    card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero), shared: shared, personal: personal
+                ))
             default:
                 return account
             }
@@ -163,11 +168,12 @@ public actor InMemoryAccountRepository: AccountRepository {
         return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.backendText)"
     }
 
-    private static func card(_ card: CreditCard, billed: Money, unbilled: Money) -> CreditCard {
+    private static func card(_ card: CreditCard, billed: Money, unbilled: Money, shared: Money? = nil, personal: Money? = nil) -> CreditCard {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
-            sharedDebt: card.sharedDebt, personalDebt: card.personalDebt, isJointFund: card.isJointFund
+            sharedDebt: shared ?? card.sharedDebt, personalDebt: personal ?? card.personalDebt, isJointFund: card.isJointFund,
+            ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked
         )
     }
 
