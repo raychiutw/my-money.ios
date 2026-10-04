@@ -235,7 +235,7 @@ public final class OverviewModel {
         try? await repository.allTransactions(from: today.firstOfMonth, to: today, scope: scope).count
     }
 
-    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從首頁 push 的畫面(週期收支等)返回時沒變就不重抓。
     public func refreshIfStale() async {
         guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
