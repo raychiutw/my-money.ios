@@ -19,7 +19,7 @@ struct TransactionPagingTests {
         }
 
         func transactions(
-            from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
+            from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
         ) async throws -> [Transaction] {
             calls.withLock { $0.append((limit, offset)) }
             let upper = min(offset + limit, total)

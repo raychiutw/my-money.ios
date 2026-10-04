@@ -44,6 +44,31 @@ struct TransactionsTranslationTests {
         #expect(stub.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
+    @Test("依帳戶查詢(上游 ADR 0019):帶 account_id;不指定帳戶就不帶這個參數")
+    func listSendsAccountID() async throws {
+        try stub.reply(status: 200, fixture: "transactions-account-filter.json")
+        let savings = AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37")
+
+        let transactions = try await repository.transactions(
+            from: september1, to: september30, scope: .all, accountID: savings, limit: 200, offset: 0
+        )
+
+        func queryNames(_ request: URLRequest?) -> Set<String> {
+            let items = request?.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems } ?? []
+            return Set(items.map(\.name))
+        }
+        let first = try #require(stub.requests.first)
+        #expect(queryNames(first).contains("account_id"))
+        let items = URLComponents(url: try #require(first.url), resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(items.first { $0.name == "account_id" }?.value == savings.rawValue)
+        #expect(transactions.count == 2)
+        #expect(transactions.allSatisfy { $0.accountID == savings }, "後端只回這個帳戶的收支明細")
+
+        try stub.reply(status: 200, fixture: "transactions-list.json")
+        _ = try await repository.transactions(from: september1, to: september30, scope: .all, limit: 200, offset: 0)
+        #expect(!queryNames(stub.requests.last).contains("account_id"), "沒指定帳戶時不送 account_id")
+    }
+
     @Test("解讀成收支明細:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人(名稱與 user_id)")
     func listDecodesTransactions() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")

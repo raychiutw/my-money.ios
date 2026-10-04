@@ -9,6 +9,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         public let from: CalendarDay?
         public let to: CalendarDay?
         public let scope: ViewScope
+        public let accountID: AccountID?
         public let limit: Int
         public let offset: Int
     }
@@ -46,9 +47,9 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
     ) async throws -> [Transaction] {
-        queries.append(Query(from: from, to: to, scope: scope, limit: limit, offset: offset))
+        queries.append(Query(from: from, to: to, scope: scope, accountID: accountID, limit: limit, offset: offset))
         if let gate = nextQueryGate {
             nextQueryGate = nil
             await gate.pass()
@@ -58,6 +59,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         let inPeriod = stored.enumerated()
             .filter { item in
                 (from.map { $0 <= item.element.date } ?? true) && (to.map { item.element.date <= $0 } ?? true)
+                    // 帳戶篩選是後端的規則(上游 ADR 0019):只回這個帳戶的收支明細。
+                    && (accountID.map { $0 == item.element.accountID } ?? true)
             }
             .sorted { ($0.element.date, $0.offset) > ($1.element.date, $1.offset) }
             .map(\.element)

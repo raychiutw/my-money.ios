@@ -65,6 +65,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-rollover-statement-none.json` | 再做一次出帳作業。2026-10-01 重錄，後端 `97f4789` | 400 | 「目前無未出帳金額需出帳」原樣傳遞 |
 | `transactions-recent.json` | `GET /transactions?scope=all&limit=6&offset=0`,不帶 `from` / `to`(總覽的最近 6 筆) | 200 | 不限日期，由新到舊 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
+| `transactions-account-filter.json` | `GET /transactions?scope=all&limit=200&offset=0&from=2026-01-01&to=2026-12-31&account_id=<iOS 測試存款>`(上游 ADR 0019) | 200 | 只回這個帳戶的 2 筆(`account_id` 都是存款帳戶) |
 | `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |
 | `transactions-update.json` | `PUT /transactions/:id`,用暫時記的一筆(改成 75 元、個人私帳),錄完就刪掉 | 200 | 編輯成功 |
 | `transactions-delete.json` | `DELETE /transactions/:id`,刪除上面那筆 | 200 | `{success, data: null}` 視為成功 |

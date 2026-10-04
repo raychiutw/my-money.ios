@@ -10,11 +10,13 @@ public struct LiveTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
     ) async throws -> [Transaction] {
         // 起日或迄日是 nil 時整個參數不送，後端就不限日期。
         let dates = [("from", from), ("to", to)].compactMap { name, day in day.map { URLQueryItem(name: name, value: $0.iso) } }
-        let dtos: [TransactionDTO] = try await client.get("/transactions", query: dates + [
+        // 不指定帳戶時整個參數不送(上游 ADR 0019 的 `account_id`)。
+        let account = accountID.map { [URLQueryItem(name: "account_id", value: $0.rawValue)] } ?? []
+        let dtos: [TransactionDTO] = try await client.get("/transactions", query: dates + account + [
             URLQueryItem(name: "scope", value: scope.rawValue),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),

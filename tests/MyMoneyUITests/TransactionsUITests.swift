@@ -310,6 +310,29 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
     }
 
+    /// 依帳戶篩選(上游 ADR 0019、#183):篩選 sheet 選「iOS 測試存款」，按完成後列表只剩那個帳戶的收支明細，篩選按鈕顯示套用中。
+    @MainActor
+    func testFilterByAccountNarrowsTheList() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["記帳"].tap()
+        let card = element(in: app, labelContaining: "iOS 測試信用卡")
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "範例資料裡信用卡的收支明細不在清單上")
+
+        app.buttons["transactions.filter"].tap()
+        let account = app.buttons["transactionFilter.account"]
+        XCTAssertTrue(account.waitForExistence(timeout: 5), "篩選 sheet 沒有「帳戶」")
+        account.tap()
+        app.buttons["iOS 測試存款"].firstMatch.tap()
+        app.buttons["transactionFilter.done"].tap()
+
+        XCTAssertTrue(element(in: app, labelContaining: "午餐").waitForExistence(timeout: 5), "存款帳戶的收支明細不見了")
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5), "篩選了存款帳戶，信用卡的收支明細還在")
+        XCTAssertTrue((app.buttons["transactions.filter"].value as? String ?? "").contains("iOS 測試存款"), "篩選按鈕的值沒有帳戶名稱")
+    }
+
     /// 篩選 sheet 的「重設為本月」是帶圖示的列，不是看起來像標籤的純文字(#165)。
     @MainActor
     func testFilterResetRowHasAnIcon() throws {
