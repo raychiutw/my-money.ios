@@ -16,6 +16,28 @@ public struct AvatarPalette: Equatable, Sendable {
             self.blue = blue
         }
 
+        /// 色相(度，0 到 360)。灰色沒有色相，回傳 0。
+        public var hue: Double {
+            let (r, g, b) = (Double(red) / 255, Double(green) / 255, Double(blue) / 255)
+            let high = max(r, g, b), low = min(r, g, b), delta = high - low
+            guard delta > 0 else { return 0 }
+            let degrees: Double
+            if high == r {
+                degrees = 60 * ((g - b) / delta).truncatingRemainder(dividingBy: 6)
+            } else if high == g {
+                degrees = 60 * ((b - r) / delta + 2)
+            } else {
+                degrees = 60 * ((r - g) / delta + 4)
+            }
+            return degrees < 0 ? degrees + 360 : degrees
+        }
+
+        /// 跟另一個顏色的 WCAG 對比(1 到 21)。
+        public func contrastRatio(with other: RGB) -> Double {
+            let first = relativeLuminance, second = other.relativeLuminance
+            return (max(first, second) + 0.05) / (min(first, second) + 0.05)
+        }
+
         /// WCAG 的相對亮度。
         var relativeLuminance: Double {
             func channel(_ value: Int) -> Double {

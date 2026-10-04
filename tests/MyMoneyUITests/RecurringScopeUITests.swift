@@ -120,8 +120,8 @@ final class RecurringScopeUITests: XCTestCase {
         XCTAssertTrue(personal.isSelected, "全部視角新增時，歸屬預設是個人私帳")
         if app.keyboards.firstMatch.exists, app.buttons["完成"].firstMatch.exists { app.buttons["完成"].firstMatch.tap() }
         XCTAssertTrue(ScrollSupport.revealFully(personal, in: app, inSheet: true), "捲不到歸屬那一列")
-        XCTAssertGreaterThan(try PixelAnalysis.statistics(of: personal.screenshot().image).brandPink, 30, "選取那列的勾勾不是粉紅")
-        XCTAssertEqual(try PixelAnalysis.statistics(of: household.screenshot().image).brandPink, 0, "沒選的那列也有粉紅")
+        XCTAssertGreaterThan(try PixelAnalysis.statistics(of: personal.screenshot().image).ci, 30, "選取那列的勾勾不是粉紅")
+        XCTAssertEqual(try PixelAnalysis.statistics(of: household.screenshot().image).ci, 0, "沒選的那列也有粉紅")
 
         let account = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "關聯帳戶")).firstMatch
         for _ in 0..<6 where !(account.exists && account.isHittable) { app.swipeUp() }

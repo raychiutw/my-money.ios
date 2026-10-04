@@ -93,7 +93,7 @@ private struct EmojiChoices: View {
                         // 選取不填色(#147、ADR-0008):品牌粉紅的外框。
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selection == emoji ? Color.brandPink : .clear, lineWidth: 2)
+                                .strokeBorder(selection == emoji ? Color.ciFill : .clear, lineWidth: 2)
                         )
                 }
                 .buttonStyle(.plain)

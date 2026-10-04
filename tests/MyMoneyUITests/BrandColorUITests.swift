@@ -60,6 +60,6 @@ final class BrandColorUITests: XCTestCase {
 
         let page = try PixelAnalysis.statistics(of: XCUIScreen.main.screenshot().image)
         XCTAssertEqual(page.bluish, 0, "\(name):登入頁有系統藍")
-        XCTAssertEqual(page.brandPink, 0, "\(name):登入頁有品牌粉紅(互動色已經單色化，粉紅只留 logo、App icon 與頭像)")
+        XCTAssertEqual(page.ci, 0, "\(name):登入頁有品牌粉紅(互動色已經單色化，粉紅只留 logo、App icon 與頭像)")
     }
 }

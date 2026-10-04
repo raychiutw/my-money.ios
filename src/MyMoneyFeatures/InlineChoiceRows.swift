@@ -31,7 +31,7 @@ struct InlineChoiceRows<Value: Hashable>: View {
                     if isSelected {
                         Image(systemName: "checkmark")
                             .fontWeight(.semibold)
-                            .foregroundStyle(Color.brandPink)
+                            .foregroundStyle(Color.ciText)
                             .accessibilityHidden(true)
                     }
                 }

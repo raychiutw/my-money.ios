@@ -53,9 +53,9 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(household.exists && personal.exists, "\(name):記一筆沒有歸屬的選擇列")
         XCTAssertTrue(household.isSelected, "\(name):歸屬預設不是家庭公帳")
         let selectedRow = try PixelAnalysis.statistics(of: household.screenshot().image)
-        XCTAssertGreaterThan(selectedRow.brandPink, 30, "\(name):選取那列的勾勾不是品牌粉紅(粉紅像素 \(selectedRow.brandPink))")
+        XCTAssertGreaterThan(selectedRow.ci, 30, "\(name):選取那列的勾勾不是品牌粉紅(粉紅像素 \(selectedRow.ci))")
         let otherRow = try PixelAnalysis.statistics(of: personal.screenshot().image)
-        XCTAssertEqual(otherRow.brandPink, 0, "\(name):沒選的那列也有粉紅")
+        XCTAssertEqual(otherRow.ci, 0, "\(name):沒選的那列也有粉紅")
 
         // 預設選取的分類格(餐飲)是粉紅外框加粉紅勾勾、不填色:在表單最下面，要捲下去。
         // 金額欄一打開就對焦，鍵盤蓋住分類格:先收起。
@@ -67,14 +67,14 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(category.isSelected, "\(name):餐飲不是選取狀態")
         try assertNotFilled(category, appearance: appearance, "\(name):選取的分類格又被填色了", minimumInk: 0.002)
         let selectedPixels = try PixelAnalysis.statistics(of: category.screenshot().image)
-        XCTAssertGreaterThan(selectedPixels.brandPink, 200, "\(name):選取的分類格沒有品牌粉紅的外框與勾勾(粉紅像素 \(selectedPixels.brandPink))")
+        XCTAssertGreaterThan(selectedPixels.ci, 200, "\(name):選取的分類格沒有品牌粉紅的外框與勾勾(粉紅像素 \(selectedPixels.ci))")
         let other = app.buttons["交通"]
         if other.exists, other.isHittable {
             let unselected = try PixelAnalysis.statistics(of: other.screenshot().image)
             XCTAssertLessThan(
                 appearance == .dark ? unselected.lightFraction : unselected.darkFraction, 0.3, "\(name):沒選的分類格是填滿的"
             )
-            XCTAssertEqual(unselected.brandPink, 0, "\(name):沒選的分類格也有粉紅")
+            XCTAssertEqual(unselected.ci, 0, "\(name):沒選的分類格也有粉紅")
         }
 
         // 在 ✕ 左邊緣外 4pt 點一下(44pt 的觸控範圍):要關得掉 sheet。
@@ -226,7 +226,7 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(filter.waitForExistence(timeout: 5), "\(name):總覽沒有視角篩選")
 
         let inactive = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
-        XCTAssertEqual(inactive.brandPink, 0, "\(name):沒套用篩選卻有粉紅")
+        XCTAssertEqual(inactive.ci, 0, "\(name):沒套用篩選卻有粉紅")
 
         filter.tap()
         let household = app.buttons["家庭公帳"]
@@ -234,11 +234,11 @@ final class GlassButtonsUITests: XCTestCase {
         household.tap()
         XCTAssertEqual(filter.value as? String, "家庭公帳", "\(name):沒有切到家庭公帳")
         var active = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
-        for _ in 0..<6 where active.brandPink < 30 {
+        for _ in 0..<6 where active.ci < 30 {
             Thread.sleep(forTimeInterval: 0.5)
             active = try PixelAnalysis.statistics(of: filter.screenshot().image, region: PixelAnalysis.center)
         }
-        XCTAssertGreaterThan(active.brandPink, 30, "\(name):套用中的篩選圖示沒有品牌粉紅(粉紅像素 \(active.brandPink))")
+        XCTAssertGreaterThan(active.ci, 30, "\(name):套用中的篩選圖示沒有品牌粉紅(粉紅像素 \(active.ci))")
         // 空心:中央沒有大面積反白(以前是白色或黑色的實心圓)。
         XCTAssertLessThan(
             appearance == .dark ? active.lightFraction : active.darkFraction, 0.3, "\(name):套用中的篩選圖示又變成反白填滿的實心圓"

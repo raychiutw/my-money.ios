@@ -41,14 +41,14 @@ struct CategoryGrid: View {
             // 選取不填色(#147、ADR-0008):較粗的品牌粉紅外框加粉紅勾勾，字與圖示維持原色;沒選的是細外框。
             .foregroundStyle(Color.primary)
             .overlay(
-                shape.strokeBorder(isSelected ? Color.brandPink : Color.secondary.opacity(0.3), lineWidth: isSelected ? 3 : 1)
+                shape.strokeBorder(isSelected ? Color.ciFill : Color.secondary.opacity(0.3), lineWidth: isSelected ? 3 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if isSelected {
                     // overlay 不會繼承上面的 foregroundStyle:明確指定粉紅。
                     Image(systemName: "checkmark")
                         .font(.footnote.bold())
-                        .foregroundStyle(Color.brandPink)
+                        .foregroundStyle(Color.ciText)
                         .padding(6)
                 }
             }

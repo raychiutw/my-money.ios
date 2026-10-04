@@ -85,7 +85,7 @@ private struct AccountChoiceList: View {
                 if isSelected {
                     // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.brandPink)
+                        .foregroundStyle(Color.ciText)
                         .accessibilityHidden(true)
                 }
             }
