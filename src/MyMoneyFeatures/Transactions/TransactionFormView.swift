@@ -13,6 +13,9 @@ public protocol TransactionForm: AnyObject, Observable {
     var note: String { get set }
     var date: CalendarDay { get set }
     var accountID: AccountID? { get set }
+    /// 選了信用卡才有「列入下期帳單」(上游 ADR 0020)。
+    var isCreditCardSelected: Bool { get }
+    var defersToNextStatement: Bool { get set }
     var categories: [TransactionCategory] { get }
     var errorMessage: String? { get }
     var isSaving: Bool { get }
@@ -69,6 +72,12 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         displayedComponents: .date
                     )
                     .calendarDayTimeZone()
+                    // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
+                    if model.isCreditCardSelected {
+                        Toggle("列入下期帳單", isOn: $model.defersToNextStatement)
+                            .tint(Color.ciFill)
+                            .accessibilityIdentifier("quickEntry.deferToNext")
+                    }
                 }
 
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。

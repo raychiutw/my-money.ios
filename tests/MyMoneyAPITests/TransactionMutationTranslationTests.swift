@@ -98,4 +98,44 @@ struct TransactionMutationTranslationTests {
             )
         }
     }
+
+    // MARK: 信用卡的帳單狀態與延至下期(上游 ADR 0020，#184)
+
+    private let card = AccountID("a1d2f913-9872-4868-88de-0e523ca46a3c")
+
+    @Test("記一筆與編輯都送 defer_to_next_statement(0/1，跟 web 一樣);建立回應 201", arguments: [true, false])
+    func bodiesCarryTheDeferFlag(defers: Bool) async throws {
+        try stub.reply(status: 201, fixture: "transactions-create-deferred.json")
+        let draft = TransactionDraft(
+            accountID: card, type: .expense, category: TransactionCategory("餐飲"), amount: Money(321), note: "延至下期測試",
+            date: CalendarDay(year: 2026, month: 10, day: 4), isShared: false, defersToNextStatement: defers
+        )
+
+        try await repository.create(draft)
+        try stub.reply(status: 200, fixture: "transactions-update.json")
+        try await repository.update(id, with: draft)
+
+        for request in stub.requests {
+            let body = try #require(request.httpBody)
+            let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+            #expect(json["defer_to_next_statement"] as? Int == (defers ? 1 : 0), "\(request.httpMethod ?? "")")
+        }
+        #expect(stub.requests.count == 2)
+    }
+
+    @Test("列表解讀帳單狀態:已出帳、延至下期(未出帳而且延期)、其他是未出帳;舊的回應沒有欄位也是未出帳")
+    func listDecodesBillingStatus() async throws {
+        try stub.reply(status: 200, fixture: "transactions-card-billing-state.json")
+
+        let cardTransactions = try await repository.transactions(
+            from: nil, to: nil, scope: .all, accountID: card, limit: 200, offset: 0
+        )
+
+        #expect(cardTransactions.first { $0.note == "延至下期測試" }?.billing == .deferred)
+        #expect(cardTransactions.first { $0.note == "出帳狀態測試" }?.billing == .billed)
+
+        try stub.reply(status: 200, fixture: "transactions-list.json")
+        let legacy = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 200, offset: 0)
+        #expect(legacy.allSatisfy { $0.billing == .unbilled })
+    }
 }

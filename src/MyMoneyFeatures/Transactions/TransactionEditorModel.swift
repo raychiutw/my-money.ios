@@ -21,7 +21,19 @@ public final class TransactionEditorModel {
     public var amountText: String
     public var note: String
     public var date: CalendarDay
-    public var accountID: AccountID?
+    public var accountID: AccountID? {
+        didSet {
+            // 切到非信用卡的帳戶:「列入下期帳單」收起並重設(上游 ADR 0020)。
+            if !isCreditCardSelected { defersToNextStatement = false }
+        }
+    }
+
+    /// 列入下期帳單;只有選了信用卡才有。編輯時一開始是原本的狀態(延至下期的交易是勾選的)。
+    public var defersToNextStatement: Bool
+
+    public var isCreditCardSelected: Bool {
+        accounts.first { $0.id == accountID }?.kind == .creditCard
+    }
 
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
@@ -67,6 +79,7 @@ public final class TransactionEditorModel {
         note = transaction.note
         date = transaction.date
         accountID = transaction.accountID
+        defersToNextStatement = transaction.billing == .deferred
         self.transactions = transactions
         accountRepository = accounts
         self.dataVersion = dataVersion
@@ -102,7 +115,8 @@ public final class TransactionEditorModel {
                 amount: amount,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 date: date,
-                isShared: isShared
+                isShared: isShared,
+                defersToNextStatement: isCreditCardSelected && defersToNextStatement
             ))
         } catch {
             let message = error.localizedDescription

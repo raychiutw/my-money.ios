@@ -147,4 +147,37 @@ struct QuickEntryTests {
         #expect(entry.errorMessage == "帳戶不存在")
         #expect(dataVersion.value == 0)
     }
+
+    // MARK: 信用卡「列入下期帳單」(上游 ADR 0020，#184)
+
+    @Test("選了信用卡才有「列入下期帳單」，預設不勾;勾了儲存會送出，成功後下一筆重設")
+    func deferForCreditCards() async {
+        let entry = await model()
+        #expect(!entry.isCreditCardSelected)
+        #expect(!entry.defersToNextStatement)
+
+        entry.accountID = SampleAccounts.card.id
+        #expect(entry.isCreditCardSelected)
+        entry.amountText = "321"
+        entry.defersToNextStatement = true
+        #expect(await entry.save())
+
+        #expect(await transactions.createdDrafts.last?.defersToNextStatement == true)
+        #expect(!entry.defersToNextStatement, "下一筆不沿用上一筆的延期勾選")
+    }
+
+    @Test("切到非信用卡的帳戶就收起並重設，儲存不送延期")
+    func switchingAwayFromTheCardResetsDefer() async {
+        let entry = await model()
+        entry.accountID = SampleAccounts.card.id
+        entry.defersToNextStatement = true
+
+        entry.accountID = SampleAccounts.savings.id
+        #expect(!entry.isCreditCardSelected)
+        #expect(!entry.defersToNextStatement)
+        entry.amountText = "100"
+        #expect(await entry.save())
+
+        #expect(await transactions.createdDrafts.last?.defersToNextStatement == false)
+    }
 }

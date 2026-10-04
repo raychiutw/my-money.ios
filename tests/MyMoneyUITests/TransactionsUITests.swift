@@ -310,6 +310,30 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
     }
 
+    /// 信用卡專屬的「列入下期帳單」(上游 ADR 0020、#184):選了信用卡才出現，選別的帳戶就收起並重設。
+    @MainActor
+    func testDeferToNextStatementOnlyForCreditCards() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.buttons["overview.add"].tap()
+        let toggle = app.switches["quickEntry.deferToNext"]
+
+        app.chooseQuickEntryAccount("iOS 測試存款")
+        XCTAssertFalse(toggle.waitForExistence(timeout: 1), "活存帳戶不該有「列入下期帳單」")
+
+        app.chooseQuickEntryAccount("iOS 測試信用卡")
+        for _ in 0..<4 where !(toggle.exists && toggle.isHittable) { app.swipeDown() }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3), "選了信用卡卻沒有「列入下期帳單」")
+        XCTAssertEqual(toggle.value as? String, "0", "預設應該不勾")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+
+        app.chooseQuickEntryAccount("iOS 測試存款")
+        XCTAssertFalse(toggle.waitForExistence(timeout: 1), "切回活存帳戶之後「列入下期帳單」還在")
+    }
+
     /// 依帳戶篩選(上游 ADR 0019、#183):篩選 sheet 選「iOS 測試存款」，按完成後列表只剩那個帳戶的收支明細，篩選按鈕顯示套用中。
     @MainActor
     func testFilterByAccountNarrowsTheList() throws {

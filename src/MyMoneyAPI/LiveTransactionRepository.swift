@@ -60,6 +60,9 @@ private struct TransactionDTO: Decodable {
     /// 0/1:1 是家庭公帳，0 是個人私帳。
     let isShared: Int
     let userName: String?
+    /// 上游 ADR 0020 起的欄位(0/1);舊的回應沒有，當成未出帳。
+    let isBilled: Int?
+    let defersToNextStatement: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
@@ -68,6 +71,8 @@ private struct TransactionDTO: Decodable {
         case isShared = "is_shared"
         case userName = "user_name"
         case userID = "user_id"
+        case isBilled = "is_billed"
+        case defersToNextStatement = "defer_to_next_statement"
     }
 
     func transaction() throws -> Transaction {
@@ -85,7 +90,8 @@ private struct TransactionDTO: Decodable {
             date: day,
             isShared: isShared == 1,
             recorderName: userName,
-            recorderID: userID.map(UserID.init)
+            recorderID: userID.map(UserID.init),
+            billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0)
         )
     }
 }
@@ -98,11 +104,14 @@ private struct TransactionBody: Encodable {
     let note: String
     let date: String
     let isShared: Int
+    /// 0/1，跟 web 一樣;非信用卡一律 0。
+    let defersToNextStatement: Int
 
     enum CodingKeys: String, CodingKey {
         case type, category, amount, note, date
         case accountID = "account_id"
         case isShared = "is_shared"
+        case defersToNextStatement = "defer_to_next_statement"
     }
 
     init(_ draft: TransactionDraft) {
@@ -113,5 +122,6 @@ private struct TransactionBody: Encodable {
         note = draft.note
         date = draft.date.iso
         isShared = draft.isShared ? 1 : 0
+        defersToNextStatement = draft.defersToNextStatement ? 1 : 0
     }
 }

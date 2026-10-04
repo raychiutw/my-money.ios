@@ -81,7 +81,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             date: draft.date,
             isShared: draft.isShared,
             recorderName: InMemoryAuthRepository.Member.sample.user.name,
-            recorderID: InMemoryAuthRepository.Member.sample.user.id
+            recorderID: InMemoryAuthRepository.Member.sample.user.id,
+            billing: draft.defersToNextStatement ? .deferred : .unbilled
         ))
     }
 
@@ -101,7 +102,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
                 date: draft.date,
                 isShared: draft.isShared,
                 recorderName: transaction.recorderName,
-                recorderID: transaction.recorderID
+                recorderID: transaction.recorderID,
+                billing: draft.defersToNextStatement ? .deferred : transaction.billing
             )
         }
     }

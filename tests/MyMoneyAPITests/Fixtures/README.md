@@ -66,6 +66,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `transactions-recent.json` | `GET /transactions?scope=all&limit=6&offset=0`,不帶 `from` / `to`(總覽的最近 6 筆) | 200 | 不限日期，由新到舊 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
 | `transactions-account-filter.json` | `GET /transactions?scope=all&limit=200&offset=0&from=2026-01-01&to=2026-12-31&account_id=<iOS 測試存款>`(上游 ADR 0019) | 200 | 只回這個帳戶的 2 筆(`account_id` 都是存款帳戶) |
+| `transactions-create-deferred.json` | `POST /transactions` 在「iOS 測試小額卡」記一筆 `defer_to_next_statement: 1`(上游 ADR 0020,錄完刪除) | 201 | 回應帶 `is_billed: 0`、`defer_to_next_statement: 1` |
+| `transactions-card-billing-state.json` | `GET /transactions?…&account_id=<小額卡>`,卡上有兩筆:一筆延至下期、一筆日期在上期結帳日之前(後端建立時自動標成已出帳)(錄完都已刪除，卡的餘額還原) | 200 | 延至下期的 `is_billed: 0, defer_to_next_statement: 1`;已出帳的 `is_billed: 1` |
 | `transactions-create-missing-fields.json` | `POST /transactions`,沒有 `account_id` | 400 | 「請填寫必填欄位」原樣傳遞 |
 | `transactions-update.json` | `PUT /transactions/:id`,用暫時記的一筆(改成 75 元、個人私帳),錄完就刪掉 | 200 | 編輯成功 |
 | `transactions-delete.json` | `DELETE /transactions/:id`,刪除上面那筆 | 200 | `{success, data: null}` 視為成功 |
