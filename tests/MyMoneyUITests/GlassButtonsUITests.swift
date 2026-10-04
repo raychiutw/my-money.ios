@@ -10,12 +10,12 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
-    func testSheetToolbarAndSelectionAreUnfilledInLight() throws {
+    func testSheetCloseIsGlassAndConfirmIsCIFilledInLight() throws {
         try assertSheetToolbarAndSelection(appearance: .light)
     }
 
     @MainActor
-    func testSheetToolbarAndSelectionAreUnfilledInDark() throws {
+    func testSheetCloseIsGlassAndConfirmIsCIFilledInDark() throws {
         try assertSheetToolbarAndSelection(appearance: .dark)
     }
 
@@ -40,13 +40,18 @@ final class GlassButtonsUITests: XCTestCase {
         }
         XCTAssertFalse(app.navigationBars.buttons["取消"].exists, "\(name):sheet 還有文字的「取消」")
 
-        // ✓ 跟 ✕ 一樣是不填色的玻璃圓鈕:中央沒有大面積反白，外緣一圈有玻璃外框，勾勾與叉叉看得到。
-        try assertNotFilled(save, appearance: appearance, "\(name):✓ 又被填色了")
+        // ✕ 是不填色的玻璃圓鈕:中央沒有大面積反白，外緣一圈有玻璃外框，叉叉看得到。
         try assertNotFilled(close, appearance: appearance, "\(name):✕ 被填色了")
-        for (button, label) in [(close, "✕"), (save, "✓")] {
-            let ring = try PixelAnalysis.ringFrameFraction(of: button.screenshot().image)
-            XCTAssertGreaterThan(ring, 0.3, "\(name):\(label) 沒有玻璃外框(外緣一圈只有 \(ring) 跟背景不同)")
+        let closeRing = try PixelAnalysis.ringFrameFraction(of: close.screenshot().image)
+        XCTAssertGreaterThan(closeRing, 0.3, "\(name):✕ 沒有玻璃外框(外緣一圈只有 \(closeRing) 跟背景不同)")
+        // ✓ 是 CI 填色圓鈕、勾勾反白(ADR-0009、#176):中央大部分是 CI 色，勾勾(亮)看得到。
+        var saved = try PixelAnalysis.statistics(of: save.screenshot().image, region: PixelAnalysis.center)
+        for _ in 0..<6 where saved.ciFraction < 0.5 {
+            Thread.sleep(forTimeInterval: 0.5)
+            saved = try PixelAnalysis.statistics(of: save.screenshot().image, region: PixelAnalysis.center)
         }
+        XCTAssertGreaterThan(saved.ciFraction, 0.5, "\(name):✓ 沒有填 CI 色(CI 色只占 \(saved.ciFraction))")
+        XCTAssertGreaterThan(saved.lightFraction, 0.02, "\(name):✓ 的反白勾勾看不到(亮色只占 \(saved.lightFraction))")
 
         // 內嵌選擇列(歸屬):選取那一列的勾勾是品牌粉紅，沒選的那列沒有粉紅(ADR-0008)。
         let household = app.buttons["家庭公帳"], personal = app.buttons["個人私帳"]
@@ -183,16 +188,16 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
-    func testTransferCapsuleIsUnfilledInLight() throws {
+    func testTransferCapsuleIsCIFilledInLight() throws {
         try assertTransferCapsule(appearance: .light)
     }
 
     @MainActor
-    func testTransferCapsuleIsUnfilledInDark() throws {
+    func testTransferCapsuleIsCIFilledInDark() throws {
         try assertTransferCapsule(appearance: .dark)
     }
 
-    /// 需要文字的主要動作(帳戶頁的「ATM 提款／轉帳」)是玻璃膠囊，不填色(#147):中央沒有大面積反白，字是粗體、看得到。
+    /// 需要文字的主要動作(帳戶頁的「ATM 提款／轉帳」)是 CI 填色的膠囊、反白粗體字(ADR-0009、#176)。
     @MainActor
     private func assertTransferCapsule(appearance: XCUIDevice.Appearance) throws {
         XCUIDevice.shared.appearance = appearance
@@ -203,7 +208,13 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(transfer.exists, "沒有「ATM 提款／轉帳」膠囊")
         let name = appearance == .dark ? "深色" : "淺色"
         XCTAssertGreaterThanOrEqual(transfer.frame.height, 44, "\(name):膠囊高度不到 44pt:\(transfer.frame)")
-        try assertNotFilled(transfer, appearance: appearance, "\(name):膠囊又被填色了", minimumInk: 0.02)
+        var stats = try PixelAnalysis.statistics(of: transfer.screenshot().image, region: PixelAnalysis.center)
+        for _ in 0..<6 where stats.ciFraction < 0.5 {
+            Thread.sleep(forTimeInterval: 0.5)
+            stats = try PixelAnalysis.statistics(of: transfer.screenshot().image, region: PixelAnalysis.center)
+        }
+        XCTAssertGreaterThan(stats.ciFraction, 0.5, "\(name):主要膠囊沒有填 CI 色(CI 色只占 \(stats.ciFraction))")
+        XCTAssertGreaterThan(stats.lightFraction, 0.01, "\(name):膠囊上的反白字看不到")
     }
 
     @MainActor

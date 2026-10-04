@@ -12,6 +12,10 @@ enum PixelAnalysis {
         var bluish: Int
         /// 接近 CI 色(填色與文字的任一個變體)的像素數。
         var ci: Int
+        /// CI 色像素占這個範圍的比例。
+        var ciFraction: Double { Double(ci) / Double(max(total, 1)) }
+        /// 這個範圍的像素總數。
+        var total: Int
     }
 
     /// CI 色(`CIPalette` 的填色與文字，各外觀與增強對比的所有變體)。
@@ -107,7 +111,7 @@ enum PixelAnalysis {
             }
         }
         let count = Double(max(total, 1))
-        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, ci: ci)
+        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, ci: ci, total: total)
     }
 
     /// 一條橫向的文字帶(同一列文字所在的 y 範圍)與它墨跡的左右邊界;座標是畫素。

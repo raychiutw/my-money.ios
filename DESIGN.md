@@ -1,6 +1,6 @@
 # DESIGN.md
 
-my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research/2026-09-28-apple-hig-ios-app.md`)和 ADR-0001 的規則「功能層與 web 對等，互動層照 HIG 轉譯」。品牌粉紅只保留在 **logo、App icon、頭像、目前所在的 tab、套用中的篩選與選取狀態**(ADR-0007、ADR-0008),按鈕一律不填色，其餘使用系統外觀。
+my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research/2026-09-28-apple-hig-ios-app.md`)和 ADR-0001 的規則「功能層與 web 對等，互動層照 HIG 轉譯」。CI 色(品牌粉紅紅，ADR-0009)用在 **logo、App icon、頭像、✓ 與主要按鈕的填色、目前所在的 tab、套用中的篩選與選取狀態**(ADR-0007、ADR-0008、ADR-0009)，其餘按鈕不填色，其餘使用系統外觀。
 
 ## 原則
 
@@ -17,7 +17,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 ## 顏色
 
-**互動色是單色、按鈕不填色**(#134、ADR-0007,#147、ADR-0008):不用系統藍。淺色黑字、深色白字，背景跟主題底色一樣，跟 iOS 官方 app 一致;可點的東西靠 **Liquid Glass 外框**表達，不靠顏色，也不靠反白填滿(使用者在真機看過後否決了單色填滿)。理由與 HIG 依據見 `docs/research/2026-10-02-apple-hig-system-colors-and-button-contrast.md`:iOS 26 起系統藍(`#0088FF`／`#0091FF`／`#1E6EF4`／`#5CB8FF`)配白字只有 3.2–3.5:1(深色增強對比 2.15:1)，原本粉紅 `#B8434D` 要為淺色、深色各做一堆特例。
+**互動色是單色(黑／白)，只有 ✓ 與主要按鈕填 CI 色**(#134、ADR-0007,#147、ADR-0008,#176、ADR-0009):不用系統藍。淺色黑字、深色白字，跟 iOS 官方 app 一致;可點的東西靠 **Liquid Glass 外框**表達，不靠顏色;**✓ 與主要按鈕**填 CI 色(使用者在真機看過單色填滿後否決，看了 Clock 的 CI 色填色後要求這樣做)。理由與 HIG 依據見 `docs/research/2026-10-02-apple-hig-system-colors-and-button-contrast.md`:iOS 26 起系統藍(`#0088FF`／`#0091FF`／`#1E6EF4`／`#5CB8FF`)配白字只有 3.2–3.5:1(深色增強對比 2.15:1)，原本粉紅 `#B8434D` 要為淺色、深色各做一堆特例。
 
 `AccentColor` 放在 asset catalog,提供四個變體，**全部單色**:
 
@@ -28,18 +28,18 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 | 淺色 + 增強對比 | `#000000` |
 | 深色 + 增強對比 | `#FFFFFF` |
 
-- 單元測試(`AccentColorTests`)驗證四個變體是單色(淺色黑、深色白);UI 測試(`BrandColorUITests`,正式路徑)驗證登入頁沒有系統藍、沒有 CI 色、「登入」不填色(#176 會改成填 CI 色)。
+- 單元測試(`AccentColorTests`)驗證四個變體是單色(淺色黑、深色白);UI 測試(`BrandColorUITests`,正式路徑)驗證登入頁沒有系統藍、「登入」是 CI 填色的膠囊、停用時淡化。
 - **CI 色**(ADR-0009，取代 ADR-0008 的品牌粉紅):分成兩種用途，色相都在 352°，淺色與深色看起來是同一個品牌色。
   - **填色 `Color.ciFill`**:淺色與深色**同一個 `#E23C52`**(增強對比淺色 `#881121`、深色 `#FDA5B1`)，填色上的勾勾與字是 `Color.ciGlyph`(白;只有深色增強對比是黑)。反白字 4.2:1、黑底 5.0:1。
   - **文字與線條 `Color.ciText`**:淺色 `#AD1F32`(白底 7.0:1)、深色 `#F88191`(次層卡片 5.7:1)，增強對比 `#841524`／`#FDA5B1`。
   - 色票的單一來源是 `CIPalette`(純資料)，對比由 `CIPaletteTests` 用 WCAG 公式鎖住。**目前用在**(#175 只換色，行為不變):**套用中的篩選**(`ciText` 空心圓圈)、**選取狀態**(分類格與 emoji 的 `ciFill` 外框、勾勾與內嵌選擇列的勾勾用 `ciText`)，以及 **tab bar 目前所在的 tab**(`ciText`;底下的膠囊仍是淺色白、深色黑)。logo、App icon、頭像(`AvatarPalette`:固定 RGB，淺色與深色同一組粉底黑字，對比 ≥ 7:1，見「導覽」)不變。
-  - **接下來**(ADR-0009):#176 ✓ 與主要按鈕改填 `ciFill`;#177 選取格改「CI 外框＋淡底＋勾勾徽章」、開關、可點的值與連結、進度、tab 套用。這兩張票落地前，下面「按鈕」的描述仍是不填色。
+  - **已落地**:✓ 與主要按鈕填 `ciFill`(#176)。**接下來**(#177):選取格改「CI 外框＋淡底＋勾勾徽章」、開關、可點的值與連結、進度、tab 套用。
 - **按鈕**(`GlassControls.swift`)——**沒有裸文字按鈕**:
-  - 需要文字的動作是**玻璃膠囊**(`.glass`,字用主要文字色，`GlassCapsuleButton`):例如空狀態的「前往帳戶管理」、儲蓄目標的「存入」、機器人記帳的範例句。
-  - 主要動作是**不填色的玻璃膠囊**(`PrimaryCapsuleButton`:`.glass`，字**粗體**,靠粗體與位置區分，不反白):例如登入、家庭的建立與加入、「ATM 提款／轉帳」、購買力試算。**一個畫面一個 primary action**。停用時字與外框變淡，仍看得出是按鈕。
-  - **為什麼不用 `.glassProminent`**:使用者在真機看過單色填滿後否決(ADR-0008);它的字固定是白色,深色模式白底白字還得特例。`.glass` 四種外觀(淺色、深色、增強對比各一)都正常(研究筆記 §11)。
+  - 需要文字的次要動作是**玻璃膠囊**(`.glass`,不填色，字用 `ciText`，`GlassCapsuleButton`):例如空狀態的「前往帳戶管理」、儲蓄目標的「存入」、「重試」、機器人記帳的範例句。
+  - 主要動作是 **CI 填色的膠囊**(`PrimaryCapsuleButton`:`.glassProminent` 加 `.tint(ciFill)`，字是**粗體**、顏色 `ciGlyph`):例如登入、家庭的建立與加入、「ATM 提款／轉帳」、購買力試算。**一個畫面一個 primary action**。停用時系統淡化，仍看得出是按鈕。
+  - **為什麼現在可以用 `.glassProminent`**:ADR-0007 的單色填滿在深色模式是白底白字，還得特例;CI 填色 `#E23C52` 淺深同一個、字固定 `ciGlyph`(白，只有深色增強對比是黑)，不需要特例(ADR-0009)。次要動作維持 `.glass` 不填色。
   - **區塊標題右邊的「…」**(`MoreMenu`):**只有符號、沒有外框**(使用者要求，#137;是「可點的東西靠玻璃外框」的例外)，點擊範圍 44×44pt，點開選單，取代「管理」「全部」這類文字按鈕;VoiceOver 念「帳戶的更多動作」等。破壞性動作放在選單最後、用系統紅。這是區塊標題用的;工具列依 ADR-0004 仍不放「…」。
-  - **Sheet 的取消與確認是圖示**(`SheetCloseButton`、`SheetConfirmButton`):左上 ✕ 玻璃圓鈕(VoiceOver「關閉」)、右上 ✓ 玻璃圓鈕(跟 ✕ 同一種、不填色，靠勾勾區分;VoiceOver 念「儲存」「完成」「確認」等該動作的名稱)。放在 `.primaryAction`、不加 `role: .confirm`:`.confirmationAction` 與 `.confirm` 在 iOS 26 都會自動畫成 accent 填滿(ADR-0008)。觸控範圍由系統外擴到 44pt(UI 測試在圓鈕外 4pt 點得到)。「我的」sheet 只有關閉、沒有確認，右上的 ✕(`role: .close`)同樣放 `.primaryAction`:放 `.confirmationAction` 會被畫成填滿的黑(深色是白)圓鈕(#157 逐頁審查發現，UI 測試 `testMeSheetCloseIsUnfilled*` 守住)。機器人模擬對話的送出鈕也是玻璃圓鈕，不是裸圖示;輸入欄用會縮放的樣式(不用 `.roundedBorder`，它的字和欄位不跟著 Dynamic Type 放大)。
+  - **Sheet 的取消與確認是圖示**(`SheetCloseButton`、`SheetConfirmButton`):左上 ✕ 玻璃圓鈕(VoiceOver「關閉」，不填色)、右上 ✓ **CI 填色圓鈕**(`.borderedProminent` 加 `.tint(ciFill)`、勾勾 `ciGlyph`;VoiceOver 念「儲存」「完成」「確認」等該動作的名稱)。仍放 `.primaryAction`、不加 `role: .confirm`:`.confirmationAction` 與 `.confirm` 在 iOS 26 會自動畫成 accent(黑／白)填滿，蓋掉 CI 色(ADR-0008)。觸控範圍由系統外擴到 44pt(UI 測試在圓鈕外 4pt 點得到)。「我的」sheet 只有關閉、沒有確認，右上的 ✕(`role: .close`)同樣放 `.primaryAction`:放 `.confirmationAction` 會被畫成填滿的黑(深色是白)圓鈕(#157 逐頁審查發現，UI 測試 `testMeSheetCloseIsUnfilled*` 守住)。機器人模擬對話的送出鈕也是玻璃圓鈕，不是裸圖示;輸入欄用會縮放的樣式(不用 `.roundedBorder`，它的字和欄位不跟著 Dynamic Type 放大)。
   - **工具列**:一組玻璃膠囊(篩選、記一筆等，系統自動合併)，頭像不加底(`sharedBackgroundVisibility(.hidden)`)。工具列上難用符號表達的動作可以用文字(例如信用卡詳細頁的「編輯」，HIG Toolbars)，系統會畫成玻璃膠囊。
   - 清單與表單裡**整列可點的動作列**(例如「從共同基金報銷」「出帳作業」)是系統的列，不算裸文字按鈕。
   - **玻璃只給控制層與導覽層**(工具列、tab bar、按鈕、「…」):卡片、列、圖表不加玻璃。
@@ -201,7 +201,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 - 主視覺(`AccountsHero`):超大的淨可用餘額(依帳戶檢視範圍，後端算好;「大數字」)，下面是**組成比例條**:一條分段的長條(`CompositionBar`，每段長度是佔三項合計的比例)，三段是現金(綠)、銀行存款(藍)、信用卡待繳(紅)，金額是 0 或負數的項目不畫;圖例用色點加名稱，不只靠顏色。VoiceOver 念「資金組成，銀行存款百分之 64，信用卡待繳百分之 36」。
 - 三格數字磚(`NumberTile`):現金、銀行存款、信用卡待繳(有待繳時紅色);畫面用簡稱，VoiceOver 念正名「現金錢包總額」「銀行存款帳戶餘額合計」「信用卡待繳總額」。
-- 「ATM 提款／轉帳」膠囊按鈕(`PrimaryCapsuleButton`:不填色的玻璃膠囊，`.large`，寬度撐滿，見「顏色」):摘要下面最醒目的主要動作，點了打開轉帳 sheet。
+- 「ATM 提款／轉帳」膠囊按鈕(`PrimaryCapsuleButton`:CI 填色的膠囊，`.large`，寬度撐滿，見「顏色」):摘要下面最醒目的主要動作，點了打開轉帳 sheet。
 - **待報銷代墊款橫幅**(#141):公帳範圍且有成員待報銷時，帳戶頁最上面多一張卡片（`groupedCardBackground`、圓角 16）:一行「家庭公帳待報銷代墊款 $X」(`doc.text` 圖示，金額單行)，下面一顆玻璃膠囊「前往家庭」切到家庭 tab。大字級時文字最多兩行、按鈕在下面，不並排。
 - 現金錢包、銀行存款帳戶、信用卡三區，區標題是「現金錢包(N)」這種帶數量的名稱;每個帳戶是**一張卡片**(`NumberCard` 整列，不是兩欄:卡片要保留往左滑刪除、往右滑轉帳捷徑和長按選單)。現金與銀行:類型圖示加名稱，下面一行左邊是小字、右邊是大金額(靠右，#149;銀行透支時紅色);信用卡:名稱、待繳金額(有待繳時紅色)、小字「個人私帳・5 日繳」(歸屬加繳款日)，點了進信用卡詳細頁(用導覽路徑，不用 `NavigationLink`:列表裡的連結會多一個箭頭)。空狀態與「立即新增…」照舊。
 
@@ -317,7 +317,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 
 | web | iOS |
 |---|---|
-| 自訂 Modal 表單 | `.sheet` 裡放 `NavigationStack` + `Form`,toolbar 放 ✕(關閉)與 ✓(儲存等，兩顆一樣的玻璃圓鈕、不填色)，見「顏色」 |
+| 自訂 Modal 表單 | `.sheet` 裡放 `NavigationStack` + `Form`,toolbar 放 ✕(關閉，不填色的玻璃圓鈕)與 ✓(儲存等，CI 填色圓鈕)，見「顏色」 |
 | `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo |
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
@@ -328,7 +328,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | `<select>` | 依選項數選控制項：內嵌選擇列、格狀或推入清單頁(見「導覽」的「選擇控制項」) |
 | 帳戶下拉(選項是「類型 - 名稱」加餘額) | `AccountPicker`(#78、ADR-0004):列上的值只放名稱，點了推入清單頁(帳戶數量不固定)，清單頁每列的副標題是類型;**必填的表單開窗時帳戶是空的**，列上顯示次要文字色的佔位文字(例如「請選擇扣款／存入帳戶」，上游 ADR 0011、#109)，清單頁沒有「無」，選了就不能回空;選填的(週期收支)有「無特定帳戶」。推入與返回由自己控制的 `NavigationLink`＋按鈕清單做，不用系統 Picker 的 navigation link 樣式(選擇是空值時，系統 Picker 選了帳戶會把整個 sheet 關掉);餘額另起一列「可用餘額」(`AmountRow`),只顯示自己看得到的帳戶(轉出、扣款、撥款帳戶),收款帳戶的餘額不公開 |
 | 文字欄位上方的標籤 | `LabeledContent("名稱") { TextField(…) }`:`Form` 裡的 `TextField` 會把 label 當成 placeholder,打字後就看不到;包一層才有一直看得到的標籤，placeholder 只放範例(#78,研究 §7) |
-| 表單裡的主要動作按鈕(家庭的建立、加入) | `PrimaryCapsuleButton`(不填色的玻璃膠囊、粗體字，見「顏色」),停用時仍保有按鈕外形，不會跟 placeholder 一樣只剩灰字(#78,研究 §9);Section 標題已經說明是什麼動作時，按鈕只寫動詞，例如「建立」「加入」 |
+| 表單裡的主要動作按鈕(家庭的建立、加入) | `PrimaryCapsuleButton`(CI 填色的膠囊、反白粗體字，見「顏色」),停用時仍保有按鈕外形，不會跟 placeholder 一樣只剩灰字(#78,研究 §9);Section 標題已經說明是什麼動作時，按鈕只寫動詞，例如「建立」「加入」 |
 | 家庭公帳／個人私帳、支出／收入等切換鈕 | **支出／收入：導覽列中間的分段控制**。記一筆和週期收支編輯器放在 sheet 導覽列中間(`.principal` 的 segmented `Picker`),不另外佔表單一列(HIG 分段控制一節舉的行事曆「新增事件」)。**其他選擇：內嵌選擇列**(ADR-0004)。記一筆和信用卡扣款還款的歸屬、資產帳戶的歸屬、新增資產帳戶的類型，都是 `Form` 裡的 `Picker(.inline)`:選項全部攤開，`body` 字級，右邊打勾，點一下就選，跟著 Dynamic Type(字級不縮小，沿用 #65 的取捨，比原本的下拉選單少一次點擊)。分段控制只在「字型與數字」列出的四個地方(交易頁篩選 sheet 的視角見 #74,「導覽」) |
 | `<input type=date>` | `DatePicker(.compact)` |
 | 日期文字(`09/29`、`2026/09/28`、`2026-10-05`) | `Date.FormatStyle` 的系統格式，時區固定台灣(見「日期」) |
