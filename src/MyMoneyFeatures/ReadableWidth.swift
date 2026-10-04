@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// iPad 上內容限制在可讀寬度並置中(#173、HIG Layout:內容不要隨視窗拉伸)。
 ///
@@ -23,14 +26,29 @@ public struct ReadableWidth: ViewModifier {
 
     public init() {}
 
+    @ViewBuilder
     public func body(content: Content) -> some View {
-        let margin = ReadableWidth.margin(forWidth: layout.width)
-        return content
-            .contentMargins(.leading, layout.leading + margin, for: .scrollContent)
-            .contentMargins(.trailing, margin, for: .scrollContent)
-            .onGeometryChange(for: Layout.self) { proxy in
-                Layout(width: proxy.size.width, leading: proxy.frame(in: .global).minX)
-            } action: { layout = $0 }
+        if Self.isPad {
+            let margin = ReadableWidth.margin(forWidth: layout.width)
+            content
+                .contentMargins(.leading, layout.leading + margin, for: .scrollContent)
+                .contentMargins(.trailing, margin, for: .scrollContent)
+                .onGeometryChange(for: Layout.self) { proxy in
+                    Layout(width: proxy.size.width, leading: proxy.frame(in: .global).minX)
+                } action: { layout = $0 }
+        } else {
+            // iPhone 不需要:不套 `contentMargins`(實測連邊界 0 也會改變清單內容的內距，金額對齊的 UI 測試因此失敗)。
+            content
+        }
+    }
+
+    /// 只有 iPad 才限制寬度。這是裝置的種類，不會在執行中改變，所以兩個分支不會互相切換(不會丟掉畫面狀態)。
+    private static var isPad: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
     }
 
     /// 視窗寬度對應的左右邊界:超出 `maxWidth` 的部分平均分到兩側。

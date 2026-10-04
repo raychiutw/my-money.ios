@@ -64,6 +64,18 @@ struct TransactionsScreen: View {
                     TransactionFormView(model: sheet.model)
                 }
                 .alert(
+                    "刪除\(Terms.transactions)",
+                    isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+                    presenting: pendingDeletion
+                ) { transaction in
+                    Button("刪除", role: .destructive) {
+                        Task { await model.delete(transaction) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: { _ in
+                    Text(model.deleteConfirmation)
+                }
+                .alert(
                     model.lockAlertTitle,
                     isPresented: Binding(get: { explained != nil }, set: { if !$0 { explained = nil } }),
                     presenting: explained
@@ -184,14 +196,6 @@ struct TransactionsScreen: View {
                 )
             }
             .tint(.primary)
-            .rowConfirmationDialog("刪除\(Terms.transactions)", pending: $pendingDeletion, for: transaction) { transaction in
-                Button("刪除", role: .destructive) {
-                    Task { await model.delete(transaction) }
-                }
-                Button("取消", role: .cancel) {}
-            } message: { _ in
-                Text(model.deleteConfirmation)
-            }
             .swipeActions {
                 Button("刪除", systemImage: "trash", role: .destructive) {
                     pendingDeletion = transaction

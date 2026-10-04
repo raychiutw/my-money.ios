@@ -54,11 +54,35 @@ struct AccountsScreen: View {
                 .sheet(item: $editor) { sheet in
                     AccountEditorView(model: sheet.model)
                 }
+                .alert(
+                    "刪除資產帳戶",
+                    isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+                    presenting: pendingDeletion
+                ) { account in
+                    Button("刪除", role: .destructive) {
+                        Task { await model.delete(account) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: { account in
+                    Text(model.deleteConfirmation(for: account))
+                }
                 .sheet(item: $transfer) { transfer in
                     TransferView(model: transfer) { message in model.noticeMessage = message }
                 }
                 .sheet(item: $payment) { payment in
                     CardPaymentView(model: payment)
+                }
+                .alert(
+                    "結帳日出帳作業",
+                    isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
+                    presenting: pendingRollover
+                ) { card in
+                    Button("出帳作業") {
+                        Task { await model.rollOver(card) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: { card in
+                    Text(model.rolloverConfirmation(for: card))
                 }
                 .alert(
                     "無法完成",
@@ -118,7 +142,6 @@ struct AccountsScreen: View {
             }
         }
         .clearListRow()
-        .deleteConfirmation($pendingDeletion, for: account, model: model)
         .swipeActions {
             if canModify {
                 Button("刪除", systemImage: "trash", role: .destructive) {
@@ -319,15 +342,6 @@ struct AccountsScreen: View {
         .buttonStyle(.plain)
         .clearListRow()
         .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
-        .deleteConfirmation($pendingDeletion, for: .creditCard(card), model: model)
-        .rowConfirmationDialog("結帳日出帳作業", pending: $pendingRollover, for: card) { card in
-            Button("出帳作業") {
-                Task { await model.rollOver(card) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: { card in
-            Text(model.rolloverConfirmation(for: card))
-        }
         .swipeActions {
             if model.canModify(.creditCard(card)) {
                 Button("刪除", systemImage: "trash", role: .destructive) {
@@ -403,19 +417,5 @@ private struct PendingAdvancesBanner: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private extension View {
-    /// 刪除資產帳戶的確認:掛在被刪除的那一張卡上(#169)。
-    func deleteConfirmation(_ pending: Binding<Account?>, for account: Account, model: AccountsModel) -> some View {
-        rowConfirmationDialog("刪除資產帳戶", pending: pending, for: account) { account in
-            Button("刪除", role: .destructive) {
-                Task { await model.delete(account) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: { account in
-            Text(model.deleteConfirmation(for: account))
-        }
     }
 }

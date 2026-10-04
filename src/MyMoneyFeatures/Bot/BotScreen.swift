@@ -25,6 +25,18 @@ struct BotScreen: View {
         .inlineNavigationTitle()
         .task { await model.load() }
         .alert(
+            "解除機器人綁定",
+            isPresented: Binding(get: { pendingUnbind != nil }, set: { if !$0 { pendingUnbind = nil } }),
+            presenting: pendingUnbind
+        ) { binding in
+            Button("解除", role: .destructive) {
+                Task { await model.unbind(binding) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: { binding in
+            Text(model.unbindConfirmation(for: binding))
+        }
+        .alert(
             "無法完成",
             isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
         ) {
@@ -93,14 +105,6 @@ struct BotScreen: View {
             }
             ForEach(model.bindings ?? []) { binding in
                 LabeledContent(binding.platform.title, value: binding.displayName ?? "")
-                    .rowConfirmationDialog("解除機器人綁定", pending: $pendingUnbind, for: binding) { binding in
-                        Button("解除", role: .destructive) {
-                            Task { await model.unbind(binding) }
-                        }
-                        Button("取消", role: .cancel) {}
-                    } message: { binding in
-                        Text(model.unbindConfirmation(for: binding))
-                    }
                     .swipeActions {
                         Button("解除", systemImage: "xmark.circle", role: .destructive) {
                             pendingUnbind = binding

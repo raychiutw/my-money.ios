@@ -325,7 +325,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | web | iOS |
 |---|---|
 | 自訂 Modal 表單 | `.sheet` 裡放 `NavigationStack` + `Form`,toolbar 放 ✕(關閉，不填色的玻璃圓鈕)與 ✓(儲存等，CI 填色圓鈕)，見「顏色」 |
-| `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo。**確認訊息掛在觸發它的那一列或按鈕上**(`rowConfirmationDialog`，#169):iOS 26 在 iPhone 把它畫成泡泡，箭頭指向掛 modifier 的 view，掛在整個清單上會指到不相關的列。送出之後才知道要不要確認(信用卡還款的「扣款帳戶餘額不足」)沒有適合的錨點，用 `.alert` |
+| `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo。**按鈕觸發的確認訊息掛在那顆按鈕上**(家庭的「離開家庭」、信用卡詳細頁的「出帳作業」「校準未出帳」，#169):iOS 26 在 iPhone 把 `confirmationDialog` 畫成泡泡，箭頭指向掛 modifier 的 view，掛在整個清單上會指到不相關的列;泡泡式沒有「取消」鈕。**從列上滑出或長按選單觸發的刪除／移除／出帳作業**沒有按鈕可以當錨點(實測把 `confirmationDialog` 掛在被滑開的列上，泡泡不會跳出來)，改用畫面層級的 `.alert`(置中、寬度固定、大字級會折行)；送出之後才知道要不要確認的(信用卡還款的「扣款帳戶餘額不足」)也用 `.alert` |
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
 | 主題切換鈕(淺色／深色兩段式) | 「我的」的「外觀」內嵌選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
