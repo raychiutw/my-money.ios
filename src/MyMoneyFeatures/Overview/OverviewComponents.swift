@@ -53,13 +53,12 @@ struct OverviewEntryCard: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 if let value {
-                    Text(value)
+                    BreakableLine(text: value, alignment: valueAlignment)
                         .font(.subheadline)
                         .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                         .monospacedDigit()
-                        // 理想寬度 0:數字長短不改變欄數;放不下就折行。
-                        .frame(idealWidth: 0, maxWidth: .infinity, alignment: valueAlignment)
-                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .trailing : .leading)
+                        // 理想寬度 0:數字長短不改變欄數;放不下就換行。
+                        .frame(idealWidth: 0, maxWidth: .infinity, alignment: frameAlignment)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -70,7 +69,11 @@ struct OverviewEntryCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 18))
     }
 
-    private var valueAlignment: Alignment {
+    private var valueAlignment: HorizontalAlignment {
+        dynamicTypeSize.isAccessibilitySize ? .trailing : .leading
+    }
+
+    private var frameAlignment: Alignment {
         dynamicTypeSize.isAccessibilitySize ? .trailing : .leading
     }
 }
@@ -141,7 +144,7 @@ struct UpcomingEventRow: View {
     }
 
     private var subtitle: some View {
-        Text("\(row.dateText)・\(row.subtitle)")
+        BreakableLine(text: "\(row.dateText)・\(row.subtitle)")
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .monospacedDigit()
@@ -185,7 +188,7 @@ struct OverviewAccountCardView: View {
                 .foregroundStyle(card.isDue ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
                 .frame(maxWidth: .infinity, alignment: .trailing)
             ForEach(card.detailLines, id: \.self) { line in
-                Text(line)
+                BreakableLine(text: line, alignment: .leading)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -226,5 +229,24 @@ struct OverviewAccountCardRow<Content: View>: View {
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollClipDisabled()
+    }
+}
+
+/// 一行「甲・乙」放得下就一行;放不下就在「・」拆成上下兩行,不在字中間折斷(中文沒有空格,Text 會在任何字之間折行,
+/// 「10月11日」可能被折成「10月」「11日」)。拆開之後每一段放不下仍會自己折行,不截斷。
+struct BreakableLine: View {
+    let text: String
+    var alignment: HorizontalAlignment = .leading
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(text)
+                .lineLimit(1)
+            VStack(alignment: alignment, spacing: 0) {
+                ForEach(Array(text.components(separatedBy: "・").enumerated()), id: \.offset) { _, part in
+                    Text(part)
+                }
+            }
+        }
     }
 }

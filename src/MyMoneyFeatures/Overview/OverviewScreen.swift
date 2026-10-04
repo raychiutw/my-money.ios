@@ -112,7 +112,7 @@ struct OverviewScreen: View {
         if let summary = model.summary {
             Section {
                 OverviewHero(
-                    balance: summary.availableBalance, composition: model.compositionText,
+                    balance: summary.availableBalance, compositionParts: model.compositionParts,
                     compositionSpoken: model.compositionSpokenText, trend: model.forecastTrend, trendSummary: model.forecastSummary
                 )
                 .clearListRow()

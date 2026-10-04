@@ -72,6 +72,7 @@ struct OverviewEntriesTests {
 
         #expect(overview.compositionText == "現金 $1,500 ＋ 活存帳戶 $50,000 − 信用卡待繳 $28,500")
         #expect(overview.compositionSpokenText == "現金 1,500 元，加活存帳戶 50,000 元，減信用卡待繳 28,500 元")
+        #expect(overview.compositionParts == ["現金 $1,500", "＋ 活存帳戶 $50,000", "− 信用卡待繳 $28,500"], "放不下時一段一行")
     }
 
     // MARK: 數字磚的兩行明細

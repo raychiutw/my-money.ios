@@ -5,11 +5,18 @@ import MyMoneyDomain
 // 數字全是後端的值(CLAUDE.md「規則」);這裡只把它們排成要給人看、給 VoiceOver 念的文字。
 
 extension OverviewModel {
-    /// 淨可用餘額底下的一行組成,例如「現金 $1,500 ＋ 活存帳戶 $50,000 − 信用卡待繳 $28,500」;載入前是 `nil`。
-    public var compositionText: String? {
+    /// 淨可用餘額底下的一行組成，例如「現金 $1,500 ＋ 活存帳戶 $50,000 − 信用卡待繳 $28,500」;載入前是 `nil`。
+    public var compositionText: String? { compositionParts?.joined(separator: " ") }
+
+    /// 組成拆成三段(現金、＋活存帳戶、−信用卡待繳):一行放不下時畫面一段一行，不在字中間折斷。
+    public var compositionParts: [String]? {
         guard let summary else { return nil }
         let due = (totalCardDue ?? .zero).formatted()
-        return "\(Terms.cash) \(summary.cashTotal.formatted()) ＋ \(Terms.bankAccount) \(summary.bankBalanceTotal.formatted()) − 信用卡待繳 \(due)"
+        return [
+            "\(Terms.cash) \(summary.cashTotal.formatted())",
+            "＋ \(Terms.bankAccount) \(summary.bankBalanceTotal.formatted())",
+            "− 信用卡待繳 \(due)",
+        ]
     }
 
     /// 組成一行的 VoiceOver 念法,例如「現金 1,500 元，加活存帳戶 50,000 元，減信用卡待繳 28,500 元」。

@@ -25,6 +25,21 @@ final class TruncationUITests: XCTestCase {
         }
     }
 
+    // MARK: 總覽的帳戶卡:名稱完整折行,不能截成「iOS 測試…」(#162)
+
+    @MainActor
+    func testAccountCardNamesAreNotTruncatedAtAccessibilitySize() throws {
+        let app = launchSignedIn(contentSize: Self.ax5)
+        for (id, name) in [("sample-bank", "測試存款"), ("sample-card", "測試信用卡"), ("sample-low-limit-card", "測試小額卡")] {
+            let card = app.buttons["overview.card.\(id)"]
+            XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "總覽沒有找到帳戶卡「\(id)」")
+            let lines = try TextRecognition.lines(in: card.screenshot().image)
+            let text = lines.joined().replacingOccurrences(of: " ", with: "")
+            XCTAssertTrue(text.contains(name), "帳戶卡「\(id)」看不到完整名稱「\(name)」,辨識到:\(lines)")
+            XCTAssertFalse(lines.contains { Self.isTruncated($0) }, "帳戶卡「\(id)」的名稱被截斷:\(lines)")
+        }
+    }
+
     // MARK: 現金流預測圖的日期刻度(無障礙字級系統自己會少放刻度，舊程式也沒有截斷，所以只測 XXL)
 
     @MainActor
