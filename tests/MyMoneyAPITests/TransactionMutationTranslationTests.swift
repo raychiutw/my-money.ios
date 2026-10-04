@@ -3,7 +3,7 @@ import MyMoneyAPI
 import MyMoneyDomain
 import Testing
 
-@Suite("交易記錄的編輯、刪除與 CSV 匯出(PUT、DELETE /transactions、GET /export/csv)")
+@Suite("收支明細的編輯、刪除與 CSV 匯出(PUT、DELETE /transactions、GET /export/csv)")
 struct TransactionMutationTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider(token: "fixture-token")

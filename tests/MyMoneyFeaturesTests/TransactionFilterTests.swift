@@ -225,7 +225,7 @@ struct TransactionFilterTests {
         #expect(list.days.flatMap(\.transactions).map(\.note) == notes)
     }
 
-    @Test("刪除交易記錄後資料版本遞增")
+    @Test("刪除收支明細後資料版本遞增")
     func deletingBumpsDataVersion() async {
         let dataVersion = DataVersion()
         let (list, repository) = await loadedList(dataVersion: dataVersion)
@@ -255,7 +255,7 @@ struct TransactionFilterTests {
     func deleteConfirmation() async {
         let (list, _) = await loadedList()
 
-        #expect(list.deleteConfirmation == "確定要刪除這筆交易記錄嗎？")
+        #expect(list.deleteConfirmation == "確定要刪除這筆收支明細嗎？")
     }
 
     @Test("刪除失敗時顯示後端的訊息")

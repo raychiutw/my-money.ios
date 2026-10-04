@@ -150,10 +150,10 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertFalse(app.buttons["全部"].exists, "還有裸文字按鈕「全部」")
 
         recentMore.tap()
-        XCTAssertTrue(app.buttons["查看全部交易"].waitForExistence(timeout: 3), "選單沒有「查看全部交易」")
+        XCTAssertTrue(app.buttons["查看全部收支明細"].waitForExistence(timeout: 3), "選單沒有「查看全部收支明細」")
         XCTAssertTrue(app.buttons["記一筆"].exists, "選單沒有「記一筆」")
-        app.buttons["查看全部交易"].tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部交易」沒有進入交易 tab")
+        app.buttons["查看全部收支明細"].tap()
+        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部收支明細」沒有進入交易 tab")
     }
 
     @MainActor
@@ -188,7 +188,7 @@ final class GlassButtonsUITests: XCTestCase {
         }
         let recentMore = app.buttons["overview.recent.more"]
         recentMore.tap()
-        XCTAssertTrue(app.buttons["查看全部交易"].waitForExistence(timeout: 3), "\(name):選單沒有「查看全部交易」")
+        XCTAssertTrue(app.buttons["查看全部收支明細"].waitForExistence(timeout: 3), "\(name):選單沒有「查看全部收支明細」")
         XCTAssertTrue(app.buttons["記一筆"].exists, "\(name):選單沒有「記一筆」")
     }
 

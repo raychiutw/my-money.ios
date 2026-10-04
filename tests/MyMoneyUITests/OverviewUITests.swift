@@ -31,12 +31,12 @@ final class OverviewUITests: XCTestCase {
         for _ in 0..<5 where !recent.exists { app.swipeUp() }
         XCTAssertTrue(recent.exists, "記一筆後最近交易沒有更新")
 
-        // 區塊標題右邊是「…」玻璃圓鈕(#134):點開選單，「查看全部交易」進入交易 tab。
+        // 區塊標題右邊是「…」玻璃圓鈕(#134):點開選單，「查看全部收支明細」進入交易 tab。
         let more = app.buttons["overview.recent.more"]
         for _ in 0..<5 where !more.isHittable { app.swipeUp() }
         more.tap()
-        app.buttons["查看全部交易"].tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "最近的「查看全部交易」沒有進入交易 tab")
+        app.buttons["查看全部收支明細"].tap()
+        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "最近的「查看全部收支明細」沒有進入交易 tab")
     }
 
     /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面是三格數字磚(#117):

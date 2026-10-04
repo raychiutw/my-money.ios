@@ -168,7 +168,7 @@ struct TransactionsListTests {
         )
     }
 
-    @Test("沒有符合條件的交易記錄時是空的")
+    @Test("沒有符合條件的收支明細時是空的")
     func emptyPeriod() async {
         let list = model(InMemoryTransactionRepository(transactions: []))
 

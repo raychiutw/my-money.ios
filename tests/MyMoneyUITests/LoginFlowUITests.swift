@@ -21,7 +21,7 @@ final class LoginFlowUITests: XCTestCase {
         signIn(app)
 
         XCTAssertEqual(
-            app.tabBars.buttons.allElementsBoundByIndex.map(\.label), ["總覽", "交易", "帳戶", "家庭", "統計"],
+            app.tabBars.buttons.allElementsBoundByIndex.map(\.label), ["總覽", "記帳", "帳戶", "家庭", "統計"],
             "tab 的順序不是 總覽、交易、帳戶、家庭、統計"
         )
         XCTAssertFalse(app.tabBars.buttons["規劃"].exists, "規劃不該還是 tab")

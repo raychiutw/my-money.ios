@@ -16,7 +16,7 @@ final class MeButtonUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "家庭", "統計"] {
+        for tab in ["總覽", "記帳", "帳戶", "家庭", "統計"] {
             app.tabBars.buttons[tab].tap()
             let me = app.buttons["toolbar.me"]
             XCTAssertTrue(me.waitForExistence(timeout: 5), "「\(tab)」主頁面右上角沒有頭像按鈕")
@@ -39,7 +39,7 @@ final class MeButtonUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        for tab in ["總覽", "交易", "帳戶", "家庭", "統計"] {
+        for tab in ["總覽", "記帳", "帳戶", "家庭", "統計"] {
             app.tabBars.buttons[tab].tap()
             XCTAssertTrue(app.buttons["toolbar.me"].waitForExistence(timeout: 5), "「\(tab)」主頁面沒有出現")
 

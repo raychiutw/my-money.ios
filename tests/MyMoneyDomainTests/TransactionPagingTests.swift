@@ -3,7 +3,7 @@ import MyMoneyDomain
 import Synchronization
 import Testing
 
-@Suite("交易記錄用 limit / offset 分頁抓齊")
+@Suite("收支明細用 limit / offset 分頁抓齊")
 struct TransactionPagingTests {
     /// 只會分頁回應的假 repository:記下每一次的 limit 與 offset。
     private final class PagedRepository: TransactionRepository {

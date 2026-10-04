@@ -116,7 +116,7 @@ struct OverviewTests {
         #expect(model().scope == .household)
     }
 
-    @Test("最近 5 筆交易記錄不限日期，依目前的視角查詢")
+    @Test("最近 5 筆收支明細不限日期，依目前的視角查詢")
     func recentTransactionsQuery() async throws {
         let model = model()
         model.scope = .personal

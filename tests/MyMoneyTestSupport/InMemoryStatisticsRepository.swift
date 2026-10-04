@@ -42,7 +42,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     private let shares: [HouseholdShare]
     private var storedBudgets: [Budget]
     private var failure: RepositoryError?
-    /// 有設定時，收支趨勢改從這些交易記錄算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
+    /// 有設定時，收支趨勢改從這些收支明細算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
     private let transactions: InMemoryTransactionRepository?
 
     public private(set) var categoryQueries: [CategoryQuery] = []

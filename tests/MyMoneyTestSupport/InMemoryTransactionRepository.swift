@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的交易記錄：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
+/// 不連網路的收支明細：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
 ///
 /// 視角的篩選是後端的規則，這裡不模擬(ADR-0001:不在 client 端重算規則)。
 public actor InMemoryTransactionRepository: TransactionRepository {
@@ -135,7 +135,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 }
 
-/// 畫面 model 測試與 UI 測試共用的交易記錄。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
+/// 畫面 model 測試與 UI 測試共用的收支明細。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
 public enum SampleTransactions {
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
     public static func makeForToday(includeFamilyEntries: Bool = false) -> [Transaction] {

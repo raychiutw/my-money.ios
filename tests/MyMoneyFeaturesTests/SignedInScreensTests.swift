@@ -50,8 +50,8 @@ struct SignedInScreensTests {
         #expect(screens.current?.accounts !== first)
     }
 
-    /// 交易記錄列只有不是自己記的才顯示記帳人(#72),所以畫面 model 要知道登入的是誰。
-    @Test("交易頁知道登入的是誰：自己記的交易記錄不顯示記帳人")
+    /// 收支明細列只有不是自己記的才顯示記帳人(#72),所以畫面 model 要知道登入的是誰。
+    @Test("交易頁知道登入的是誰：自己記的收支明細不顯示記帳人")
     func screensKnowSignedInUser() throws {
         let screens = makeScreens()
         screens.update(for: session("mei"))

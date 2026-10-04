@@ -59,7 +59,7 @@ final class ScreenTourUITests: XCTestCase {
         tour.dismissSheet(titled: "我的")
 
         // 交易，以及 toolbar 篩選按鈕打開的篩選 sheet(#74)。
-        tour.select(tab: "交易")
+        tour.select(tab: "記帳")
         tour.captureScrolling("transactions")
         tour.present(app.buttons["transactions.filter"], capturing: "transaction-filter")
 
@@ -179,7 +179,7 @@ private struct Tour {
     }
 
     func select(tab: String) {
-        let symbols = ["總覽": "house", "交易": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
+        let symbols = ["總覽": "house", "記帳": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
         let bar = app.tabBars.buttons[tab]
         // iPad 的按鈕在階層裡出現兩層(外層與內層，identifier 相同)，取第一個。
         tap(bar.exists ? bar : app.buttons[symbols[tab] ?? tab].firstMatch)

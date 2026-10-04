@@ -6,7 +6,7 @@ final class TransactionsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 列表顯示本月的交易記錄;記一筆 250 元後出現在列表上。
+    /// 列表顯示本月的收支明細;記一筆 250 元後出現在列表上。
     @MainActor
     func testListShowsThisMonthAndQuickEntryAddsTransaction() throws {
         let app = XCUIApplication()
@@ -14,12 +14,12 @@ final class TransactionsUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["交易"].tap()
-        // 交易記錄在大數字、比例條與長條圖下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
+        app.tabBars.buttons["記帳"].tap()
+        // 收支明細在大數字、比例條與長條圖下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
         let expense = element(in: app, labelContaining: "支出 880 元")
         _ = expense.waitForExistence(timeout: 5)
         for _ in 0..<6 where !expense.exists { app.swipeUp() }
-        XCTAssertTrue(expense.exists, "沒有看到本月的交易記錄")
+        XCTAssertTrue(expense.exists, "沒有看到本月的收支明細")
         for _ in 0..<6 where !element(in: app, labelContaining: "收入 45,000 元").exists { app.swipeUp() }
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists)
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
@@ -43,20 +43,20 @@ final class TransactionsUITests: XCTestCase {
     }
 
     /// 篩選收進 toolbar 篩選按鈕打開的「篩選」sheet(#74):清單上方沒有分段控制，篩選按鈕的 VoiceOver 值描述目前的範圍。
-    /// 在 sheet 裡改類型後按「完成」,清單、篩選按鈕的值和交易記錄的筆數都更新;再改一次按「取消」,全部不變。
+    /// 在 sheet 裡改類型後按「完成」,清單、篩選按鈕的值和收支明細的筆數都更新;再改一次按「取消」,全部不變。
     @MainActor
     func testFilterSheetAppliesOnDoneAndCancelKeepsFilter() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let period = Self.taipeiThisMonthPeriod()
-        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的交易記錄")
+        XCTAssertTrue(element(in: app, labelContaining: "支出 880 元").waitForExistence(timeout: 5), "沒有看到本月的收支明細")
         XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)", "篩選按鈕的 VoiceOver 值沒有描述目前的範圍(全部・\(period))")
         XCTAssertEqual(app.collectionViews.firstMatch.segmentedControls.count, 0, "交易頁的清單上方還有分段控制")
-        XCTAssertTrue(app.staticTexts["交易記錄(4)"].exists, "交易記錄的筆數不在 section 的標題")
+        XCTAssertTrue(app.staticTexts["收支明細(4)"].exists, "收支明細的筆數不在 section 的標題")
 
         let filter = app.buttons["transactions.filter"]
         XCTAssertTrue(filter.exists, "toolbar 沒有篩選按鈕")
@@ -77,7 +77,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(app.buttons["transactions.filter"].value as? String, "全部・\(period)・收入", "按完成後篩選按鈕的值沒有加上類型")
         XCTAssertTrue(element(in: app, labelContaining: "收入 45,000 元").exists, "按完成後清單沒有收入")
         XCTAssertFalse(element(in: app, labelContaining: "支出 880 元").exists, "按完成後清單還有支出")
-        XCTAssertTrue(app.staticTexts["交易記錄(1)"].exists, "按完成後交易記錄的筆數沒有更新")
+        XCTAssertTrue(app.staticTexts["收支明細(1)"].exists, "按完成後收支明細的筆數沒有更新")
 
         // 改成僅支出再按取消：清單和篩選按鈕的值都不變。
         filter.tap()
@@ -113,7 +113,7 @@ final class TransactionsUITests: XCTestCase {
         ]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
         let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
@@ -137,7 +137,7 @@ final class TransactionsUITests: XCTestCase {
                 + (isAdmin ? [] : ["-uiTestingMemberRole"])
             app.launch()
             signIn(app)
-            app.tabBars.buttons["交易"].tap()
+            app.tabBars.buttons["記帳"].tap()
 
             let role = isAdmin ? "家庭管理員" : "一般成員"
             let family = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
@@ -158,7 +158,7 @@ final class TransactionsUITests: XCTestCase {
                 // 點得到(是按鈕)，但點了跳出說明，不是編輯。
                 XCTAssertTrue(familyButton.waitForExistence(timeout: 5), "\(role):點不開的列也要能點，才有說明")
                 familyButton.tap()
-                let alert = app.alerts["不能編輯這筆交易"]
+                let alert = app.alerts["不能編輯這筆收支明細"]
                 XCTAssertTrue(alert.waitForExistence(timeout: 3), "\(role):點了沒有說明")
                 XCTAssertTrue(
                     alert.staticTexts["他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除。"].exists, "\(role):說明文字不對:\(alert.debugDescription)"
@@ -186,7 +186,7 @@ final class TransactionsUITests: XCTestCase {
         ]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
         let short = element(in: app, labelContaining: "餐飲，晚餐-水煎包，帳戶")
@@ -197,7 +197,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertFalse(short.label.contains("僅記錄者"), "整句不該再有鎖定說明:\(short.label)")
         XCTAssertTrue(ScrollSupport.revealFully(short, in: app), "捲不到這一列")
         short.tap()
-        XCTAssertTrue(app.alerts["不能編輯這筆交易"].waitForExistence(timeout: 3), "這一列應該是點不開的(點了要有說明)")
+        XCTAssertTrue(app.alerts["不能編輯這筆收支明細"].waitForExistence(timeout: 3), "這一列應該是點不開的(點了要有說明)")
     }
 
     /// 次要文字是看得到的字(#145):「記帳人・歸屬」在標題下面，資產帳戶名稱在金額下面;系統紀錄寫「系統紀錄」。
@@ -278,7 +278,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let title = app.buttons["transactions.month.title"]
         let previous = app.buttons["transactions.month.previous"]
@@ -317,7 +317,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.filter"].tap()
         let reset = app.buttons["transactionFilter.thisMonth"]
         XCTAssertTrue(reset.waitForExistence(timeout: 5), "篩選 sheet 沒有「重設為本月」")
@@ -364,7 +364,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         // 記一筆
         app.buttons["transactions.add"].tap()
@@ -405,7 +405,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let net = row("淨收支", value: "44,000 元", in: app)
         XCTAssertTrue(net.waitForExistence(timeout: 5), "沒有淨收支的大數字")
@@ -445,7 +445,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(element(in: app, labelContaining: "本區間每日支出").exists, hasChart, "只看支出時長條圖的有無不對")
     }
 
-    /// 交易記錄列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
+    /// 收支明細列一行一個欄位(#72):VoiceOver 把整列念成一句完整的話(分類、備註、帳戶、歸屬、收支方向與金額),
     /// 自己記的不念記帳人;分組標頭是「9月28日週一」這種系統格式，不是「09/28」。
     @MainActor
     func testRowReadsAsOneSentenceAndDayHeaderUsesSystemFormat() throws {
@@ -453,7 +453,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元"]
         XCTAssertTrue(lunch.waitForExistence(timeout: 5), "午餐那一列沒有念成一句完整的話")
@@ -465,7 +465,7 @@ final class TransactionsUITests: XCTestCase {
         let list = app.collectionViews.firstMatch
         XCTAssertFalse(
             list.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "記帳人")).firstMatch.exists,
-            "自己記的交易記錄還顯示記帳人"
+            "自己記的收支明細還顯示記帳人"
         )
 
         // 沒有備註的列用分類名稱，不重複念兩次。薪資在本月 1 號，在清單最下面。
@@ -482,7 +482,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -509,7 +509,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有私帳的收入 250 元")
     }
 
-    /// 點一筆交易記錄編輯歸屬;左滑刪除(先確認);信用卡還款只有鎖定標記;搜尋只留下符合的紀錄。
+    /// 點一筆收支明細編輯歸屬;左滑刪除(先確認);信用卡還款只有鎖定標記;搜尋只留下符合的紀錄。
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
@@ -517,14 +517,14 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
         XCTAssertTrue(element(in: app, labelContaining: "個人私帳").exists)
         headphones.tap()
         let shared = app.buttons["家庭公帳"]
-        XCTAssertTrue(shared.waitForExistence(timeout: 3), "編輯交易記錄沒有歸屬的選項")
+        XCTAssertTrue(shared.waitForExistence(timeout: 3), "編輯收支明細沒有歸屬的選項")
         XCTAssertTrue(app.buttons["個人私帳"].isSelected, "編輯的是私帳，歸屬卻沒有選在私帳")
         shared.tap()
         app.buttons["quickEntry.save"].tap()
@@ -538,17 +538,17 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<5 where !(lunch.exists && lunch.frame.maxY < screenBottom * 0.75) { app.swipeUp() }
         lunch.swipeLeft()
         app.buttons["刪除"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["確定要刪除這筆交易記錄嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
+        XCTAssertTrue(app.staticTexts["確定要刪除這筆收支明細嗎？"].waitForExistence(timeout: 3), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        // 系統分類的交易記錄點不開(#63、#146):點一下說明「系統紀錄，不能編輯或刪除」,列上沒有鎖定標記或說明文字。
+        // 系統分類的收支明細點不開(#63、#146):點一下說明「系統紀錄，不能編輯或刪除」,列上沒有鎖定標記或說明文字。
         let locked = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "信用卡還款")).firstMatch
         for _ in 0..<5 where !locked.exists { app.swipeUp() }
         XCTAssertTrue(locked.exists, "信用卡還款的列不見了")
         XCTAssertFalse(locked.label.contains("系統紀錄"), "整句不該再有說明:\(locked.label)")
         locked.tap()
-        let alert = app.alerts["不能編輯這筆交易"]
+        let alert = app.alerts["不能編輯這筆收支明細"]
         XCTAssertTrue(alert.waitForExistence(timeout: 3), "點信用卡還款沒有說明")
         XCTAssertTrue(alert.staticTexts["系統紀錄，不能編輯或刪除。"].exists, "說明文字不對:\(alert.debugDescription)")
         alert.buttons["好"].tap()
@@ -573,7 +573,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
         XCTAssertTrue(headphones.waitForExistence(timeout: 5))
@@ -606,7 +606,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
         let note = app.textFields["quickEntry.note"]
@@ -624,7 +624,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
         let note = app.textFields["quickEntry.note"]
@@ -690,7 +690,7 @@ final class TransactionsUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
         XCTAssertTrue(app.buttons["transactions.filter"].waitForExistence(timeout: 5), "沒有篩選按鈕")
         let toolbar = app.navigationBars.firstMatch
         for id in ["transactions.filter", "transactions.add", "toolbar.me"] {
@@ -713,7 +713,7 @@ final class TransactionsUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.add"].tap()
         // 只在 collection view 裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕，但 tab bar 不是 collection view。
         // 不能用「含金額欄的 collection view」:帳戶列在 16 格分類下面，捲下去之後金額欄已被回收。
@@ -746,7 +746,7 @@ final class TransactionsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -781,7 +781,7 @@ final class TransactionsUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開記一筆")
@@ -842,7 +842,7 @@ final class TransactionsUITests: XCTestCase {
             + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
         return app
     }
 

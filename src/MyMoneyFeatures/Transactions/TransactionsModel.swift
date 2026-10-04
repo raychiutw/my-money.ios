@@ -63,7 +63,7 @@ public final class TransactionsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
-    public let deleteConfirmation = "確定要刪除這筆交易記錄嗎？"
+    public let deleteConfirmation = "確定要刪除這筆\(Terms.transactions)嗎？"
 
     /// 從後端載入的區間內所有交易記錄(篩選前)。
     private var loaded: [Transaction] = []
@@ -292,7 +292,7 @@ public final class TransactionsModel {
     }
 
     /// 說明 alert 的標題(#146)。
-    public let lockAlertTitle = "不能編輯這筆交易"
+    public let lockAlertTitle = "不能編輯這筆\(Terms.transactions)"
 
     /// 點不開的列的 VoiceOver 提示;原因不再塞在整句最後，點了才跳出說明(#146)。可以改的是 `nil`。
     public func lockHint(for transaction: Transaction) -> String? {

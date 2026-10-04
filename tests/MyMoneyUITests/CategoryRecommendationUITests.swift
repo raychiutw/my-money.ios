@@ -13,7 +13,7 @@ final class CategoryRecommendationUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.tabBars.buttons["交易"].tap()
+        app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
         // 備註在金額正下方、分類格上面:打完金額就是備註，推薦提示緊貼在備註下面。

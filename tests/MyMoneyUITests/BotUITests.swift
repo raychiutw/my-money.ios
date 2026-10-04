@@ -48,7 +48,7 @@ final class BotUITests: XCTestCase {
         )
 
         app.buttons["模擬對話"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "會寫入真的交易記錄").waitForExistence(timeout: 3), "沒有告知會寫入真的交易")
+        XCTAssertTrue(element(in: app, labelContaining: "會寫入真的收支明細").waitForExistence(timeout: 3), "沒有告知會寫入真的交易")
         app.buttons["午餐 120"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "記帳成功：午餐 120").waitForExistence(timeout: 5), "送出後沒有回覆")
     }

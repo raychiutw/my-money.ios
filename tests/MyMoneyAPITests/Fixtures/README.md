@@ -58,7 +58,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-joint-fund.json` | `POST /accounts`,建立活存帳戶「iOS 家庭共同基金」(餘額 10000,`is_joint: 1`) | 201 | 家庭共同基金的標記 |
 | `transactions-create-card-shared.json` | `POST /transactions`,「iOS 測試信用卡」家庭公帳支出 購物 3000「全家的日用品」 | 201 | 讓欠款公私拆解有家庭公帳的部分 |
 | `accounts-list-with-debt-split.json` | `GET /accounts`,上面兩筆之後 | 200 | 信用卡帳戶的 `shared_debt` 3000、`personal_debt` 16380;家庭共同基金的 `is_joint: 1` |
-| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」交易記錄 |
+| `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」收支明細 |
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
 | `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試小額卡」(未出帳 5000)。2026-10-01 重錄，後端 `97f4789` | 200 | 未出帳 5000 移到已出帳待繳款(8000 → 13000);訊息在 `data.message`,是「帳單出帳作業完成！已轉入已出帳待繳款。」,原樣傳遞 |
@@ -127,7 +127,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `bot-bindings-empty.json` | `GET /bot/bindings`,測試帳號還沒有機器人綁定時 | 200 | 空清單 |
 | `bot-pairing-code.json` | `POST /bot/pairing-code` | 200 | 6 碼大寫英數的綁定驗證碼、`expires_in_seconds: 600` |
 | `bot-simulate-missing-text.json` | `POST /bot/test-simulate {text: "", platform: "line"}` | 400 | 「請輸入測試訊息」原樣傳遞 |
-| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的交易記錄**(預期的結果) | 200 | `reply` 是機器人的回覆文字 |
+| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的收支明細**(預期的結果) | 200 | `reply` 是機器人的回覆文字 |
 | `bot-simulate-query.json` | 同上 `{text: "查帳"}` | 200 | 查帳不寫入任何資料 |
 | `bot-bindings.json` | `GET /bot/bindings`,模擬對話之後 | 200 | 後端會自動建立「模擬測試助手」的 LINE 綁定 |
 | `bot-unbind.json` | `DELETE /bot/bindings/:id`,解除上面那個綁定;錄完測試帳號回到沒有綁定 | 200 | 只回 `{success, message}` |
@@ -156,13 +156,13 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-list-household-card-advance.json` | `GET /accounts?scope=household`(2026-10-03,上游 `4fbf863`),測試帳號的個人信用卡記了一筆公帳支出 777 之後;錄完把交易刪掉，帳號還原 | 200 | 公帳範圍多回自己有家庭代墊欠款的個人信用卡(`shared_debt` 777、`unbilled` 777、沒有 `is_masked`);確認 prod 已部署 ADR 0015。**錄不到他人的脫敏卡**(需要第二個帳號)，`is_masked` 的解碼測試用這份真實回應手改欄位，測試裡有註明 |
 | `accounts-balance-household-card-advance.json` | `GET /accounts/balance?scope=household`,同上 | 200 | 私卡的家庭代墊算進信用卡待繳:`ccUnbilled` 777、淨可用餘額 `available` 6123 = 6900 − 777 |
 | `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含歸屬家庭共同基金的帳戶：活存帳戶 94700(少了共同基金 7000)、淨可用餘額 66820 |
-| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」交易記錄 |
+| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」收支明細 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
 | `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |
 | `transactions-list-with-transfer.json` | `GET /transactions?from=2026-09-28&to=2026-09-28&scope=all&limit=200&offset=0`,上面的 ATM 提款之後 | 200 | 兩筆分類「ATM提款」(一筆支出、一筆收入)是系統分類 |
 | `transactions-create-cash-advance.json` | `POST /transactions`,「iOS 測試皮夾」家庭公帳支出 餐飲 250「全家晚餐」 | 201 | 用個人現金付公帳支出(個人現金公帳代墊) |
 | `households-advances.json` | `GET /households/advances`。先讓測試帳號自己建立一個只有自己的家庭群組「iOS 測試家庭」,錄完下面三份就離開 | 200 | snake_case;累計代墊 250、已報銷 0、待報銷 250;代墊明細帶扣款帳戶名稱與類型 |
-| `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」交易記錄 |
+| `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」收支明細 |
 | `households-reimburse-not-joint.json` | 同上，撥款帳戶用個人的「iOS 測試存款」 | 400 | 「撥款帳戶必須為家庭共同基金公帳 (公用帳戶)」原樣傳遞 |
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |

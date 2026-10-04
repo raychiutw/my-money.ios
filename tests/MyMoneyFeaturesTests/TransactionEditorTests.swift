@@ -4,7 +4,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("編輯交易記錄")
+@Suite("編輯收支明細")
 struct TransactionEditorTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let repository = InMemoryTransactionRepository(transactions: [])
@@ -29,7 +29,7 @@ struct TransactionEditorTests {
     func prefillsOriginalValues() async {
         let editor = await editor(for: headphones)
 
-        #expect(editor.title == "編輯交易記錄")
+        #expect(editor.title == "編輯收支明細")
         #expect(!editor.isShared)
         #expect(editor.type == .expense)
         #expect(editor.category == TransactionCategory("購物"))

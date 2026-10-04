@@ -26,7 +26,7 @@ public final class TransactionEditorModel {
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
 
-    public let title = "編輯交易記錄"
+    public let title = "編輯\(Terms.transactions)"
 
     public var categories: [TransactionCategory] {
         let fixed = type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories

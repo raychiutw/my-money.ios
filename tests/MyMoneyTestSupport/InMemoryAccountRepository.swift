@@ -156,7 +156,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 校準過未出帳的信用卡，依順序。
     public private(set) var reconciledIDs: [AccountID] = []
 
-    /// 後端是從交易記錄重算未出帳款;這裡拿不到交易記錄，未出帳款維持原值，只回傳跟後端同格式的訊息。
+    /// 後端是從收支明細重算未出帳款;這裡拿不到收支明細，未出帳款維持原值，只回傳跟後端同格式的訊息。
     public func reconcileUnbilled(_ id: AccountID) async throws -> String {
         await gate?.pass()
         if let failure { throw failure }

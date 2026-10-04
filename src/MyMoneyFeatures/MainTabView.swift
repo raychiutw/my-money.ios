@@ -24,7 +24,7 @@ struct MainTabView: View {
                 OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry) { selection = $0 }
                     .tint(.primary)
             }
-            Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
+            Tab(Terms.ledger, systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
                     .tint(.primary)
             }

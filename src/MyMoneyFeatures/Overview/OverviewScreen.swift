@@ -172,7 +172,7 @@ struct OverviewScreen: View {
         Section {
             if model.recentTransactions.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("此視角目前尚無交易")
+                    Text("此視角目前尚無\(Terms.transactions)")
                         .foregroundStyle(.secondary)
                     GlassCapsuleButton(title: "記一筆") { isEntryPresented = true }
                 }
@@ -182,8 +182,8 @@ struct OverviewScreen: View {
             }
         } header: {
             header("最近") {
-                MoreMenu(label: "最近交易的更多動作", identifier: "overview.recent.more") {
-                    Button("查看全部交易", systemImage: "list.bullet") { show(.transactions) }
+                MoreMenu(label: "最近\(Terms.transactions)的更多動作", identifier: "overview.recent.more") {
+                    Button("查看全部\(Terms.transactions)", systemImage: "list.bullet") { show(.transactions) }
                     Button("記一筆", systemImage: "plus") { isEntryPresented = true }
                 }
             }

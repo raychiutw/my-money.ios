@@ -21,18 +21,6 @@ struct TermsRulesTests {
 
     /// 例外:`檔名|舊詞` → 由哪張票清掉。清掉一批就刪一批;新增例外要有票號。
     private static let exceptions: [String: String] = [
-        "AccountsModel.swift|交易": "#186",
-        "AccountsModel.swift|交易記錄": "#186",
-        "BotScreen.swift|交易": "#186",
-        "BotScreen.swift|交易記錄": "#186",
-        "MainTabView.swift|交易": "#186",
-        "OverviewScreen.swift|交易": "#186",
-        "TransactionEditorModel.swift|交易": "#186",
-        "TransactionEditorModel.swift|交易記錄": "#186",
-        "TransactionsModel.swift|交易": "#186",
-        "TransactionsModel.swift|交易記錄": "#186",
-        "TransactionsScreen.swift|交易": "#186",
-        "TransactionsScreen.swift|交易記錄": "#186",
         "RecurringModel.swift|分攤平滑": "#187",
         "RecurringScreen.swift|分攤平滑": "#187",
     ]
