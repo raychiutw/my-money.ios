@@ -28,31 +28,6 @@ struct HouseholdScreen: View {
             .sheet(item: $model.invitation) { invitation in
                 InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))
             }
-            .confirmationDialog(
-                "離開家庭",
-                isPresented: $isLeaveConfirming,
-                titleVisibility: .visible
-            ) {
-                Button("離開", role: .destructive) {
-                    Task { await model.leave() }
-                }
-                Button("取消", role: .cancel) {}
-            } message: {
-                Text(model.leaveConfirmation)
-            }
-            .confirmationDialog(
-                "移除成員",
-                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
-                titleVisibility: .visible,
-                presenting: pendingRemoval
-            ) { member in
-                Button("移除", role: .destructive) {
-                    Task { await model.remove(member) }
-                }
-                Button("取消", role: .cancel) {}
-            } message: { member in
-                Text(model.removeConfirmation(for: member))
-            }
             .alert(
                 "無法完成",
                 isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
@@ -194,6 +169,15 @@ struct HouseholdScreen: View {
                     isLeaveConfirming = true
                 }
                 .accessibilityIdentifier("household.leave")
+                // 確認訊息掛在觸發它的按鈕上(#169)，泡泡的箭頭才指著「離開家庭」。
+                .confirmationDialog("離開家庭", isPresented: $isLeaveConfirming, titleVisibility: .visible) {
+                    Button("離開", role: .destructive) {
+                        Task { await model.leave() }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text(model.leaveConfirmation)
+                }
             }
         }
     }
@@ -208,6 +192,14 @@ extension HouseholdScreen {
             ForEach(members) { member in
                 let advance = model.advances.first { $0.memberID == member.userID }
                 MemberRow(name: member.name, roleTitle: member.role.title, advance: advance)
+                    .rowConfirmationDialog("移除成員", pending: $pendingRemoval, for: member) { member in
+                        Button("移除", role: .destructive) {
+                            Task { await model.remove(member) }
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: { member in
+                        Text(model.removeConfirmation(for: member))
+                    }
                     .swipeActions {
                         if model.canRemove(member) {
                             Button("移除", systemImage: "person.badge.minus", role: .destructive) {

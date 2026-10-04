@@ -54,22 +54,6 @@ struct CreditCardDetailScreen: View {
         .sheet(item: $editor) { editor in
             AccountEditorView(model: editor)
         }
-        .confirmationDialog("結帳日出帳作業", isPresented: $isConfirmingRollover, titleVisibility: .visible) {
-            Button("出帳作業") {
-                Task { await model.rollOver() }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text(model.rolloverConfirmation)
-        }
-        .confirmationDialog("校準未出帳", isPresented: $isConfirmingReconcile, titleVisibility: .visible) {
-            Button("校準") {
-                Task { await model.reconcile() }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text(model.reconcileConfirmation)
-        }
         .alert(
             "無法完成",
             isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
@@ -142,6 +126,15 @@ struct CreditCardDetailScreen: View {
             if model.showsRollover {
                 Button("出帳作業", systemImage: "calendar.badge.clock") { isConfirmingRollover = true }
                     .accessibilityIdentifier("cardDetail.rollover")
+                    // 確認訊息掛在觸發它的按鈕上(#169)。
+                    .confirmationDialog("結帳日出帳作業", isPresented: $isConfirmingRollover, titleVisibility: .visible) {
+                        Button("出帳作業") {
+                            Task { await model.rollOver() }
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: {
+                        Text(model.rolloverConfirmation)
+                    }
             }
             if model.canOperate {
                 Button(model.isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath") {
@@ -149,6 +142,14 @@ struct CreditCardDetailScreen: View {
                 }
                 .disabled(model.isReconciling)
                 .accessibilityIdentifier("cardDetail.reconcile")
+                .confirmationDialog("校準未出帳", isPresented: $isConfirmingReconcile, titleVisibility: .visible) {
+                    Button("校準") {
+                        Task { await model.reconcile() }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text(model.reconcileConfirmation)
+                }
             }
         }
     }

@@ -245,6 +245,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 - 現金流預測圖的 x 軸也用台灣時間(#77):刻度位置看 environment 的 `calendar`(曆法沿用系統，只把時區換成台灣;只設 `timeZone` 沒有作用),日期標籤自己用上表「清單裡的日期」的格式。裝置在別的時區時，預設的刻度和標籤都會差一天(洛杉磯時區的截圖證實)。
 - 聊天泡泡下的時間只有時刻，照裝置的時區。
 - 跟 web 的差異見 parity 刻意偏離第 45 項。
+- **表單裡的日期列**(`DayPickerRow`，#161):記一筆與編輯、ATM 提款／轉帳、信用卡還款、報銷、儲蓄目標的截止日、記帳篩選的起日與迄日共用同一個元件。一般字級是系統的 compact `DatePicker`;**無障礙字級**下 compact 的膠囊比卡片還寬、兩側被切掉(系統控制項不能折行也不能縮小)，改成「標籤在上、日期文字(CI 文字色，可折行)在下」的整列按鈕，點了開一個有圖形日曆的 sheet(✓「完成」關閉)，日曆用整個螢幕寬。VoiceOver 念「標籤，日期」。
 
 ## 導覽(ADR-0004)
 
@@ -324,7 +325,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 | web | iOS |
 |---|---|
 | 自訂 Modal 表單 | `.sheet` 裡放 `NavigationStack` + `Form`,toolbar 放 ✕(關閉，不填色的玻璃圓鈕)與 ✓(儲存等，CI 填色圓鈕)，見「顏色」 |
-| `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo |
+| `window.confirm` 刪除確認 | `.confirmationDialog`,按鈕用 `role: .destructive` 並附「取消」。後端刪除無法復原，所以一律確認，不做 undo。**確認訊息掛在觸發它的那一列或按鈕上**(`rowConfirmationDialog`，#169):iOS 26 在 iPhone 把它畫成泡泡，箭頭指向掛 modifier 的 view，掛在整個清單上會指到不相關的列。送出之後才知道要不要確認(信用卡還款的「扣款帳戶餘額不足」)沒有適合的錨點，用 `.alert` |
 | `alert()` 顯示錯誤 | 表單裡的錯誤放在 `Section` footer;列表操作的錯誤用 `.alert` |
 | 表單內的紅框錯誤 | 同上 |
 | 主題切換鈕(淺色／深色兩段式) | 「我的」的「外觀」內嵌選擇列：跟隨系統、淺色、深色，預設跟隨系統(見「原則」) |
@@ -380,6 +381,9 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - 列表列整列是一個元素，念成一句完整的話，拿掉的標籤前綴(例如「帳戶」)照樣念出(見「列與欄位」)。
 - 圖表的每個元素都要有 accessibility label,另外保留 Swift Charts 預設的 Audio Graph。
 - 支援減少動態效果：不做裝飾性的動畫。
+- **長條圖的金額標註**(#157、#163，`annotationHeadroom`):最高那根的標註畫在圖的上緣外面，圖的上方留一個標註的高度(跟標註同一個文字樣式 `footnote` 一起放大)，標註才不會壓到上面的內容(家庭頁「誰轉給誰」、記帳頁「支出佔收入」比例條);兩張長條圖共用。
+- **備註欄**(`NoteField`，#170):一般字級是單行欄位;無障礙字級值太長會被截成「…」，改成可以長高的多行欄位(`axis: .vertical`)。備註仍是單行語意:Return 不換行而是收起鍵盤，貼上含換行的文字會拿掉換行。
+- **iPad 的內容寬度**(#173，`readableContentWidth`):登入、註冊與五個 tab 的內容限制在約 700pt 並置中(`contentMargins(.horizontal, …, for: .scrollContent)`)，背景與捲動範圍仍撐滿視窗;視窗比 700pt 窄(iPhone、Split View)時邊界是 0，版面不變。
 
 ## 截圖巡覽
 

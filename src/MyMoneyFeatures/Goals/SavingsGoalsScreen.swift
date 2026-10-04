@@ -31,19 +31,6 @@ struct SavingsGoalsScreen: View {
                 case .deposit(let deposit): SavingsGoalDepositView(model: deposit)
                 }
             }
-            .confirmationDialog(
-                "刪除儲蓄目標",
-                isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                titleVisibility: .visible,
-                presenting: pendingDeletion
-            ) { goal in
-                Button("刪除", role: .destructive) {
-                    Task { await model.delete(goal) }
-                }
-                Button("取消", role: .cancel) {}
-            } message: { goal in
-                Text(model.deleteConfirmation(for: goal))
-            }
             .alert(
                 "無法刪除",
                 isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
@@ -136,6 +123,14 @@ struct SavingsGoalsScreen: View {
                 ForEach(goals) { goal in
                     SavingsGoalRow(goal: goal, deadline: model.deadlineText(of: goal)) {
                         sheet = model.makeDeposit(for: goal).map(ActiveSheet.deposit)
+                    }
+                    .rowConfirmationDialog("刪除儲蓄目標", pending: $pendingDeletion, for: goal) { goal in
+                        Button("刪除", role: .destructive) {
+                            Task { await model.delete(goal) }
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: { goal in
+                        Text(model.deleteConfirmation(for: goal))
                     }
                     .swipeActions {
                         Button("刪除", systemImage: "trash", role: .destructive) {

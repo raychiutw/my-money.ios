@@ -66,12 +66,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
                         placeholder: "請選擇扣款／存入帳戶"
                     )
-                    DatePicker(
-                        "日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
+                    DayPickerRow(title: "日期", day: $model.date)
                     // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
                     if model.isCreditCardSelected {
                         Toggle("列入下期帳單", isOn: $model.defersToNextStatement)
@@ -100,8 +95,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 Section {
                     // 欄位要有看得見的標籤，placeholder 打了字就消失(DESIGN.md「列與欄位」第 8 條，#157)。
                     LabeledContent("備註") {
-                        TextField("備註", text: $model.note, prompt: Text("選填"))
-                            .focused($focusedField, equals: .note)
+                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
                             .accessibilityIdentifier("quickEntry.note")
                     }
                     .tapToFocus($focusedField, equals: .note)

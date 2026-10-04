@@ -20,10 +20,10 @@ struct TransactionFilterView: View {
                 }
 
                 Section {
-                    DatePicker("起日", selection: day(\.from), displayedComponents: .date)
+                    DayPickerRow(title: "起日", day: $model.filterDraft.from)
                         .accessibilityIdentifier("transactionFilter.from")
                     // 迄日不早於起日。
-                    DatePicker("迄日", selection: day(\.to), in: model.filterDraft.from.startOfDay..., displayedComponents: .date)
+                    DayPickerRow(title: "迄日", day: $model.filterDraft.to, minimum: model.filterDraft.from)
                         .accessibilityIdentifier("transactionFilter.to")
                     Button {
                         model.resetFilterDraftToThisMonth()
@@ -75,13 +75,5 @@ struct TransactionFilterView: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-    }
-
-    /// DatePicker 用 `Date`;轉換一律以台灣時間計算。
-    private func day(_ keyPath: WritableKeyPath<TransactionsModel.Filter, CalendarDay>) -> Binding<Date> {
-        Binding(
-            get: { model.filterDraft[keyPath: keyPath].startOfDay },
-            set: { model.filterDraft[keyPath: keyPath] = CalendarDay(date: $0) }
-        )
     }
 }

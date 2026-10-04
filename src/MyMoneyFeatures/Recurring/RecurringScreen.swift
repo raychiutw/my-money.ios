@@ -41,19 +41,6 @@ struct RecurringScreen: View {
             .sheet(item: $editor) { sheet in
                 RecurringEditorView(model: sheet.model)
             }
-            .confirmationDialog(
-                "刪除週期收支",
-                isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                titleVisibility: .visible,
-                presenting: pendingDeletion
-            ) { item in
-                Button("刪除", role: .destructive) {
-                    Task { await model.delete(item) }
-                }
-                Button("取消", role: .cancel) {}
-            } message: { item in
-                Text(model.deleteConfirmation(for: item))
-            }
             .alert(
                 model.lockAlertTitle,
                 isPresented: Binding(get: { explained != nil }, set: { if !$0 { explained = nil } }),
@@ -160,6 +147,14 @@ struct RecurringScreen: View {
                 RecurringRow(item: item)
             }
             .tint(.primary)
+            .rowConfirmationDialog("刪除週期收支", pending: $pendingDeletion, for: item) { item in
+                Button("刪除", role: .destructive) {
+                    Task { await model.delete(item) }
+                }
+                Button("取消", role: .cancel) {}
+            } message: { item in
+                Text(model.deleteConfirmation(for: item))
+            }
             .swipeActions {
                 Button("刪除", systemImage: "trash", role: .destructive) {
                     pendingDeletion = item

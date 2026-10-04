@@ -26,22 +26,27 @@ struct MainTabView: View {
                     recurring: screens.recurring, goals: screens.goals, forecast: screens.forecast
                 ) { selection = $0 }
                     .tint(.primary)
+                    .readableContentWidth()
             }
             Tab(Terms.ledger, systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
                     .tint(.primary)
+                    .readableContentWidth()
             }
             Tab("帳戶", systemImage: "creditcard", value: .accounts) {
                 AccountsScreen(model: screens.accounts) { selection = $0 }
                     .tint(.primary)
+                    .readableContentWidth()
             }
             Tab("家庭", systemImage: "person.2", value: .household) {
                 HouseholdScreen(model: screens.household)
                     .tint(.primary)
+                    .readableContentWidth()
             }
             Tab("統計", systemImage: "chart.bar", value: .statistics) {
                 StatisticsScreen(model: screens.statistics)
                     .tint(.primary)
+                    .readableContentWidth()
             }
         }
         .tabViewStyle(.sidebarAdaptable)

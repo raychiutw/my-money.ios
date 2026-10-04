@@ -22,6 +22,8 @@ public struct RootView: View {
                 NavigationStack {
                     LoginView(model: login, register: register)
                 }
+                // iPad:登入與註冊的欄位和按鈕限制在可讀寬度(#173)。
+                .readableContentWidth()
             } else if let screens = signedIn.current {
                 MainTabView(screens: screens)
             } else {

@@ -49,10 +49,6 @@ struct MemberShareChart: View {
     let shares: [HouseholdShare]
     let average: Money?
 
-    /// 最高那根長條的金額標註畫在圖的上緣外面,上面留一個標註的高度(跟標註同一個文字樣式放大),
-    /// 才不會壓到上面「誰轉給誰」那行字(#157)。
-    @ScaledMetric(relativeTo: .footnote) private var annotationHeadroom: CGFloat = 28
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Chart {
@@ -81,7 +77,7 @@ struct MemberShareChart: View {
             }
             .chartYAxis(.hidden)
             .frame(height: 160)
-            .padding(.top, annotationHeadroom)
+            .annotationHeadroom()
             .accessibilityLabel(summary)
 
             if let average {

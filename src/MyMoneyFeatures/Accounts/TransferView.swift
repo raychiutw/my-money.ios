@@ -46,15 +46,9 @@ struct TransferView: View {
                             focus: $focusedField, equals: .amount, identifier: "transfer.amount"
                         )
                     }
-                    DatePicker(
-                        "日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
+                    DayPickerRow(title: "日期", day: $model.date)
                     LabeledContent("備註") {
-                        TextField("備註", text: $model.note, prompt: Text("例如：超商 ATM 提款"))
-                            .focused($focusedField, equals: .note)
+                        NoteField(text: $model.note, prompt: "例如：超商 ATM 提款", focus: $focusedField, value: .note)
                             .accessibilityIdentifier("transfer.note")
                     }
                     .tapToFocus($focusedField, equals: .note)
