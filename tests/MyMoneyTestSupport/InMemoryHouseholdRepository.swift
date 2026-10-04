@@ -25,7 +25,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         self.gate = gate
     }
 
-    /// 登入的範例帳號用個人現金錢包替家裡墊付了晚餐 250,還沒報銷。
+    /// 登入的範例帳號用個人現金替家裡墊付了晚餐 250,還沒報銷。
     public static let myPendingAdvance = HouseholdAdvance(
         memberID: InMemoryAuthRepository.Member.sample.user.id,
         memberName: InMemoryAuthRepository.Member.sample.user.name,
@@ -43,7 +43,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         ]
     )
 
-    /// 另一位家庭成員小美：待報銷 600,可收款帳戶是她的銀行存款帳戶「小美薪轉」(替其他成員撥款報銷，#47)。
+    /// 另一位家庭成員小美：待報銷 600,可收款帳戶是她的活存帳戶「小美薪轉」(替其他成員撥款報銷，#47)。
     public static let meiPendingAdvance = HouseholdAdvance(
         memberID: UserID("sample-mei"), memberName: "小美", totalAdvanced: Money(600), totalReimbursed: .zero,
         pendingReimbursement: Money(600), advanceItems: [], reimbursementItems: [],

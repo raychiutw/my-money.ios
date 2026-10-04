@@ -112,7 +112,7 @@ struct HouseholdTests {
         #expect(reimbursement.errorMessage == reimburseReason)
     }
 
-    /// 家庭共同基金兩個(餘額 100 不夠付 250、8,000)、我的個人私帳一個銀行存款帳戶和一個現金錢包，還有一張個人信用卡。
+    /// 家庭共同基金兩個(餘額 100 不夠付 250、8,000)、我的個人私帳一個活存帳戶和一個現金，還有一張個人信用卡。
     private func accountsForReimbursement() -> InMemoryAccountRepository {
         InMemoryAccountRepository(accounts: [
             .bank(BankAccount(id: AccountID("small-fund"), name: "零用公基金", colorHex: "#A8D8EA", balance: Money(100), isJointFund: true)),
@@ -213,7 +213,7 @@ struct HouseholdTests {
         let reimbursement = model.makeReimbursement(for: noAccount)
         await reimbursement.load()
 
-        #expect(reimbursement.receivingAccountsNote == "小美 還沒有可收款的個人帳戶(銀行存款帳戶或現金錢包)")
+        #expect(reimbursement.receivingAccountsNote == "小美 還沒有可收款的個人帳戶(活存帳戶或現金)")
         #expect(!reimbursement.canSubmit)
         #expect(await reimbursement.submit() == nil)
     }

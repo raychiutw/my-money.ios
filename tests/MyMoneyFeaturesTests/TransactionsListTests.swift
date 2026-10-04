@@ -79,7 +79,7 @@ struct TransactionsListTests {
         #expect(list.days.map(\.title) == ["9月28日週一", "9月10日週四", "9月1日週二", "2025年12月31日週三"])
     }
 
-    /// 信用卡扣款還款時錢只是從銀行存款帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
+    /// 信用卡扣款還款時錢只是從活存帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
     @Test("摘要：筆數、總收入、總支出(不含信用卡還款)、淨收支")
     func totalsExcludeCreditCardRepayment() async {
         let list = model(InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)))

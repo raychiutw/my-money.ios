@@ -112,7 +112,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 做過結帳日出帳作業的信用卡帳戶，依順序。
     public private(set) var rolledOverIDs: [AccountID] = []
 
-    /// 跟後端一樣：從銀行存款帳戶扣款，先沖已出帳待繳款，不足的部分再沖未出帳款(不重算資金指標與欠款公私拆解)。
+    /// 跟後端一樣：從活存帳戶扣款，先沖已出帳待繳款，不足的部分再沖未出帳款(不重算資金指標與欠款公私拆解)。
     public func payCreditCard(_ payment: CardPayment) async throws {
         if let failure { throw failure }
         payments.append(payment)
@@ -180,7 +180,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// ATM 提款／帳戶互轉送出過的內容，依送出順序。
     public private(set) var transfers: [AccountTransfer] = []
 
-    /// 跟後端一樣：同一個帳戶、轉出的現金錢包或銀行存款帳戶餘額不足時拒絕;成功時兩邊的餘額都更新。
+    /// 跟後端一樣：同一個帳戶、轉出的現金或活存帳戶餘額不足時拒絕;成功時兩邊的餘額都更新。
     public func transfer(_ transfer: AccountTransfer) async throws -> String {
         await gate?.pass()
         if let failure { throw failure }
@@ -208,7 +208,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.backendText) (\(from.name) ➡️ \(to.name))"
     }
 
-    /// 現金錢包和銀行存款帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
+    /// 現金和活存帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。
     private static func balance(of account: Account) -> Money? {
         switch account {
         case .cash(let wallet): wallet.balance
@@ -255,12 +255,12 @@ extension Money {
 }
 
 extension InMemoryAccountRepository {
-    /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個銀行存款帳戶、兩張信用卡帳戶。
+    /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個活存帳戶、兩張信用卡帳戶。
     public static func sample(gate: Gate? = nil) -> InMemoryAccountRepository {
         InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate)
     }
 
-    /// 同上，再加一個現金錢包「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。
+    /// 同上，再加一個現金「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。
     public static func sampleWithCash(gate: Gate? = nil) -> InMemoryAccountRepository {
         InMemoryAccountRepository(
             accounts: [.cash(SampleAccounts.wallet)] + SampleAccounts.all, summary: SampleAccounts.summaryWithCash, gate: gate
@@ -338,12 +338,12 @@ public enum SampleAccounts {
         isMasked: true
     )
 
-    /// 個人私帳的現金錢包。
+    /// 個人私帳的現金。
     public static let wallet = CashWallet(
         id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false, ownerID: me
     )
 
-    /// 含現金錢包的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
+    /// 含現金的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
     public static let summaryWithCash = BalanceSummary(
         cashTotal: Money(1500),
         bankBalanceTotal: Money(50000),

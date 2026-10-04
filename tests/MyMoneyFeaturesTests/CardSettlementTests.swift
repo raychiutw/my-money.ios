@@ -164,7 +164,7 @@ struct CardPaymentTests {
         #expect(model.isShared == isShared)
         #expect(model.note == note)
         #expect(model.date == today)
-        // 扣款帳戶是空的:不再預設「第一個餘額大於 0 的銀行存款帳戶」(上游 ADR 0011，#112)。
+        // 扣款帳戶是空的:不再預設「第一個餘額大於 0 的活存帳戶」(上游 ADR 0011，#112)。
         #expect(model.bankAccountID == nil)
     }
 
@@ -173,7 +173,7 @@ struct CardPaymentTests {
         #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
-    @Test("扣款帳戶一律是空的:不論銀行存款帳戶有沒有餘額，都不預選")
+    @Test("扣款帳戶一律是空的:不論活存帳戶有沒有餘額，都不預選")
     func bankAccountIsNeverPreselected() {
         #expect(payment(card(), banks: [empty]).bankAccountID == nil)
         #expect(payment(card(), banks: [salary, joint]).bankAccountID == nil)
@@ -214,7 +214,7 @@ struct CardPaymentTests {
         #expect(await repository.payments.count == 1)
     }
 
-    @Test("成功後送出所選的內容，資料版本遞增;扣款帳戶只列出銀行存款帳戶")
+    @Test("成功後送出所選的內容，資料版本遞增;扣款帳戶只列出活存帳戶")
     func pay() async {
         let repository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
         let model = payment(card(), preset: .shared, repository: repository)

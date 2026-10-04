@@ -66,8 +66,8 @@ final class ScreenTourUITests: XCTestCase {
         // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡詳細頁和信用卡扣款還款。
         tour.select(tab: "帳戶")
         tour.captureScrolling("accounts")
-        tour.present(app.buttons["accounts.add"], menuItem: "新增現金錢包", capturing: "account-editor-cash")
-        tour.present(app.buttons["accounts.add"], menuItem: "新增銀行存款帳戶", capturing: "account-editor-bank")
+        tour.present(app.buttons["accounts.add"], menuItem: "新增現金", capturing: "account-editor-cash")
+        tour.present(app.buttons["accounts.add"], menuItem: "新增活存帳戶", capturing: "account-editor-bank")
         tour.present(app.buttons["accounts.add"], menuItem: "新增信用卡", capturing: "account-editor-card")
         tour.present(app.buttons["accounts.transfer"], capturing: "transfer")
         // 信用卡精簡列點進詳細頁(#73),信用卡扣款還款從詳細頁的「繳款」選單打開。

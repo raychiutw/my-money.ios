@@ -251,8 +251,8 @@ extension AccountKind {
     /// 資產帳戶類型的名稱(CONTEXT.md)。
     public var title: String {
         switch self {
-        case .cash: "現金錢包"
-        case .bank: "銀行存款帳戶"
+        case .cash: Terms.cash
+        case .bank: Terms.bankAccount
         case .creditCard: "信用卡"
         }
     }
@@ -290,7 +290,7 @@ public struct CompositionSegment: Identifiable, Sendable {
         public var title: String {
             switch self {
             case .cash: "現金"
-            case .bank: "銀行存款"
+            case .bank: Terms.bankAccount
             case .cardDue: "信用卡待繳"
             }
         }

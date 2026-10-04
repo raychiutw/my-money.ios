@@ -50,7 +50,7 @@ struct OverviewTests {
         #expect(await accounts.fetchCount == fetchesBefore + 1)
     }
 
-    @Test("帳戶一覽列出現金錢包")
+    @Test("帳戶一覽列出現金")
     func accountsListIncludesCash() async {
         let model = OverviewModel(
             accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
@@ -76,9 +76,9 @@ struct OverviewTests {
     }
 
     @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
-        (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的活存帳戶、現金或信用卡"),
         (.household, "目前無家庭公帳帳戶", "至帳戶管理將帳戶歸屬設為家庭公帳即可在此呈現"),
-        (.personal, "目前無個人私帳帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (.personal, "目前無個人私帳帳戶", "至帳戶管理新增你的活存帳戶、現金或信用卡"),
     ])
     func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
         #expect(scope.emptyAccountsTitle == title)

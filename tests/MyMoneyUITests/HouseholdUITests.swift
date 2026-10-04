@@ -98,7 +98,7 @@ final class HouseholdUITests: XCTestCase {
         // 先建立家庭共同基金(撥款帳戶)。
         app.tabBars.buttons["帳戶"].tap()
         app.buttons["accounts.add"].tap()
-        app.buttons["新增銀行存款帳戶"].tap()
+        app.buttons["新增活存帳戶"].tap()
         let fundName = app.textFields["accountEditor.name"]
         XCTAssertTrue(fundName.waitForExistence(timeout: 3))
         fundName.tap()
@@ -155,7 +155,7 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(meiBank.waitForExistence(timeout: 3), "沒有推入收款帳戶清單頁")
         meiBank.tap()
         XCTAssertTrue(receiving.displayedText.contains("小美薪轉"), "收款帳戶不是小美的可收款帳戶:\(receiving.displayedText)")
-        XCTAssertFalse(element(in: app, labelContaining: "(銀行存款帳戶)").exists, "帳戶選擇列的值還帶著類型")
+        XCTAssertFalse(element(in: app, labelContaining: "(活存帳戶)").exists, "帳戶選擇列的值還帶著類型")
         XCTAssertTrue(row("可用餘額", value: "5,000 元", in: app).waitForExistence(timeout: 3), "撥款報銷沒有另起一列顯示撥款帳戶的可用餘額")
         submit.tap()
 

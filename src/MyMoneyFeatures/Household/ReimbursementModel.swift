@@ -53,7 +53,7 @@ public final class ReimbursementModel {
 
     /// 收款成員沒有可收款帳戶時的說明;這時不能送出。
     public var receivingAccountsNote: String? {
-        receivingAccounts.isEmpty ? "\(advance.memberName) 還沒有可收款的個人帳戶(銀行存款帳戶或現金錢包)" : nil
+        receivingAccounts.isEmpty ? "\(advance.memberName) 還沒有可收款的個人帳戶(\(Terms.bankAccount)或\(Terms.cash))" : nil
     }
 
     public var canSubmit: Bool { !receivingAccounts.isEmpty && !isSaving }

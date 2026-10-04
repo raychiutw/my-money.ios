@@ -18,7 +18,7 @@ struct AccountMutationTranslationTests {
         return try #require(json as? [String: Any])
     }
 
-    @Test("新增銀行存款帳戶：只送銀行存款帳戶的欄位，不送信用額度與日期")
+    @Test("新增活存帳戶：只送活存帳戶的欄位，不送信用額度與日期")
     func createBankSendsOnlyBankFields() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-bank.json")
 
@@ -41,7 +41,7 @@ struct AccountMutationTranslationTests {
         #expect(json["payment_due_day"] == nil)
     }
 
-    @Test("新增現金錢包:type 是 cash,送餘額、代表色與歸屬，不送信用額度與日期")
+    @Test("新增現金:type 是 cash,送餘額、代表色與歸屬，不送信用額度與日期")
     func createCashWalletSendsWalletFields() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-cash.json")
 

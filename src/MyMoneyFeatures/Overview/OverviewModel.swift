@@ -267,8 +267,8 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     /// 現金錢包、銀行存款帳戶:「名稱，類型，餘額 X 元」;信用卡:「名稱，信用卡待繳總額 X 元，每月 N 日繳款」。
     public var spokenText: String {
         switch kind {
-        case .cash: "\(name)，現金錢包，餘額 \(amount.spokenText)"
-        case .bank: "\(name)，銀行存款帳戶，餘額 \(amount.spokenText)"
+        case .cash: "\(name)，\(Terms.cash)，餘額 \(amount.spokenText)"
+        case .bank: "\(name)，\(Terms.bankAccount)，餘額 \(amount.spokenText)"
         case .creditCard(let card):
             if isPrivateCardAdvance {
                 card.spokenAdvanceSummary(isMasked: isMasked)
@@ -325,7 +325,7 @@ extension AccountScope {
     public var emptyAccountsHint: String {
         switch self {
         case .household: "至帳戶管理將帳戶歸屬設為\(OwnershipName.household)即可在此呈現"
-        case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
+        case .all, .personal: "至帳戶管理新增你的\(Terms.bankAccount)、\(Terms.cash)或信用卡"
         }
     }
 }

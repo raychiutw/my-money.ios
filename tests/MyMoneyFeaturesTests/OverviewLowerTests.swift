@@ -101,7 +101,7 @@ struct OverviewLowerTests {
 
     // MARK: 帳戶卡片
 
-    @Test("帳戶卡片的順序跟帳戶頁一樣:現金錢包、銀行存款帳戶、信用卡;每張卡是名稱加大金額，信用卡的金額是信用卡待繳總額")
+    @Test("帳戶卡片的順序跟帳戶頁一樣:現金、活存帳戶、信用卡;每張卡是名稱加大金額，信用卡的金額是信用卡待繳總額")
     func accountCardOrderAndAmounts() async {
         let overview = await loaded()
 
@@ -128,14 +128,14 @@ struct OverviewLowerTests {
         #expect(!settled.isDue)
     }
 
-    @Test("現金錢包與銀行存款帳戶卡片:VoiceOver 念名稱、類型、餘額;沒有繳款日")
+    @Test("現金與活存帳戶卡片:VoiceOver 念名稱、類型、餘額;沒有繳款日")
     func cashAndBankCardsSpeakKindAndBalance() async throws {
         let overview = await loaded()
         let wallet = try #require(overview.accountCards.first)
         let bank = overview.accountCards[1]
 
-        #expect(wallet.spokenText == "iOS 測試皮夾，現金錢包，餘額 1,500 元")
-        #expect(bank.spokenText == "iOS 測試存款，銀行存款帳戶，餘額 50,000 元")
+        #expect(wallet.spokenText == "iOS 測試皮夾，現金，餘額 1,500 元")
+        #expect(bank.spokenText == "iOS 測試存款，活存帳戶，餘額 50,000 元")
         #expect(wallet.dueDayText == nil && !wallet.isDue)
     }
 

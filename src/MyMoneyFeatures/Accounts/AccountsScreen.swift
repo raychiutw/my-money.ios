@@ -27,10 +27,10 @@ struct AccountsScreen: View {
                     ScopeFilter("帳戶檢視範圍", scope: $model.scope, identifier: "accounts.scope")
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
-                            Button("新增現金錢包", systemImage: "wallet.bifold") {
+                            Button("新增\(Terms.cash)", systemImage: "wallet.bifold") {
                                 editor = EditorSheet(model.makeEditor(adding: .cash))
                             }
-                            Button("新增銀行存款帳戶", systemImage: "building.columns") {
+                            Button("新增\(Terms.bankAccount)", systemImage: "building.columns") {
                                 editor = EditorSheet(model.makeEditor(adding: .bank))
                             }
                             Button("新增信用卡", systemImage: "creditcard") {
@@ -199,8 +199,8 @@ struct AccountsScreen: View {
                     .clearListRow()
                     .skeletonRow()
                 }
-                SkeletonSection(title: "現金錢包", count: 1) { skeletonCard.clearListRow() }
-                SkeletonSection(title: "銀行存款帳戶", count: 2) { skeletonCard.clearListRow() }
+                SkeletonSection(title: Terms.cash, count: 1) { skeletonCard.clearListRow() }
+                SkeletonSection(title: Terms.bankAccount, count: 2) { skeletonCard.clearListRow() }
                 SkeletonSection(title: "信用卡", count: 1) { skeletonCard.clearListRow() }
             }
         case .failed(let message):
@@ -247,8 +247,8 @@ struct AccountsScreen: View {
         }
         Section {
             NumberTileRow {
-                NumberTile(title: "現金", amount: model.cashTotal ?? .zero, spokenTitle: "現金錢包總額")
-                NumberTile(title: "銀行存款", amount: model.bankBalanceTotal ?? .zero, spokenTitle: "銀行存款帳戶餘額合計")
+                NumberTile(title: Terms.cash, amount: model.cashTotal ?? .zero, spokenTitle: "\(Terms.cash)總額")
+                NumberTile(title: Terms.bankAccount, amount: model.bankBalanceTotal ?? .zero, spokenTitle: "\(Terms.bankAccount)餘額合計")
                 NumberTile(
                     title: "信用卡待繳", amount: model.totalCardDue ?? .zero,
                     style: (model.totalCardDue ?? .zero) > .zero ? .red : nil, spokenTitle: "信用卡待繳總額"
@@ -265,18 +265,18 @@ struct AccountsScreen: View {
     }
 
     private var cashSection: some View {
-        Section("現金錢包(\(model.cashWallets.count))") {
+        Section("\(Terms.cash)(\(model.cashWallets.count))") {
             if model.cashWallets.isEmpty {
                 SectionEmptyState(
-                    title: "目前此範圍無現金錢包",
-                    actionTitle: "立即建立現金錢包", identifier: "accounts.emptyAdd.cash"
+                    title: "目前此範圍無\(Terms.cash)",
+                    actionTitle: "立即建立\(Terms.cash)", identifier: "accounts.emptyAdd.cash"
                 ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
             ForEach(model.cashWallets) { wallet in
                 accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
                     fundCard(
                         name: wallet.name, symbol: "wallet.bifold", colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
-                        balance: wallet.balance, balanceTitle: "現金錢包餘額"
+                        balance: wallet.balance, balanceTitle: "\(Terms.cash)餘額"
                     )
                 }
             }
@@ -284,11 +284,11 @@ struct AccountsScreen: View {
     }
 
     private var bankSection: some View {
-        Section("銀行存款帳戶(\(model.bankAccounts.count))") {
+        Section("\(Terms.bankAccount)(\(model.bankAccounts.count))") {
             if model.bankAccounts.isEmpty {
                 SectionEmptyState(
-                    title: "目前此範圍無銀行存款帳戶",
-                    actionTitle: "立即新增銀行存款帳戶", identifier: "accounts.emptyAdd.bank"
+                    title: "目前此範圍無\(Terms.bankAccount)",
+                    actionTitle: "立即新增\(Terms.bankAccount)", identifier: "accounts.emptyAdd.bank"
                 ) { editor = EditorSheet(model.makeEditor(adding: .bank)) }
             }
             ForEach(model.bankAccounts) { account in

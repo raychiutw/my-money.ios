@@ -64,7 +64,7 @@ final class OverviewUITests: XCTestCase {
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
         // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
-        for formula in ["銀行存款 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
+        for formula in ["活存帳戶 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
             XCTAssertFalse(element(in: app, labelContaining: formula).exists, "總覽還有公式明細「\(formula)」")
         }
     }
@@ -133,8 +133,8 @@ final class OverviewUITests: XCTestCase {
         XCTAssertLessThan(tiles[0].frame.minX, tiles[1].frame.minX)
         XCTAssertLessThan(tiles[1].frame.minX, tiles[2].frame.minX)
 
-        // 帳戶卡片兩欄:銀行存款帳戶與第一張信用卡在同一排。
-        let bank = element(in: app, labelContaining: "iOS 測試存款，銀行存款帳戶")
+        // 帳戶卡片兩欄:活存帳戶與第一張信用卡在同一排。
+        let bank = element(in: app, labelContaining: "iOS 測試存款，活存帳戶")
         let card = app.buttons["overview.card.sample-card"]
         for _ in 0..<6 where !(bank.exists && card.exists) { app.swipeUp() }
         XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
@@ -180,9 +180,9 @@ final class OverviewUITests: XCTestCase {
             XCTAssertTrue(bands.allSatisfy { $0.minX > 4 && $0.maxX < width - 4 }, "\(category):第 \(index + 1) 格的字貼到邊緣(可能被切到):\(bands) 寬度 \(width)")
         }
 
-        // 帳戶卡片也單欄(AX5):銀行存款帳戶與第一張信用卡上下排。
+        // 帳戶卡片也單欄(AX5):活存帳戶與第一張信用卡上下排。
         if category.contains("Accessibility") {
-            let bank = element(in: app, labelContaining: "iOS 測試存款，銀行存款帳戶")
+            let bank = element(in: app, labelContaining: "iOS 測試存款，活存帳戶")
             let card = app.buttons["overview.card.sample-card"]
             for _ in 0..<8 where !(bank.exists && card.exists) { app.swipeUp() }
             XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")

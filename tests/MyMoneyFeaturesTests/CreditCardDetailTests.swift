@@ -95,7 +95,7 @@ struct CreditCardDetailTests {
         #expect(dataVersion.value == 0)
     }
 
-    @Test("從「繳款」選單繳家庭代墊：扣款帳戶是這個範圍的銀行存款帳戶;成功後資料版本遞增，詳細頁重新取得這張卡和扣款帳戶")
+    @Test("從「繳款」選單繳家庭代墊：扣款帳戶是這個範圍的活存帳戶;成功後資料版本遞增，詳細頁重新取得這張卡和扣款帳戶")
     func refreshesAfterPayment() async {
         let repository = InMemoryAccountRepository.sample()
         let model = detail(SampleAccounts.card, scope: .personal, repository: repository)

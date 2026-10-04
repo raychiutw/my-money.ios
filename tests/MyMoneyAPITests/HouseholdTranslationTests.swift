@@ -60,7 +60,7 @@ struct HouseholdTranslationTests {
         #expect(try #require(try await repository.advances().first).receivingAccounts.isEmpty)
     }
 
-    @Test("可收款帳戶只收銀行存款帳戶和現金錢包：其他類型(信用卡或 iOS 還不認得的)只略過那一筆")
+    @Test("可收款帳戶只收活存帳戶和現金：其他類型(信用卡或 iOS 還不認得的)只略過那一筆")
     func receivingAccountsSkipOtherKinds() async throws {
         let recorded = try String(decoding: Fixture.data("households-advances-with-receiving.json"), as: UTF8.self)
         let other = recorded.replacingOccurrences(of: #""type":"cash""#, with: #""type":"credit_card""#)

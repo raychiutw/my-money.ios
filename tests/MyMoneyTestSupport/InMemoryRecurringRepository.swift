@@ -126,7 +126,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         return Self.sampleCSV
     }
 
-    /// 後端建立或更新後的項目;帳戶名稱只認得範例的銀行存款帳戶。
+    /// 後端建立或更新後的項目;帳戶名稱只認得範例的活存帳戶。
     private static func item(
         _ id: RecurringItemID, from draft: RecurringDraft, isShared: Bool = false, ownerID: UserID? = nil, ownerName: String? = nil
     ) -> RecurringItem {
