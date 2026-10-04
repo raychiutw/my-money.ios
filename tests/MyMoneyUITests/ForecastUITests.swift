@@ -55,6 +55,39 @@ final class ForecastUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "放心購買").exists, "換了視角,上一個視角的試算結論還在")
     }
 
+    /// 預測事件可勾選「已繳」(上游 ADR 0018、#182):勾了之後最低餘額由後端重算(房租 12,000 不再計入)，
+    /// 事件變淡並念出已繳;再點一次取消。
+    @MainActor
+    func testSettlingAnEventRecalculatesTheMinimumBalanceAndCanBeUndone() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.openPlanning()
+        app.buttons["現金流預測"].tap()
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
+
+        let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "forecast.settle.sample:rent")).firstMatch
+        for _ in 0..<8 where !(settle.exists && settle.isHittable) { app.swipeUp() }
+        XCTAssertTrue(settle.exists, "房租事件沒有勾選圓圈")
+        XCTAssertEqual(settle.label, "標示為已繳")
+        XCTAssertGreaterThanOrEqual(settle.frame.width, 44, "勾選圓圈寬度不到 44pt")
+        XCTAssertGreaterThanOrEqual(settle.frame.height, 44, "勾選圓圈高度不到 44pt")
+        settle.tap()
+
+        let paid = element(in: app, labelContaining: "房租,")
+        XCTAssertTrue(NSPredicate(format: "label CONTAINS %@", "已繳，不計入預測").evaluate(with: paid) || element(in: app, labelContaining: "已繳，不計入預測").waitForExistence(timeout: 5), "已繳的事件沒有念出已繳")
+        XCTAssertEqual(settle.label, "取消已繳", "勾了之後圓圈的標籤沒有變")
+        for _ in 0..<8 where !element(in: app, labelContaining: "最低餘額 65,440 元").exists { app.swipeDown() }
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 65,440 元").waitForExistence(timeout: 5), "已繳的房租還計入最低餘額")
+
+        for _ in 0..<8 where !(settle.exists && settle.isHittable) { app.swipeUp() }
+        settle.tap()
+        XCTAssertEqual(settle.label, "標示為已繳", "取消後圓圈的標籤沒有恢復")
+        for _ in 0..<8 where !element(in: app, labelContaining: "最低餘額 53,440 元").exists { app.swipeDown() }
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5), "取消已繳後最低餘額沒有恢復")
+    }
+
     /// 總覽的走勢線每個視角都有(以前只有「全部」)。
     @MainActor
     func testOverviewTrendIsShownInEveryScope() throws {

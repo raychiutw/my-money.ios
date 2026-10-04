@@ -91,6 +91,10 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `forecast-scope-all.json` | `GET /forecast?scope=all`(上游 ADR 0016、0017 起) | 200 | 含「💳 繳卡費 · 卡名」事件(信用卡繳款日,金額是該視角應負擔的已出帳待繳款);`minDate` 永遠有值 |
 | `forecast-scope-household.json` | `GET /forecast?scope=household` | 200 | 測試帳號不在任何家庭:起始餘額 6900、沒有事件、最低餘額發生在第一天 |
 | `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
+| `forecast-scope-all-settled.json` | 先 `POST /forecast/settle` 把「房租」(`recurring:<id>:<日期>`)標成已繳，再 `GET /forecast?scope=all`(錄完已還原) | 200 | 房租 `is_settled: true`、仍在事件清單，最低餘額 61,570 → 73,570(後端把已繳的 12,000 排除);其他事件 `is_settled: false`、`can_settle: true` |
+| `forecast-settle-on.json` | `POST /forecast/settle {event_key, settled:true}`(上游 ADR 0018) | 200 | `{event_key, is_settled:true}` |
+| `forecast-settle-off.json` | 同上 `settled:false` | 200 | `{event_key, is_settled:false}` |
+| `forecast-settle-invalid.json` | 同上少了 `event_key` | 400 | 「缺少 event_key」原樣傳遞 |
 | `forecast-purchase-scope-household.json` | `POST /forecast/purchase-check {amount:10000, scope:household}` | 200 | 不建議購買、`affectedGoals` 空(公帳視角不檢核個人儲蓄目標) |
 | `forecast-purchase-scope-personal.json` | `POST /forecast/purchase-check {amount:10000, scope:personal}` | 200 | 放心購買、`affectedGoals` 帶出儲蓄目標 |
 | `recurring-create-shared.json` | `POST /recurring`,週期支出「iOS 測試網路費」899,`is_shared: 1` | 201 | 回傳 `is_shared`、`user_name`(上游 ADR 0016) |

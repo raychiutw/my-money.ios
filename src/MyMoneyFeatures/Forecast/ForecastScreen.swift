@@ -31,6 +31,14 @@ struct ForecastScreen: View {
                 await model.refreshIfStale()
             }
             .keyboardDismissal(clearing: $focusedField)
+            .alert(
+                "無法更新已繳狀態",
+                isPresented: Binding(get: { model.settleError != nil }, set: { if !$0 { model.clearSettleError() } })
+            ) {
+                Button("好") {}
+            } message: {
+                Text(model.settleError ?? "")
+            }
             .onChange(of: model.purchaseError) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()
@@ -151,10 +159,18 @@ struct ForecastScreen: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(Array(forecast.events.enumerated()), id: \.offset) { _, event in
-                ForecastEventRow(
-                    event: event, subtitle: model.subtitle(of: event), account: model.accountText(of: event),
-                    spokenText: model.spokenText(of: event)
-                )
+                HStack(alignment: .top, spacing: 4) {
+                    ForecastEventRow(
+                        event: event, subtitle: model.subtitle(of: event), account: model.accountText(of: event),
+                        settledNote: model.settledNote(of: event), spokenText: model.spokenText(of: event)
+                    )
+                    if let key = event.key, event.canSettle {
+                        SettleButton(isSettled: event.isSettled, isBusy: model.settlingKeys.contains(key)) {
+                            Task { await model.setSettled(!event.isSettled, for: event) }
+                        }
+                        .accessibilityIdentifier("forecast.settle.\(key)")
+                    }
+                }
             }
         }
     }
@@ -218,6 +234,8 @@ private struct ForecastEventRow: View {
     let event: ForecastEvent
     let subtitle: String
     let account: String?
+    /// 已繳的事件多一行說明「已繳(不計入預測)」，不只靠變淡與刪除線(#182)。
+    let settledNote: String?
     let spokenText: String
 
     @ScaledMetric(relativeTo: .subheadline) private var accountMaxWidth: CGFloat = 120
@@ -229,6 +247,7 @@ private struct ForecastEventRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.name)
                     subtitleText
+                    settledText
                     accountText
                     amount
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -238,6 +257,7 @@ private struct ForecastEventRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(event.name)
                         subtitleText
+                        settledText
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .trailing, spacing: 2) {
@@ -247,8 +267,19 @@ private struct ForecastEventRow: View {
                 }
             }
         }
+        // 已繳:整列變淡(不計入預測)，金額加刪除線。
+        .opacity(event.isSettled ? 0.58 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenText)
+    }
+
+    @ViewBuilder
+    private var settledText: some View {
+        if let settledNote {
+            Text(settledNote)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var subtitleText: some View {
@@ -280,7 +311,29 @@ private struct ForecastEventRow: View {
         Text(event.type == .income ? "+\(event.amount.formatted())" : "-\(event.amount.formatted())")
             .monospacedDigit()
             .foregroundStyle(event.type == .income ? .green : .red)
+            .strikethrough(event.isSettled)
             .lineLimit(1)
             .fixedSize()
+    }
+}
+
+/// 預定收支右邊的「已繳」圓圈(上游 ADR 0018，#182):未繳是空心圓、已繳是 CI 填色加勾勾;觸控範圍 44×44pt，
+/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。
+private struct SettleButton: View {
+    let isSettled: Bool
+    let isBusy: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: isSettled ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundStyle(isSettled ? Color.ciFill : Color.secondary)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy)
+        .accessibilityLabel(isSettled ? "取消已繳" : "標示為已繳")
     }
 }

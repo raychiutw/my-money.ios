@@ -281,4 +281,115 @@ struct ForecastTests {
         #expect(model.spokenText(of: salary) == "薪水,10月25日,個人私帳,收入 52,000 元")
         #expect(model.spokenText(of: cardDue).contains("繳卡費"), "事件名稱照後端念")
     }
+
+    // MARK: 預測事件已繳(上游 ADR 0018，#182)
+
+    private func rentEvent(_ model: ForecastModel) throws -> ForecastEvent {
+        try #require(model.forecast?.events.first { $0.name == "房租" })
+    }
+
+    @Test("樣本的事件都有識別碼、未繳、能勾選")
+    func sampleEventsCanBeSettled() async throws {
+        let (model, _) = await loaded()
+
+        let events = try #require(model.forecast?.events)
+        #expect(events.count == 2)
+        #expect(events.allSatisfy { $0.key != nil && !$0.isSettled && $0.canSettle })
+    }
+
+    @Test("勾選已繳:送出識別碼與 true，成功後重抓預測——事件標成已繳、最低餘額由後端重算(client 不重算)")
+    func settleReloadsTheForecast() async throws {
+        let (model, repository) = await loaded()
+        let before = try #require(model.forecast?.minBalance)
+        let rent = try rentEvent(model)
+
+        await model.setSettled(true, for: rent)
+
+        let requests = await repository.settleRequests
+        #expect(requests.count == 1)
+        #expect(requests.first?.key == rent.key)
+        #expect(requests.first?.settled == true)
+        #expect(try rentEvent(model).isSettled)
+        #expect(try #require(model.forecast?.minBalance) > before, "已繳的房租不再計入最低餘額")
+        #expect(model.settleError == nil)
+        #expect(model.settlingKeys.isEmpty)
+    }
+
+    @Test("再點一次取消已繳")
+    func unsettle() async throws {
+        let (model, repository) = await loaded()
+        let rent = try rentEvent(model)
+        await model.setSettled(true, for: rent)
+
+        await model.setSettled(false, for: try rentEvent(model))
+
+        #expect(await repository.settleRequests.map(\.settled) == [true, false])
+        #expect(try !rentEvent(model).isSettled)
+    }
+
+    @Test("送出期間這一筆停用(不能連點)，完成後恢復", .timeLimit(.minutes(1)))
+    func settlingKeyWhileSending() async throws {
+        let gate = Gate()
+        let (model, repository) = await loaded()
+        await repository.holdSettling(with: gate)
+        let rent = try rentEvent(model)
+
+        let sending = Task { await model.setSettled(true, for: rent) }
+        await gate.waitUntilReached()
+        let key = try #require(rent.key)
+        #expect(model.settlingKeys == [key])
+        await model.setSettled(true, for: rent)
+        #expect(await repository.settleRequests.count == 1, "送出期間再點不該多送一次")
+        await gate.open()
+        await sending.value
+
+        #expect(model.settlingKeys.isEmpty)
+    }
+
+    @Test("失敗時顯示後端的訊息、事件維持原狀")
+    func settleFailure() async throws {
+        let (model, repository) = await loaded()
+        let rent = try rentEvent(model)
+        await repository.fail(with: .rejected("無權限勾選他人的私帳事件"))
+
+        await model.setSettled(true, for: rent)
+
+        #expect(model.settleError == "無權限勾選他人的私帳事件")
+        #expect(try !rentEvent(model).isSettled)
+        #expect(model.settlingKeys.isEmpty)
+    }
+
+    @Test("不能勾選的事件(沒有識別碼或 can_settle 為 false)不送請求")
+    func unsettleableEventsAreIgnored() async throws {
+        let (model, repository) = await loaded()
+        let locked = ForecastEvent(date: today, name: "他人的私帳", type: .expense, amount: Money(1), key: "k", canSettle: false)
+        let legacy = ForecastEvent(date: today, name: "舊回應", type: .expense, amount: Money(1))
+
+        await model.setSettled(true, for: locked)
+        await model.setSettled(true, for: legacy)
+
+        #expect(await repository.settleRequests.isEmpty)
+    }
+
+    @Test("已繳的事件:畫面寫「已繳(不計入預測)」，VoiceOver 念出已繳")
+    func settledTexts() {
+        let model = ForecastModel(
+            repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(),
+            defaults: UserDefaults(suiteName: "ForecastTests.\(UUID().uuidString)")!, locale: Locale(identifier: "zh_Hant_TW"),
+            today: { today }
+        )
+        let paid = ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000),
+            key: "k", isSettled: true, canSettle: true
+        )
+        let open = ForecastEvent(
+            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000),
+            key: "k", canSettle: true
+        )
+
+        #expect(model.settledNote(of: paid) == "已繳(不計入預測)")
+        #expect(model.settledNote(of: open) == nil)
+        #expect(model.spokenText(of: paid) == "房租,10月5日,個人私帳,支出 12,000 元,已繳，不計入預測")
+        #expect(model.spokenText(of: open) == "房租,10月5日,個人私帳,支出 12,000 元")
+    }
 }

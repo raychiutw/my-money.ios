@@ -30,6 +30,11 @@ public final class ForecastModel {
     public private(set) var purchaseError: String?
     public private(set) var isChecking = false
 
+    /// 正在送出「已繳」的事件識別碼:送出期間那一筆的圓圈停用，避免連點(上游 ADR 0018)。
+    public private(set) var settlingKeys: Set<String> = []
+    /// 勾選或取消已繳失敗時，後端的訊息(例如 403 無權限)。
+    public private(set) var settleError: String?
+
     @ObservationIgnored private let repository: any ForecastRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
@@ -74,7 +79,13 @@ public final class ForecastModel {
         var parts = [event.name, dateText(event.date), OwnershipName.title(isShared: event.isShared)]
         if let account = event.accountName { parts.append("帳戶 \(account)") }
         parts.append("\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)")
+        if event.isSettled { parts.append("已繳，不計入預測") }
         return parts.joined(separator: ",")
+    }
+
+    /// 已繳事件的說明文字(畫面上不只靠變淡與刪除線);未繳的事件沒有。
+    public func settledNote(of event: ForecastEvent) -> String? {
+        event.isSettled ? "已繳(不計入預測)" : nil
     }
 
     /// 最低餘額發生的日期;沒有變動時是「無變動」。
@@ -99,6 +110,28 @@ public final class ForecastModel {
             guard !Task.isCancelled, scope == self.scope else { return }
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// 標示或取消一筆事件的「已繳」(上游 ADR 0018):送出成功後重抓預測——已繳事件從逐日餘額、最低餘額排除由後端算，
+    /// client 不重算。沒有識別碼或不能勾選的事件、正在送出的事件都不送。
+    public func setSettled(_ settled: Bool, for event: ForecastEvent) async {
+        guard let key = event.key, event.canSettle, !settlingKeys.contains(key) else { return }
+        settleError = nil
+        settlingKeys.insert(key)
+        defer { settlingKeys.remove(key) }
+        do {
+            try await repository.setSettled(settled, forEventKey: key)
+        } catch {
+            let message = error.localizedDescription
+            settleError = message.isEmpty ? "更新已繳狀態失敗" : message
+            return
+        }
+        await load()
+    }
+
+    /// 使用者看過「無法更新已繳狀態」的提示之後清掉。
+    public func clearSettleError() {
+        settleError = nil
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入。

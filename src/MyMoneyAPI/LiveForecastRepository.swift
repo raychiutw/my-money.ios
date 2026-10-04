@@ -37,6 +37,10 @@ public struct LiveForecastRepository: ForecastRepository {
         )
     }
 
+    public func setSettled(_ settled: Bool, forEventKey key: String) async throws {
+        let _: SettleDTO = try await client.send("POST", "/forecast/settle", body: SettleBody(eventKey: key, settled: settled))
+    }
+
     fileprivate static func day(_ iso: String) throws -> CalendarDay {
         guard let day = CalendarDay(iso: iso) else { throw RepositoryError.unreadableResponse }
         return day
@@ -64,19 +68,46 @@ private struct EventDTO: Decodable {
     /// 上游 ADR 0016 起的欄位(0/1，snake_case);舊的回應沒有，當成個人私帳。
     let isShared: Int?
     let accountName: String?
+    /// 上游 ADR 0018 起的欄位;舊的回應沒有，當成沒有識別碼、未繳、不能勾選。
+    let eventKey: String?
+    let isSettled: Bool?
+    let canSettle: Bool?
 
     enum CodingKeys: String, CodingKey {
         case date, name, type, amount
         case isShared = "is_shared"
         case accountName = "account_name"
+        case eventKey = "event_key"
+        case isSettled = "is_settled"
+        case canSettle = "can_settle"
     }
 
     func event() throws -> ForecastEvent {
         guard let type = TransactionType(rawValue: type) else { throw RepositoryError.unreadableResponse }
         return ForecastEvent(
             date: try LiveForecastRepository.day(date), name: name, type: type, amount: Money(amount),
-            isShared: (isShared ?? 0) != 0, accountName: accountName
+            isShared: (isShared ?? 0) != 0, accountName: accountName,
+            key: eventKey, isSettled: isSettled ?? false, canSettle: canSettle ?? false
         )
+    }
+}
+
+private struct SettleBody: Encodable {
+    let eventKey: String
+    let settled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case eventKey = "event_key"
+        case settled
+    }
+}
+
+/// `POST /forecast/settle` 的回應;內容不用，只確認成功。
+private struct SettleDTO: Decodable {
+    let eventKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case eventKey = "event_key"
     }
 }
 
