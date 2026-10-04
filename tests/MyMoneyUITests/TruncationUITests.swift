@@ -33,11 +33,18 @@ final class TruncationUITests: XCTestCase {
         let first = app.buttons["overview.card.sample-bank"]
         XCTAssertTrue(ScrollSupport.revealFully(first, in: app), "總覽沒有找到第一張帳戶卡")
         let window = app.windows.firstMatch.frame
+        // 往左撥要用「那一排」的位置:撥動之後第一張卡已經在畫面外，不能再對它操作。
+        let rowY = (first.frame.midY - window.minY) / window.height
+        func swipeLeftOnRow() {
+            let from = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: rowY))
+            let to = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: rowY))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
         for (id, name) in [("sample-bank", "測試存款"), ("sample-card", "測試信用卡"), ("sample-low-limit-card", "測試小額卡")] {
             let card = app.buttons["overview.card.\(id)"]
             // 帳戶卡橫向捲動:無障礙字級一張卡幾乎整個畫面寬,要往左撥到整張卡都在畫面裡。
             for _ in 0..<6 where !(card.exists && card.frame.minX >= 0 && card.frame.maxX <= window.maxX) {
-                first.swipeLeft()
+                swipeLeftOnRow()
             }
             XCTAssertTrue(card.exists && card.frame.maxX <= window.maxX, "帳戶卡「\(id)」撥不進畫面:\(card.frame)")
             let lines = try TextRecognition.lines(in: card.screenshot().image)

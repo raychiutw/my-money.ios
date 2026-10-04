@@ -141,9 +141,10 @@ struct ForecastScreen: View {
         }
     }
 
-    /// x 軸的日期刻度數;預設字級交給系統決定。
+    /// x 軸的日期刻度數;預設字級交給系統決定。XXL 以上最多放 2 個(3 個時兩位數的日期,例如「10月19日」「10月26日」,
+    /// 會被截成「10月1…」;一位數的日期較窄,所以只在月初幾天才碰巧放得下，測試因此隨日期忽過忽不過)。
     private var axisLabelCount: Int? {
-        if dynamicTypeSize.isAccessibilitySize { 2 } else if dynamicTypeSize >= .xxLarge { 3 } else { nil }
+        dynamicTypeSize >= .xxLarge ? 2 : nil
     }
 
     private var taipeiCalendar: Calendar {
