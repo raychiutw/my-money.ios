@@ -51,6 +51,12 @@ final class IPadLayoutUITests: XCTestCase {
         app.launch()
         app.signInWithSampleAccount()
 
+        // 失敗時看得到實際畫面與視窗大小。
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "\(orientation.rawValue) 視窗 \(app.windows.firstMatch.frame) 清單 \(app.collectionViews.allElementsBoundByIndex.map(\.frame))"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
         // 總覽:功能入口兩欄合起來的寬度。
         let first = app.buttons["home.entry.ledger"], second = app.buttons["home.entry.accounts"]
         XCTAssertTrue(ScrollSupport.revealFully(first, in: app), "總覽沒有功能入口")
@@ -83,11 +89,16 @@ final class IPadLayoutUITests: XCTestCase {
         assertLimited(budgets, in: app, "統計頁的新增預算額度")
     }
 
-    /// iPad 的 tab 按鈕在 sidebar 或頂端的 tab bar:用標籤找。
+    /// iPad 的 tab 按鈕在頂端(sidebarAdaptable),按鈕的 identifier 是圖示名稱(同截圖巡覽)。
     @MainActor
     private func select(tab: String, in app: XCUIApplication) {
-        let button = app.tabBars.buttons[tab].exists ? app.tabBars.buttons[tab] : app.buttons[tab].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 5), "找不到 tab「\(tab)」")
+        let symbols = ["總覽": "house", "記帳": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
+        let candidates = [
+            app.tabBars.buttons[tab], app.buttons[symbols[tab] ?? tab].firstMatch, app.buttons[tab].firstMatch, app.cells[tab].firstMatch,
+        ]
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline, !candidates.contains(where: \.exists) { Thread.sleep(forTimeInterval: 0.25) }
+        guard let button = candidates.first(where: \.exists) else { return XCTFail("找不到 tab「\(tab)」") }
         button.tap()
     }
 
@@ -97,9 +108,14 @@ final class IPadLayoutUITests: XCTestCase {
         assertCentered(element.frame, in: app, name)
     }
 
+    /// 置中在看得到的那一欄:橫向時左邊有 sidebar(窄的那個 collection view),內容要置中在 sidebar 右邊。
     @MainActor
     private func assertCentered(_ frame: CGRect, in app: XCUIApplication, _ name: String) {
         let window = app.windows.firstMatch.frame
-        XCTAssertEqual(frame.midX, window.midX, accuracy: 24, "\(name)沒有置中:\(frame)，視窗 \(window)")
+        let first = app.collectionViews.firstMatch.frame
+        let leading = (first.width < window.width / 2 && first.minX == 0) ? first.maxX : 0
+        let left = frame.minX - leading
+        let right = window.maxX - frame.maxX
+        XCTAssertEqual(left, right, accuracy: 24, "\(name)沒有置中:左邊空 \(left)、右邊空 \(right)，內容 \(frame)，視窗 \(window)，sidebar 寬 \(leading)")
     }
 }

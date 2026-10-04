@@ -383,7 +383,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - 支援減少動態效果：不做裝飾性的動畫。
 - **長條圖的金額標註**(#157、#163，`annotationHeadroom`):最高那根的標註畫在圖的上緣外面，圖的上方留一個標註的高度(跟標註同一個文字樣式 `footnote` 一起放大)，標註才不會壓到上面的內容(家庭頁「誰轉給誰」、記帳頁「支出佔收入」比例條);兩張長條圖共用。
 - **備註欄**(`NoteField`，#170):一般字級是單行欄位;無障礙字級值太長會被截成「…」，改成可以長高的多行欄位(`axis: .vertical`)。備註仍是單行語意:Return 不換行而是收起鍵盤，貼上含換行的文字會拿掉換行。
-- **iPad 的內容寬度**(#173，`readableContentWidth`):登入、註冊與五個 tab 的內容限制在約 700pt 並置中(`contentMargins(.horizontal, …, for: .scrollContent)`)，背景與捲動範圍仍撐滿視窗;視窗比 700pt 窄(iPhone、Split View)時邊界是 0，版面不變。
+- **iPad 的內容寬度**(#173，`readableContentWidth`):登入、註冊與五個 tab 的內容限制在約 700pt 並置中(`contentMargins(…, for: .scrollContent)`)，背景與捲動範圍仍撐滿視窗;視窗比 700pt 窄(iPhone、Split View)時邊界是 0，版面不變。橫向時 sidebar 浮在內容左邊、清單的 frame 延伸到 sidebar 底下，所以左邊界要加上 sidebar 的寬度，內容才置中在看得到的那一欄。
 
 ## 截圖巡覽
 
