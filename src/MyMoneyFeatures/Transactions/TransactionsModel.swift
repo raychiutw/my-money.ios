@@ -345,7 +345,8 @@ public final class TransactionsModel {
     public func subtitle(of transaction: Transaction) -> TransactionSubtitle {
         TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
-            ownership: OwnershipName.title(isShared: transaction.isShared)
+            ownership: OwnershipName.title(isShared: transaction.isShared),
+            billing: transaction.billing.label
         )
     }
 
@@ -454,15 +455,34 @@ extension TransactionsModel {
 public struct TransactionSubtitle: Equatable, Sendable {
     public let recorder: String?
     public let ownership: String
+    /// 信用卡的帳單狀態標籤「已出帳」「延至下期」(上游 ADR 0020，#188);其他沒有。
+    public let billing: String?
 
-    public init(recorder: String?, ownership: String) {
+    public init(recorder: String?, ownership: String, billing: String? = nil) {
         self.recorder = recorder
         self.ownership = ownership
+        self.billing = billing
     }
 
-    /// 例如「小美・家庭公帳」;沒有記帳人名稱時只有歸屬。
+    /// 歸屬加帳單狀態標籤,例如「家庭公帳・延至下期」:畫面放不下時這一段保留，先截記帳人的名稱。
+    public var tail: String {
+        [ownership, billing].compactMap { $0 }.joined(separator: "・")
+    }
+
+    /// 例如「小美・家庭公帳・延至下期」;沒有記帳人名稱時只有歸屬(與標籤)。
     public var text: String {
-        [recorder, ownership].compactMap { $0 }.joined(separator: "・")
+        [recorder, tail].compactMap { $0 }.joined(separator: "・")
+    }
+}
+
+extension BillingStatus {
+    /// 列上的標籤;未出帳不標。
+    var label: String? {
+        switch self {
+        case .unbilled: nil
+        case .billed: Terms.billed
+        case .deferred: Terms.deferredToNextStatement
+        }
     }
 }
 

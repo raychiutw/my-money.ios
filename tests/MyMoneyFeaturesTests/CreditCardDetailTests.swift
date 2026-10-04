@@ -73,7 +73,10 @@ struct CreditCardDetailTests {
         let repository = InMemoryAccountRepository.sample()
         let model = detail(SampleAccounts.lowLimitCard, repository: repository)
 
-        #expect(model.rolloverConfirmation == "確定要將「iOS 測試小額卡」的未出帳款 $5,000 轉入本期已出帳待繳款嗎？")
+        #expect(
+            model.rolloverConfirmation
+                == "確定要依據「iOS 測試小額卡」的每月結帳日(1 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
+        )
         await model.rollOver()
 
         #expect(await repository.rolledOverIDs == [SampleAccounts.lowLimitCard.id])

@@ -12,6 +12,10 @@ public enum Terms {
     public static let ledger = "記帳"
     /// 收支明細:記錄本身(列表標題、刪除確認、空狀態、CSV)。上游舊稱交易記錄。
     public static let transactions = "收支明細"
+    /// 已出帳:信用卡消費已算進已出帳待繳款(上游 ADR 0020)。
+    public static let billed = "已出帳"
+    /// 延至下期:商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單。
+    public static let deferredToNextStatement = "延至下期"
     /// 週期支出每月平均(上游舊稱:分攤平滑)。
     public static let expenseAmortization = "週期支出每月平均"
     /// 週期收入每月平均。

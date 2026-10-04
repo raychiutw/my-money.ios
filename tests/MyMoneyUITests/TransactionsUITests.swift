@@ -310,6 +310,24 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
     }
 
+    /// 信用卡消費的帳單狀態(上游 ADR 0020、#188):已出帳、延至下期寫在次要文字,VoiceOver 也念出來;其他消費沒有。
+    @MainActor
+    func testCardBillingStatusIsLabelled() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-uiTestingCardBilling", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["記帳"].tap()
+
+        let billed = element(in: app, labelContaining: "上期晚餐")
+        let deferred = element(in: app, labelContaining: "延遲請款的機票")
+        let plain = element(in: app, labelContaining: "耳機")
+        XCTAssertTrue(billed.waitForExistence(timeout: 5) && deferred.exists && plain.exists, "範例資料的信用卡消費不在清單上")
+        XCTAssertTrue(billed.label.contains("已出帳"), "已出帳的消費沒有念出已出帳:\(billed.label)")
+        XCTAssertTrue(deferred.label.contains("延至下期"), "延至下期的消費沒有念出延至下期:\(deferred.label)")
+        XCTAssertFalse(plain.label.contains("已出帳") || plain.label.contains("延至下期"), "未出帳的消費不該有標籤:\(plain.label)")
+    }
+
     /// 信用卡專屬的「列入下期帳單」(上游 ADR 0020、#184):選了信用卡才出現，選別的帳戶就收起並重設。
     @MainActor
     func testDeferToNextStatementOnlyForCreditCards() throws {

@@ -154,6 +154,20 @@ struct TransactionsListTests {
         #expect(list.subtitle(of: tx(me.name, me.id, shared: true, category: .creditCardRepayment)).text == "系統紀錄・家庭公帳")
         #expect(list.subtitle(of: tx("小美", UserID("mei"), shared: false, category: .internalTransfer)).text == "系統紀錄・個人私帳")
         #expect(list.subtitle(of: tx(nil, nil, shared: true)).text == "家庭公帳")
+        // 信用卡的帳單狀態(上游 ADR 0020，#188):已出帳、延至下期寫在歸屬後面;未出帳不標。
+        func card(_ billing: BillingStatus) -> Transaction {
+            Transaction(
+                id: TransactionID("card-\(billing)"), accountID: SampleAccounts.card.id, accountName: SampleAccounts.card.name,
+                type: .expense, category: .dining, amount: Money(120), note: "刷卡", date: today, isShared: false,
+                recorderName: me.name, recorderID: me.id, billing: billing
+            )
+        }
+        #expect(list.subtitle(of: card(.billed)).text == "\(me.name)・個人私帳・已出帳")
+        #expect(list.subtitle(of: card(.deferred)).text == "\(me.name)・個人私帳・延至下期")
+        #expect(list.subtitle(of: card(.unbilled)).text == "\(me.name)・個人私帳")
+        #expect(list.subtitle(of: card(.deferred)).billing == "延至下期")
+        #expect(list.subtitle(of: card(.unbilled)).billing == nil)
+        #expect(list.subtitle(of: card(.deferred)).ownership == "個人私帳", "標籤不混進歸屬，畫面截斷時歸屬與標籤保留")
         // 截斷時先截名稱、歸屬保留:畫面用 recorder 與 ownership 分開排版。
         let family = list.subtitle(of: tx("小美", UserID("mei"), shared: true))
         #expect(family.recorder == "小美")

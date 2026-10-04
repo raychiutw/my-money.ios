@@ -50,7 +50,10 @@ struct MyMoneyApp: App {
             let accounts = includesFamily
                 ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
                 : InMemoryAccountRepository.sample()
-            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(includeFamilyEntries: includesFamily))
+            // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
+            let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
+                includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling")
+            ))
             let recurring = InMemoryRecurringRepository.sample(includesFamilyEntries: includesFamily)
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。

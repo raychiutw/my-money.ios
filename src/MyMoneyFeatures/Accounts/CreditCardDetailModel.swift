@@ -135,9 +135,9 @@ public final class CreditCardDetailModel {
     /// 後端在上游 `97f4789` 之前已改成只扣還款沖到未出帳款的部分(`unbilled_offset`),不再有「繳過已出帳待繳款就被算少」的問題,
     /// 所以不提醒(parity 刻意偏離第 39 項已刪除)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
     public var reconcileConfirmation: String {
-        let fallback = card.statementDay == nil ? "算這張卡所有的消費" : "從上一個結帳日起算"
-        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，\(fallback)),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。"
+        // 上游 ADR 0020:依結帳區間重算(上一個結帳日之後，加上延至下期的)，不再扣還款沖掉的部分。
+        let scope = card.statementDay == nil ? "會重算所有還沒出帳的消費" : "會重算上一個結帳日之後的消費，加上延至下期的消費"
+        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？\(scope)，並扣掉這段期間的刷退。"
     }
 
     /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
@@ -203,8 +203,12 @@ extension CreditCard {
     }
 
     /// 出帳作業的確認。web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
+    /// 依結帳區間淨額出帳(上游 ADR 0020):實際轉入多少由後端依結帳日、刷退與延至下期決定，所以不寫金額。
     var rolloverConfirmation: String {
-        "確定要將「\(name)」的未出帳款 \(unbilledDebt.formatted()) 轉入本期已出帳待繳款嗎？"
+        if let statementDay {
+            return "確定要依據「\(name)」的每月結帳日(\(statementDay) 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
+        }
+        return "確定要將「\(name)」所有未延期的未出帳消費轉入本期已出帳待繳款嗎？"
     }
 
     /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。

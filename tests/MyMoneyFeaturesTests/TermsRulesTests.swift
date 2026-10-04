@@ -103,10 +103,10 @@ struct TermsRulesTests {
     func termsSourceUsesNewWords() {
         let all = [
             Terms.bankAccount, Terms.cash, Terms.ledger, Terms.transactions, Terms.expenseAmortization,
-            Terms.incomeAmortization, Terms.monthlyAverage, Terms.pendingReimbursementTotal, Terms.reimburse,
+            Terms.incomeAmortization, Terms.monthlyAverage, Terms.billed, Terms.deferredToNextStatement, Terms.pendingReimbursementTotal, Terms.reimburse,
         ]
 
-        #expect(all == ["活存帳戶", "現金", "記帳", "收支明細", "週期支出每月平均", "週期收入每月平均", "換算每月平均", "待報銷總額", "報銷沖帳"])
+        #expect(all == ["活存帳戶", "現金", "記帳", "收支明細", "週期支出每月平均", "週期收入每月平均", "換算每月平均", "已出帳", "延至下期", "待報銷總額", "報銷沖帳"])
         for term in all {
             for (old, _) in Self.oldTerms { #expect(!term.contains(old), "\(term) 含舊詞 \(old)") }
         }

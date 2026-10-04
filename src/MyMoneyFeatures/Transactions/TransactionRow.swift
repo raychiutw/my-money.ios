@@ -5,7 +5,8 @@ import SwiftUI
 ///
 /// - 前緣：分類圖示。
 /// - 標題：備註，沒有備註時用分類名稱;點得開的列最多兩行。
-/// - 次要文字(固定一行):「記帳人・歸屬」,例如「小美・家庭公帳」;放不下先截記帳人的名稱，歸屬保留。
+/// - 次要文字(固定一行):「記帳人・歸屬」,例如「小美・家庭公帳」;信用卡消費後面多一個帳單狀態「已出帳」「延至下期」(#188);
+///   放不下先截記帳人的名稱，歸屬與標籤保留。
 /// - trailing:帶正負號的金額，下面一行是資產帳戶名稱(次要文字、靠右、單行、太長從結尾截斷)。
 ///
 /// 不再有金額旁邊的小圖示(家庭公帳、家人記的、鎖定):語意都寫成文字，點不開的列怎麼說明見 #146。
@@ -89,12 +90,12 @@ struct TransactionRow: View {
                 HStack(spacing: 0) {
                     Text(recorder)
                         .lineLimit(1)
-                    Text("・\(subtitle.ownership)")
+                    Text("・\(subtitle.tail)")
                         .lineLimit(1)
                         .fixedSize()
                 }
             } else {
-                Text(subtitle.ownership)
+                Text(subtitle.tail)
                     .lineLimit(1)
             }
         }
@@ -147,6 +148,7 @@ struct TransactionRow: View {
         parts.append("帳戶 \(account)")
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(OwnershipName.title(isShared: transaction.isShared))
+        if let billing = transaction.billing.label { parts.append(billing) }
         parts.append(transaction.spokenAmount)
         return parts.joined(separator: "，")
     }
