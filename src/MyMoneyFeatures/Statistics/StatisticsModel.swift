@@ -104,8 +104,12 @@ public final class StatisticsModel {
         self.repository = repository
         self.dataVersion = dataVersion
         self.locale = locale
-        month = CalendarMonth(today())
+        currentMonth = CalendarMonth(today())
+        month = currentMonth
     }
+
+    /// 建立時的本月(台灣時間);切換月份不變。月份選擇器的上限用它。
+    public let currentMonth: CalendarMonth
 
     /// 所選的月份，例如「2026年9月」(DESIGN.md「日期」)。
     public var monthTitle: String { month.text(locale: locale) }

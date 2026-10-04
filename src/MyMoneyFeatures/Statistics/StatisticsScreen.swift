@@ -14,8 +14,15 @@ struct StatisticsScreen: View {
         NavigationStack {
             List {
                 Section {
-                    MonthSwitcher(month: $model.month, title: model.monthTitle)
-                        .clearListRow()
+                    // 月份切換跟交易頁是同一個膠囊(#164);統計頁可以往後看(設下個月的預算)，所以下一月不停用。
+                    MonthPill(
+                        identifierPrefix: "statistics.month", title: model.monthTitle,
+                        selected: model.month, latest: max(model.currentMonth, model.month),
+                        previous: { model.month = model.month.previous },
+                        next: { model.month = model.month.next },
+                        select: { model.month = $0 }
+                    )
+                    .clearListRow()
                 }
                 .compactSectionSpacing()
                 content
@@ -233,7 +240,7 @@ struct StatisticsScreen: View {
                 Button {
                     budgetEditor = model.makeNewBudgetEditor()
                 } label: {
-                    AddBudgetLabel()
+                    ActionRowLabel(title: "新增預算額度", systemImage: "plus")
                 }
                 .accessibilityIdentifier("budgets.add")
             }
@@ -242,50 +249,6 @@ struct StatisticsScreen: View {
 
     private func fraction(_ part: Money, of whole: Money) -> Double {
         whole > .zero ? min(part.chartValue / whole.chartValue, 1) : 0
-    }
-}
-
-/// 精簡的月份列(#120):上一個月、所選的月份、下一個月，不是卡片也不佔標題位置;兩個按鈕的觸控範圍至少 44×44pt。
-private struct MonthSwitcher: View {
-    @Binding var month: CalendarMonth
-    /// 所選的月份(畫面 model 依系統格式產生)。
-    let title: String
-
-    var body: some View {
-        HStack {
-            Button("上一個月", systemImage: "chevron.left") { month = month.previous }
-                .labelStyle(.iconOnly)
-                .frame(minWidth: 44, minHeight: 44)
-            Spacer()
-            Text(title)
-                .font(.headline)
-                .monospacedDigit()
-            Spacer()
-            Button("下一個月", systemImage: "chevron.right") { month = month.next }
-                .labelStyle(.iconOnly)
-                .frame(minWidth: 44, minHeight: 44)
-        }
-        .buttonStyle(.borderless)
-    }
-}
-
-/// 「新增預算額度」的 label:整列都點得開，不只文字的範圍。
-///
-/// 不用 `Label`:AX5 字級折成兩行會被裁掉、圖示壓到文字(#76 的截圖),
-/// 改成自己排圖示和文字。圖示欄的寬度和間距跟 List 裡的 `Label` 差不多，文字對齊上面各列的分類名稱。
-private struct AddBudgetLabel: View {
-    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: "plus")
-                .frame(width: iconWidth)
-                .accessibilityHidden(true)
-            Text("新增預算額度")
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 0)
-        }
-        .contentShape(.rect)
     }
 }
 

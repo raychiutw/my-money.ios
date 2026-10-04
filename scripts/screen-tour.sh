@@ -4,12 +4,14 @@
 # 巡覽的範圍見 tests/MyMoneyUITests/ScreenTourUITests.swift,怎麼用見 DESIGN.md「截圖巡覽」。
 #
 # 用法:
-#   scripts/screen-tour.sh [-o 輸出目錄] [-d 模擬器 UDID] [-a 外觀] [-s 字級]
+#   scripts/screen-tour.sh [-o 輸出目錄] [-d 模擬器 UDID] [-t 裝置型號] [-a 外觀] [-s 字級]
 #
 #   -o  截圖輸出目錄，預設 /tmp/my-money-screen-tour。放在 repo 外，截圖不進 repo。
 #       這次要跑的組合，舊的截圖會先刪掉。
 #   -d  模擬器 UDID。沒指定時用名為「MyMoney Screen Tour」的 iPhone 17,沒有就建立一台，
 #       不佔用其他測試正在用的模擬器。
+#   -t  專用模擬器的裝置型號，預設 iPhone 17;例如「iPad Pro 13-inch (M5)」。專用模擬器的名稱會帶型號，
+#       不同型號各有一台。指定 -d 時忽略。
 #   -a  外觀，逗號分隔:light、dark(預設兩種都跑)。
 #   -s  字級，逗號分隔:default、xxl、ax5(預設三種都跑)。
 #
@@ -18,8 +20,7 @@
 #   scripts/screen-tour.sh -o /tmp/tour-before -a dark -s ax5
 set -euo pipefail
 
-readonly SIMULATOR_NAME="MyMoney Screen Tour"
-readonly DEVICE_TYPE="iPhone 17"
+readonly DEFAULT_DEVICE_TYPE="iPhone 17"
 readonly TEST_ID="MyMoneyUITests/ScreenTourUITests/testTour"
 # 測試失敗時 xcodebuild 預設會收集模擬器診斷，要等十分鐘左右，所以用 -collect-test-diagnostics never 關掉。
 # 測試跑完之後 xcodebuild 還是可能卡住不結束(Xcode 27):結果檔寫好(Info.plist 出現)之後再等這麼多秒，還沒結束就砍掉。
@@ -29,16 +30,18 @@ output="/tmp/my-money-screen-tour"
 udid=""
 appearances="light,dark"
 sizes="default,xxl,ax5"
+device_type="$DEFAULT_DEVICE_TYPE"
 
 usage() {
   sed -n '2,18p' "$0"
   exit 64
 }
 
-while getopts "o:d:a:s:h" opt; do
+while getopts "o:d:t:a:s:h" opt; do
   case "$opt" in
     o) output="$OPTARG" ;;
     d) udid="$OPTARG" ;;
+    t) device_type="$OPTARG" ;;
     a) appearances="$OPTARG" ;;
     s) sizes="$OPTARG" ;;
     *) usage ;;
@@ -69,13 +72,18 @@ derived="$repo/.derivedData/screen-tour"
 work="$(mktemp -d -t my-money-screen-tour)"
 mkdir -p "$output"
 
-# 專用模擬器。
+# 專用模擬器:iPhone 17 維持舊名稱「MyMoney Screen Tour」,其他型號帶型號，各有一台。
+if [[ "$device_type" == "$DEFAULT_DEVICE_TYPE" ]]; then
+  SIMULATOR_NAME="MyMoney Screen Tour"
+else
+  SIMULATOR_NAME="MyMoney Screen Tour ($device_type)"
+fi
 if [[ -z "$udid" ]]; then
   udid="$(xcrun simctl list devices available -j |
     jq -r --arg name "$SIMULATOR_NAME" '[.devices[][] | select(.name == $name)][0].udid // empty')"
   if [[ -z "$udid" ]]; then
-    echo "建立模擬器「${SIMULATOR_NAME}」($DEVICE_TYPE)"
-    udid="$(xcrun simctl create "$SIMULATOR_NAME" "$DEVICE_TYPE")"
+    echo "建立模擬器「${SIMULATOR_NAME}」($device_type)"
+    udid="$(xcrun simctl create "$SIMULATOR_NAME" "$device_type")"
   fi
 fi
 xcrun simctl bootstatus "$udid" -b >/dev/null

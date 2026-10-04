@@ -26,6 +26,11 @@ final class BotUITests: XCTestCase {
             "「產生綁定驗證碼」上面有一列空白"
         )
 
+        // 「產生綁定驗證碼」是帶圖示的列，不是看起來像標籤的純文字(#165)。
+        let bands = try PixelAnalysis.inkBands(of: app.buttons["bot.generate"].screenshot().image)
+        let widest = try XCTUnwrap(bands.max { $0.maxX - $0.minX < $1.maxX - $1.minX }, "「產生綁定驗證碼」那列沒有任何字")
+        XCTAssertGreaterThanOrEqual(widest.clusters(minGap: 25), 2, "「產生綁定驗證碼」只有文字，沒有圖示")
+
         app.buttons["bot.generate"].tap()
         XCTAssertTrue(app.staticTexts["bot.pairingCode"].waitForExistence(timeout: 3), "沒有顯示綁定驗證碼")
         XCTAssertTrue(element(in: app, labelContaining: "綁定 AB12CD").exists, "沒有顯示要傳送的指令")

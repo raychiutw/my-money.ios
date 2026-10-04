@@ -80,7 +80,11 @@ final class ScreenTourUITests: XCTestCase {
         // 再用「離開家庭」回到還沒加入的建立和加入，拍那一頁(不用打字，大字級也拍得到)。
         tour.select(tab: "家庭")
         tour.captureScrolling("household-joined")
-        tour.tap(app.buttons["household.leave"])
+        // 自己的代墊款可以報銷:從清單裡的「從共同基金報銷」打開表單(#157 審查補拍)。
+        tour.present(app.buttons["household.reimburse.in-memory-member-1"], capturing: "reimbursement")
+        // 離開家庭先跳確認，拍確認訊息再按「離開」。大字級時「離開家庭」在清單最下面，先捲到它。
+        tour.tapRevealing(app.buttons["household.leave"])
+        tour.captureOnce("household-leave-confirm")
         tour.tap(app.buttons["離開"].firstMatch)
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開家庭後沒有回到建立的畫面")
         tour.captureScrolling("household")
@@ -139,6 +143,12 @@ private struct Tour {
         XCTFail("「\(screen)」拍了 \(maxScreens) 屏還沒到底")
     }
 
+    /// 只拍目前這一屏，不捲動:確認訊息(confirmationDialog)點到外面就會關掉，往上拖也算。
+    func captureOnce(_ screen: String) {
+        settle()
+        attach(screen, index: 1)
+    }
+
     /// 登入 in-memory 的範例帳號(`InMemoryAuthRepository.Member.sample`)。
     func signIn() {
         let email = app.textFields["login.email"]
@@ -147,18 +157,41 @@ private struct Tour {
         email.typeText("family@example.com")
         let password = app.secureTextFields["login.password"]
         password.tap()
-        // 密碼欄按 Return 就送出;大字級時登入按鈕可能被鍵盤擋住。
-        password.typeText("secret123\n")
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
+        password.typeText("secret123")
+        // 用登入鈕送出，不用 Return(Return 會讓系統偶爾彈出「要儲存密碼嗎？」);大字級時登入鈕可能被鍵盤擋住，先往上捲。
+        let submit = app.buttons["login.submit"]
+        for _ in 0..<4 where !(submit.exists && submit.isHittable) { app.swipeUp() }
+        submit.tap()
+        // iPad 的 tab 是導覽列上的按鈕(identifier 是 SF Symbol 名稱)，不是 tabBars。
+        XCTAssertTrue(
+            app.tabBars.buttons["總覽"].waitForExistence(timeout: 10) || app.buttons["house"].waitForExistence(timeout: 3),
+            "登入後沒有進入 tab 外殼"
+        )
+    }
+
+    /// 先捲到元素整個露出來再點(例如大字級時在清單很下面的按鈕)。
+    func tapRevealing(_ element: XCUIElement) {
+        reveal(element)
+        if !element.exists || !element.isHittable {
+            _ = ScrollSupport.revealFully(element, in: app)
+        }
+        tap(element)
     }
 
     func select(tab: String) {
-        tap(app.tabBars.buttons[tab])
+        let symbols = ["總覽": "house", "交易": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
+        let bar = app.tabBars.buttons[tab]
+        // iPad 的按鈕在階層裡出現兩層(外層與內層，identifier 相同)，取第一個。
+        tap(bar.exists ? bar : app.buttons[symbols[tab] ?? tab].firstMatch)
     }
 
     /// 點入口 push 一頁，拍完(以及 `inside` 裡的動作)之後點系統的返回按鈕回來。
     func push(_ entry: XCUIElement, capturing screen: String, inside: () -> Void = {}) {
         reveal(entry)
+        if !entry.exists || !entry.isHittable {
+            // 大字級的長清單:自己的 reveal 找不到時，改用一步一步輕輕拖的 ScrollSupport(sheet 裡沒有 tab bar)。
+            _ = ScrollSupport.revealFully(entry, in: app, inSheet: true)
+        }
         tap(entry)
         captureScrolling(screen)
         inside()
@@ -233,9 +266,18 @@ private struct Tour {
 
     /// 導覽列下緣到 tab bar 上緣：清單裡的元素完整露出的範圍。
     private func contentBounds() -> (top: CGFloat, bottom: CGFloat) {
-        let top = app.navigationBars.allElementsBoundByIndex.map(\.frame.maxY).max() ?? 0
+        var top = app.navigationBars.allElementsBoundByIndex.map(\.frame.maxY).max() ?? 0
+        let window = app.windows.firstMatch.frame
         let tabBar = app.tabBars.firstMatch
-        let bottom = tabBar.exists ? tabBar.frame.minY : app.windows.firstMatch.frame.maxY
+        var bottom = window.maxY
+        if tabBar.exists {
+            // iPhone 的 tab bar 在下面;iPad 的在上面(畫面上半部)，內容的上緣要避開它。
+            if tabBar.frame.midY > window.midY {
+                bottom = tabBar.frame.minY
+            } else {
+                top = max(top, tabBar.frame.maxY)
+            }
+        }
         return (top, bottom)
     }
 

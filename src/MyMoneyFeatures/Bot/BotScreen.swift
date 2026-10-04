@@ -76,8 +76,10 @@ struct BotScreen: View {
                     }
                 }
             }
-            Button("產生綁定驗證碼") {
+            Button {
                 Task { await model.generatePairingCode() }
+            } label: {
+                ActionRowLabel(title: "產生綁定驗證碼", systemImage: "key")
             }
             .accessibilityIdentifier("bot.generate")
         }
@@ -205,7 +207,10 @@ struct BotChatScreen: View {
             }
             HStack {
                 // 不用 `.roundedBorder`:它的字和欄位不跟著 Dynamic Type 放大(#157)。
-                TextField("例如：午餐 120、高鐵 1490 信用卡、查帳", text: $model.draft)
+                // 單行 TextField 的 placeholder 太長時，系統會自動縮小字去湊寬度(AX5 反而比預設小，#157)。
+                // 範例句在上面的快捷晶片，placeholder 只留兩個字。
+                TextField("訊息", text: $model.draft, prompt: Text("訊息"))
+                    .font(.body)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 20))

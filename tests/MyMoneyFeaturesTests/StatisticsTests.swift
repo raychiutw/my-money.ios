@@ -27,6 +27,18 @@ struct StatisticsTests {
         HouseholdShare(userID: UserID(name), userName: name, total: Money(Decimal(total)))
     }
 
+    @Test("本月固定是建立時的台灣時間本月，切換月份不影響(月份選擇器的上限用它)")
+    func currentMonthStaysWhileSwitching() {
+        let model = StatisticsModel(
+            repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            today: { CalendarDay(year: 2026, month: 9, day: 28) }
+        )
+        model.month = model.month.previous.previous
+
+        #expect(model.currentMonth == september)
+        #expect(model.month == CalendarMonth(year: 2026, month: 7))
+    }
+
     @Test("月份預設本月(台灣時間),視角預設全部")
     func defaults() {
         let model = StatisticsModel(

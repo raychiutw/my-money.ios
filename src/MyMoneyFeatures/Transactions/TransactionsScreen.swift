@@ -107,8 +107,15 @@ struct TransactionsScreen: View {
         List {
             // 年月快速切換:不論載入狀態都在最上面(載入失敗時也能換個月再試)。
             Section {
-                MonthPill(model: model)
-                    .clearListRow()
+                MonthPill(
+                    identifierPrefix: "transactions.month", title: model.monthTitle,
+                    selected: model.selectedMonth ?? CalendarMonth(model.filter.to), latest: model.currentMonth,
+                    canGoToNext: model.canGoToNextMonth,
+                    previous: { Task { await model.goToPreviousMonth() } },
+                    next: { Task { await model.goToNextMonth() } },
+                    select: { month in Task { await model.selectMonth(month) } }
+                )
+                .clearListRow()
             }
             .compactSectionSpacing()
             switch model.phase {
