@@ -4,9 +4,9 @@ import MyMoneyFeatures
 import MyMoneyTestSupport
 import Testing
 
-/// 帳戶頁公帳範圍的「家庭公帳待報銷代墊款」橫幅(上游 ADR 0015、#141)。
+/// 帳戶頁公帳範圍的「家庭公帳待報銷總額」橫幅(上游 ADR 0015、#141)。
 @MainActor
-@Suite("待報銷代墊款橫幅")
+@Suite("待報銷總額橫幅")
 struct PendingAdvancesBannerTests {
     private let advances = [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
 
@@ -27,7 +27,7 @@ struct PendingAdvancesBannerTests {
 
         #expect(model.pendingAdvanceTotal == Money(850))
         #expect(model.showsPendingAdvanceBanner)
-        #expect(model.pendingAdvanceBannerText == "家庭公帳待報銷代墊款 $850")
+        #expect(model.pendingAdvanceBannerText == "家庭公帳待報銷總額 $850")
     }
 
     @Test("全部與私帳範圍沒有橫幅，而且不多問 API")

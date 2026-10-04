@@ -10,11 +10,13 @@ public struct LiveTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
     ) async throws -> [Transaction] {
         // 起日或迄日是 nil 時整個參數不送，後端就不限日期。
         let dates = [("from", from), ("to", to)].compactMap { name, day in day.map { URLQueryItem(name: name, value: $0.iso) } }
-        let dtos: [TransactionDTO] = try await client.get("/transactions", query: dates + [
+        // 不指定帳戶時整個參數不送(上游 ADR 0019 的 `account_id`)。
+        let account = accountID.map { [URLQueryItem(name: "account_id", value: $0.rawValue)] } ?? []
+        let dtos: [TransactionDTO] = try await client.get("/transactions", query: dates + account + [
             URLQueryItem(name: "scope", value: scope.rawValue),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),
@@ -58,6 +60,9 @@ private struct TransactionDTO: Decodable {
     /// 0/1:1 是家庭公帳，0 是個人私帳。
     let isShared: Int
     let userName: String?
+    /// 上游 ADR 0020 起的欄位(0/1);舊的回應沒有，當成未出帳。
+    let isBilled: Int?
+    let defersToNextStatement: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
@@ -66,6 +71,8 @@ private struct TransactionDTO: Decodable {
         case isShared = "is_shared"
         case userName = "user_name"
         case userID = "user_id"
+        case isBilled = "is_billed"
+        case defersToNextStatement = "defer_to_next_statement"
     }
 
     func transaction() throws -> Transaction {
@@ -83,7 +90,8 @@ private struct TransactionDTO: Decodable {
             date: day,
             isShared: isShared == 1,
             recorderName: userName,
-            recorderID: userID.map(UserID.init)
+            recorderID: userID.map(UserID.init),
+            billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0)
         )
     }
 }
@@ -96,11 +104,14 @@ private struct TransactionBody: Encodable {
     let note: String
     let date: String
     let isShared: Int
+    /// 0/1，跟 web 一樣;非信用卡一律 0。
+    let defersToNextStatement: Int
 
     enum CodingKeys: String, CodingKey {
         case type, category, amount, note, date
         case accountID = "account_id"
         case isShared = "is_shared"
+        case defersToNextStatement = "defer_to_next_statement"
     }
 
     init(_ draft: TransactionDraft) {
@@ -111,5 +122,6 @@ private struct TransactionBody: Encodable {
         note = draft.note
         date = draft.date.iso
         isShared = draft.isShared ? 1 : 0
+        defersToNextStatement = draft.defersToNextStatement ? 1 : 0
     }
 }

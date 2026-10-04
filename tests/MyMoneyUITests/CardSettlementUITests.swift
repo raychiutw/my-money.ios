@@ -37,7 +37,7 @@ final class CardSettlementUITests: XCTestCase {
         reveal(rollover, in: app)
         rollover.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "確定要將「iOS 測試小額卡」的未出帳款 $5,000 轉入本期已出帳待繳款嗎？")
+            element(in: app, labelContaining: "確定要依據「iOS 測試小額卡」的每月結帳日(1 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？")
                 .waitForExistence(timeout: 3),
             "沒有先確認就做出帳作業"
         )
@@ -101,8 +101,8 @@ final class CardSettlementUITests: XCTestCase {
         reveal(reconcile, in: app)
         reconcile.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "還款實際沖到未出帳款的部分").waitForExistence(timeout: 3),
-            "確認時沒有說明會扣掉還款實際沖到未出帳款的部分"
+            element(in: app, labelContaining: "會重算上一個結帳日之後的消費，加上延至下期的消費").waitForExistence(timeout: 3),
+            "確認時沒有說明依結帳區間重算(上游 ADR 0020)"
         )
         app.buttons["校準"].firstMatch.tap()
 

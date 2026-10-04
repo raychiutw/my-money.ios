@@ -45,16 +45,12 @@ public final class SavingsGoalsModel {
     public var datedGoals: [SavingsGoal] { goals.filter { $0.deadline != nil } }
     public var undatedGoals: [SavingsGoal] { goals.filter { $0.deadline == nil } }
 
-    public var totalSaved: Money { goals.reduce(.zero) { $0 + $1.savedAmount } }
-    public var totalTarget: Money { goals.reduce(.zero) { $0 + $1.targetAmount } }
-    public var totalMonthlyReserve: Money { goals.reduce(.zero) { $0 + $1.monthlyReserve } }
+    public var totalSaved: Money { SavingsGoalTotals(goals).saved }
+    public var totalTarget: Money { SavingsGoalTotals(goals).target }
+    public var totalMonthlyReserve: Money { SavingsGoalTotals(goals).monthlyReserve }
 
-    /// 整體達成率，取 1 位小數;目標金額合計是 0 時顯示「0%」(跟 web 一樣)。
-    public var overallRateText: String {
-        guard totalTarget > .zero else { return "0%" }
-        let rate = totalSaved.amount / totalTarget.amount * 100
-        return rate.percentText(fractionDigits: 1)
-    }
+    /// 整體達成率,取 1 位小數;目標金額合計是 0 時顯示「0%」(跟 web 一樣)。
+    public var overallRateText: String { SavingsGoalTotals(goals).overallRateText }
 
     /// 載入儲蓄目標。重新載入時保留舊資料。
     public func load() async {
@@ -115,11 +111,6 @@ extension SavingsGoal {
         guard targetAmount > .zero else { return "0%" }
         let percent = min(savedAmount.amount / targetAmount.amount * 100, 100)
         return percent.percentText(fractionDigits: 0)
-    }
-
-    /// 總覽的圓環:VoiceOver 念「名稱，已達成百分之 N」(#117);N 取整數，最多 100。
-    public var ringSpokenText: String {
-        "\(name)，已達成百分之 \(percentText.dropLast())"
     }
 
     /// VoiceOver 把整列念成一句，例如「沖繩旅遊，已存 3,000 元，目標 60,000 元，達成 5%，截止日 2027年3月31日」。

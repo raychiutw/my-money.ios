@@ -31,6 +31,23 @@ extension CreditCard {
         return parts.compactMap { $0 }.joined(separator: "，")
     }
 
+    /// 總覽帳戶卡的兩行小字與 VoiceOver 整句(#190)，欄位都是信用卡既有的後端值，跟詳細頁一致:
+    /// 有待繳「代墊 X・私帳 Y」「未出帳 X・每月 N 日繳款」(沒設繳款日只有未出帳);已全數結清「已全數結清」「每月 N 日繳款」。
+    func homeSummary() -> (lines: [String], spoken: String) {
+        let due = paymentDueDay.map { "每月 \($0) 日繳款" }
+        var spoken = [name, ownershipTitle, "信用卡待繳總額 \(totalDue.spokenText)"]
+        guard totalDue > .zero else {
+            spoken.append(contentsOf: ["已全數結清", due].compactMap { $0 })
+            return (["已全數結清", due].compactMap { $0 }, spoken.joined(separator: "，"))
+        }
+        let lines = [
+            "代墊 \(sharedDebt.formatted())・私帳 \(personalDebt.formatted())",
+            ["未出帳 \(unbilledDebt.formatted())", due].compactMap { $0 }.joined(separator: "・"),
+        ]
+        spoken.append(contentsOf: ["代墊 \(sharedDebt.spokenText)，私帳 \(personalDebt.spokenText)", "未出帳 \(unbilledDebt.spokenText)", due].compactMap { $0 })
+        return (lines, spoken.joined(separator: "，"))
+    }
+
     /// 有待繳款:卡片上的金額用警示色(#119)。
     public var isDue: Bool { totalDue > .zero }
 

@@ -1,30 +1,14 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「我的」的兩個分頁。
-private enum MePage: CaseIterable {
-    case settings
-    case planning
-
-    var title: String {
-        switch self {
-        case .settings: "設定"
-        case .planning: "規劃"
-        }
-    }
-}
-
-/// 「我的」sheet:姓名與 email，下面是分頁「設定｜規劃」(ADR-0004、CONTEXT.md)。
-///
-/// **每次打開都先顯示「設定」，不記憶上次的分頁**:`page` 是這個 sheet 自己的狀態，sheet 關掉就丟掉。
-/// 設定有機器人記帳、外觀(三列打勾)、登出、版本;規劃有週期收支、儲蓄目標、現金流預測。
+/// 「我的」sheet:姓名與 email,下面只有設定:機器人記帳、外觀(三列打勾)、登出、版本(ADR-0004、CONTEXT.md)。
+/// 週期收支、儲蓄目標、現金流預測原本在「規劃」分頁,#178 起搬到總覽的功能入口。
 struct MeSheet: View {
     let screens: MainScreens
     @Environment(AppSession.self) private var session
     @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
-    @State private var page = MePage.settings
 
     var body: some View {
         @Bindable var appearance = appearanceSetting
@@ -33,19 +17,7 @@ struct MeSheet: View {
                 if let user = session.current?.user {
                     header(of: user)
                 }
-                Section {
-                    SegmentedPicker(
-                        "分頁", options: MePage.allCases.map { ($0, $0.title) }, selection: $page, identifier: "me.page", fillsWidth: true
-                    )
-                }
-                .listRowBackground(Color.clear)
-
-                switch page {
-                case .settings:
-                    settings(appearance: $appearance.appearance)
-                case .planning:
-                    planning
-                }
+                settings(appearance: $appearance.appearance)
             }
             .navigationTitle("我的")
             .inlineNavigationTitle()
@@ -106,26 +78,6 @@ struct MeSheet: View {
         } footer: {
             Text(appVersion.text)
                 .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var planning: some View {
-        Section {
-            NavigationLink {
-                RecurringScreen(model: screens.recurring)
-            } label: {
-                Label("週期收支", systemImage: "arrow.triangle.2.circlepath")
-            }
-            NavigationLink {
-                SavingsGoalsScreen(model: screens.goals)
-            } label: {
-                Label("儲蓄目標", systemImage: "target")
-            }
-            NavigationLink {
-                ForecastScreen(model: screens.forecast)
-            } label: {
-                Label("現金流預測", systemImage: "chart.line.uptrend.xyaxis")
-            }
         }
     }
 }

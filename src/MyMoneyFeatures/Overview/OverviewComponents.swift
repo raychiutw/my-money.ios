@@ -1,105 +1,6 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 總覽最近交易的一列(#117):只有分類圖示、名稱(備註，沒有備註時是分類)和帶正負號的金額。
-/// 日期、帳戶、記帳人、歸屬在交易頁看。VoiceOver 念「分類，備註，收支金額」。
-struct CompactTransactionRow: View {
-    let transaction: MyMoneyDomain.Transaction
-
-    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        // 無障礙字級名稱和金額左右放不下:上下排,金額在最下面靠右(跟交易頁的列一樣);不讓名稱被擠成一字一行(#157)。
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 12) {
-                        icon
-                        title
-                    }
-                    amount.frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            } else {
-                HStack(spacing: 12) {
-                    icon
-                    title.frame(maxWidth: .infinity, alignment: .leading)
-                    amount
-                }
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenText)
-    }
-
-    private var icon: some View {
-        Image(systemName: transaction.category.symbolName)
-            .foregroundStyle(.tint)
-            .frame(width: iconWidth)
-    }
-
-    private var title: some View {
-        Text(transaction.displayTitle)
-            .lineLimit(2)
-    }
-
-    /// 金額一律單行(DESIGN.md「列與欄位」)。
-    private var amount: some View {
-        Text(transaction.signedAmountText)
-            .monospacedDigit()
-            .foregroundStyle(transaction.amountColor)
-            .lineLimit(1)
-            .fixedSize()
-    }
-
-    /// 例如「餐飲，午餐，支出 120 元」;沒有備註時不重複念分類。
-    private var spokenText: String {
-        var parts = [transaction.category.name]
-        if !transaction.note.isEmpty { parts.append(transaction.note) }
-        parts.append(transaction.spokenAmount)
-        return parts.joined(separator: "，")
-    }
-}
-
-/// 儲蓄目標的小圓環(#117):環中是達成百分比，旁邊是目標名稱。百分比來自後端的已存與目標金額;
-/// 達成時用成功色(parity 刻意偏離第 6 項)。VoiceOver 念「名稱，已達成百分之 N」。
-struct GoalRingRow: View {
-    let goal: SavingsGoal
-
-    /// 圓環跟環中的字(`footnote`)同一個文字樣式放大，字照系統大小、不用縮小就放得進環裡(#156)。
-    @ScaledMetric(relativeTo: .footnote) private var ringSize: CGFloat = 60
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ring
-            Text("\(goal.emoji) \(goal.name)")
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(goal.ringSpokenText)
-    }
-
-    private var ring: some View {
-        let color: Color = goal.isAchieved ? .green : Color.ciFill
-        return ZStack {
-            Circle().stroke(.quaternary, lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: goal.progress)
-                .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text(goal.percentText)
-                .font(.footnote.bold())
-                .monospacedDigit()
-                .lineLimit(1)
-                // 環內可用寬度 = 環徑 - 兩道線寬(6);「100%」是最長的字,內距要小,不然預設字級就被截成「10…」(#157)。
-                .padding(.horizontal, 6)
-        }
-        .frame(width: ringSize, height: ringSize)
-    }
-}
-
 /// 超支提示(#117):沒有超支時完全不出現;有超支時是一個精簡的紅色圓角提示，點了切到統計 tab 的預算額度。
 struct OverBudgetChip: View {
     let title: String
@@ -120,5 +21,232 @@ struct OverBudgetChip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel(spokenTitle)
         .accessibilityHint("查看預算額度")
+    }
+}
+
+/// 功能入口的一格(#178):圖示、名稱加一個關鍵數字;整格是一個按鈕。
+/// 放在 `OverviewEntryGrid` 裡:最多兩欄,名稱放得下才並排,否則單欄(無障礙字級),單欄時關鍵數字在最下面靠右。
+/// 關鍵數字不影響欄數(理想寬度算 0,放不下就折行,不截斷);沒有數字(還沒載入或載入失敗)時只有圖示和名稱。
+struct OverviewEntryCard: View {
+    let title: String
+    let symbolName: String
+    let value: String?
+    var isWarning = false
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: symbolName)
+                    .font(.title2)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let value {
+                    BreakableLine(text: value, alignment: valueAlignment)
+                        .font(.subheadline)
+                        .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .monospacedDigit()
+                        // 理想寬度 0:數字長短不改變欄數;放不下就換行。
+                        .frame(idealWidth: 0, maxWidth: .infinity, alignment: frameAlignment)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 18))
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var valueAlignment: HorizontalAlignment {
+        dynamicTypeSize.isAccessibilitySize ? .trailing : .leading
+    }
+
+    private var frameAlignment: Alignment {
+        dynamicTypeSize.isAccessibilitySize ? .trailing : .leading
+    }
+}
+
+/// 入口格(#178):跟帳戶卡片網格同一套欄數規則(`TileColumns`),最多兩欄。
+struct OverviewEntryGrid<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            EqualColumnsLayout(maxColumns: 2, spacing: 10, rowSpacing: 10) {
+                content()
+            }
+            VStack(spacing: 10) {
+                content()
+            }
+        }
+    }
+}
+
+/// 總覽「接下來 30 天」的一列預定收支(#189):名稱、次要文字「日期・歸屬」、帶正負號的金額(收入綠、支出紅),
+/// 右邊是「已繳」圓圈(沒有識別碼或不能勾選的事件沒有圓圈)。已繳的整列變淡、金額加刪除線,次要文字寫「已繳」(不只靠顏色)。
+/// 無障礙字級左右放不下,改成名稱、次要文字、金額由上往下,金額在最下面靠右,圓圈在最右邊。
+struct UpcomingEventRow: View {
+    let row: UpcomingEvent
+    let isBusy: Bool
+    let toggle: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            texts
+                .opacity(row.event.isSettled ? 0.58 : 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(row.spokenText)
+            if row.isSettleable {
+                SettleButton(isSettled: row.event.isSettled, isBusy: isBusy, action: toggle)
+                    .accessibilityLabel(row.checkLabel)
+                    .accessibilityIdentifier("overview.settle.\(row.id)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var texts: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 2) {
+                name
+                subtitle
+                amount.frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    name
+                    subtitle
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                amount
+            }
+        }
+    }
+
+    private var name: some View {
+        Text(row.event.name)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+    }
+
+    private var subtitle: some View {
+        BreakableLine(text: "\(row.dateText)・\(row.subtitle)")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+    }
+
+    /// 金額一律單行。
+    private var amount: some View {
+        Text(row.amountText)
+            .monospacedDigit()
+            .foregroundStyle(row.isIncome ? .green : .red)
+            .strikethrough(row.event.isSettled)
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
+/// 總覽帳戶卡(#190):橫向捲動的一排裡的一張。類型圖示(帳戶代表色)加名稱、大金額(靠右)、底下小字(信用卡兩行,現金與活存帳戶一行歸屬)。
+/// 一般字級固定寬度(跟著字級放大);無障礙字級接近整個畫面寬,名稱完整折行、不截斷。點了看該帳戶的記帳。
+struct OverviewAccountCardView: View {
+    let card: OverviewAccountCard
+
+    @ScaledMetric(relativeTo: .body) private var cardWidth: CGFloat = 176
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label {
+                Text(card.name)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    // 名稱完整折行、不截斷(HIG 盡量少截斷);一般字級最多兩行。
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+            } icon: {
+                Image(systemName: card.symbolName)
+                    .foregroundStyle(Color(hex: card.colorHex) ?? .gray)
+            }
+            Text(card.amount.formatted())
+                .font(.title3.bold())
+                .monospacedDigit()
+                .lineLimit(1)
+                .foregroundStyle(card.isDue ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            ForEach(card.detailLines, id: \.self) { line in
+                BreakableLine(text: line, alignment: .leading)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .modifier(CardWidth(accessibility: dynamicTypeSize.isAccessibilitySize, width: cardWidth))
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 18))
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private struct CardWidth: ViewModifier {
+        let accessibility: Bool
+        let width: CGFloat
+
+        func body(content: Content) -> some View {
+            if accessibility {
+                // 無障礙字級:幾乎整個畫面寬,旁邊露出下一張的邊緣提示可以橫向捲動。
+                content.containerRelativeFrame(.horizontal) { container, _ in container * 0.88 }
+            } else {
+                content.frame(width: width, alignment: .topLeading)
+            }
+        }
+    }
+}
+
+/// 橫向捲動的一排帳戶卡(#190):每張一樣高,卡片可以捲到畫面邊緣之外(列表左右邊界不裁切)。
+struct OverviewAccountCardRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 10) {
+                content()
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollClipDisabled()
+    }
+}
+
+/// 一行「甲・乙」放得下就一行;放不下就在「・」拆成上下兩行,不在字中間折斷(中文沒有空格,Text 會在任何字之間折行,
+/// 「10月11日」可能被折成「10月」「11日」)。拆開之後每一段放不下仍會自己折行,不截斷。
+struct BreakableLine: View {
+    let text: String
+    var alignment: HorizontalAlignment = .leading
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(text)
+                .lineLimit(1)
+            VStack(alignment: alignment, spacing: 0) {
+                ForEach(Array(text.components(separatedBy: "・").enumerated()), id: \.offset) { _, part in
+                    Text(part)
+                }
+            }
+        }
     }
 }

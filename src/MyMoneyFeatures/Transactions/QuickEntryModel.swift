@@ -42,7 +42,19 @@ public final class QuickEntryModel {
     /// 使用者這次打開之後手動選過分類:鎖定，之後不論備註怎麼改，都不再覆蓋他的選擇。
     public private(set) var isCategoryChosen = false
     public var date: CalendarDay
-    public var accountID: AccountID?
+    public var accountID: AccountID? {
+        didSet {
+            // 切到非信用卡的帳戶:「列入下期帳單」收起並重設(上游 ADR 0020)。
+            if !isCreditCardSelected { defersToNextStatement = false }
+        }
+    }
+
+    /// 列入下期帳單(商家延遲請款、跨結帳日刷卡或跨期退款);只有選了信用卡才有，預設不勾。
+    public var defersToNextStatement = false
+
+    public var isCreditCardSelected: Bool {
+        accounts.first { $0.id == accountID }?.kind == .creditCard
+    }
 
     public private(set) var errorMessage: String?
     public private(set) var isSaving = false
@@ -150,7 +162,8 @@ public final class QuickEntryModel {
                 amount: amount,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 date: date,
-                isShared: isShared
+                isShared: isShared,
+                defersToNextStatement: isCreditCardSelected && defersToNextStatement
             ))
         } catch {
             let message = error.localizedDescription
@@ -161,8 +174,9 @@ public final class QuickEntryModel {
         amountText = ""
         note = ""
         date = today()
-        // 帳戶不沿用上一筆(ADR 0011):下一筆要重新選。
+        // 帳戶不沿用上一筆(ADR 0011):下一筆要重新選;延期勾選也不沿用。
         self.accountID = nil
+        defersToNextStatement = false
         return true
     }
 }

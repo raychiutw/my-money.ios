@@ -13,7 +13,7 @@ struct AccountsNumbersTests {
         return model
     }
 
-    @Test("組成比例條:現金、銀行存款、信用卡待繳各佔多少(用後端的資金指標)，比例加起來是 100%")
+    @Test("組成比例條:現金、活存帳戶、信用卡待繳各佔多少(用後端的資金指標)，比例加起來是 100%")
     func compositionFractions() async throws {
         let model = await loaded(.sampleWithCash())
 
@@ -32,7 +32,7 @@ struct AccountsNumbersTests {
     func zeroSegmentsAreLeftOut() async {
         let model = await loaded(.sample())
 
-        // 範例沒有現金錢包:現金總額是 0。
+        // 範例沒有現金:現金總額是 0。
         #expect(model.composition.map(\.kind) == [.bank, .cardDue])
     }
 
@@ -46,7 +46,7 @@ struct AccountsNumbersTests {
         #expect(notLoaded.composition.isEmpty)
     }
 
-    @Test("銀行存款帳戶透支(餘額合計是負數)時，負數不畫在比例條上")
+    @Test("活存帳戶透支(餘額合計是負數)時，負數不畫在比例條上")
     func negativeBankBalanceIsLeftOut() async {
         let overdrawn = BalanceSummary(
             cashTotal: Money(1000), bankBalanceTotal: Money(-500), billedDebtTotal: Money(500), unbilledDebtTotal: .zero,
@@ -61,7 +61,7 @@ struct AccountsNumbersTests {
     func compositionSummary() async {
         let model = await loaded(.sampleWithCash())
 
-        #expect(model.compositionSummary == "資金組成，現金百分之 2，銀行存款百分之 63，信用卡待繳百分之 36")
+        #expect(model.compositionSummary == "資金組成，現金百分之 2，活存帳戶百分之 63，信用卡待繳百分之 36")
     }
 
     @Test("信用卡卡片的說明:歸屬與繳款日;有待繳才有警示色")

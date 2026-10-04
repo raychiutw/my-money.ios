@@ -8,7 +8,7 @@ final class RecurringScopeUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 視角篩選:全部有家人的家庭公帳;家庭公帳只有家庭公帳;個人私帳只有我的個人私帳。分攤平滑跟著變。
+    /// 視角篩選:全部有家人的家庭公帳;家庭公帳只有家庭公帳;個人私帳只有我的個人私帳。每月平均跟著變。
     @MainActor
     func testScopeFilterChangesTheListAndSummary() throws {
         let app = openRecurring(memberRole: true)
@@ -23,7 +23,7 @@ final class RecurringScopeUITests: XCTestCase {
         XCTAssertTrue(item("網路費", in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(item("房租", in: app).exists)
         XCTAssertTrue(item("年繳保費", in: app).waitForNonExistence(timeout: 5), "家庭公帳視角不該有個人私帳")
-        XCTAssertTrue(element(in: app, labelContaining: "週期支出的分攤平滑 12,899 元").waitForExistence(timeout: 5), "分攤平滑沒有跟著視角")
+        XCTAssertTrue(element(in: app, labelContaining: "週期支出每月平均 12,899 元").waitForExistence(timeout: 5), "每月平均沒有跟著視角")
 
         filter.tap()
         app.buttons["個人私帳"].tap()
@@ -155,8 +155,7 @@ final class RecurringScopeUITests: XCTestCase {
         password.typeText("secret123")
         app.buttons["login.submit"].tap()
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
         return app
     }
 

@@ -160,7 +160,7 @@ struct BotChatScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Label("這裡送出的訊息會寫入真的交易記錄。", systemImage: "exclamationmark.triangle.fill")
+            Label("這裡送出的訊息會寫入真的\(Terms.transactions)。", systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline)
                 .foregroundStyle(.orange)
                 .frame(maxWidth: .infinity)

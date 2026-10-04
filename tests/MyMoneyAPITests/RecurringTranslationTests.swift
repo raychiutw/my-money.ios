@@ -82,7 +82,7 @@ struct RecurringTranslationTests {
         #expect(stub.requests.last?.httpMethod == "PUT")
     }
 
-    @Test("分攤平滑用後端算好的每月合計")
+    @Test("每月平均用後端算好的每月合計")
     func amortizationDecodes() async throws {
         try stub.reply(status: 200, fixture: "recurring-amortize.json")
 
@@ -92,7 +92,7 @@ struct RecurringTranslationTests {
         #expect(amortization == RecurringAmortization(monthlyExpense: Money(14000), monthlyIncome: Money(45000)))
     }
 
-    @Test("視角:列表與分攤平滑一律明確帶 scope(全部也帶)", arguments: [ViewScope.all, .household, .personal])
+    @Test("視角:列表與每月平均一律明確帶 scope(全部也帶)", arguments: [ViewScope.all, .household, .personal])
     func sendsScope(scope: ViewScope) async throws {
         try stub.reply(status: 200, fixture: "recurring-list-scope-\(scope == .all ? "all" : scope == .household ? "household" : "personal").json")
         _ = try await repository.items(scope: scope)
@@ -123,7 +123,7 @@ struct RecurringTranslationTests {
         #expect(items.allSatisfy { !$0.isShared && $0.ownerName == nil })
     }
 
-    @Test("家庭公帳視角沒有項目時是空清單，分攤平滑是 0")
+    @Test("家庭公帳視角沒有項目時是空清單，每月平均是 0")
     func householdScopeCanBeEmpty() async throws {
         try stub.reply(status: 200, fixture: "recurring-list-scope-household.json")
         #expect(try await repository.items(scope: .household).isEmpty)

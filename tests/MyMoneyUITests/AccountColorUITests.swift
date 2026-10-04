@@ -18,9 +18,9 @@ final class AccountColorUITests: XCTestCase {
         let app = launchAndOpenNewBankAccount()
         let row = colorRow(in: app)
 
-        // 新增銀行存款帳戶的代表色是 8 色隨機挑一個;打開時就要捲到它，打勾完整看得到。
+        // 新增活存帳戶的代表色是 8 色隨機挑一個;打開時就要捲到它，打勾完整看得到。
         let initiallySelected = selectedSwatches(in: app)
-        XCTAssertEqual(initiallySelected.count, 1, "新增銀行存款帳戶時，代表色不是剛好選了一個")
+        XCTAssertEqual(initiallySelected.count, 1, "新增活存帳戶時，代表色不是剛好選了一個")
         let selected = initiallySelected.firstMatch
         XCTAssertTrue(isFullyVisible(selected, in: row, app: app), "打開時已選的「\(selected.label)」沒有完整看得到：\(selected.frame)")
         XCTAssertTrue(showsPartialSwatch(in: row, app: app), "打開時(已選「\(selected.label)」)邊緣沒有露出部分色塊，看不出還能滑")
@@ -52,13 +52,13 @@ final class AccountColorUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "銀行存款帳戶餘額合計").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
-        // 銀行存款帳戶區塊在現金錢包區塊下面，捲下去才在 UI 階層裡。
+        // 活存帳戶區塊在現金區塊下面，捲下去才在 UI 階層裡。
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
         for name in ["薰衣草", "玫瑰紅"] {
             // 把代表色改成這個顏色後儲存。
-            XCTAssertTrue(swipeUntilHittable(bank, in: app), "帳戶頁沒有範例的銀行存款帳戶")
+            XCTAssertTrue(swipeUntilHittable(bank, in: app), "帳戶頁沒有範例的活存帳戶")
             bank.tap()
             let swatch = app.buttons[name]
             XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有打開編輯資產帳戶")
@@ -69,7 +69,7 @@ final class AccountColorUITests: XCTestCase {
             XCTAssertTrue(swatch.waitForNonExistence(timeout: 5), "儲存後編輯資產帳戶沒有關閉")
 
             // 再打開同一個帳戶：不滑動，剛存的顏色就完整看得到，而且是已選取。
-            XCTAssertTrue(swipeUntilHittable(bank, in: app), "儲存後帳戶頁沒有範例的銀行存款帳戶")
+            XCTAssertTrue(swipeUntilHittable(bank, in: app), "儲存後帳戶頁沒有範例的活存帳戶")
             bank.tap()
             XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有再打開編輯資產帳戶")
             let row = colorRow(in: app)
@@ -108,7 +108,7 @@ final class AccountColorUITests: XCTestCase {
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 5), "帳戶頁沒有「+」")
         app.buttons["accounts.add"].tap()
-        app.buttons["新增銀行存款帳戶"].tap()
+        app.buttons["新增活存帳戶"].tap()
         XCTAssertTrue(app.textFields["accountEditor.name"].waitForExistence(timeout: 3), "沒有打開新增資產帳戶")
         // 橫向時代表色列在表單下方，還沒捲到的列不在 UI 階層裡。
         let first = app.buttons[colorNames[0]]

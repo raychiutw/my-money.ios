@@ -182,7 +182,7 @@ struct EditingPermissionsFeatureTests {
         #expect(member.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯")
         #expect(admin.lockHint(for: meiShared) == nil, "家庭管理員改得了家人的家庭公帳")
         #expect(admin.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯", "系統紀錄連家庭管理員也不能改")
-        #expect(member.lockAlertTitle == "不能編輯這筆交易")
+        #expect(member.lockAlertTitle == "不能編輯這筆收支明細")
     }
 
     @Test("週期收支:個人私帳只有建立者，家庭管理員也不行;家庭公帳是建立者或家庭管理員(上游 ADR 0016、#152)")

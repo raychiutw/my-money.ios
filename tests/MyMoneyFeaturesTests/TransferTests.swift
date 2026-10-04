@@ -25,8 +25,8 @@ struct TransferTests {
     func defaults() async {
         let model = await loaded()
 
-        #expect(model.fromAccountID == nil, "不該預選第一個銀行存款帳戶")
-        #expect(model.toAccountID == nil, "不該預選第一個現金錢包")
+        #expect(model.fromAccountID == nil, "不該預選第一個活存帳戶")
+        #expect(model.toAccountID == nil, "不該預選第一個現金")
         #expect(model.candidates.map(\.name) == ["iOS 測試皮夾", "iOS 測試存款"])
         #expect(model.date == today)
         #expect(model.amountText == "")
@@ -45,7 +45,7 @@ struct TransferTests {
         #expect(model.availableBalance == nil)
     }
 
-    @Test("從現金錢包的「ATM 提款」打開：只帶入轉入(這個現金錢包)，轉出是空的;從銀行存款帳戶的「轉帳／提款」打開：只帶入轉出，轉入是空的")
+    @Test("從現金的「ATM 提款」打開：只帶入轉入(這個現金)，轉出是空的;從活存帳戶的「轉帳／提款」打開：只帶入轉出，轉入是空的")
     func openedFromAnAccount() async {
         let fromWallet = await loaded(to: SampleAccounts.wallet.id)
         #expect(fromWallet.toAccountID == SampleAccounts.wallet.id)
@@ -87,7 +87,7 @@ struct TransferTests {
         #expect(model.hasQuickScenarios)
     }
 
-    @Test("沒有現金錢包時沒有快捷情境")
+    @Test("沒有現金時沒有快捷情境")
     func noScenariosWithoutWallet() async {
         let model = await loaded(.sample())
 

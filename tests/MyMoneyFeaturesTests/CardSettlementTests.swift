@@ -35,7 +35,11 @@ struct StatementRolloverTests {
         let (model, repository) = await loaded(today: 28)
         let card = try #require(model.creditCards.first)
 
-        #expect(model.rolloverConfirmation(for: card) == "確定要將「iOS 測試信用卡」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？")
+        // 依結帳區間淨額出帳(上游 ADR 0020):不再寫金額——實際轉入多少由後端依結帳日、刷退與延至下期決定。
+        #expect(
+            model.rolloverConfirmation(for: card)
+                == "確定要依據「iOS 測試信用卡」的每月結帳日(15 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
+        )
         await model.rollOver(card)
 
         #expect(await repository.rolledOverIDs == [card.id])
@@ -64,7 +68,7 @@ struct ReconcileUnbilledTests {
 
         #expect(detail(SampleAccounts.card, repository: repository).reconcileConfirmation
             == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，從上一個結帳日起算),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。")
+            + "會重算上一個結帳日之後的消費，加上延至下期的消費，並扣掉這段期間的刷退。")
 
         let withoutStatementDay = CreditCard(
             id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
@@ -72,7 +76,11 @@ struct ReconcileUnbilledTests {
         )
         #expect(detail(withoutStatementDay, repository: repository).reconcileConfirmation
             == "確定要依據「沒有結帳日的卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一次出帳作業之後的消費(還沒做過出帳作業的話，算這張卡所有的消費),並扣掉這段期間的刷退，以及還款實際沖到未出帳款的部分。")
+            + "會重算所有還沒出帳的消費，並扣掉這段期間的刷退。")
+        #expect(
+            !detail(SampleAccounts.card, repository: repository).reconcileConfirmation.contains("還款"),
+            "新的校準不再扣還款沖掉的部分(上游 ADR 0020)"
+        )
 
         #expect(!detail(SampleAccounts.card, repository: repository).reconcileConfirmation.contains("會被算少"))
     }
@@ -164,7 +172,7 @@ struct CardPaymentTests {
         #expect(model.isShared == isShared)
         #expect(model.note == note)
         #expect(model.date == today)
-        // 扣款帳戶是空的:不再預設「第一個餘額大於 0 的銀行存款帳戶」(上游 ADR 0011，#112)。
+        // 扣款帳戶是空的:不再預設「第一個餘額大於 0 的活存帳戶」(上游 ADR 0011，#112)。
         #expect(model.bankAccountID == nil)
     }
 
@@ -173,7 +181,7 @@ struct CardPaymentTests {
         #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
-    @Test("扣款帳戶一律是空的:不論銀行存款帳戶有沒有餘額，都不預選")
+    @Test("扣款帳戶一律是空的:不論活存帳戶有沒有餘額，都不預選")
     func bankAccountIsNeverPreselected() {
         #expect(payment(card(), banks: [empty]).bankAccountID == nil)
         #expect(payment(card(), banks: [salary, joint]).bankAccountID == nil)
@@ -214,7 +222,7 @@ struct CardPaymentTests {
         #expect(await repository.payments.count == 1)
     }
 
-    @Test("成功後送出所選的內容，資料版本遞增;扣款帳戶只列出銀行存款帳戶")
+    @Test("成功後送出所選的內容，資料版本遞增;扣款帳戶只列出活存帳戶")
     func pay() async {
         let repository = InMemoryAccountRepository(accounts: [], summary: SampleAccounts.summary)
         let model = payment(card(), preset: .shared, repository: repository)

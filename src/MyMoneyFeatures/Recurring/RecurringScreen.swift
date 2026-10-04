@@ -94,7 +94,7 @@ struct RecurringScreen: View {
         case .loading:
             List {
                 Section {
-                    SummaryRow(title: "週期支出的分攤平滑", amount: Skeleton.amount)
+                    SummaryRow(title: Terms.expenseAmortization, amount: Skeleton.amount)
                         .skeletonAnnouncement()
                     ForEach(0..<2, id: \.self) { _ in
                         AmountRow(title: "摘要數字", amount: Skeleton.amount)
@@ -140,11 +140,11 @@ struct RecurringScreen: View {
         }
     }
 
-    /// 摘要：週期支出的分攤平滑是主數字，其餘是一般列(DESIGN.md「列與欄位」第 6 條，#77)。
+    /// 摘要：週期支出每月平均是主數字，其餘是一般列(DESIGN.md「列與欄位」第 6 條，#77)。
     private var summarySection: some View {
         Section {
-            SummaryRow(title: "週期支出的分攤平滑", amount: model.monthlyExpense)
-            AmountRow(title: "週期收入的分攤平滑", amount: model.monthlyIncome)
+            SummaryRow(title: Terms.expenseAmortization, amount: model.monthlyExpense)
+            AmountRow(title: Terms.incomeAmortization, amount: model.monthlyIncome)
             AmountRow(title: "每月週期淨額", amount: model.monthlyNet, warnsWhenNegative: true)
         }
     }

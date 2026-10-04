@@ -85,7 +85,7 @@ struct PrivateCardAdvanceTests {
         overview.scope = .all
         await overview.load()
         let ownInAll = overview.accountCards.first { $0.id == SampleAccounts.card.id }
-        #expect(ownInAll?.spokenText == "iOS 測試信用卡，信用卡待繳總額 $15,500，每月 5 日繳款".replacingOccurrences(of: "$15,500", with: "15,500 元"))
+        #expect(ownInAll?.spokenText == "iOS 測試信用卡，個人私帳，信用卡待繳總額 15,500 元，代墊 3,000 元，私帳 12,500 元，未出帳 3,500 元，每月 5 日繳款")
         #expect(overview.accountCards.contains { $0.id == SampleAccounts.meiCardAdvance.id } == false, "他人的私卡只在公帳視角")
     }
 

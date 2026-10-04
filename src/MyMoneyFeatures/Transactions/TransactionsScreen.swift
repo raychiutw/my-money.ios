@@ -20,7 +20,7 @@ struct TransactionsScreen: View {
         NavigationStack {
             content
                 .skeletonTransition(value: model.phase)
-                .tabRootNavigation("交易")
+                .tabRootNavigation(Terms.ledger)
                 // 搜尋欄一直顯示在標題下方。iOS 26 起在 TabView 裡用預設位置時，CI 的 UI 階層裡找不到搜尋欄。
                 #if os(iOS)
                 .searchable(text: $model.keyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋備註、分類、帳戶或記帳人")
@@ -64,7 +64,7 @@ struct TransactionsScreen: View {
                     TransactionFormView(model: sheet.model)
                 }
                 .confirmationDialog(
-                    "刪除交易記錄",
+                    "刪除\(Terms.transactions)",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
                     titleVisibility: .visible,
                     presenting: pendingDeletion
@@ -139,7 +139,7 @@ struct TransactionsScreen: View {
                 let days = model.days
                 if days.isEmpty {
                     ContentUnavailableView {
-                        Label("沒有符合條件的交易記錄", systemImage: "magnifyingglass")
+                        Label("沒有符合條件的\(Terms.transactions)", systemImage: "magnifyingglass")
                     } actions: {
                         Button("記一筆") { isEntryPresented = true }
                     }
@@ -153,7 +153,7 @@ struct TransactionsScreen: View {
                         // 筆數寫在交易記錄的標題，放在第一天的標頭上面(#74);用粗一級的字，跟日期分得開。
                         if day.id == days.first?.id {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("交易記錄(\(model.count))")
+                                Text("\(Terms.transactions)(\(model.count))")
                                     .font(.headline)
                                 DayHeader(day: day)
                             }
@@ -174,7 +174,7 @@ struct TransactionsScreen: View {
         Section {
             ShareLink(
                 item: model.csvExport(),
-                preview: SharePreview("交易記錄 CSV", image: Image(systemName: "tablecells"))
+                preview: SharePreview("\(Terms.transactions) CSV", image: Image(systemName: "tablecells"))
             ) {
                 Label("匯出 CSV", systemImage: "square.and.arrow.up")
             }

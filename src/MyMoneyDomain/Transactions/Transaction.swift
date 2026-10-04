@@ -64,6 +64,28 @@ public enum ViewScope: String, CaseIterable, Hashable, Sendable {
     case personal
 }
 
+/// 信用卡消費的帳單狀態(上游 ADR 0020):後端的 `is_billed` 與 `defer_to_next_statement` 收成一個明確的型別。
+/// 非信用卡的收支明細與舊的回應都是 `.unbilled`(畫面不標示)。
+public enum BillingStatus: Hashable, Sendable {
+    /// 還沒出帳(本期)。
+    case unbilled
+    /// 已出帳:算進已出帳待繳款。
+    case billed
+    /// 延至下期帳單:商家延遲請款、跨結帳日刷卡或跨期退款，本期出帳作業會跳過它。
+    case deferred
+
+    /// 後端的兩個旗標(0/1)轉成狀態:已出帳優先;沒出帳又延期才是延至下期(跟上游 web 的判斷一樣)。
+    public init(isBilled: Bool, defersToNextStatement: Bool) {
+        if isBilled {
+            self = .billed
+        } else if defersToNextStatement {
+            self = .deferred
+        } else {
+            self = .unbilled
+        }
+    }
+}
+
 /// 交易記錄(Transaction)。
 public struct Transaction: Hashable, Sendable, Identifiable {
     public let id: TransactionID
@@ -84,6 +106,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 記帳人的 ID。用來判斷是不是自己記的：自己記的不顯示記帳人(#72)。
     public let recorderID: UserID?
 
+    /// 信用卡消費的帳單狀態(上游 ADR 0020);其他收支明細是 `.unbilled`。
+    public let billing: BillingStatus
+
     public init(
         id: TransactionID,
         accountID: AccountID,
@@ -95,7 +120,8 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         date: CalendarDay,
         isShared: Bool,
         recorderName: String?,
-        recorderID: UserID? = nil
+        recorderID: UserID? = nil,
+        billing: BillingStatus = .unbilled
     ) {
         self.id = id
         self.accountID = accountID
@@ -108,6 +134,7 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         self.isShared = isShared
         self.recorderName = recorderName
         self.recorderID = recorderID
+        self.billing = billing
     }
 
     /// 系統內部平帳或轉帳的紀錄(4 種系統分類):後端禁止編輯和刪除，統計也都排除。
@@ -125,6 +152,8 @@ public struct TransactionDraft: Hashable, Sendable {
     public var note: String
     public var date: CalendarDay
     public var isShared: Bool
+    /// 信用卡消費或刷退列入下期帳單(上游 ADR 0020);非信用卡一律 `false`。
+    public var defersToNextStatement: Bool
 
     public init(
         accountID: AccountID,
@@ -133,7 +162,8 @@ public struct TransactionDraft: Hashable, Sendable {
         amount: Money,
         note: String,
         date: CalendarDay,
-        isShared: Bool
+        isShared: Bool,
+        defersToNextStatement: Bool = false
     ) {
         self.accountID = accountID
         self.type = type
@@ -142,5 +172,6 @@ public struct TransactionDraft: Hashable, Sendable {
         self.note = note
         self.date = date
         self.isShared = isShared
+        self.defersToNextStatement = defersToNextStatement
     }
 }

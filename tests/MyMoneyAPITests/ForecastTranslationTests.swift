@@ -115,7 +115,8 @@ struct ForecastTranslationTests {
 
         try #require(events.count == 4)
         #expect(events[0] == ForecastEvent(
-            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000)
+            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000),
+            key: "recurring:46105044-a9d2-4e49-bf37-215361aabf32:2026-10-05", canSettle: true
         ))
         #expect(events[1].name == "💳 繳卡費 · iOS 測試信用卡", "事件名稱照後端，client 不加工")
         #expect(events[1].accountName == "iOS 測試信用卡")
@@ -131,5 +132,98 @@ struct ForecastTranslationTests {
         let events = try await repository.forecast(scope: .all).events
 
         #expect(events.allSatisfy { !$0.isShared && $0.accountName == nil })
+    }
+
+    // MARK: 預測事件已繳(上游 ADR 0018)
+
+    private static let rentKey = "recurring:46105044-a9d2-4e49-bf37-215361aabf32:2026-10-05"
+
+    @Test("事件帶唯一識別碼、已繳狀態與能不能勾選;已繳的事件仍在清單裡，後端已把它從最低餘額排除")
+    func eventsCarrySettlementState() async throws {
+        try stub.reply(status: 200, fixture: "forecast-scope-all-settled.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        let rent = try #require(forecast.events.first { $0.name == "房租" })
+        #expect(rent.key == Self.rentKey)
+        #expect(rent.isSettled)
+        #expect(rent.canSettle)
+        let others = forecast.events.filter { $0.name != "房租" }
+        try #require(others.count == 3)
+        #expect(others.allSatisfy { !$0.isSettled && $0.canSettle && $0.key != nil })
+        #expect(forecast.minBalance == Money(73570), "已繳的房租 12,000 不再計入:61,570 變成 73,570")
+    }
+
+    // MARK: 信用卡週期收支的現金流平移(上游 ADR 0019 第 4 點，純後端)
+
+    private static let subscriptionKey = "recurring:194536b6-c42a-435c-ba3b-384d62239705:2026-10-18"
+
+    /// 錄製方式:暫時建立信用卡「iOS 測試週期卡」(結帳日 8、繳款日 18)與綁定它的週期支出「iOS 測試卡訂閱」(每月 6 號 500)，
+    /// 錄完刪除。6 號在結帳日 8 號之前，算進本期，扣款日從 6 號平移到繳款日 10 月 18 日。
+    @Test("綁信用卡的週期收支:預測事件的日期是信用卡繳款日(不是每月 6 號)，識別碼的日期也是平移後的，名稱照後端，而且可以勾已繳")
+    func creditCardRecurringEventIsShiftedToTheDueDay() async throws {
+        try stub.reply(status: 200, fixture: "forecast-credit-card-recurring.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        let item = try #require(forecast.events.first { $0.name.hasPrefix("iOS 測試卡訂閱") })
+        #expect(item.date == CalendarDay(year: 2026, month: 10, day: 18))
+        #expect(item.name == "iOS 測試卡訂閱 (iOS 測試週期卡 · 信用卡繳款日扣款)", "事件名稱照後端，client 不加工")
+        #expect(item.accountName == "iOS 測試週期卡")
+        #expect(item.amount == Money(500))
+        #expect(item.type == .expense)
+        #expect(item.key == Self.subscriptionKey)
+        #expect(item.canSettle && !item.isSettled)
+        #expect(forecast.minBalance == Money(61070))
+    }
+
+    @Test("信用卡週期收支的事件勾已繳:POST 平移後的識別碼;重抓之後事件標成已繳，後端把 500 排除(最低餘額 61,070 → 61,570)")
+    func creditCardRecurringEventCanBeSettled() async throws {
+        try stub.reply(status: 200, fixture: "forecast-settle-credit-card-recurring.json")
+        try await repository.setSettled(true, forEventKey: Self.subscriptionKey)
+        let body = try #require(stub.requests.first?.httpBody)
+        let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["event_key"] as? String == Self.subscriptionKey)
+        #expect(json["settled"] as? Bool == true)
+
+        try stub.reply(status: 200, fixture: "forecast-credit-card-recurring-settled.json")
+        let forecast = try await repository.forecast(scope: .all)
+
+        let item = try #require(forecast.events.first { $0.name.hasPrefix("iOS 測試卡訂閱") })
+        #expect(item.isSettled && item.canSettle)
+        #expect(forecast.minBalance == Money(61570))
+    }
+
+    @Test("舊的回應沒有 event_key、is_settled、can_settle 時:沒有識別碼、未繳、不能勾選，不壞掉")
+    func legacyEventsCannotBeSettled() async throws {
+        try stub.reply(status: 200, fixture: "forecast.json")
+
+        let events = try await repository.forecast(scope: .all).events
+
+        #expect(events.allSatisfy { $0.key == nil && !$0.isSettled && !$0.canSettle })
+    }
+
+    @Test("勾選已繳:POST /forecast/settle {event_key, settled:true}", arguments: [true, false])
+    func settleSendsKeyAndFlag(settled: Bool) async throws {
+        try stub.reply(status: 200, fixture: settled ? "forecast-settle-on.json" : "forecast-settle-off.json")
+
+        try await repository.setSettled(settled, forEventKey: Self.rentKey)
+
+        let request = try #require(stub.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url == stub.baseURL.appending(path: "forecast/settle"))
+        let body = try #require(request.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["event_key"] as? String == Self.rentKey)
+        #expect(json["settled"] as? Bool == settled)
+    }
+
+    @Test("後端拒絕時原樣傳遞訊息")
+    func settleRejectionPassesTheMessage() async throws {
+        try stub.reply(status: 400, fixture: "forecast-settle-invalid.json")
+
+        await #expect(throws: RepositoryError.rejected("缺少 event_key")) {
+            try await repository.setSettled(true, forEventKey: "")
+        }
     }
 }

@@ -59,15 +59,15 @@ final class ScreenTourUITests: XCTestCase {
         tour.dismissSheet(titled: "我的")
 
         // 交易，以及 toolbar 篩選按鈕打開的篩選 sheet(#74)。
-        tour.select(tab: "交易")
+        tour.select(tab: "記帳")
         tour.captureScrolling("transactions")
         tour.present(app.buttons["transactions.filter"], capturing: "transaction-filter")
 
         // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡詳細頁和信用卡扣款還款。
         tour.select(tab: "帳戶")
         tour.captureScrolling("accounts")
-        tour.present(app.buttons["accounts.add"], menuItem: "新增現金錢包", capturing: "account-editor-cash")
-        tour.present(app.buttons["accounts.add"], menuItem: "新增銀行存款帳戶", capturing: "account-editor-bank")
+        tour.present(app.buttons["accounts.add"], menuItem: "新增現金", capturing: "account-editor-cash")
+        tour.present(app.buttons["accounts.add"], menuItem: "新增活存帳戶", capturing: "account-editor-bank")
         tour.present(app.buttons["accounts.add"], menuItem: "新增信用卡", capturing: "account-editor-card")
         tour.present(app.buttons["accounts.transfer"], capturing: "transfer")
         // 信用卡精簡列點進詳細頁(#73),信用卡扣款還款從詳細頁的「繳款」選單打開。
@@ -95,18 +95,15 @@ final class ScreenTourUITests: XCTestCase {
         // 新增預算額度直接打開編輯(#101),分類在 sheet 的分類格裡選。
         tour.present(app.buttons["budgets.add"], capturing: "budget-editor")
 
-        // 「我的」的規劃分頁，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
-        tour.tap(app.buttons["toolbar.me"])
-        app.selectMePage("規劃")
-        tour.captureScrolling("me-planning")
-        tour.push(app.buttons["週期收支"], capturing: "recurring") {
+        // 週期收支、儲蓄目標、現金流預測和它們的新增表單:從總覽的功能入口進去(#178;原本在「我的」的規劃分頁)。
+        tour.select(tab: "總覽")
+        tour.push(app.buttons["home.entry.recurring"], capturing: "recurring") {
             tour.present(app.buttons["recurring.add"], capturing: "recurring-editor")
         }
-        tour.push(app.buttons["儲蓄目標"], capturing: "goals") {
+        tour.push(app.buttons["home.entry.goals"], capturing: "goals") {
             tour.present(app.buttons["goals.add"], capturing: "goal-editor")
         }
-        tour.push(app.buttons["現金流預測"], capturing: "forecast")
-        tour.dismissSheet(titled: "我的")
+        tour.push(app.buttons["home.entry.forecast"], capturing: "forecast")
     }
 }
 
@@ -179,7 +176,7 @@ private struct Tour {
     }
 
     func select(tab: String) {
-        let symbols = ["總覽": "house", "交易": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
+        let symbols = ["總覽": "house", "記帳": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
         let bar = app.tabBars.buttons[tab]
         // iPad 的按鈕在階層裡出現兩層(外層與內層，identifier 相同)，取第一個。
         tap(bar.exists ? bar : app.buttons[symbols[tab] ?? tab].firstMatch)

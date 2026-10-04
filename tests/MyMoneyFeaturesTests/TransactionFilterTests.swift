@@ -225,7 +225,7 @@ struct TransactionFilterTests {
         #expect(list.days.flatMap(\.transactions).map(\.note) == notes)
     }
 
-    @Test("刪除交易記錄後資料版本遞增")
+    @Test("刪除收支明細後資料版本遞增")
     func deletingBumpsDataVersion() async {
         let dataVersion = DataVersion()
         let (list, repository) = await loadedList(dataVersion: dataVersion)
@@ -255,7 +255,7 @@ struct TransactionFilterTests {
     func deleteConfirmation() async {
         let (list, _) = await loadedList()
 
-        #expect(list.deleteConfirmation == "確定要刪除這筆交易記錄嗎？")
+        #expect(list.deleteConfirmation == "確定要刪除這筆收支明細嗎？")
     }
 
     @Test("刪除失敗時顯示後端的訊息")
@@ -279,5 +279,107 @@ struct TransactionFilterTests {
         #expect(export.fileName == "my-money-2026-09-28.csv")
         #expect(data == InMemoryTransactionRepository.sampleCSV)
         #expect(await repository.exportQueries.last == .init(from: CalendarDay(year: 2026, month: 9, day: 1), to: today))
+    }
+
+    // MARK: 依帳戶篩選(上游 ADR 0019，#183)
+
+    private func accountsRepository() -> InMemoryAccountRepository {
+        InMemoryAccountRepository(
+            accounts: [.bank(SampleAccounts.savings), .bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.card)],
+            summary: .zero
+        )
+    }
+
+    private func listWithAccounts() async -> (TransactionsModel, InMemoryTransactionRepository) {
+        let repository = InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today))
+        let list = TransactionsModel(
+            repository: repository, accounts: accountsRepository(), dataVersion: DataVersion(), today: { today }
+        )
+        await list.load()
+        return (list, repository)
+    }
+
+    @Test("帳戶選項隨視角連動:全部列所有可用帳戶、公帳列家庭共同基金與有家庭代墊的卡、私帳只列個人帳戶")
+    func accountOptionsFollowTheScope() async {
+        let (list, _) = await listWithAccounts()
+        list.editFilter()
+
+        await list.refreshFilterAccountOptions()
+        #expect(list.filterAccountOptions.map(\.name) == ["iOS 測試存款", "小美的共同基金", "iOS 測試信用卡"])
+
+        list.filterDraft.scope = .household
+        await list.refreshFilterAccountOptions()
+        #expect(list.filterAccountOptions.map(\.name) == ["小美的共同基金", "iOS 測試信用卡"])
+
+        list.filterDraft.scope = .personal
+        await list.refreshFilterAccountOptions()
+        #expect(list.filterAccountOptions.map(\.name) == ["iOS 測試存款", "iOS 測試信用卡"])
+    }
+
+    @Test("選了帳戶之後切視角:原帳戶不在新視角的範圍就自動重設為全部帳戶，還在就保留")
+    func accountResetsWhenItLeavesTheScope() async {
+        let (list, _) = await listWithAccounts()
+        list.editFilter()
+        await list.refreshFilterAccountOptions()
+        list.filterDraft.account = list.filterAccountOptions.first { $0.name == "iOS 測試存款" }
+
+        list.filterDraft.scope = .household
+        await list.refreshFilterAccountOptions()
+        #expect(list.filterDraft.account == nil, "私帳的存款帳戶不在公帳視角，應該重設")
+
+        list.filterDraft.account = list.filterAccountOptions.first { $0.name == "iOS 測試信用卡" }
+        list.filterDraft.scope = .personal
+        await list.refreshFilterAccountOptions()
+        #expect(list.filterDraft.account?.name == "iOS 測試信用卡", "信用卡兩個視角都有，選擇應該保留")
+    }
+
+    @Test("按「完成」才送帳戶篩選，查詢帶 accountID;取消不變;「全部帳戶」不帶")
+    func accountFilterIsAppliedOnDone() async throws {
+        let (list, repository) = await listWithAccounts()
+        let before = await repository.queries.count
+        list.editFilter()
+        await list.refreshFilterAccountOptions()
+        let savings = try #require(list.filterAccountOptions.first { $0.name == "iOS 測試存款" })
+
+        list.filterDraft.account = savings
+        #expect(await repository.queries.count == before, "還沒按完成就查詢了")
+        list.cancelFilter()
+        #expect(list.filter.account == nil)
+
+        list.editFilter()
+        list.filterDraft.account = savings
+        await list.applyFilter()
+        let queries = await repository.queries.dropFirst(before)
+        #expect(queries.count == 1)
+        #expect(queries.first?.accountID == savings.id)
+        #expect(list.filter.account == savings)
+        #expect(list.isFilterActive, "套用了帳戶篩選，篩選按鈕要顯示套用中")
+        #expect(list.filterSummary.contains("iOS 測試存款"))
+        #expect(list.days.flatMap(\.transactions).allSatisfy { $0.accountID == savings.id })
+
+        list.editFilter()
+        list.filterDraft.account = nil
+        await list.applyFilter()
+        #expect(await repository.queries.last?.accountID == nil)
+        #expect(!list.isFilterActive)
+    }
+
+    @Test("以指定帳戶開啟記帳頁(給首頁帳戶卡用):本月、全部視角，加上該帳戶的篩選")
+    func showAccount() async throws {
+        let (list, repository) = await listWithAccounts()
+        list.editFilter()
+        list.filterDraft.scope = .personal
+        list.filterDraft.type = .expense
+        await list.applyFilter()
+        let card = AccountChoice(id: SampleAccounts.card.id, name: SampleAccounts.card.name)
+
+        await list.showAccount(card)
+
+        #expect(list.filter.account == card)
+        #expect(list.filter.scope == .all)
+        #expect(list.filter.type == .all)
+        #expect(list.filter.from == today.firstOfMonth && list.filter.to == today)
+        #expect(await repository.queries.last?.accountID == card.id)
+        #expect(list.isFilterActive)
     }
 }

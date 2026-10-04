@@ -23,21 +23,46 @@ public final class OverviewModel {
     public private(set) var bankAccounts: [BankAccount] = []
     public private(set) var creditCards: [CreditCard] = []
 
-    /// 信用卡詳細頁(點帳戶一覽的信用卡精簡列 push,#73):跟帳戶一覽同一個帳戶檢視範圍。
-    public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
-        CreditCardDetailModel(
-            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope.accountScope,
-            repository: accountRepository,
-            dataVersion: dataVersion, permissions: permissions, today: today
-        )
-    }
-
-    public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
     /// 超支警告：每個超支的分類一列(#75),順序跟後端一樣。
     public private(set) var overBudgets: [OverBudget] = []
-    public private(set) var topGoals: [SavingsGoal] = []
+
+    /// 正在送出「已繳」的事件識別碼(#189):送出期間那一筆的圓圈停用，避免連點。
+    public private(set) var settlingKeys: Set<String> = []
+    /// 勾選或取消已繳失敗時，後端的訊息。
+    public private(set) var settleError: String?
+
+    /// 標示或取消一筆預定收支的「已繳」(上游 ADR 0018，#189)，跟預測頁是同一個功能:送出成功後遞增資料版本(預測頁等其他畫面
+    /// 跟著重抓)並重抓首頁——已繳事件從逐日餘額、最低餘額排除由後端算，client 不重算。
+    /// 沒有識別碼或不能勾選的事件、正在送出的事件都不送。
+    public func setSettled(_ settled: Bool, for event: ForecastEvent) async {
+        guard let repository = forecastRepository, let key = event.key, event.canSettle, !settlingKeys.contains(key) else { return }
+        settleError = nil
+        settlingKeys.insert(key)
+        defer { settlingKeys.remove(key) }
+        do {
+            try await repository.setSettled(settled, forEventKey: key)
+        } catch {
+            let message = error.localizedDescription
+            settleError = message.isEmpty ? "更新已繳狀態失敗" : message
+            return
+        }
+        dataVersion.bump()
+        await load()
+    }
+
+    /// 使用者看過「無法更新已繳狀態」的提示之後清掉。
+    public func clearSettleError() {
+        settleError = nil
+    }
+
+    // 功能入口(#178)的資料來源:各自獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
+    /// 本月(1 號到今天)的收支明細筆數。
+    private(set) var monthTransactionCount: Int?
+    /// 本月各成員的公帳代墊。
+    private(set) var householdShares: [HouseholdShare]?
+    private(set) var goals: [SavingsGoal]?
 
     /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
     /// 不分家庭公帳或個人);載入失敗時是 `nil`，不影響總覽的其他區塊。
@@ -59,8 +84,8 @@ public final class OverviewModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let today: () -> CalendarDay
-    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored let today: () -> CalendarDay
+    @ObservationIgnored let locale: Locale
     @ObservationIgnored private var loadedVersion: Int?
     @ObservationIgnored private var loadedScope: ViewScope?
 
@@ -116,9 +141,20 @@ public final class OverviewModel {
         guard let summary else { return [] }
         let cardDue = totalCardDue ?? .zero
         return [
-            SummaryTile(title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero),
-            SummaryTile(title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero),
-            SummaryTile(title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero),
+            SummaryTile(
+                title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero,
+                details: ["每月平均 \(summary.monthlyAmortization.formatted())", "每月預留 \(summary.monthlySavingsReserve.formatted())"],
+                spokenDetails: "\(Terms.expenseAmortization) \(summary.monthlyAmortization.spokenText)，每月預留 \(summary.monthlySavingsReserve.spokenText)"
+            ),
+            SummaryTile(
+                title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero,
+                details: ["收入 \(monthIncome.formatted(sign: "+"))", "支出 \(monthExpense.formatted(sign: "−"))"],
+                spokenDetails: "收入 \(monthIncome.spokenText)，支出 \(monthExpense.spokenText)"
+            ),
+            SummaryTile(
+                title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero,
+                details: cardTileDetails, spokenDetails: cardTileSpokenDetails
+            ),
         ]
     }
 
@@ -148,31 +184,33 @@ public final class OverviewModel {
     public func load() async {
         let version = dataVersion.value
         let scope = scope
-        let month = CalendarMonth(today())
+        let day = today()
+        let month = CalendarMonth(day)
         do {
             async let summary = accountRepository.balanceSummary(scope: scope.accountScope)
             async let accounts = accountRepository.accounts(scope: scope.accountScope)
-            async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 5, offset: 0)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)
-            async let goals = goalRepository.goals()
-            // 預測是額外的資料來源:失敗不能讓整個總覽失敗，所以不 throw，失敗就是沒有走勢圖。
+            // 以下是額外的資料來源(走勢圖、功能入口的關鍵數字):失敗不能讓整個總覽失敗，所以不 throw，失敗就是那一項沒有值。
             async let forecast = Self.fetchForecast(forecastRepository, scope: scope)
-            let (loadedSummary, loadedAccounts, loadedRecent, loadedSummaries, loadedBudgets, loadedGoals) =
-                try await (summary, accounts, recent, summaries, budgets, goals)
-            let loadedForecast = await forecast
+            async let monthCount = Self.fetchMonthTransactionCount(transactionRepository, today: day, scope: scope)
+            async let goals = try? goalRepository.goals()
+            async let shares = try? statisticsRepository.householdShares(month: month)
+            let (loadedSummary, loadedAccounts, loadedSummaries, loadedBudgets) = try await (summary, accounts, summaries, budgets)
+            let (loadedForecast, loadedCount, loadedGoals, loadedShares) = await (forecast, monthCount, goals, shares)
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
             cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
-            recentTransactions = loadedRecent
             let thisMonth = loadedSummaries.first { $0.month == month }
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
-            topGoals = Array(loadedGoals.prefix(3))
+            monthTransactionCount = loadedCount
+            householdShares = loadedShares
+            self.goals = loadedGoals
             self.forecast = loadedForecast
             loadedVersion = version
             loadedScope = scope
@@ -190,7 +228,14 @@ public final class OverviewModel {
         return try? await repository.forecast(scope: scope)
     }
 
-    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。
+    /// 本月(1 號到今天)的收支明細筆數,跟收支明細頁預設的期間一樣;失敗是 `nil`。
+    private static func fetchMonthTransactionCount(
+        _ repository: any TransactionRepository, today: CalendarDay, scope: ViewScope
+    ) async -> Int? {
+        try? await repository.allTransactions(from: today.firstOfMonth, to: today, scope: scope).count
+    }
+
+    /// 資料版本或視角在上一次載入之後改變過，才重新載入;從首頁 push 的畫面(週期收支等)返回時沒變就不重抓。
     public func refreshIfStale() async {
         guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
         await load()
@@ -206,11 +251,15 @@ public struct SummaryTile: Identifiable, Hashable, Sendable {
     public let amount: Money
     /// 用警示色(負數的可支配現金與淨收支、有待繳的信用卡)。
     public let isWarning: Bool
+    /// 磚上的兩行組成明細(#178);VoiceOver 念 `spokenDetails`。
+    public let details: [String]
+    public let spokenDetails: String
 
     public var id: String { title }
 }
 
-/// 總覽帳戶卡片的一張(#117):名稱加大金額。信用卡的金額是信用卡待繳總額，有待繳時用警示色，另外有「N 日繳」。
+/// 總覽帳戶卡片的一張(#117、#190):名稱加大金額，底下小字:信用卡兩行(代墊與私帳、未出帳與繳款日)，現金與活存帳戶一行歸屬。
+/// 信用卡的金額是信用卡待繳總額，有待繳時用警示色。點了看該帳戶的記帳(`choice`)。
 public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     public enum Kind: Hashable, Sendable {
         case cash
@@ -223,24 +272,40 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     public let colorHex: String
     public let amount: Money
     public let kind: Kind
-    /// 公帳視角裡的個人信用卡(私卡代墊，上游 ADR 0015)，以及它是不是脫敏的他人私卡:VoiceOver 念法不同。
-    private let isPrivateCardAdvance: Bool
-    private let isMasked: Bool
+    /// 金額底下的小字(#190)。
+    public let detailLines: [String]
+    /// VoiceOver 念的整句。
+    public let spokenText: String
 
     init(_ wallet: CashWallet) {
+        let ownership = OwnershipName.title(isShared: wallet.isJointFund)
         (id, name, colorHex, amount, kind) = (wallet.id, wallet.name, wallet.colorHex, wallet.balance, .cash)
-        (isPrivateCardAdvance, isMasked) = (false, false)
+        detailLines = [ownership]
+        spokenText = "\(wallet.name)，\(Terms.cash)，\(ownership)，餘額 \(wallet.balance.spokenText)"
     }
 
     init(_ account: BankAccount) {
+        let ownership = OwnershipName.title(isShared: account.isJointFund)
         (id, name, colorHex, amount, kind) = (account.id, account.name, account.colorHex, account.balance, .bank)
-        (isPrivateCardAdvance, isMasked) = (false, false)
+        detailLines = [ownership]
+        spokenText = "\(account.name)，\(Terms.bankAccount)，\(ownership)，餘額 \(account.balance.spokenText)"
     }
 
+    /// 公帳視角裡的個人卡是「私卡代墊」(上游 ADR 0015)，不拆代墊與私帳;他人的卡脫敏，只有家庭代墊待繳額是真的。
     init(_ card: CreditCard, isPrivateCardAdvance: Bool = false, isMasked: Bool = false) {
         (id, name, colorHex, amount, kind) = (card.id, card.name, card.colorHex, card.totalDue, .creditCard(card))
-        (self.isPrivateCardAdvance, self.isMasked) = (isPrivateCardAdvance, isMasked)
+        if isPrivateCardAdvance {
+            detailLines = [
+                ["私卡代墊", isMasked ? card.ownerName.map { "持卡人 \($0)" } : nil].compactMap { $0 }.joined(separator: "・"),
+            ] + (card.paymentDueDay.map { ["每月 \($0) 日繳款"] } ?? [])
+            spokenText = card.spokenAdvanceSummary(isMasked: isMasked)
+        } else {
+            (detailLines, spokenText) = card.homeSummary()
+        }
     }
+
+    /// 點了卡片要帶入記帳篩選的帳戶(#190)。
+    public var choice: AccountChoice { AccountChoice(id: id, name: name) }
 
     /// 卡片上的類型圖示(用帳戶的代表色)。
     public var symbolName: String {
@@ -257,27 +322,6 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
 
     /// 信用卡有待繳款:金額用警示色。
     public var isDue: Bool { isCreditCard && amount > .zero }
-
-    /// 視覺上的繳款日,例如「5 日繳」;沒有設定繳款日(或不是信用卡)時是 `nil`。
-    public var dueDayText: String? {
-        guard case .creditCard(let card) = kind, let day = card.paymentDueDay else { return nil }
-        return "\(day) 日繳"
-    }
-
-    /// 現金錢包、銀行存款帳戶:「名稱，類型，餘額 X 元」;信用卡:「名稱，信用卡待繳總額 X 元，每月 N 日繳款」。
-    public var spokenText: String {
-        switch kind {
-        case .cash: "\(name)，現金錢包，餘額 \(amount.spokenText)"
-        case .bank: "\(name)，銀行存款帳戶，餘額 \(amount.spokenText)"
-        case .creditCard(let card):
-            if isPrivateCardAdvance {
-                card.spokenAdvanceSummary(isMasked: isMasked)
-            } else {
-                ["\(name)", "信用卡待繳總額 \(amount.spokenText)", card.paymentDueDay.map { "每月 \($0) 日繳款" }]
-                    .compactMap { $0 }.joined(separator: "，")
-            }
-        }
-    }
 }
 
 /// 超支警告的一列：分類名稱和超支金額(#75)。已花、預算額度在統計頁的預算額度。
@@ -325,7 +369,7 @@ extension AccountScope {
     public var emptyAccountsHint: String {
         switch self {
         case .household: "至帳戶管理將帳戶歸屬設為\(OwnershipName.household)即可在此呈現"
-        case .all, .personal: "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"
+        case .all, .personal: "至帳戶管理新增你的\(Terms.bankAccount)、\(Terms.cash)或信用卡"
         }
     }
 }

@@ -13,11 +13,11 @@ struct AccountEditorTests {
         AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion, randomColor: { "#95E1D3" })
     }
 
-    @Test("新增銀行存款帳戶的預設值：餘額空白(存成 0)、沒有信用卡欄位、隨機代表色")
+    @Test("新增活存帳戶的預設值：餘額空白(存成 0)、沒有信用卡欄位、隨機代表色")
     func bankDefaults() {
         let editor = adding(.bank)
 
-        #expect(editor.title == "新增銀行存款帳戶")
+        #expect(editor.title == "新增活存帳戶")
         #expect(editor.amountLabel == "餘額")
         #expect(editor.amountText == "")
         #expect(editor.creditLimitText == "")
@@ -27,7 +27,7 @@ struct AccountEditorTests {
         #expect(editor.canChangeKind)
     }
 
-    @Test("新增現金錢包的代表色預設是綠色 #10B981(web 的 openAdd);切到其他類型改回隨機挑的顏色")
+    @Test("新增現金的代表色預設是綠色 #10B981(web 的 openAdd);切到其他類型改回隨機挑的顏色")
     func cashWalletDefaultColor() {
         let editor = adding(.cash)
         #expect(editor.colorHex == "#10B981")
@@ -51,7 +51,7 @@ struct AccountEditorTests {
         #expect(editor.paymentDueDay == 5)
     }
 
-    @Test("新增時從信用卡切到銀行存款帳戶，不會把信用卡的額度與日期存進去")
+    @Test("新增時從信用卡切到活存帳戶，不會把信用卡的額度與日期存進去")
     func switchingToBankDropsCardFields() async {
         let editor = adding(.creditCard)
         editor.name = "薪轉戶"
@@ -64,7 +64,7 @@ struct AccountEditorTests {
         ))])
     }
 
-    @Test("新增時從銀行存款帳戶切到信用卡，套用信用卡的預設值")
+    @Test("新增時從活存帳戶切到信用卡，套用信用卡的預設值")
     func switchingToCardAppliesCardDefaults() {
         let editor = adding(.bank)
 
@@ -127,10 +127,10 @@ struct AccountEditorTests {
         ))])
     }
 
-    @Test("新增現金錢包：標題、金額欄是「目前現金餘額」,預設個人私帳，送出現金錢包")
+    @Test("新增現金：標題、金額欄是「目前現金餘額」,預設個人私帳，送出現金")
     func addingCashWallet() async {
         let editor = adding(.cash)
-        #expect(editor.title == "新增現金錢包")
+        #expect(editor.title == "新增現金")
         #expect(editor.showsAmountField)
         #expect(editor.amountLabel == "目前現金餘額")
         #expect(!editor.isJointFund)
@@ -144,11 +144,11 @@ struct AccountEditorTests {
         ))])
     }
 
-    @Test("編輯歸屬家庭共同基金的現金錢包：帶入原值、不能改類型，送出現金錢包並保留家庭共同基金")
+    @Test("編輯歸屬家庭共同基金的現金：帶入原值、不能改類型，送出現金並保留家庭共同基金")
     func editingCashWallet() async {
         let jar = CashWallet(id: AccountID("jar"), name: "客廳零用金盒", colorHex: "#10B981", balance: Money(2000), isJointFund: true)
         let editor = AccountEditorModel(editing: .cash(jar), repository: repository, dataVersion: dataVersion)
-        #expect(editor.title == "編輯現金錢包")
+        #expect(editor.title == "編輯現金")
         #expect(editor.amountText == "2000")
         #expect(editor.isJointFund)
         #expect(!editor.canChangeKind)
@@ -210,7 +210,7 @@ struct AccountEditorTests {
         #expect(editor.isJointFund)
     }
 
-    @Test("新增銀行存款帳戶時可以設為家庭共同基金，預設不是")
+    @Test("新增活存帳戶時可以設為家庭共同基金，預設不是")
     func addingJointFund() async {
         let editor = adding(.bank)
         #expect(!editor.isJointFund)

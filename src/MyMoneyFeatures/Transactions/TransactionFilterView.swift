@@ -42,8 +42,17 @@ struct TransactionFilterView: View {
                     )
                 }
 
-                // 分類(含「全部分類」)的選項多:推入清單頁，選了自動返回。
+                // 帳戶與分類(含「全部帳戶」「全部分類」)的選項多:推入清單頁，選了自動返回。
+                // 帳戶的選項隨視角連動(上游 ADR 0019 §3);視角改變時原帳戶不在範圍就重設。
                 Section {
+                    Picker("帳戶", selection: $model.filterDraft.account) {
+                        Text("全部帳戶").tag(AccountChoice?.none)
+                        ForEach(model.filterAccountOptions, id: \.self) { account in
+                            Text(account.name).tag(Optional(account))
+                        }
+                    }
+                    .navigationLinkStyle()
+                    .accessibilityIdentifier("transactionFilter.account")
                     Picker("分類", selection: $model.filterDraft.category) {
                         Text("全部分類").tag(TransactionCategory?.none)
                         ForEach(model.filterDraft.categoryOptions, id: \.self) { category in
@@ -54,6 +63,7 @@ struct TransactionFilterView: View {
                     .accessibilityIdentifier("transactionFilter.category")
                 }
             }
+            .task(id: model.filterDraft.scope) { await model.refreshFilterAccountOptions() }
             .navigationTitle("篩選")
             .inlineNavigationTitle()
             .toolbar {

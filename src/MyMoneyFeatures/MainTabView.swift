@@ -21,10 +21,13 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("總覽", systemImage: "house", value: .overview) {
-                OverviewScreen(model: screens.overview, quickEntry: screens.quickEntry) { selection = $0 }
+                OverviewScreen(
+                    model: screens.overview, quickEntry: screens.quickEntry, transactions: screens.transactions,
+                    recurring: screens.recurring, goals: screens.goals, forecast: screens.forecast
+                ) { selection = $0 }
                     .tint(.primary)
             }
-            Tab("交易", systemImage: "list.bullet.rectangle", value: .transactions) {
+            Tab(Terms.ledger, systemImage: "list.bullet.rectangle", value: .transactions) {
                 TransactionsScreen(model: screens.transactions, quickEntry: screens.quickEntry)
                     .tint(.primary)
             }

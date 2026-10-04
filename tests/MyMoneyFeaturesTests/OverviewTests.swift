@@ -36,21 +36,7 @@ struct OverviewTests {
         return model
     }
 
-    /// 例如記了一筆信用卡支出，總覽還沒重新載入完就點進帳戶一覽的信用卡(code review)。
-    @Test("總覽的資料比目前的資料版本舊時，打開的信用卡詳細頁會重新取得")
-    func cardDetailFromStaleOverviewRefreshes() async throws {
-        let dataVersion = DataVersion()
-        let overview = await loaded(dataVersion: dataVersion)
-        dataVersion.bump()
-        let fetchesBefore = await accounts.fetchCount
-
-        let detail = overview.makeCardDetail(for: try #require(overview.creditCards.first))
-        await detail.refreshIfStale()
-
-        #expect(await accounts.fetchCount == fetchesBefore + 1)
-    }
-
-    @Test("帳戶一覽列出現金錢包")
+    @Test("帳戶一覽列出現金")
     func accountsListIncludesCash() async {
         let model = OverviewModel(
             accounts: InMemoryAccountRepository.sampleWithCash(), transactions: transactions, statistics: statistics,
@@ -76,9 +62,9 @@ struct OverviewTests {
     }
 
     @Test("帳戶一覽沒有帳戶時，依範圍顯示空狀態的標題與說明(web 的 Dashboard)", arguments: [
-        (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (AccountScope.all, "尚未建立帳戶", "至帳戶管理新增你的活存帳戶、現金或信用卡"),
         (.household, "目前無家庭公帳帳戶", "至帳戶管理將帳戶歸屬設為家庭公帳即可在此呈現"),
-        (.personal, "目前無個人私帳帳戶", "至帳戶管理新增你的銀行存款帳戶、現金錢包或信用卡"),
+        (.personal, "目前無個人私帳帳戶", "至帳戶管理新增你的活存帳戶、現金或信用卡"),
     ])
     func emptyAccountsState(scope: AccountScope, title: String, hint: String) {
         #expect(scope.emptyAccountsTitle == title)
@@ -114,19 +100,6 @@ struct OverviewTests {
         first.scope = .household
 
         #expect(model().scope == .household)
-    }
-
-    @Test("最近 5 筆交易記錄不限日期，依目前的視角查詢")
-    func recentTransactionsQuery() async throws {
-        let model = model()
-        model.scope = .personal
-
-        await model.load()
-
-        let query = try #require(await transactions.queries.last)
-        #expect(query.from == nil && query.to == nil)
-        #expect(query.scope == .personal)
-        #expect(query.limit == 5 && query.offset == 0)
     }
 
     @Test("當月淨收支來自當月的收支趨勢(依視角),預算額度帶入明確的當月")
@@ -210,24 +183,6 @@ struct OverviewTests {
         ])
         #expect(model.overBudgets.map(\.category.name) == ["餐飲", "交通"])
         #expect(model.overBudgetTitle == "有 2 個分類支出已超出預算")
-    }
-
-    @Test("儲蓄目標只顯示前 3 個")
-    func topGoals() async {
-        let goals = InMemorySavingsGoalRepository(goals: InMemorySavingsGoalRepository.sampleGoals + InMemorySavingsGoalRepository.sampleGoals.map {
-            SavingsGoal(
-                id: SavingsGoalID("more-\($0.id.rawValue)"), name: "更多\($0.name)", emoji: $0.emoji, targetAmount: $0.targetAmount,
-                savedAmount: $0.savedAmount, monthlyReserve: $0.monthlyReserve, deadline: $0.deadline
-            )
-        })
-        let model = OverviewModel(
-            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
-            dataVersion: DataVersion(), defaults: defaults, today: { today }
-        )
-
-        await model.load()
-
-        #expect(model.topGoals.map(\.name) == ["沖繩旅遊", "緊急備用金", "iOS 小目標"])
     }
 
     @Test("資料版本改變後重抓(例如從總覽記一筆之後)")

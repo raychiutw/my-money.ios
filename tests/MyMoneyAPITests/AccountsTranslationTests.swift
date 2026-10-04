@@ -38,7 +38,7 @@ struct AccountsTranslationTests {
         #expect(accounts.map(\.name) == ["iOS 家庭共同基金"])
     }
 
-    @Test("後端的 user_id 解讀成擁有者:現金錢包、銀行存款帳戶、信用卡都有(上游 ADR 0013 的編輯權限判斷，#133)")
+    @Test("後端的 user_id 解讀成擁有者:現金、活存帳戶、信用卡都有(上游 ADR 0013 的編輯權限判斷，#133)")
     func ownerIDIsUserID() async throws {
         // 2026-10-02 從 prod 錄的真實回應:`user_id` 是帳戶擁有者，`is_joint` 區分個人私帳與家庭共同帳戶。
         try stub.reply(status: 200, fixture: "accounts-list-permission.json")
@@ -154,7 +154,7 @@ struct AccountsTranslationTests {
         #expect(summary.availableBalance == Money(66820))
     }
 
-    @Test("現金錢包的 balance 解讀成餘額")
+    @Test("現金的 balance 解讀成餘額")
     func cashWalletBalanceIsBalance() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-with-cash.json")
 
@@ -183,7 +183,7 @@ struct AccountsTranslationTests {
         #expect(accounts.map(\.name) == ["iOS 測試存款", "iOS 測試信用卡", "iOS 測試小額卡", "iOS 家庭共同基金"])
     }
 
-    @Test("銀行存款帳戶的 balance 解讀成餘額")
+    @Test("活存帳戶的 balance 解讀成餘額")
     func bankBalanceIsBalance() async throws {
         try stub.reply(status: 200, fixture: "accounts-list.json")
 
@@ -383,7 +383,7 @@ struct AccountsTranslationTests {
         ))
     }
 
-    @Test("GET /accounts/balance 的 cashTotal 是現金錢包總額，淨可用餘額由後端算好(含現金)")
+    @Test("GET /accounts/balance 的 cashTotal 是現金總額，淨可用餘額由後端算好(含現金)")
     func balanceSummaryIncludesCashTotal() async throws {
         try stub.reply(status: 200, fixture: "accounts-balance-with-cash.json")
 

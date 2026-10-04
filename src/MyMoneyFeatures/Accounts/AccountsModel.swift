@@ -60,9 +60,9 @@ public final class AccountsModel {
         loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
     }
 
-    /// 橫幅的一句話，例如「家庭公帳待報銷代墊款 $850」。
+    /// 橫幅的一句話，例如「家庭公帳待報銷總額 $850」。
     public var pendingAdvanceBannerText: String {
-        "家庭公帳待報銷代墊款 \((pendingAdvanceTotal ?? .zero).formatted())"
+        "家庭公帳\(Terms.pendingReimbursementTotal) \((pendingAdvanceTotal ?? .zero).formatted())"
     }
 
     /// 公帳範圍:各成員待報銷的加總;只在公帳範圍多問一次，取不到(或沒有家庭)是 `nil`，不影響帳戶頁其他區塊。
@@ -143,7 +143,7 @@ public final class AccountsModel {
     @ObservationIgnored private var loadedScope: AccountScope?
 
     public func deleteConfirmation(for account: Account) -> String {
-        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的交易記錄也會一併刪除！"
+        "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
     }
 
     /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
@@ -251,8 +251,8 @@ extension AccountKind {
     /// 資產帳戶類型的名稱(CONTEXT.md)。
     public var title: String {
         switch self {
-        case .cash: "現金錢包"
-        case .bank: "銀行存款帳戶"
+        case .cash: Terms.cash
+        case .bank: Terms.bankAccount
         case .creditCard: "信用卡"
         }
     }
@@ -290,7 +290,7 @@ public struct CompositionSegment: Identifiable, Sendable {
         public var title: String {
             switch self {
             case .cash: "現金"
-            case .bank: "銀行存款"
+            case .bank: Terms.bankAccount
             case .cardDue: "信用卡待繳"
             }
         }

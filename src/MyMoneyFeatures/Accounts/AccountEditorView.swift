@@ -21,7 +21,7 @@ struct AccountEditorView: View {
                 if model.canChangeKind {
                     Section("類型") {
                         InlineChoiceRows(
-                            [(AccountKind.cash, "現金錢包"), (.bank, "銀行存款帳戶"), (.creditCard, "信用卡")], selection: $model.kind
+                            [(AccountKind.cash, Terms.cash), (.bank, Terms.bankAccount), (.creditCard, "信用卡")], selection: $model.kind
                         )
                     }
                 }

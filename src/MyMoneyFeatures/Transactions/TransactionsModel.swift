@@ -55,6 +55,10 @@ public final class TransactionsModel {
     /// 篩選 sheet 開著。
     public var isEditingFilter = false
 
+    /// 篩選 sheet 裡「帳戶」的選項:隨草稿的視角連動(上游 ADR 0019 §3)——全部列所有可用帳戶，家庭公帳列家庭共同基金帳戶與有家庭代墊的卡，
+    /// 個人私帳只列個人帳戶。由 `refreshFilterAccountOptions()` 載入。
+    public private(set) var filterAccountOptions: [AccountChoice] = []
+
     /// 關鍵字：不分大小寫，比對備註、分類、帳戶名稱與記帳人。
     public var keyword = ""
 
@@ -63,7 +67,7 @@ public final class TransactionsModel {
     /// 刪除失敗時顯示的訊息(alert)。
     public var alertMessage: String?
 
-    public let deleteConfirmation = "確定要刪除這筆交易記錄嗎？"
+    public let deleteConfirmation = "確定要刪除這筆\(Terms.transactions)嗎？"
 
     /// 從後端載入的區間內所有交易記錄(篩選前)。
     private var loaded: [Transaction] = []
@@ -107,7 +111,34 @@ public final class TransactionsModel {
         isEditingFilter = true
     }
 
-    /// 按「完成」:套用草稿。視角或起迄日改了才重新查詢，而且只查詢一次;類型、分類只在本機過濾。
+    /// 依草稿的視角載入帳戶選項;原本選的帳戶不在新視角的範圍就重設為「全部帳戶」(`nil`)。篩選 sheet 開著、視角改變時呼叫。
+    public func refreshFilterAccountOptions() async {
+        let scope = filterDraft.scope
+        guard let accountRepository else {
+            filterAccountOptions = []
+            return
+        }
+        guard let accounts = try? await accountRepository.accounts(scope: AccountScope(scope)) else { return }
+        // 載入期間又換了視角:這份結果過期了，不套用。
+        guard scope == filterDraft.scope else { return }
+        filterAccountOptions = accounts.map { AccountChoice(id: $0.id, name: $0.name) }
+        if let selected = filterDraft.account, !filterAccountOptions.contains(selected) {
+            filterDraft.account = nil
+        }
+    }
+
+    /// 以指定帳戶開啟記帳頁(給首頁帳戶卡用):本月、全部視角、全部類型與分類，加上該帳戶的篩選。
+    public func showAccount(_ account: AccountChoice) async {
+        let now = today()
+        var next = Filter(from: now.firstOfMonth, to: now)
+        next.account = account
+        filter = next
+        filterDraft = next
+        keyword = ""
+        await load()
+    }
+
+    /// 按「完成」:套用草稿。視角、起迄日或帳戶改了才重新查詢，而且只查詢一次;類型、分類只在本機過濾。
     public func applyFilter() async {
         isEditingFilter = false
         let needsQuery = filterDraft.query != filter.query
@@ -199,6 +230,9 @@ public final class TransactionsModel {
             filter.scope.title,
             "\(filter.from.text(today: today, locale: locale))–\(filter.to.text(today: today, locale: locale))",
         ]
+        if let account = filter.account {
+            parts.append(account.name)
+        }
         switch filter.type {
         case .all: break
         case .expense: parts.append("支出")
@@ -259,7 +293,9 @@ public final class TransactionsModel {
         let version = dataVersion.value
         let query = filter.query
         do {
-            let transactions = try await repository.allTransactions(from: query.from, to: query.to, scope: query.scope)
+            let transactions = try await repository.allTransactions(
+                from: query.from, to: query.to, scope: query.scope, accountID: query.accountID
+            )
             // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
             guard query == filter.query else { return }
             loaded = transactions
@@ -292,7 +328,7 @@ public final class TransactionsModel {
     }
 
     /// 說明 alert 的標題(#146)。
-    public let lockAlertTitle = "不能編輯這筆交易"
+    public let lockAlertTitle = "不能編輯這筆\(Terms.transactions)"
 
     /// 點不開的列的 VoiceOver 提示;原因不再塞在整句最後，點了才跳出說明(#146)。可以改的是 `nil`。
     public func lockHint(for transaction: Transaction) -> String? {
@@ -309,7 +345,8 @@ public final class TransactionsModel {
     public func subtitle(of transaction: Transaction) -> TransactionSubtitle {
         TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
-            ownership: OwnershipName.title(isShared: transaction.isShared)
+            ownership: OwnershipName.title(isShared: transaction.isShared),
+            billing: transaction.billing.label
         )
     }
 
@@ -379,6 +416,9 @@ extension TransactionsModel {
         /// 分類篩選;`nil` 是全部分類。
         public var category: TransactionCategory?
 
+        /// 帳戶篩選(上游 ADR 0019，送到後端查詢);`nil` 是全部帳戶。
+        public var account: AccountChoice?
+
         init(from: CalendarDay, to: CalendarDay) {
             self.from = from
             self.to = to
@@ -399,13 +439,14 @@ extension TransactionsModel {
 
         /// 送到後端查詢的部分。
         var query: Query {
-            Query(scope: scope, from: from, to: to)
+            Query(scope: scope, from: from, to: to, accountID: account?.id)
         }
 
         struct Query: Equatable {
             let scope: ViewScope
             let from: CalendarDay
             let to: CalendarDay
+            let accountID: AccountID?
         }
     }
 }
@@ -414,15 +455,34 @@ extension TransactionsModel {
 public struct TransactionSubtitle: Equatable, Sendable {
     public let recorder: String?
     public let ownership: String
+    /// 信用卡的帳單狀態標籤「已出帳」「延至下期」(上游 ADR 0020，#188);其他沒有。
+    public let billing: String?
 
-    public init(recorder: String?, ownership: String) {
+    public init(recorder: String?, ownership: String, billing: String? = nil) {
         self.recorder = recorder
         self.ownership = ownership
+        self.billing = billing
     }
 
-    /// 例如「小美・家庭公帳」;沒有記帳人名稱時只有歸屬。
+    /// 歸屬加帳單狀態標籤,例如「家庭公帳・延至下期」:畫面放不下時這一段保留，先截記帳人的名稱。
+    public var tail: String {
+        [ownership, billing].compactMap { $0 }.joined(separator: "・")
+    }
+
+    /// 例如「小美・家庭公帳・延至下期」;沒有記帳人名稱時只有歸屬(與標籤)。
     public var text: String {
-        [recorder, ownership].compactMap { $0 }.joined(separator: "・")
+        [recorder, tail].compactMap { $0 }.joined(separator: "・")
+    }
+}
+
+extension BillingStatus {
+    /// 列上的標籤;未出帳不標。
+    var label: String? {
+        switch self {
+        case .unbilled: nil
+        case .billed: Terms.billed
+        case .deferred: Terms.deferredToNextStatement
+        }
     }
 }
 
@@ -431,5 +491,27 @@ extension Transaction {
     func recorderName(besides user: UserID?) -> String? {
         guard let user, recorderID == user else { return recorderName }
         return nil
+    }
+}
+
+/// 篩選裡可選的帳戶:ID 送到後端，名稱給畫面與 VoiceOver 用。
+public struct AccountChoice: Hashable, Sendable {
+    public let id: AccountID
+    public let name: String
+
+    public init(id: AccountID, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+extension AccountScope {
+    /// 記帳頁的視角對應的帳戶檢視範圍(名稱相同、語意相同)。
+    init(_ scope: ViewScope) {
+        switch scope {
+        case .all: self = .all
+        case .household: self = .household
+        case .personal: self = .personal
+        }
     }
 }

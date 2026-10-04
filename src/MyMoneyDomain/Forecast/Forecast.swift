@@ -19,9 +19,16 @@ public struct ForecastEvent: Hashable, Sendable {
     public let isShared: Bool
     /// 資產帳戶名稱(後端 `account_name`):週期項目綁的帳戶，或「繳卡費」那張卡;沒有就是 `nil`。
     public let accountName: String?
+    /// 這一次排程的唯一識別碼(後端 `event_key`，上游 ADR 0018):`recurring:<id>:<日期>` 或 `card_due:<帳戶>:<日期>`;舊回應沒有。
+    public let key: String?
+    /// 已標示為「已繳」:後端已把它從逐日餘額、最低餘額與購買力試算排除。
+    public let isSettled: Bool
+    /// 目前登入者能不能勾選(後端 `can_settle`):私帳事件只有本人，公帳事件是本人或家庭管理員;舊回應沒有，當成不能。
+    public let canSettle: Bool
 
     public init(
-        date: CalendarDay, name: String, type: TransactionType, amount: Money, isShared: Bool = false, accountName: String? = nil
+        date: CalendarDay, name: String, type: TransactionType, amount: Money, isShared: Bool = false, accountName: String? = nil,
+        key: String? = nil, isSettled: Bool = false, canSettle: Bool = false
     ) {
         self.date = date
         self.name = name
@@ -29,6 +36,9 @@ public struct ForecastEvent: Hashable, Sendable {
         self.amount = amount
         self.isShared = isShared
         self.accountName = accountName
+        self.key = key
+        self.isSettled = isSettled
+        self.canSettle = canSettle
     }
 }
 
@@ -84,4 +94,7 @@ public protocol ForecastRepository: Sendable {
 
     /// 這個視角的購買力試算;公帳視角後端不檢核成員個人的儲蓄目標。
     func checkPurchase(_ amount: Money, scope: ViewScope) async throws -> PurchaseCheck
+
+    /// 標示或取消一筆預測事件的「已繳」(上游 ADR 0018):只豁免這一次排程，下個週期不受影響。
+    func setSettled(_ settled: Bool, forEventKey key: String) async throws
 }

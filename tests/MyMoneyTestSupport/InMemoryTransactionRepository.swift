@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 不連網路的交易記錄：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
+/// 不連網路的收支明細：依起迄日篩選、依 limit / offset 分頁，並記下每一次查詢。
 ///
 /// 視角的篩選是後端的規則，這裡不模擬(ADR-0001:不在 client 端重算規則)。
 public actor InMemoryTransactionRepository: TransactionRepository {
@@ -9,6 +9,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         public let from: CalendarDay?
         public let to: CalendarDay?
         public let scope: ViewScope
+        public let accountID: AccountID?
         public let limit: Int
         public let offset: Int
     }
@@ -46,9 +47,9 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     public func transactions(
-        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, limit: Int, offset: Int
+        from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
     ) async throws -> [Transaction] {
-        queries.append(Query(from: from, to: to, scope: scope, limit: limit, offset: offset))
+        queries.append(Query(from: from, to: to, scope: scope, accountID: accountID, limit: limit, offset: offset))
         if let gate = nextQueryGate {
             nextQueryGate = nil
             await gate.pass()
@@ -58,6 +59,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         let inPeriod = stored.enumerated()
             .filter { item in
                 (from.map { $0 <= item.element.date } ?? true) && (to.map { item.element.date <= $0 } ?? true)
+                    // 帳戶篩選是後端的規則(上游 ADR 0019):只回這個帳戶的收支明細。
+                    && (accountID.map { $0 == item.element.accountID } ?? true)
             }
             .sorted { ($0.element.date, $0.offset) > ($1.element.date, $1.offset) }
             .map(\.element)
@@ -78,7 +81,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             date: draft.date,
             isShared: draft.isShared,
             recorderName: InMemoryAuthRepository.Member.sample.user.name,
-            recorderID: InMemoryAuthRepository.Member.sample.user.id
+            recorderID: InMemoryAuthRepository.Member.sample.user.id,
+            billing: draft.defersToNextStatement ? .deferred : .unbilled
         ))
     }
 
@@ -98,7 +102,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
                 date: draft.date,
                 isShared: draft.isShared,
                 recorderName: transaction.recorderName,
-                recorderID: transaction.recorderID
+                recorderID: transaction.recorderID,
+                billing: draft.defersToNextStatement ? .deferred : transaction.billing
             )
         }
     }
@@ -135,15 +140,16 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 }
 
-/// 畫面 model 測試與 UI 測試共用的交易記錄。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
+/// 畫面 model 測試與 UI 測試共用的收支明細。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
 public enum SampleTransactions {
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
-    public static func makeForToday(includeFamilyEntries: Bool = false) -> [Transaction] {
-        make(today: CalendarDay.today(), includeFamilyEntries: includeFamilyEntries)
+    public static func makeForToday(includeFamilyEntries: Bool = false, includeCardBilling: Bool = false) -> [Transaction] {
+        make(today: CalendarDay.today(), includeFamilyEntries: includeFamilyEntries, includeCardBilling: includeCardBilling)
     }
 
     /// `includeFamilyEntries`:多兩筆「家庭公帳、家人(小美)記的」交易，一筆名稱短、一筆備註很長(交易列版型的 UI 測試，#128)。
-    public static func make(today: CalendarDay, includeFamilyEntries: Bool = false) -> [Transaction] {
+    /// `includeCardBilling`:信用卡多兩筆消費，一筆「已出帳」、一筆「延至下期」(收支明細列的帳單狀態標籤，#188)。
+    public static func make(today: CalendarDay, includeFamilyEntries: Bool = false, includeCardBilling: Bool = false) -> [Transaction] {
         let first = today.firstOfMonth
         let tenth = min(today, CalendarDay(year: today.year, month: today.month, day: 10))
         let family: [Transaction] = includeFamilyEntries
@@ -152,7 +158,13 @@ public enum SampleTransactions {
                 familyTransaction("family-long", "週末全家一起去大賣場採買下週要用的食材和日用品還有小孩的文具", 2380, today),
             ]
             : []
-        return family + [
+        let cardBilling: [Transaction] = includeCardBilling
+            ? [
+                cardTransaction("card-billed", "上期晚餐", 640, first, .billed),
+                cardTransaction("card-deferred", "延遲請款的機票", 5200, today, .deferred),
+            ]
+            : []
+        return family + cardBilling + [
             transaction("sample-income", .income, .salary, 45000, "", first, shared: true, account: SampleAccounts.savings),
             transaction("sample-repayment", .expense, .creditCardRepayment, 5000, "繳納【iOS 測試信用卡】卡費", tenth,
                         shared: true, account: SampleAccounts.savings),
@@ -160,6 +172,18 @@ public enum SampleTransactions {
             transaction("sample-headphones", .expense, TransactionCategory("購物"), 880, "耳機", today, shared: false,
                         accountName: SampleAccounts.card.name, accountID: SampleAccounts.card.id),
         ]
+    }
+
+    /// 信用卡的個人私帳消費，帶帳單狀態。
+    private static func cardTransaction(
+        _ id: String, _ note: String, _ amount: Int, _ date: CalendarDay, _ billing: BillingStatus
+    ) -> Transaction {
+        Transaction(
+            id: TransactionID(id), accountID: SampleAccounts.card.id, accountName: SampleAccounts.card.name, type: .expense,
+            category: TransactionCategory("購物"), amount: Money(Decimal(amount)), note: note, date: date, isShared: false,
+            recorderName: InMemoryAuthRepository.Member.sample.user.name, recorderID: InMemoryAuthRepository.Member.sample.user.id,
+            billing: billing
+        )
     }
 
     /// 家庭公帳、小美記的支出。

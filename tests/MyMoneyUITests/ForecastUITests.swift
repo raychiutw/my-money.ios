@@ -14,8 +14,7 @@ final class ForecastUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "現金流充裕安全").waitForExistence(timeout: 5), "沒有看到透支風險")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").exists, "沒有看到最低餘額")
 
@@ -34,8 +33,7 @@ final class ForecastUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
 
         let amount = app.textFields["forecast.purchaseAmount"]
@@ -53,6 +51,38 @@ final class ForecastUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 18,000 元").waitForExistence(timeout: 5), "切到家庭公帳之後最低餘額沒有換成公帳的")
         XCTAssertEqual(filter.value as? String, "家庭公帳")
         XCTAssertFalse(element(in: app, labelContaining: "放心購買").exists, "換了視角,上一個視角的試算結論還在")
+    }
+
+    /// 預測事件可勾選「已繳」(上游 ADR 0018、#182):勾了之後最低餘額由後端重算(房租 12,000 不再計入)，
+    /// 事件變淡並念出已繳;再點一次取消。
+    @MainActor
+    func testSettlingAnEventRecalculatesTheMinimumBalanceAndCanBeUndone() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.openHomeEntry("forecast")
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
+
+        let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "forecast.settle.sample:rent")).firstMatch
+        for _ in 0..<8 where !(settle.exists && settle.isHittable) { app.swipeUp() }
+        XCTAssertTrue(settle.exists, "房租事件沒有勾選圓圈")
+        XCTAssertEqual(settle.label, "標示為已繳")
+        XCTAssertGreaterThanOrEqual(settle.frame.width, 44, "勾選圓圈寬度不到 44pt")
+        XCTAssertGreaterThanOrEqual(settle.frame.height, 44, "勾選圓圈高度不到 44pt")
+        settle.tap()
+
+        let paid = element(in: app, labelContaining: "房租,")
+        XCTAssertTrue(NSPredicate(format: "label CONTAINS %@", "已繳，不計入預測").evaluate(with: paid) || element(in: app, labelContaining: "已繳，不計入預測").waitForExistence(timeout: 5), "已繳的事件沒有念出已繳")
+        XCTAssertEqual(settle.label, "取消已繳", "勾了之後圓圈的標籤沒有變")
+        for _ in 0..<8 where !element(in: app, labelContaining: "最低餘額 65,440 元").exists { app.swipeDown() }
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 65,440 元").waitForExistence(timeout: 5), "已繳的房租還計入最低餘額")
+
+        for _ in 0..<8 where !(settle.exists && settle.isHittable) { app.swipeUp() }
+        settle.tap()
+        XCTAssertEqual(settle.label, "標示為已繳", "取消後圓圈的標籤沒有恢復")
+        for _ in 0..<8 where !element(in: app, labelContaining: "最低餘額 53,440 元").exists { app.swipeDown() }
+        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5), "取消已繳後最低餘額沒有恢復")
     }
 
     /// 總覽的走勢線每個視角都有(以前只有「全部」)。
@@ -107,8 +137,10 @@ final class ForecastUITests: XCTestCase {
         let amount = try XCTUnwrap(bands.last)
         let width = Int(image.size.width * image.scale)
         let gap = width - amount.maxX
-        XCTAssertTrue(gap >= 6 * Int(image.scale) && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
-        XCTAssertGreaterThan(amount.minX, width / 3, "金額貼在左邊:\(amount)")
+        // 文字區塊右邊是 44pt 的「已繳」圓圈(#182):金額靠這個區塊的右緣，不會超出去。
+        XCTAssertTrue(gap >= 0 && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
+        // 金額在最下面一行、右緣貼著文字區塊的右緣(上面已量);文字區塊本身變窄了(右邊有已繳圓圈)，所以不再要求左緣離左邊多遠。
+        XCTAssertGreaterThan(amount.minX, bands[0].minX - 1, "金額比名稱還靠左:\(amount) \(bands[0])")
         let recognized = try TextRecognition.lines(in: image).joined(separator: " ")
         XCTAssertFalse(recognized.contains("…") || recognized.contains("..."), "無障礙字級有字被截斷:\(recognized)")
     }
@@ -119,11 +151,8 @@ final class ForecastUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"] + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         signIn(app)
-        app.openPlanning()
-        // 大字級時列表長，「現金流預測」可能在畫面下方。
-        let forecast = app.buttons["現金流預測"]
-        for _ in 0..<6 where !(forecast.exists && forecast.isHittable) { app.swipeUp() }
-        forecast.tap()
+        // 大字級時列表長，入口會在畫面下方:`openHomeEntry` 會捲到看得到再點。
+        app.openHomeEntry("forecast")
         return app
     }
 

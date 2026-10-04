@@ -85,7 +85,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         return visible(in: scope)
     }
 
-    /// 跟後端一樣把每一項的分攤平滑加總(測試用的替身，給 UI 測試在新增、刪除後看到合計改變)。
+    /// 跟後端一樣把每一項的每月平均加總(測試用的替身，給 UI 測試在新增、刪除後看到合計改變)。
     public func amortization(scope: ViewScope) async throws -> RecurringAmortization {
         requestedAmortizationScopes.append(scope)
         if let failure = failure ?? amortizationFailure { throw failure }
@@ -126,7 +126,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         return Self.sampleCSV
     }
 
-    /// 後端建立或更新後的項目;帳戶名稱只認得範例的銀行存款帳戶。
+    /// 後端建立或更新後的項目;帳戶名稱只認得範例的活存帳戶。
     private static func item(
         _ id: RecurringItemID, from draft: RecurringDraft, isShared: Bool = false, ownerID: UserID? = nil, ownerName: String? = nil
     ) -> RecurringItem {
@@ -143,7 +143,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
         failure = error
     }
 
-    /// 只有分攤平滑(`amortization()`)以這個錯誤失敗。
+    /// 只有每月平均(`amortization()`)以這個錯誤失敗。
     public func failAmortization(with error: RepositoryError) {
         amortizationFailure = error
     }

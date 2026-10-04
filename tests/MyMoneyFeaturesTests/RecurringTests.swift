@@ -29,7 +29,7 @@ struct RecurringTests {
         #expect(model.incomes.map(\.name) == ["薪水"])
     }
 
-    @Test("三張統計卡：週期支出與週期收入的分攤平滑(後端算好)、每月週期淨額")
+    @Test("三張統計卡：週期支出與週期收入每月平均(後端算好)、每月週期淨額")
     func summaryCards() async {
         let (model, _) = await loaded()
 
@@ -74,7 +74,7 @@ struct RecurringTests {
         #expect(quarterly.scheduleText == "每季 (1/4/7/10月) 5 號扣款")
     }
 
-    @Test("週期不是每月的週期支出，顯示每月的分攤平滑;週期收入不顯示")
+    @Test("週期不是每月的週期支出，顯示每月的每月平均;週期收入不顯示")
     func perItemAmortization() {
         let annual = RecurringItem(
             id: RecurringItemID("x"), name: "年繳保費", type: .expense, amount: Money(24000), cycle: .annual,
@@ -95,8 +95,8 @@ struct RecurringTests {
         #expect(!annualIncome.showsMonthlyAmortization)
     }
 
-    /// 一行一個欄位(DESIGN.md「列與欄位」,#77):帳戶不加前綴、沒設就不顯示;分攤平滑單獨寫成「$2,000／月」。
-    @Test("列的文字：帳戶不加前綴、沒設就不顯示，非每月的週期支出顯示每月分攤平滑，VoiceOver 念成一句")
+    /// 一行一個欄位(DESIGN.md「列與欄位」,#77):帳戶不加前綴、沒設就不顯示;每月平均單獨寫成「$2,000／月」。
+    @Test("列的文字：帳戶不加前綴、沒設就不顯示，非每月的週期支出顯示換算每月平均，VoiceOver 念成一句")
     func rowTexts() {
         let annual = RecurringItem(
             id: RecurringItemID("x"), name: "年繳保費", type: .expense, amount: Money(24000), cycle: .annual,
@@ -116,7 +116,7 @@ struct RecurringTests {
         #expect(annual.amortizationText == "$2,000／月")
         #expect(rent.amortizationText == nil)
         #expect(salary.amortizationText == nil)
-        #expect(annual.spokenText == "年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，個人私帳，分攤平滑每月 2,000 元")
+        #expect(annual.spokenText == "年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，個人私帳，換算每月平均 2,000 元")
         #expect(rent.spokenText == "房租，週期支出 12,000 元，每月 5 號扣款，個人私帳，帳戶 iOS 測試存款")
         #expect(salary.spokenText == "薪水，週期收入 45,000 元，每月 25 號入帳，個人私帳，帳戶 iOS 測試存款")
     }
@@ -145,7 +145,7 @@ struct RecurringTests {
     }
 
     /// web 把失敗當成 0,三張統計卡顯示 $0(`.catch(() => null)`,parity 刻意偏離第 27 項)。
-    @Test("分攤平滑載入失敗時顯示載入失敗，不顯示 $0")
+    @Test("每月平均載入失敗時顯示載入失敗，不顯示 $0")
     func amortizationFailure() async {
         let repository = InMemoryRecurringRepository.sample()
         await repository.failAmortization(with: .rejected("伺服器錯誤"))
@@ -204,7 +204,7 @@ struct RecurringTests {
         #expect(second.scope == .household)
     }
 
-    @Test("載入時一律明確帶視角(全部也帶);列表與分攤平滑都依視角")
+    @Test("載入時一律明確帶視角(全部也帶);列表與每月平均都依視角")
     func loadsWithScope() async {
         let (model, repository) = await scoped()
 

@@ -52,8 +52,7 @@ final class CIColorUITests: XCTestCase {
     func testGoalProgressAndDeadlineSwitchAreCIColor() throws {
         for (appearance, name) in Self.appearances {
             let app = launch(appearance)
-            app.openPlanning()
-            app.buttons["儲蓄目標"].tap()
+            app.openHomeEntry("goals")
             XCTAssertTrue(app.buttons["goals.add"].waitForExistence(timeout: 5), "\(name):沒有儲蓄目標頁")
             // 第一個進度條是沖繩旅遊(進行中);達成的那個維持綠色。
             let bar = app.progressIndicators.firstMatch
@@ -71,19 +70,6 @@ final class CIColorUITests: XCTestCase {
                 of: toggle.screenshot().image, region: CGRect(x: 0.82, y: 0.2, width: 0.16, height: 0.6)
             )
             XCTAssertGreaterThan(track.ciFraction, 0.25, "\(name):打開的開關不是 CI 色(CI 色占 \(track.ciFraction))")
-            app.terminate()
-        }
-    }
-
-    /// 總覽的目標環：進行中(沖繩旅遊 5%)的弧線是 CI 色。
-    @MainActor
-    func testOverviewGoalRingIsCIColor() throws {
-        for (appearance, name) in Self.appearances {
-            let app = launch(appearance)
-            let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "沖繩旅遊，已達成百分之")).firstMatch
-            XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "\(name):總覽沒有找到沖繩旅遊的目標環")
-            let stats = try PixelAnalysis.statistics(of: row.screenshot().image)
-            XCTAssertGreaterThan(stats.ci, 20, "\(name):目標環的弧線不是 CI 色(CI 色像素 \(stats.ci))")
             app.terminate()
         }
     }
