@@ -1,105 +1,6 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 總覽最近交易的一列(#117):只有分類圖示、名稱(備註，沒有備註時是分類)和帶正負號的金額。
-/// 日期、帳戶、記帳人、歸屬在交易頁看。VoiceOver 念「分類，備註，收支金額」。
-struct CompactTransactionRow: View {
-    let transaction: MyMoneyDomain.Transaction
-
-    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        // 無障礙字級名稱和金額左右放不下:上下排,金額在最下面靠右(跟交易頁的列一樣);不讓名稱被擠成一字一行(#157)。
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 12) {
-                        icon
-                        title
-                    }
-                    amount.frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            } else {
-                HStack(spacing: 12) {
-                    icon
-                    title.frame(maxWidth: .infinity, alignment: .leading)
-                    amount
-                }
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenText)
-    }
-
-    private var icon: some View {
-        Image(systemName: transaction.category.symbolName)
-            .foregroundStyle(.tint)
-            .frame(width: iconWidth)
-    }
-
-    private var title: some View {
-        Text(transaction.displayTitle)
-            .lineLimit(2)
-    }
-
-    /// 金額一律單行(DESIGN.md「列與欄位」)。
-    private var amount: some View {
-        Text(transaction.signedAmountText)
-            .monospacedDigit()
-            .foregroundStyle(transaction.amountColor)
-            .lineLimit(1)
-            .fixedSize()
-    }
-
-    /// 例如「餐飲，午餐，支出 120 元」;沒有備註時不重複念分類。
-    private var spokenText: String {
-        var parts = [transaction.category.name]
-        if !transaction.note.isEmpty { parts.append(transaction.note) }
-        parts.append(transaction.spokenAmount)
-        return parts.joined(separator: "，")
-    }
-}
-
-/// 儲蓄目標的小圓環(#117):環中是達成百分比，旁邊是目標名稱。百分比來自後端的已存與目標金額;
-/// 達成時用成功色(parity 刻意偏離第 6 項)。VoiceOver 念「名稱，已達成百分之 N」。
-struct GoalRingRow: View {
-    let goal: SavingsGoal
-
-    /// 圓環跟環中的字(`footnote`)同一個文字樣式放大，字照系統大小、不用縮小就放得進環裡(#156)。
-    @ScaledMetric(relativeTo: .footnote) private var ringSize: CGFloat = 60
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ring
-            Text("\(goal.emoji) \(goal.name)")
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(goal.ringSpokenText)
-    }
-
-    private var ring: some View {
-        let color: Color = goal.isAchieved ? .green : Color.ciFill
-        return ZStack {
-            Circle().stroke(.quaternary, lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: goal.progress)
-                .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text(goal.percentText)
-                .font(.footnote.bold())
-                .monospacedDigit()
-                .lineLimit(1)
-                // 環內可用寬度 = 環徑 - 兩道線寬(6);「100%」是最長的字,內距要小,不然預設字級就被截成「10…」(#157)。
-                .padding(.horizontal, 6)
-        }
-        .frame(width: ringSize, height: ringSize)
-    }
-}
-
 /// 超支提示(#117):沒有超支時完全不出現;有超支時是一個精簡的紅色圓角提示，點了切到統計 tab 的預算額度。
 struct OverBudgetChip: View {
     let title: String
@@ -120,5 +21,72 @@ struct OverBudgetChip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel(spokenTitle)
         .accessibilityHint("查看預算額度")
+    }
+}
+
+/// 功能入口的一格(#178):圖示、名稱加一個關鍵數字;整格是一個按鈕。
+/// 放在 `OverviewEntryGrid` 裡:最多兩欄,名稱放得下才並排,否則單欄(無障礙字級),單欄時關鍵數字在最下面靠右。
+/// 關鍵數字不影響欄數(理想寬度算 0,放不下就折行,不截斷);沒有數字(還沒載入或載入失敗)時只有圖示和名稱。
+struct OverviewEntryCard: View {
+    let title: String
+    let symbolName: String
+    let value: String?
+    var isWarning = false
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: symbolName)
+                    .font(.title2)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let value {
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .monospacedDigit()
+                        // 理想寬度 0:數字長短不改變欄數;放不下就折行。
+                        .frame(idealWidth: 0, maxWidth: .infinity, alignment: valueAlignment)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .trailing : .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 18))
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var valueAlignment: Alignment {
+        dynamicTypeSize.isAccessibilitySize ? .trailing : .leading
+    }
+}
+
+/// 入口格(#178):跟帳戶卡片網格同一套欄數規則(`TileColumns`),最多兩欄。
+struct OverviewEntryGrid<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            EqualColumnsLayout(maxColumns: 2, spacing: 10, rowSpacing: 10) {
+                content()
+            }
+            VStack(spacing: 10) {
+                content()
+            }
+        }
     }
 }

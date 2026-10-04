@@ -1,38 +1,36 @@
 import XCTest
 
-/// 「我的」:姓名與 email、分頁「設定｜規劃」、版本(ADR-0004、#84)。
+/// 「我的」:姓名與 email、設定、版本(ADR-0004、#84、#178)。
 ///
-/// 外觀的三列打勾在 `AppearanceUITests`,規劃底下三個畫面各自的功能在 `RecurringUITests`、
-/// `SavingsGoalsUITests`、`ForecastUITests`(它們都從「我的」的規劃進去)。
+/// 外觀的三列打勾在 `AppearanceUITests`,規劃的三個畫面各自的功能在 `RecurringUITests`、
+/// `SavingsGoalsUITests`、`ForecastUITests`(它們都從總覽的功能入口進去)。
 final class MeSheetUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    /// 規劃不再是 tab;打開「我的」先顯示設定，切到規劃看得到三個項目，關掉再打開又回到設定(不記憶分頁)。
+    /// 「我的」只剩設定:機器人記帳、外觀、登出、版本,沒有「設定｜規劃」分頁選擇器;週期收支、儲蓄目標、現金流預測在總覽的功能入口(#178)。
     @MainActor
-    func testOpensOnSettingsAndPlanningIsOneSwitchAway() throws {
+    func testMeHasOnlySettingsAndNoPlanningPage() throws {
         let app = launchAndSignIn()
         XCTAssertFalse(app.tabBars.buttons["規劃"].exists, "規劃不該還是 tab")
 
         app.openMe()
-        XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5), "「我的」沒有先顯示設定")
+        XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5), "「我的」沒有顯示設定")
         XCTAssertTrue(app.buttons["me.bot"].exists, "設定沒有機器人記帳")
         XCTAssertFalse(app.buttons["me.household"].exists, "家庭已經升為 tab,設定不該還有它的入口")
-        XCTAssertFalse(app.buttons["週期收支"].exists, "設定分頁不該看到規劃的項目")
-
-        app.segmentedControls["me.page"].buttons["規劃"].tap()
+        XCTAssertFalse(app.segmentedControls["me.page"].exists || app.buttons["me.page"].exists, "「我的」不該還有分頁選擇器")
         for item in ["週期收支", "儲蓄目標", "現金流預測"] {
-            XCTAssertTrue(app.buttons[item].waitForExistence(timeout: 3), "規劃缺少「\(item)」")
+            XCTAssertFalse(app.buttons[item].exists, "「我的」不該還有規劃的項目「\(item)」")
         }
-        XCTAssertFalse(app.buttons["me.signOut"].exists, "規劃分頁不該看到登出")
 
         app.buttons["me.close"].tap()
-        XCTAssertTrue(app.buttons["週期收支"].waitForNonExistence(timeout: 5), "「我的」沒有關閉")
-
-        app.openMe()
-        XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5), "重新打開之後沒有回到設定(分頁不該被記住)")
-        XCTAssertFalse(app.buttons["週期收支"].exists, "重新打開之後還停在規劃")
+        XCTAssertTrue(app.buttons["me.signOut"].waitForNonExistence(timeout: 5), "「我的」沒有關閉")
+        for id in ["recurring", "goals", "forecast"] {
+            XCTAssertTrue(
+                ScrollSupport.revealFully(app.buttons["home.entry.\(id)"], in: app), "總覽的功能入口缺少「\(id)」(規劃搬到這裡)"
+            )
+        }
     }
 
     /// 設定底部顯示「版本 版號（build）」。

@@ -15,10 +15,6 @@ enum Skeleton {
         category: .dining, amount: Money(888), note: "佔位備註", date: CalendarDay(year: 2026, month: 1, day: 1),
         isShared: true, recorderName: "佔位"
     )
-    static let goal = SavingsGoal(
-        id: SavingsGoalID("skeleton"), name: "儲蓄目標名稱", emoji: "🎯", targetAmount: Money(100), savedAmount: Money(40),
-        monthlyReserve: .zero, deadline: nil
-    )
 }
 
 extension View {

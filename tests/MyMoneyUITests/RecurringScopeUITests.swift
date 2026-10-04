@@ -155,8 +155,7 @@ final class RecurringScopeUITests: XCTestCase {
         password.typeText("secret123")
         app.buttons["login.submit"].tap()
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
         return app
     }
 

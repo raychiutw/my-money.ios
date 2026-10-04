@@ -116,19 +116,6 @@ struct OverviewTests {
         #expect(model().scope == .household)
     }
 
-    @Test("最近 5 筆收支明細不限日期，依目前的視角查詢")
-    func recentTransactionsQuery() async throws {
-        let model = model()
-        model.scope = .personal
-
-        await model.load()
-
-        let query = try #require(await transactions.queries.last)
-        #expect(query.from == nil && query.to == nil)
-        #expect(query.scope == .personal)
-        #expect(query.limit == 5 && query.offset == 0)
-    }
-
     @Test("當月淨收支來自當月的收支趨勢(依視角),預算額度帶入明確的當月")
     func monthlyQueries() async {
         let model = model()
@@ -210,24 +197,6 @@ struct OverviewTests {
         ])
         #expect(model.overBudgets.map(\.category.name) == ["餐飲", "交通"])
         #expect(model.overBudgetTitle == "有 2 個分類支出已超出預算")
-    }
-
-    @Test("儲蓄目標只顯示前 3 個")
-    func topGoals() async {
-        let goals = InMemorySavingsGoalRepository(goals: InMemorySavingsGoalRepository.sampleGoals + InMemorySavingsGoalRepository.sampleGoals.map {
-            SavingsGoal(
-                id: SavingsGoalID("more-\($0.id.rawValue)"), name: "更多\($0.name)", emoji: $0.emoji, targetAmount: $0.targetAmount,
-                savedAmount: $0.savedAmount, monthlyReserve: $0.monthlyReserve, deadline: $0.deadline
-            )
-        })
-        let model = OverviewModel(
-            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals,
-            dataVersion: DataVersion(), defaults: defaults, today: { today }
-        )
-
-        await model.load()
-
-        #expect(model.topGoals.map(\.name) == ["沖繩旅遊", "緊急備用金", "iOS 小目標"])
     }
 
     @Test("資料版本改變後重抓(例如從總覽記一筆之後)")

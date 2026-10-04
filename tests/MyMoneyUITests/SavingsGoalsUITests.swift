@@ -14,8 +14,7 @@ final class SavingsGoalsUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["儲蓄目標"].tap()
+        app.openHomeEntry("goals")
         XCTAssertTrue(element(in: app, labelContaining: "已存金額合計 4,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
         XCTAssertTrue(row("整體達成率", value: "2.5%", in: app).exists, "整體達成率不是一般列")
         XCTAssertTrue(

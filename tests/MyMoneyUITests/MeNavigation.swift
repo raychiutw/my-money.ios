@@ -7,23 +7,18 @@ extension XCUIApplication {
         buttons["toolbar.me"].tap()
     }
 
-    /// 打開「我的」並切到「規劃」分頁:週期收支、儲蓄目標、現金流預測從這裡進去。
+    /// 從總覽的功能入口進去(#178;週期收支、儲蓄目標、現金流預測原本在「我的」的「規劃」分頁)。
+    /// `identifier` 是入口的 destination(`home.entry.<identifier>`):ledger、accounts、creditCards、household、statistics、
+    /// recurring、goals、forecast。入口可能在畫面下方(大字級更下面),先捲到整個看得到再點。
     @MainActor
-    func openPlanning() {
-        openMe()
-        selectMePage("規劃")
-    }
-
-    /// 切換「我的」的分頁(設定｜規劃):一般字級是分段控制，無障礙字級換成選單(#156)。
-    @MainActor
-    func selectMePage(_ title: String) {
-        let segmented = segmentedControls["me.page"]
-        if segmented.waitForExistence(timeout: 3) {
-            segmented.buttons[title].tap()
-        } else {
-            buttons["me.page"].tap()
-            buttons[title].tap()
-        }
+    func openHomeEntry(_ identifier: String) {
+        let tab = tabBars.buttons["總覽"]
+        if tab.exists, !tab.isSelected { tab.tap() }
+        // 載入完成的記號(骨架屏沒有組成一行);載入完才捲,不然會在骨架屏上亂捲。
+        _ = staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        let entry = buttons["home.entry.\(identifier)"]
+        XCTAssertTrue(ScrollSupport.revealFully(entry, in: self), "總覽找不到「\(identifier)」入口，或捲不到整個露出")
+        entry.tap()
     }
 }
 

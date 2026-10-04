@@ -7,6 +7,9 @@ import SwiftUI
 /// 這是 DESIGN.md「字級維持現狀」唯一的例外:全 app 最重要的一個數字，用「大數字」放大。
 struct OverviewHero: View {
     let balance: Money
+    /// 淨可用餘額的組成一行(#178),例如「現金 $1,500 ＋ 活存帳戶 $50,000 − 信用卡待繳 $28,500」;VoiceOver 念 `compositionSpoken`。
+    var composition: String?
+    var compositionSpoken: String?
     let trend: ForecastTrend?
     /// 走勢線的 VoiceOver 摘要(最低餘額、日期、會不會透支)。
     let trendSummary: String?
@@ -14,6 +17,13 @@ struct OverviewHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             BigNumber(title: "淨可用餘額", amount: balance)
+            if let composition {
+                Text(composition)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(compositionSpoken ?? composition)
+                    .accessibilityIdentifier("overview.composition")
+            }
             if let trend, !trend.points.isEmpty {
                 ForecastTrendChart(trend: trend, summary: trendSummary)
             }

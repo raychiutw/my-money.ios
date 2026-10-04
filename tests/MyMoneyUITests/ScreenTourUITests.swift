@@ -95,18 +95,15 @@ final class ScreenTourUITests: XCTestCase {
         // 新增預算額度直接打開編輯(#101),分類在 sheet 的分類格裡選。
         tour.present(app.buttons["budgets.add"], capturing: "budget-editor")
 
-        // 「我的」的規劃分頁，以及週期收支、儲蓄目標、現金流預測和它們的新增表單。
-        tour.tap(app.buttons["toolbar.me"])
-        app.selectMePage("規劃")
-        tour.captureScrolling("me-planning")
-        tour.push(app.buttons["週期收支"], capturing: "recurring") {
+        // 週期收支、儲蓄目標、現金流預測和它們的新增表單:從總覽的功能入口進去(#178;原本在「我的」的規劃分頁)。
+        tour.select(tab: "總覽")
+        tour.push(app.buttons["home.entry.recurring"], capturing: "recurring") {
             tour.present(app.buttons["recurring.add"], capturing: "recurring-editor")
         }
-        tour.push(app.buttons["儲蓄目標"], capturing: "goals") {
+        tour.push(app.buttons["home.entry.goals"], capturing: "goals") {
             tour.present(app.buttons["goals.add"], capturing: "goal-editor")
         }
-        tour.push(app.buttons["現金流預測"], capturing: "forecast")
-        tour.dismissSheet(titled: "我的")
+        tour.push(app.buttons["home.entry.forecast"], capturing: "forecast")
     }
 }
 

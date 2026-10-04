@@ -11,44 +11,18 @@ final class TruncationUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    // MARK: 總覽的目標圓環:「100%」是環中最長的字
+    // MARK: 總覽的功能入口:關鍵數字長(家庭轉帳建議、預測的最低餘額與日期)，大字級要折行，不能截成「…」
 
     @MainActor
-    func testAchievedGoalRingShowsFullPercent() throws {
-        try assertAchievedRing(contentSize: nil)
-    }
-
-    @MainActor
-    func testAchievedGoalRingShowsFullPercentAtAccessibilitySize() throws {
-        try assertAchievedRing(contentSize: Self.ax5)
-    }
-
-    @MainActor
-    private func assertAchievedRing(contentSize: String?) throws {
-        let app = launchSignedIn(contentSize: contentSize)
-        // 範例資料的「iOS 小目標」已達成。
-        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "iOS 小目標，已達成百分之 100")).firstMatch
-        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "總覽沒有找到已達成的目標圓環")
-
-        // 環在列的最左邊，是一個正方形:只辨識這一塊，名稱不混進來。
-        let cg = try XCTUnwrap(row.screenshot().image.cgImage)
-        let side = min(cg.height, cg.width)
-        let ringArea = try XCTUnwrap(cg.cropping(to: CGRect(x: 0, y: (cg.height - side) / 2, width: side, height: side)))
-        let lines = try TextRecognition.lines(in: UIImage(cgImage: ringArea))
-        XCTAssertTrue(lines.contains { $0.contains("100%") }, "圓環裡的百分比沒有完整顯示成「100%」,辨識到:\(lines)")
-        XCTAssertFalse(lines.contains { Self.isTruncated($0) }, "圓環裡的字被截斷:\(lines)")
-    }
-
-    // MARK: 總覽「最近」的交易列:名稱不能被擠成一字一行
-
-    @MainActor
-    func testCompactTransactionTitleStaysReadableAtAccessibilitySize() throws {
+    func testEntryValuesAreNotTruncatedAtAccessibilitySize() throws {
         let app = launchSignedIn(contentSize: Self.ax5)
-        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "耳機")).firstMatch
-        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "總覽沒有找到「耳機」那筆最近交易")
-        // 名稱被擠成一字一行時，OCR 會把「耳」「機」認成兩行。
-        let lines = try TextRecognition.lines(in: row.screenshot().image)
-        XCTAssertTrue(lines.contains { $0.contains("耳機") }, "最近交易的名稱被擠成一字一行:\(lines)")
+        for (id, expected) in [("household", "轉給"), ("forecast", "最低"), ("goals", "已存")] {
+            let entry = app.buttons["home.entry.\(id)"]
+            XCTAssertTrue(ScrollSupport.revealFully(entry, in: app), "總覽沒有找到「\(id)」入口")
+            let lines = try TextRecognition.lines(in: entry.screenshot().image)
+            XCTAssertTrue(lines.contains { $0.contains(expected) }, "「\(id)」入口看不到關鍵數字(預期有「\(expected)」),辨識到:\(lines)")
+            XCTAssertFalse(lines.contains { Self.isTruncated($0) }, "「\(id)」入口的字被截斷:\(lines)")
+        }
     }
 
     // MARK: 現金流預測圖的日期刻度(無障礙字級系統自己會少放刻度，舊程式也沒有截斷，所以只測 XXL)
@@ -61,11 +35,7 @@ final class TruncationUITests: XCTestCase {
     @MainActor
     private func assertForecastAxis(contentSize: String) throws {
         let app = launchSignedIn(contentSize: contentSize)
-        app.openMe()
-        app.selectMePage("規劃")
-        let forecast = app.buttons["現金流預測"]
-        for _ in 0..<8 where !(forecast.exists && forecast.isHittable) { app.swipeUp() }
-        forecast.tap()
+        app.openHomeEntry("forecast")
         let chartTitle = app.staticTexts["未來 30 天逐日餘額"]
         // 大字級時預測圖在摘要下面，清單還沒捲到就不在畫面上。
         for _ in 0..<10 where !chartTitle.exists { app.swipeUp() }

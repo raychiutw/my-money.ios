@@ -22,27 +22,34 @@ final class AmountAlignmentUITests: XCTestCase {
             XCTAssertTrue(ScrollSupport.revealFully(tile, in: app), "第 \(index + 1) 格捲不到整格看得到")
             let image = tile.screenshot().image
             let bands = try PixelAnalysis.inkBands(of: image)
-            XCTAssertEqual(bands.count, 2, "三欄的磚應該是標籤一行、金額一行:\(bands)")
-            let amount = try XCTUnwrap(bands.last)
+            // 標籤一行、金額一行,下面是組成明細(#178,兩行,窄了會折行)。
+            XCTAssertGreaterThanOrEqual(bands.count, 3, "三欄的磚應該是標籤、金額、組成明細由上往下:\(bands)")
+            let amount = bands[1]
             try assertRightEdge(amount, in: image, "第 \(index + 1) 格的金額沒有靠右")
             XCTAssertGreaterThan(amount.minX, 14 * Int(image.scale), "第 \(index + 1) 格的金額貼到左邊:\(amount)")
-            let label = try XCTUnwrap(bands.first)
+            let label = bands[0]
             XCTAssertLessThan(label.minX, 20 * Int(image.scale), "標籤沒有靠左:\(label)")
+            for detail in bands.dropFirst(2) {
+                try assertRightEdge(detail, in: image, "第 \(index + 1) 格的組成明細沒有靠右")
+            }
         }
     }
 
-    /// XXL、AX5 單欄:XXL 標籤靠左、金額靠右同一行;AX5 同一行放不下,標籤在上、金額在最下面一行靠右。
+    /// XXL、AX5 單欄:XXL 標籤靠左、金額靠右同一行;AX5 同一行放不下,標籤在上、金額在下一行靠右;組成明細都在金額底下靠右(#178)。
     @MainActor
     func testTileAmountsAreRightAlignedInSingleColumn() throws {
-        for (category, expectedBands) in [(xxl, 1), (ax5, 2)] {
+        for (category, amountBand) in [(xxl, 0), (ax5, 1)] {
             let app = launch(category: category)
             for (index, tile) in overviewTiles(in: app).enumerated() {
                 XCTAssertTrue(ScrollSupport.revealFully(tile, in: app), "\(category):第 \(index + 1) 格捲不到整格看得到")
                 let image = tile.screenshot().image
                 let bands = try PixelAnalysis.inkBands(of: image)
-                XCTAssertEqual(bands.count, expectedBands, "\(category):第 \(index + 1) 格的行數不對:\(bands)")
-                let amount = try XCTUnwrap(bands.last)
+                XCTAssertGreaterThan(bands.count, amountBand + 1, "\(category):第 \(index + 1) 格的行數不對(金額底下要有組成明細):\(bands)")
+                let amount = bands[amountBand]
                 try assertRightEdge(amount, in: image, "\(category):第 \(index + 1) 格的金額沒有靠右")
+                for detail in bands.dropFirst(amountBand + 1) {
+                    try assertRightEdge(detail, in: image, "\(category):第 \(index + 1) 格的組成明細沒有靠右")
+                }
             }
             app.terminate()
         }
@@ -138,7 +145,7 @@ final class AmountAlignmentUITests: XCTestCase {
     private func overviewTiles(in app: XCUIApplication) -> [XCUIElement] {
         let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
             .map { label, value in
-                app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
+                app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value BEGINSWITH %@", label, value)).firstMatch
             }
         XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
         for _ in 0..<6 where !tiles.allSatisfy(\.exists) { app.swipeUp() }

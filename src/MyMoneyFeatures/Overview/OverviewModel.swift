@@ -32,12 +32,17 @@ public final class OverviewModel {
         )
     }
 
-    public private(set) var recentTransactions: [MyMoneyDomain.Transaction] = []
     public private(set) var monthIncome: Money = .zero
     public private(set) var monthExpense: Money = .zero
     /// 超支警告：每個超支的分類一列(#75),順序跟後端一樣。
     public private(set) var overBudgets: [OverBudget] = []
-    public private(set) var topGoals: [SavingsGoal] = []
+
+    // 功能入口(#178)的資料來源:各自獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
+    /// 本月(1 號到今天)的收支明細筆數。
+    private(set) var monthTransactionCount: Int?
+    /// 本月各成員的公帳代墊。
+    private(set) var householdShares: [HouseholdShare]?
+    private(set) var goals: [SavingsGoal]?
 
     /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
     /// 不分家庭公帳或個人);載入失敗時是 `nil`，不影響總覽的其他區塊。
@@ -59,8 +64,8 @@ public final class OverviewModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let today: () -> CalendarDay
-    @ObservationIgnored private let locale: Locale
+    @ObservationIgnored let today: () -> CalendarDay
+    @ObservationIgnored let locale: Locale
     @ObservationIgnored private var loadedVersion: Int?
     @ObservationIgnored private var loadedScope: ViewScope?
 
@@ -116,9 +121,20 @@ public final class OverviewModel {
         guard let summary else { return [] }
         let cardDue = totalCardDue ?? .zero
         return [
-            SummaryTile(title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero),
-            SummaryTile(title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero),
-            SummaryTile(title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero),
+            SummaryTile(
+                title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero,
+                details: ["每月平均 \(summary.monthlyAmortization.formatted())", "每月預留 \(summary.monthlySavingsReserve.formatted())"],
+                spokenDetails: "\(Terms.expenseAmortization) \(summary.monthlyAmortization.spokenText)，每月預留 \(summary.monthlySavingsReserve.spokenText)"
+            ),
+            SummaryTile(
+                title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero,
+                details: ["收入 \(monthIncome.formatted(sign: "+"))", "支出 \(monthExpense.formatted(sign: "−"))"],
+                spokenDetails: "收入 \(monthIncome.spokenText)，支出 \(monthExpense.spokenText)"
+            ),
+            SummaryTile(
+                title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero,
+                details: cardTileDetails, spokenDetails: cardTileSpokenDetails
+            ),
         ]
     }
 
@@ -148,31 +164,33 @@ public final class OverviewModel {
     public func load() async {
         let version = dataVersion.value
         let scope = scope
-        let month = CalendarMonth(today())
+        let day = today()
+        let month = CalendarMonth(day)
         do {
             async let summary = accountRepository.balanceSummary(scope: scope.accountScope)
             async let accounts = accountRepository.accounts(scope: scope.accountScope)
-            async let recent = transactionRepository.transactions(from: nil, to: nil, scope: scope, limit: 5, offset: 0)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
             async let budgets = statisticsRepository.budgets(month: month)
-            async let goals = goalRepository.goals()
-            // 預測是額外的資料來源:失敗不能讓整個總覽失敗，所以不 throw，失敗就是沒有走勢圖。
+            // 以下是額外的資料來源(走勢圖、功能入口的關鍵數字):失敗不能讓整個總覽失敗，所以不 throw，失敗就是那一項沒有值。
             async let forecast = Self.fetchForecast(forecastRepository, scope: scope)
-            let (loadedSummary, loadedAccounts, loadedRecent, loadedSummaries, loadedBudgets, loadedGoals) =
-                try await (summary, accounts, recent, summaries, budgets, goals)
-            let loadedForecast = await forecast
+            async let monthCount = Self.fetchMonthTransactionCount(transactionRepository, today: day, scope: scope)
+            async let goals = try? goalRepository.goals()
+            async let shares = try? statisticsRepository.householdShares(month: month)
+            let (loadedSummary, loadedAccounts, loadedSummaries, loadedBudgets) = try await (summary, accounts, summaries, budgets)
+            let (loadedForecast, loadedCount, loadedGoals, loadedShares) = await (forecast, monthCount, goals, shares)
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
             cashWallets = loadedAccounts.compactMap { if case .cash(let wallet) = $0 { wallet } else { nil } }
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
-            recentTransactions = loadedRecent
             let thisMonth = loadedSummaries.first { $0.month == month }
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
-            topGoals = Array(loadedGoals.prefix(3))
+            monthTransactionCount = loadedCount
+            householdShares = loadedShares
+            self.goals = loadedGoals
             self.forecast = loadedForecast
             loadedVersion = version
             loadedScope = scope
@@ -188,6 +206,13 @@ public final class OverviewModel {
     private static func fetchForecast(_ repository: (any ForecastRepository)?, scope: ViewScope) async -> CashFlowForecast? {
         guard let repository else { return nil }
         return try? await repository.forecast(scope: scope)
+    }
+
+    /// 本月(1 號到今天)的收支明細筆數,跟收支明細頁預設的期間一樣;失敗是 `nil`。
+    private static func fetchMonthTransactionCount(
+        _ repository: any TransactionRepository, today: CalendarDay, scope: ViewScope
+    ) async -> Int? {
+        try? await repository.allTransactions(from: today.firstOfMonth, to: today, scope: scope).count
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從信用卡詳細頁返回時不重抓。
@@ -206,6 +231,9 @@ public struct SummaryTile: Identifiable, Hashable, Sendable {
     public let amount: Money
     /// 用警示色(負數的可支配現金與淨收支、有待繳的信用卡)。
     public let isWarning: Bool
+    /// 磚上的兩行組成明細(#178);VoiceOver 念 `spokenDetails`。
+    public let details: [String]
+    public let spokenDetails: String
 
     public var id: String { title }
 }

@@ -14,8 +14,7 @@ final class ForecastUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "現金流充裕安全").waitForExistence(timeout: 5), "沒有看到透支風險")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").exists, "沒有看到最低餘額")
 
@@ -34,8 +33,7 @@ final class ForecastUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
 
         let amount = app.textFields["forecast.purchaseAmount"]
@@ -63,8 +61,7 @@ final class ForecastUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.openPlanning()
-        app.buttons["現金流預測"].tap()
+        app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
 
         let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "forecast.settle.sample:rent")).firstMatch
@@ -152,11 +149,8 @@ final class ForecastUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"] + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
         signIn(app)
-        app.openPlanning()
-        // 大字級時列表長，「現金流預測」可能在畫面下方。
-        let forecast = app.buttons["現金流預測"]
-        for _ in 0..<6 where !(forecast.exists && forecast.isHittable) { app.swipeUp() }
-        forecast.tap()
+        // 大字級時列表長，入口會在畫面下方:`openHomeEntry` 會捲到看得到再點。
+        app.openHomeEntry("forecast")
         return app
     }
 

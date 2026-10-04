@@ -14,8 +14,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
         XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
         XCTAssertTrue(element(in: app, labelContaining: "週期支出每月平均 14,000 元").exists, "摘要的主數字不是週期支出每月平均")
         XCTAssertTrue(element(in: app, labelContaining: "每年 1 月 15 號扣款").exists, "扣款日沒有依週期描述(舊資料的繳費月份是 1)")
@@ -51,8 +50,7 @@ final class RecurringUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
 
         app.buttons["recurring.add"].tap()
         let name = app.textFields["recurringEditor.name"]
@@ -91,8 +89,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
         XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
 
         app.buttons["recurring.add"].tap()
@@ -122,8 +119,7 @@ final class RecurringUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        app.openPlanning()
-        app.buttons["週期收支"].tap()
+        app.openHomeEntry("recurring")
         app.buttons["recurring.add"].tap()
         XCTAssertTrue(app.textFields["recurringEditor.name"].waitForExistence(timeout: 3), "沒有打開週期收支編輯器")
 

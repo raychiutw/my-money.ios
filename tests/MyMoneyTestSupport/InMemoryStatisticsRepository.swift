@@ -42,6 +42,8 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     private let shares: [HouseholdShare]
     private var storedBudgets: [Budget]
     private var failure: RepositoryError?
+    /// 只讓家庭的公帳代墊統計失敗(總覽的「家庭」入口獨立失敗，#178);其他查詢照常。
+    private var sharesFailure: RepositoryError?
     /// 有設定時，收支趨勢改從這些收支明細算(UI 測試記一筆之後，總覽的當月淨收支才會變)。
     private let transactions: InMemoryTransactionRepository?
 
@@ -132,6 +134,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     public func householdShares(month: CalendarMonth) async throws -> [HouseholdShare] {
         shareQueries.append(month)
         if let failure { throw failure }
+        if let sharesFailure { throw sharesFailure }
         return shares
     }
 
@@ -154,5 +157,10 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     /// 之後的請求都以這個錯誤失敗。
     public func fail(with error: RepositoryError) {
         failure = error
+    }
+
+    /// 之後只有公帳代墊統計(`householdShares`)以這個錯誤失敗。
+    public func failHouseholdShares(with error: RepositoryError) {
+        sharesFailure = error
     }
 }

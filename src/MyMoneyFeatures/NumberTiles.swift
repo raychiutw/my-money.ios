@@ -95,6 +95,10 @@ struct NumberTile: View {
     var warnsWhenNegative = false
     /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 CONTEXT.md 的正名(例如「信用卡待繳總額」)。
     var spokenTitle: String?
+    /// 金額底下的組成明細(總覽的三格數字,#178):小字、靠右、放不下就折行(不截斷)。
+    var details: [String] = []
+    /// 明細的 VoiceOver 念法;沒有時念畫面上的字。
+    var spokenDetails: String?
 
     @Environment(\.numberTileStyle) private var layoutStyle
 
@@ -104,7 +108,29 @@ struct NumberTile: View {
             .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 16))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spokenTitle ?? title)
-            .accessibilityValue(amount.spokenText)
+            .accessibilityValue(spokenValue)
+    }
+
+    private var spokenValue: String {
+        let details = spokenDetails ?? self.details.joined(separator: "，")
+        return details.isEmpty ? amount.spokenText : "\(amount.spokenText)，\(details)"
+    }
+
+    /// 明細不影響欄數:理想寬度算 0(放不下就折行),所以磚是否並排只看標籤與金額。
+    @ViewBuilder
+    private var detailLines: some View {
+        if !details.isEmpty {
+            VStack(alignment: .trailing, spacing: 0) {
+                ForEach(details, id: \.self) { line in
+                    Text(line)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            .frame(idealWidth: 0, maxWidth: .infinity, alignment: .trailing)
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     @ViewBuilder
@@ -117,22 +143,26 @@ struct NumberTile: View {
                 Spacer(minLength: 0)
                 number
                     .frame(maxWidth: .infinity, alignment: .trailing)
+                detailLines
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .row:
-            // 一格一列：標籤靠左、金額靠右在同一行;同一行放不下(無障礙字級)就標籤在上、金額在下一行。
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    label
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    number
+            // 一格一列：標籤靠左、金額靠右在同一行;同一行放不下(無障礙字級)就標籤在上、金額在下一行。明細在金額底下。
+            VStack(alignment: .leading, spacing: 4) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        label
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        number
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        label
+                        number
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    label
-                    number
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
+                detailLines
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

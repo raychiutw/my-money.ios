@@ -93,7 +93,7 @@ struct OverviewForecastTests {
         #expect(overview.phase == .loaded, "預測失敗不該讓整個總覽失敗")
         #expect(overview.forecast == nil)
         #expect(overview.summary != nil, "其他資料要照常載入")
-        #expect(!overview.recentTransactions.isEmpty)
+        #expect(!overview.accountCards.isEmpty)
     }
 
     @Test("沒有預測資料來源時(例如舊的呼叫端)總覽照常運作")

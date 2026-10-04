@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("總覽下半部:數字磚、帳戶卡片、超支提示、儲蓄目標圓環(#117)")
+@Suite("總覽下半部:數字磚、帳戶卡片、超支提示(#117)")
 struct OverviewLowerTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let defaults: UserDefaults
@@ -173,40 +173,5 @@ struct OverviewLowerTests {
         #expect(overview.overBudgets.count == 1)
         #expect(overview.overBudgetChipTitle == "1 個分類超支")
         #expect(overview.overBudgetTitle == "有 1 個分類支出已超出預算")
-    }
-
-    // MARK: 儲蓄目標圓環
-
-    @Test("儲蓄目標圓環最多三個，百分比來自後端的已存與目標金額;VoiceOver 念「名稱，已達成百分之 N」")
-    func goalRings() async throws {
-        let goals = InMemorySavingsGoalRepository(
-            goals: (1...4).map {
-                SavingsGoal(
-                    id: SavingsGoalID("g\($0)"), name: "目標\($0)", emoji: "🎯", targetAmount: Money(1000),
-                    savedAmount: Money(Decimal(100 * $0)), monthlyReserve: .zero, deadline: nil
-                )
-            }
-        )
-        let overview = model(accounts: .sampleWithCash(), goals: goals)
-        await overview.load()
-
-        #expect(overview.topGoals.count == 3)
-        #expect(overview.topGoals.map(\.percentText) == ["10%", "20%", "30%"])
-        #expect(overview.topGoals.map(\.ringSpokenText) == ["目標1，已達成百分之 10", "目標2，已達成百分之 20", "目標3，已達成百分之 30"])
-    }
-
-    @Test("圓環的百分比最多 100，目標金額是 0 時是 0")
-    func ringPercentIsClamped() {
-        let full = SavingsGoal(
-            id: SavingsGoalID("full"), name: "滿了", emoji: "🎒", targetAmount: Money(1000), savedAmount: Money(1500),
-            monthlyReserve: .zero, deadline: nil
-        )
-        let empty = SavingsGoal(
-            id: SavingsGoalID("empty"), name: "空的", emoji: "🎒", targetAmount: .zero, savedAmount: .zero, monthlyReserve: .zero,
-            deadline: nil
-        )
-
-        #expect(full.ringSpokenText == "滿了，已達成百分之 100")
-        #expect(empty.ringSpokenText == "空的，已達成百分之 0")
     }
 }

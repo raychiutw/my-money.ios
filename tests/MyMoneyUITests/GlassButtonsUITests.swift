@@ -143,17 +143,8 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(accountsMore.frame.height, 44, "「…」高度不到 44pt:\(accountsMore.frame)")
         XCTAssertEqual(accountsMore.label, "帳戶的更多動作")
 
-        let recentMore = app.buttons["overview.recent.more"]
-        for _ in 0..<8 where !(recentMore.exists && recentMore.isHittable) { app.swipeUp() }
-        XCTAssertTrue(recentMore.exists, "最近區塊標題沒有「…」")
         XCTAssertFalse(app.buttons["管理"].exists, "還有裸文字按鈕「管理」")
         XCTAssertFalse(app.buttons["全部"].exists, "還有裸文字按鈕「全部」")
-
-        recentMore.tap()
-        XCTAssertTrue(app.buttons["查看全部收支明細"].waitForExistence(timeout: 3), "選單沒有「查看全部收支明細」")
-        XCTAssertTrue(app.buttons["記一筆"].exists, "選單沒有「記一筆」")
-        app.buttons["查看全部收支明細"].tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「查看全部收支明細」沒有進入交易 tab")
     }
 
     @MainActor
@@ -173,7 +164,7 @@ final class GlassButtonsUITests: XCTestCase {
         XCUIDevice.shared.appearance = appearance
         let app = launchSignedIn()
         let name = appearance == .dark ? "深色" : "淺色"
-        for identifier in ["overview.accounts.more", "overview.recent.more"] {
+        for identifier in ["overview.accounts.more"] {
             let more = app.buttons[identifier]
             for _ in 0..<8 where !(more.exists && more.isHittable) { app.swipeUp() }
             XCTAssertTrue(more.exists, "\(name):沒有 \(identifier)")
@@ -186,10 +177,8 @@ final class GlassButtonsUITests: XCTestCase {
             let symbol = try PixelAnalysis.statistics(of: image, region: PixelAnalysis.center)
             XCTAssertGreaterThan(symbol.darkFraction + symbol.lightFraction, 0.005, "\(name):\(identifier) 連符號都看不到")
         }
-        let recentMore = app.buttons["overview.recent.more"]
-        recentMore.tap()
-        XCTAssertTrue(app.buttons["查看全部收支明細"].waitForExistence(timeout: 3), "\(name):選單沒有「查看全部收支明細」")
-        XCTAssertTrue(app.buttons["記一筆"].exists, "\(name):選單沒有「記一筆」")
+        app.buttons["overview.accounts.more"].tap()
+        XCTAssertTrue(app.buttons["管理帳戶"].waitForExistence(timeout: 3), "\(name):選單沒有「管理帳戶」")
     }
 
     @MainActor

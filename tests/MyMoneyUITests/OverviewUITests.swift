@@ -6,9 +6,9 @@ final class OverviewUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// 從總覽記一筆 250 元 → 當月淨收支和最近交易跟著更新;「查看全部」進入交易 tab。
+    /// 從總覽記一筆 250 元 → 當月淨收支和「記帳」入口的本月筆數跟著更新;點「記帳」入口進入記帳 tab。
     @MainActor
-    func testQuickEntryUpdatesMonthNetAndRecent() throws {
+    func testQuickEntryUpdatesMonthNetAndLedgerCount() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -16,6 +16,9 @@ final class OverviewUITests: XCTestCase {
 
         // 範例：收入 45,000,支出 120 + 880(信用卡還款不算)。
         XCTAssertTrue(row("當月淨收支", value: "44,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
+        let ledger = app.buttons["home.entry.ledger"]
+        XCTAssertTrue(ScrollSupport.revealFully(ledger, in: app), "總覽沒有「記帳」入口")
+        XCTAssertEqual(ledger.label, "記帳，本月 4 筆", "「記帳」入口沒有念出本月筆數")
 
         app.buttons["overview.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -26,17 +29,11 @@ final class OverviewUITests: XCTestCase {
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
-        // 最近交易在畫面下方;List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        let recent = element(in: app, labelContaining: "支出 250 元")
-        for _ in 0..<5 where !recent.exists { app.swipeUp() }
-        XCTAssertTrue(recent.exists, "記一筆後最近交易沒有更新")
+        XCTAssertTrue(ScrollSupport.revealFully(ledger, in: app), "記一筆後找不到「記帳」入口")
+        XCTAssertEqual(ledger.label, "記帳，本月 5 筆", "記一筆後「記帳」入口的本月筆數沒有更新")
 
-        // 區塊標題右邊是「…」玻璃圓鈕(#134):點開選單，「查看全部收支明細」進入交易 tab。
-        let more = app.buttons["overview.recent.more"]
-        for _ in 0..<5 where !more.isHittable { app.swipeUp() }
-        more.tap()
-        app.buttons["查看全部收支明細"].tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "最近的「查看全部收支明細」沒有進入交易 tab")
+        ledger.tap()
+        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「記帳」入口沒有進入記帳 tab")
     }
 
     /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面是三格數字磚(#117):
@@ -63,10 +60,71 @@ final class OverviewUITests: XCTestCase {
             XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一磚")
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
-        // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
-        for formula in ["活存帳戶 $50,000", "已扣掉每月平均", "收入 $45,000"] {
-            XCTAssertFalse(element(in: app, labelContaining: formula).exists, "總覽還有公式明細「\(formula)」")
+        // 淨可用餘額底下一行組成(#178),後端的值;三格數字磚各帶兩行組成明細。
+        let composition = app.staticTexts["overview.composition"]
+        XCTAssertTrue(composition.exists, "淨可用餘額底下沒有組成一行")
+        XCTAssertEqual(composition.label, "現金 0 元，加活存帳戶 50,000 元，減信用卡待繳 28,500 元", "組成一行的念法不對")
+        XCTAssertLessThan(available.frame.minY, composition.frame.minY, "組成一行不在淨可用餘額下面")
+        XCTAssertLessThan(composition.frame.maxY, chart.frame.minY, "組成一行不在走勢圖上面")
+        let cardTile = element(in: app, labelContaining: "信用卡待繳")
+        XCTAssertTrue((cardTile.value as? String ?? "").contains("2 張信用卡"), "信用卡待繳磚沒有張數:\(String(describing: cardTile.value))")
+        let netTile = row("當月淨收支", value: "44,000 元", in: app)
+        XCTAssertTrue((netTile.value as? String ?? "").contains("收入 45,000 元，支出 1,000 元"), "當月淨收支磚沒有收入與支出:\(String(describing: netTile.value))")
+    }
+
+    /// 功能入口格(#178):8 個入口都在,念成「名稱，關鍵數字」;點了切到對應的 tab 或 push 對應的畫面。
+    @MainActor
+    func testEntriesOpenTheirScreens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        let expected = [
+            ("ledger", "記帳，本月 4 筆"), ("accounts", "帳戶，3 個帳戶"), ("creditCards", "信用卡，待繳 28,500 元"),
+            ("household", "家庭"), ("statistics", "統計，"), ("recurring", "週期收支，"), ("goals", "儲蓄目標，已存 4,000 元，整體達成率 2.5%"),
+            ("forecast", "現金流預測，最低 53,440 元"),
+        ]
+        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        for (id, label) in expected {
+            let entry = app.buttons["home.entry.\(id)"]
+            XCTAssertTrue(ScrollSupport.revealFully(entry, in: app), "總覽沒有「\(id)」入口")
+            XCTAssertTrue(entry.label.hasPrefix(label), "「\(id)」入口的念法不對:\(entry.label)，預期以「\(label)」開頭")
         }
+
+        // 切 tab 的入口:點了選到對應的 tab，再回總覽。
+        for (id, tab) in [("ledger", "記帳"), ("accounts", "帳戶"), ("creditCards", "帳戶"), ("household", "家庭"), ("statistics", "統計")] {
+            app.openHomeEntry(id)
+            XCTAssertTrue(app.tabBars.buttons[tab].waitForExistence(timeout: 3) && app.tabBars.buttons[tab].isSelected, "「\(id)」入口沒有切到「\(tab)」")
+            app.tabBars.buttons["總覽"].tap()
+        }
+
+        // push 的入口:進得去,返回回到總覽。
+        for (id, marker) in [("recurring", "recurring.add"), ("goals", "goals.add"), ("forecast", "forecast.purchaseAmount")] {
+            app.openHomeEntry(id)
+            XCTAssertTrue(app.descendants(matching: .any)[marker].waitForExistence(timeout: 5), "「\(id)」入口沒有進到對應的畫面")
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(app.staticTexts["overview.composition"].waitForExistence(timeout: 5), "「\(id)」返回之後沒有回到總覽")
+        }
+    }
+
+    /// 單一入口放不下就整格單欄:預設字級兩欄(同一排)、AX5 單欄(上下排)。
+    @MainActor
+    func testEntriesAreTwoColumnsOnlyWhenTheyFit() throws {
+        let normal = launchAtContentSize("UICTContentSizeCategoryL")
+        _ = normal.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        let first = normal.buttons["home.entry.ledger"], second = normal.buttons["home.entry.accounts"]
+        XCTAssertTrue(ScrollSupport.revealFully(first, in: normal), "沒有「記帳」入口")
+        XCTAssertEqual(first.frame.minY.rounded(), second.frame.minY.rounded(), "預設字級入口格沒有兩欄:\(first.frame) \(second.frame)")
+        normal.terminate()
+
+        let large = launchAtContentSize("UICTContentSizeCategoryAccessibilityXXXL")
+        _ = large.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        let a = large.buttons["home.entry.ledger"], b = large.buttons["home.entry.accounts"]
+        XCTAssertTrue(ScrollSupport.revealFully(a, in: large), "AX5 沒有「記帳」入口")
+        XCTAssertTrue(b.exists || ScrollSupport.revealFully(b, in: large), "AX5 沒有「帳戶」入口")
+        XCTAssertNotEqual(a.frame.minY.rounded(), b.frame.minY.rounded(), "AX5 入口格沒有單欄:\(a.frame) \(b.frame)")
+        XCTAssertGreaterThan(a.frame.width, large.windows.firstMatch.frame.width * 0.8, "AX5 入口格沒有用滿寬度")
     }
 
     /// 超支提示(#117):範例的預算額度餐飲 100、已花 120，所以有一個精簡的提示;點了切到統計 tab 的預算額度。
@@ -84,21 +142,6 @@ final class OverviewUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "已花").exists, "總覽還有已花和預算額度")
         chip.tap()
         XCTAssertTrue(app.buttons["statistics.scope"].waitForExistence(timeout: 3), "超支提示沒有切到統計 tab")
-    }
-
-    /// 最近交易只有圖示、名稱和金額(#117):整列念成一句話「分類，備註，收支金額」;日期、帳戶、記帳人在交易頁。
-    @MainActor
-    func testRecentTransactionReadsAsOneSentence() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
-
-        let headphones = app.descendants(matching: .any)["購物，耳機，支出 880 元"]
-        for _ in 0..<5 where !headphones.exists { app.swipeUp() }
-        XCTAssertTrue(headphones.exists, "最近交易的耳機沒有念成一句「分類，備註，金額」")
-        XCTAssertFalse(element(in: app, labelContaining: "帳戶 iOS").exists, "最近交易還顯示帳戶")
-        XCTAssertFalse(element(in: app, labelContaining: "記帳人").exists, "最近交易還顯示記帳人")
     }
 
     /// 帳戶卡片(#117):信用卡卡片念成一句話(待繳總額、每月幾日繳款)，點進去是信用卡詳細頁(#73)。
@@ -242,7 +285,7 @@ final class OverviewUITests: XCTestCase {
     /// 摘要和超支警告的一般列：VoiceOver 念標籤，值是金額，例如標籤「當月淨收支」、值「44,000 元」。
     @MainActor
     private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value == %@", label, value)).firstMatch
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value BEGINSWITH %@", label, value)).firstMatch
     }
 
     @MainActor
