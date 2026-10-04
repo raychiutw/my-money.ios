@@ -159,7 +159,11 @@ private struct Tour {
         password.tap()
         // 密碼欄按 Return 就送出;大字級時登入按鈕可能被鍵盤擋住。
         password.typeText("secret123\n")
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
+        // iPad 的 tab 是導覽列上的按鈕(identifier 是 SF Symbol 名稱)，不是 tabBars。
+        XCTAssertTrue(
+            app.tabBars.buttons["總覽"].waitForExistence(timeout: 10) || app.buttons["house"].waitForExistence(timeout: 3),
+            "登入後沒有進入 tab 外殼"
+        )
     }
 
     /// 先捲到元素整個露出來再點(例如大字級時在清單很下面的按鈕)。
@@ -172,7 +176,10 @@ private struct Tour {
     }
 
     func select(tab: String) {
-        tap(app.tabBars.buttons[tab])
+        let symbols = ["總覽": "house", "交易": "list.bullet.rectangle", "帳戶": "creditcard", "家庭": "person.2", "統計": "chart.bar"]
+        let bar = app.tabBars.buttons[tab]
+        // iPad 的按鈕在階層裡出現兩層(外層與內層，identifier 相同)，取第一個。
+        tap(bar.exists ? bar : app.buttons[symbols[tab] ?? tab].firstMatch)
     }
 
     /// 點入口 push 一頁，拍完(以及 `inside` 裡的動作)之後點系統的返回按鈕回來。

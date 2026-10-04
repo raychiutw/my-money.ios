@@ -24,37 +24,40 @@ struct HIGReviewCompletenessTests {
         return pages
     }
 
-    private func reviewText() throws -> String {
+    /// 兩份審查:iPhone 與 iPad(#166)。檔名結尾不同，巡覽的頁面清單相同。
+    private static let reviews = ["apple-hig-page-by-page-review.md", "apple-hig-ipad-page-by-page-review.md"]
+
+    private func reviewText(_ suffix: String) throws -> String {
         let directory = Self.root.appending(path: "docs/research")
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         let review = try #require(
-            files.first { $0.lastPathComponent.hasSuffix("apple-hig-page-by-page-review.md") },
-            "docs/research/ 沒有 *-apple-hig-page-by-page-review.md"
+            files.first { $0.lastPathComponent.hasSuffix("-\(suffix)") },
+            "docs/research/ 沒有 *-\(suffix)"
         )
         return try String(contentsOf: review, encoding: .utf8)
     }
 
-    @Test("截圖巡覽有 28 頁，審查文件每一頁都有一節(標題寫頁面名稱)")
-    func everyTourPageHasASection() throws {
+    @Test("截圖巡覽有 28 頁以上，審查文件每一頁都有一節(標題寫頁面名稱)", arguments: reviews)
+    func everyTourPageHasASection(review: String) throws {
         let pages = try tourPages()
         #expect(pages.count >= 28, "截圖巡覽的頁面清單讀不到或變少了:\(pages)")
-        let text = try reviewText()
+        let text = try reviewText(review)
         let missing = pages.filter { !text.contains("### `\($0)`") }
         #expect(missing.isEmpty, "審查文件缺少這些頁面的一節(### `頁面名稱`):\(missing)")
     }
 
-    @Test("每個「缺失」都有處理:修正的說明(已修正)或後續票號(#數字)")
-    func everyDefectHasAnOutcome() throws {
-        let rows = try reviewText().split(separator: "\n").filter { $0.contains("❌") && $0.hasPrefix("|") }
+    @Test("每個「缺失」都有處理:修正的說明(已修正)或後續票號(#數字)", arguments: reviews)
+    func everyDefectHasAnOutcome(review: String) throws {
+        let rows = try reviewText(review).split(separator: "\n").filter { $0.contains("❌") && $0.hasPrefix("|") }
         let unresolved = rows.filter { row in
             row.range(of: #"#\d+"#, options: .regularExpression) == nil && !row.contains("已修正")
         }
         #expect(unresolved.isEmpty, "這些缺失沒有處理(要有票號或「已修正」):\n\(unresolved.joined(separator: "\n"))")
     }
 
-    @Test("每一列都有結論:符合、刻意偏離、缺失、需要真機確認")
-    func everyRowHasAVerdict() throws {
-        let text = try reviewText()
+    @Test("每一列都有結論:符合、刻意偏離、缺失、需要真機確認", arguments: reviews)
+    func everyRowHasAVerdict(review: String) throws {
+        let text = try reviewText(review)
         let verdicts = ["✅", "⚠️", "❌", "📱"]
         let tableRows = text.split(separator: "\n").filter { $0.hasPrefix("| ") && !$0.hasPrefix("| ---") && !$0.hasPrefix("| 議題") }
         let missing = tableRows.filter { row in !verdicts.contains { row.contains($0) } }
