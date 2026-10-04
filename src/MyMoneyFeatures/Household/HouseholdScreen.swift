@@ -249,10 +249,10 @@ extension HouseholdScreen {
             AdvanceDetails(advance: advance, dateText: model.dateText)
         }
         if model.canReimburse(advance) {
-            Button("從共同基金報銷", systemImage: "arrow.uturn.left.circle") {
+            Button(Terms.reimburse, systemImage: "arrow.uturn.left.circle") {
                 reimbursement = model.makeReimbursement(for: advance)
             }
-            .accessibilityLabel("從共同基金報銷給\(advance.memberName)")
+            .accessibilityLabel("\(Terms.reimburse)給\(advance.memberName)")
             .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
         }
     }

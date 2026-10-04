@@ -60,9 +60,9 @@ public final class AccountsModel {
         loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
     }
 
-    /// 橫幅的一句話，例如「家庭公帳待報銷代墊款 $850」。
+    /// 橫幅的一句話，例如「家庭公帳待報銷總額 $850」。
     public var pendingAdvanceBannerText: String {
-        "家庭公帳待報銷代墊款 \((pendingAdvanceTotal ?? .zero).formatted())"
+        "家庭公帳\(Terms.pendingReimbursementTotal) \((pendingAdvanceTotal ?? .zero).formatted())"
     }
 
     /// 公帳範圍:各成員待報銷的加總;只在公帳範圍多問一次，取不到(或沒有家庭)是 `nil`，不影響帳戶頁其他區塊。

@@ -64,7 +64,7 @@ final class OverviewUITests: XCTestCase {
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
         // 公式明細在帳戶頁、週期收支、儲蓄目標和統計頁，總覽不寫。
-        for formula in ["活存帳戶 $50,000", "已扣掉分攤平滑", "收入 $45,000"] {
+        for formula in ["活存帳戶 $50,000", "已扣掉每月平均", "收入 $45,000"] {
             XCTAssertFalse(element(in: app, labelContaining: formula).exists, "總覽還有公式明細「\(formula)」")
         }
     }

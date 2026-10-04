@@ -183,13 +183,13 @@ extension RecurringItem {
         showsMonthlyAmortization ? "\(monthlyAmortization.formatted())／月" : nil
     }
 
-    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，分攤平滑每月 2,000 元」。
+    /// VoiceOver 把整列念成一句，例如「年繳保費，週期支出 24,000 元，每年 1 月 15 號扣款，換算每月平均 2,000 元」。
     public var spokenText: String {
         var parts = [name, "\(type == .income ? "週期收入" : "週期支出") \(amount.spokenText)", scheduleText]
         if let ownerName { parts.append("建立者 \(ownerName)") }
         parts.append(OwnershipName.title(isShared: isShared))
         if let accountText { parts.append("帳戶 \(accountText)") }
-        if showsMonthlyAmortization { parts.append("分攤平滑每月 \(monthlyAmortization.spokenText)") }
+        if showsMonthlyAmortization { parts.append("\(Terms.monthlyAverage) \(monthlyAmortization.spokenText)") }
         return parts.joined(separator: "，")
     }
 }

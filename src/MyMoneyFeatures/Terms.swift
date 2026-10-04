@@ -16,6 +16,8 @@ public enum Terms {
     public static let expenseAmortization = "週期支出每月平均"
     /// 週期收入每月平均。
     public static let incomeAmortization = "週期收入每月平均"
+    /// 換算每月平均:長週期的單一項目(年繳、季繳)換算成每月的金額(上游舊稱:換算月分攤平滑)。
+    public static let monthlyAverage = "換算每月平均"
     /// 待報銷總額(上游舊稱:待報銷代墊總額)。
     public static let pendingReimbursementTotal = "待報銷總額"
     /// 報銷沖帳(上游舊稱:從共同基金一鍵報銷)。

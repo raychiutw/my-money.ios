@@ -4,7 +4,7 @@ import Testing
 
 /// 使用者看得見的詞只有一套(#181、`docs/parity.md` 用詞偏離、CONTEXT.md):
 /// 掃描 `src/` 的**字串常值**(註解不算，註解常引用上游原文)，出現舊詞就失敗。
-/// 用詞更名分三張票逐步套用(expand–contract):沒套用到的地方先列在例外清單，標明由哪張票清掉;例外清空就完成。
+/// 用詞更名分三張票逐步套用(expand–contract，#185～#187):當時沒套用到的地方先列在例外清單，清完就刪;現在例外是空的。
 @Suite("用詞規則:字串常值裡沒有舊詞")
 struct TermsRulesTests {
     /// 舊詞 → 新詞(說明用)。
@@ -19,11 +19,9 @@ struct TermsRulesTests {
         ("一鍵報銷", "報銷沖帳"),
     ]
 
-    /// 例外:`檔名|舊詞` → 由哪張票清掉。清掉一批就刪一批;新增例外要有票號。
-    private static let exceptions: [String: String] = [
-        "RecurringModel.swift|分攤平滑": "#187",
-        "RecurringScreen.swift|分攤平滑": "#187",
-    ]
+    /// 例外:`檔名|舊詞` → 理由與票號。用詞更名(#185、#186、#187)的例外都清完了，現在是空的;
+    /// 新增例外要寫理由(例如引用上游原文)，不可以拿來放行還沒改的舊詞。
+    private static let exceptions: [String: String] = [:]
 
     private static let sourceRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -105,10 +103,10 @@ struct TermsRulesTests {
     func termsSourceUsesNewWords() {
         let all = [
             Terms.bankAccount, Terms.cash, Terms.ledger, Terms.transactions, Terms.expenseAmortization,
-            Terms.incomeAmortization, Terms.pendingReimbursementTotal, Terms.reimburse,
+            Terms.incomeAmortization, Terms.monthlyAverage, Terms.pendingReimbursementTotal, Terms.reimburse,
         ]
 
-        #expect(all == ["活存帳戶", "現金", "記帳", "收支明細", "週期支出每月平均", "週期收入每月平均", "待報銷總額", "報銷沖帳"])
+        #expect(all == ["活存帳戶", "現金", "記帳", "收支明細", "週期支出每月平均", "週期收入每月平均", "換算每月平均", "待報銷總額", "報銷沖帳"])
         for term in all {
             for (old, _) in Self.oldTerms { #expect(!term.contains(old), "\(term) 含舊詞 \(old)") }
         }

@@ -421,7 +421,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(mei.waitForNonExistence(timeout: 8), "繳清之後小美的卡還在公帳範圍")
     }
 
-    /// 公帳範圍的「家庭公帳待報銷代墊款」橫幅(上游 ADR 0015、#141):各成員待報銷加總(範例是 250 + 600)，
+    /// 公帳範圍的「家庭公帳待報銷總額」橫幅(上游 ADR 0015、#141):各成員待報銷加總(範例是 250 + 600)，
     /// 「前往家庭」切到家庭 tab;全部範圍沒有橫幅。
     @MainActor
     func testPendingAdvancesBannerAppearsInHouseholdScopeAndOpensFamily() throws {
@@ -442,12 +442,12 @@ final class AccountsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
-        XCTAssertFalse(element(in: app, labelContaining: "家庭公帳待報銷代墊款").exists, "全部範圍不該有待報銷橫幅")
+        XCTAssertFalse(element(in: app, labelContaining: "家庭公帳待報銷總額").exists, "全部範圍不該有待報銷橫幅")
 
         let filter = app.buttons["accounts.scope"]
         filter.tap()
         app.buttons["家庭公帳"].tap()
-        let banner = element(in: app, labelContaining: "家庭公帳待報銷代墊款 $850")
+        let banner = element(in: app, labelContaining: "家庭公帳待報銷總額 $850")
         XCTAssertTrue(banner.waitForExistence(timeout: 5), "公帳範圍沒有待報銷橫幅")
         let open = app.buttons["accounts.pendingAdvances.open"]
         XCTAssertTrue(open.exists && open.isHittable, "橫幅沒有可點的「前往家庭」")
