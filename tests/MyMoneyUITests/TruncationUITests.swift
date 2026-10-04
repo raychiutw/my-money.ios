@@ -105,15 +105,7 @@ final class TruncationUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingOverdraftForecast", "-resetSession"]
         if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
         app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        // 密碼欄按 Return 就送出;大字級時登入按鈕可能被鍵盤擋住。
-        password.typeText("secret123\n")
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
+        app.signInWithSampleAccount()
         return app
     }
 }

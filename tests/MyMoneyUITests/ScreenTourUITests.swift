@@ -157,8 +157,11 @@ private struct Tour {
         email.typeText("family@example.com")
         let password = app.secureTextFields["login.password"]
         password.tap()
-        // 密碼欄按 Return 就送出;大字級時登入按鈕可能被鍵盤擋住。
-        password.typeText("secret123\n")
+        password.typeText("secret123")
+        // 用登入鈕送出，不用 Return(Return 會讓系統偶爾彈出「要儲存密碼嗎？」);大字級時登入鈕可能被鍵盤擋住，先往上捲。
+        let submit = app.buttons["login.submit"]
+        for _ in 0..<4 where !(submit.exists && submit.isHittable) { app.swipeUp() }
+        submit.tap()
         // iPad 的 tab 是導覽列上的按鈕(identifier 是 SF Symbol 名稱)，不是 tabBars。
         XCTAssertTrue(
             app.tabBars.buttons["總覽"].waitForExistence(timeout: 10) || app.buttons["house"].waitForExistence(timeout: 3),

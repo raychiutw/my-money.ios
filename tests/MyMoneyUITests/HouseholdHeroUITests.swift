@@ -29,14 +29,7 @@ final class HouseholdHeroUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-resetSession"]
         if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
         app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123\n")
-        XCTAssertTrue(app.tabBars.buttons["家庭"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
+        app.signInWithSampleAccount()
         app.tabBars.buttons["家庭"].tap()
         // 家庭資料是非同步載入的，載入前只有骨架:等到家庭名稱出現(大字級時「離開家庭」在很下面，清單還沒建立它)。
         XCTAssertTrue(app.staticTexts["我們家"].waitForExistence(timeout: 15), "沒有看到已加入的家庭頁")

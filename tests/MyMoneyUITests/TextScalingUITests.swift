@@ -22,14 +22,7 @@ final class TextScalingUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-resetSession"]
         if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
         app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123\n")
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 10), "登入後沒有進入 tab 外殼")
+        app.signInWithSampleAccount()
         // 剛登入時總覽還在載入，頭像按鈕點下去偶爾沒反應:沒打開就再點一次。
         let close = app.buttons["me.close"]
         for _ in 0..<3 where !close.exists {
