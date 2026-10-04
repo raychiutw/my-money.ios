@@ -90,3 +90,141 @@ struct OverviewEntryGrid<Content: View>: View {
         }
     }
 }
+
+/// 總覽「接下來 30 天」的一列預定收支(#189):名稱、次要文字「日期・歸屬」、帶正負號的金額(收入綠、支出紅),
+/// 右邊是「已繳」圓圈(沒有識別碼或不能勾選的事件沒有圓圈)。已繳的整列變淡、金額加刪除線,次要文字寫「已繳」(不只靠顏色)。
+/// 無障礙字級左右放不下,改成名稱、次要文字、金額由上往下,金額在最下面靠右,圓圈在最右邊。
+struct UpcomingEventRow: View {
+    let row: UpcomingEvent
+    let isBusy: Bool
+    let toggle: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            texts
+                .opacity(row.event.isSettled ? 0.58 : 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(row.spokenText)
+            if row.isSettleable {
+                SettleButton(isSettled: row.event.isSettled, isBusy: isBusy, action: toggle)
+                    .accessibilityLabel(row.checkLabel)
+                    .accessibilityIdentifier("overview.settle.\(row.id)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var texts: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 2) {
+                name
+                subtitle
+                amount.frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    name
+                    subtitle
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                amount
+            }
+        }
+    }
+
+    private var name: some View {
+        Text(row.event.name)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+    }
+
+    private var subtitle: some View {
+        Text("\(row.dateText)・\(row.subtitle)")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+    }
+
+    /// 金額一律單行。
+    private var amount: some View {
+        Text(row.amountText)
+            .monospacedDigit()
+            .foregroundStyle(row.isIncome ? .green : .red)
+            .strikethrough(row.event.isSettled)
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
+/// 總覽帳戶卡(#190):橫向捲動的一排裡的一張。類型圖示(帳戶代表色)加名稱、大金額(靠右)、底下小字(信用卡兩行,現金與活存帳戶一行歸屬)。
+/// 一般字級固定寬度(跟著字級放大);無障礙字級接近整個畫面寬,名稱完整折行、不截斷。點了看該帳戶的記帳。
+struct OverviewAccountCardView: View {
+    let card: OverviewAccountCard
+
+    @ScaledMetric(relativeTo: .body) private var cardWidth: CGFloat = 176
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label {
+                Text(card.name)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    // 名稱完整折行、不截斷(HIG 盡量少截斷);一般字級最多兩行。
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+            } icon: {
+                Image(systemName: card.symbolName)
+                    .foregroundStyle(Color(hex: card.colorHex) ?? .gray)
+            }
+            Text(card.amount.formatted())
+                .font(.title3.bold())
+                .monospacedDigit()
+                .lineLimit(1)
+                .foregroundStyle(card.isDue ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            ForEach(card.detailLines, id: \.self) { line in
+                Text(line)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .modifier(CardWidth(accessibility: dynamicTypeSize.isAccessibilitySize, width: cardWidth))
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.groupedCardBackground, in: RoundedRectangle(cornerRadius: 18))
+        .contentShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private struct CardWidth: ViewModifier {
+        let accessibility: Bool
+        let width: CGFloat
+
+        func body(content: Content) -> some View {
+            if accessibility {
+                // 無障礙字級:幾乎整個畫面寬,旁邊露出下一張的邊緣提示可以橫向捲動。
+                content.containerRelativeFrame(.horizontal) { container, _ in container * 0.88 }
+            } else {
+                content.frame(width: width, alignment: .topLeading)
+            }
+        }
+    }
+}
+
+/// 橫向捲動的一排帳戶卡(#190):每張一樣高,卡片可以捲到畫面邊緣之外(列表左右邊界不裁切)。
+struct OverviewAccountCardRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 10) {
+                content()
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollClipDisabled()
+    }
+}

@@ -315,6 +315,20 @@ struct ForecastTests {
         #expect(model.settlingKeys.isEmpty)
     }
 
+    @Test("勾選已繳成功後遞增資料版本(總覽「接下來 30 天」等其他畫面跟著重抓，#189);失敗時不遞增")
+    func settleBumpsTheDataVersion() async throws {
+        let (model, repository) = await loaded()
+        let before = model.dataVersion.value
+
+        await model.setSettled(true, for: try rentEvent(model))
+        let afterSuccess = model.dataVersion.value
+        #expect(afterSuccess > before)
+
+        await repository.fail(with: .rejected("壞了"))
+        await model.setSettled(false, for: try rentEvent(model))
+        #expect(model.dataVersion.value == afterSuccess)
+    }
+
     @Test("再點一次取消已繳")
     func unsettle() async throws {
         let (model, repository) = await loaded()

@@ -10,6 +10,16 @@ enum Skeleton {
     /// 只用來撐出版面寬度;套上 `.redacted` 後不會顯示數字。
     static let amount = Money(88_888)
     static let text = "佔位文字佔位文字"
+    static let upcomingEvent = UpcomingEvent(
+        event: ForecastEvent(
+            date: CalendarDay(year: 2026, month: 1, day: 1), name: "預定收支名稱", type: .expense, amount: Money(888), key: "skeleton",
+            canSettle: true
+        ),
+        dateText: "1月1日", subtitle: "個人私帳", amountText: "−$888", spokenText: ""
+    )
+    static let accountCard = OverviewAccountCard(
+        BankAccount(id: AccountID("skeleton"), name: "帳戶名稱", colorHex: "#A8D8EA", balance: Skeleton.amount, isJointFund: false)
+    )
     static let transaction = MyMoneyDomain.Transaction(
         id: TransactionID("skeleton"), accountID: AccountID("skeleton"), accountName: "佔位帳戶", type: .expense,
         category: .dining, amount: Money(888), note: "佔位備註", date: CalendarDay(year: 2026, month: 1, day: 1),

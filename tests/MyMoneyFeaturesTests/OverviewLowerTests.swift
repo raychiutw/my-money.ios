@@ -110,33 +110,26 @@ struct OverviewLowerTests {
         #expect(overview.accountCards.map(\.isCreditCard) == [false, false, true, true])
     }
 
-    @Test("信用卡卡片:有待繳時是警示狀態，視覺「N 日繳」、VoiceOver「每月 N 日繳款」;沒有設定繳款日時不顯示")
-    func creditCardCardDueDay() async throws {
+    @Test("信用卡卡片:有待繳時是警示狀態,已全數結清不是")
+    func creditCardCardWarning() async {
         let repository = InMemoryAccountRepository(
-            accounts: [card(1, billed: 1000, dueDay: 5), card(2, billed: 0, dueDay: nil), card(3, billed: 0, dueDay: 20)],
-            summary: SampleAccounts.summary
+            accounts: [card(1, billed: 1000, dueDay: 5), card(2, billed: 0, dueDay: nil)], summary: SampleAccounts.summary
         )
         let overview = await loaded(accounts: repository)
-        let (due, noDay, settled) = (overview.accountCards[0], overview.accountCards[1], overview.accountCards[2])
 
-        #expect(due.isDue)
-        #expect(due.dueDayText == "5 日繳")
-        #expect(due.spokenText == "信用卡1，信用卡待繳總額 1,000 元，每月 5 日繳款")
-        #expect(noDay.dueDayText == nil)
-        #expect(noDay.spokenText == "信用卡2，信用卡待繳總額 0 元")
-        // 已全數結清:不是警示狀態(金額不用紅色)。
-        #expect(!settled.isDue)
+        #expect(overview.accountCards[0].isDue)
+        #expect(!overview.accountCards[1].isDue)
     }
 
-    @Test("現金與活存帳戶卡片:VoiceOver 念名稱、類型、餘額;沒有繳款日")
+    @Test("現金與活存帳戶卡片:VoiceOver 念名稱、類型、歸屬、餘額")
     func cashAndBankCardsSpeakKindAndBalance() async throws {
         let overview = await loaded()
         let wallet = try #require(overview.accountCards.first)
         let bank = overview.accountCards[1]
 
-        #expect(wallet.spokenText == "iOS 測試皮夾，現金，餘額 1,500 元")
-        #expect(bank.spokenText == "iOS 測試存款，活存帳戶，餘額 50,000 元")
-        #expect(wallet.dueDayText == nil && !wallet.isDue)
+        #expect(wallet.spokenText == "iOS 測試皮夾，現金，個人私帳，餘額 1,500 元")
+        #expect(bank.spokenText == "iOS 測試存款，活存帳戶，個人私帳，餘額 50,000 元")
+        #expect(!wallet.isDue)
     }
 
     @Test("帳戶卡片最多 6 張，其餘用「管理」到帳戶頁;超過上限時依現金、銀行、信用卡的順序截斷")

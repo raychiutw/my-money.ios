@@ -66,7 +66,7 @@ final class OverviewUITests: XCTestCase {
         XCTAssertEqual(composition.label, "現金 0 元，加活存帳戶 50,000 元，減信用卡待繳 28,500 元", "組成一行的念法不對")
         XCTAssertLessThan(available.frame.minY, composition.frame.minY, "組成一行不在淨可用餘額下面")
         XCTAssertLessThan(composition.frame.maxY, chart.frame.minY, "組成一行不在走勢圖上面")
-        let cardTile = element(in: app, labelContaining: "信用卡待繳")
+        let cardTile = row("信用卡待繳", value: "28,500 元", in: app)
         XCTAssertTrue((cardTile.value as? String ?? "").contains("2 張信用卡"), "信用卡待繳磚沒有張數:\(String(describing: cardTile.value))")
         let netTile = row("當月淨收支", value: "44,000 元", in: app)
         XCTAssertTrue((netTile.value as? String ?? "").contains("收入 45,000 元，支出 1,000 元"), "當月淨收支磚沒有收入與支出:\(String(describing: netTile.value))")
@@ -100,12 +100,43 @@ final class OverviewUITests: XCTestCase {
         }
 
         // push 的入口:進得去,返回回到總覽。
-        for (id, marker) in [("recurring", "recurring.add"), ("goals", "goals.add"), ("forecast", "forecast.purchaseAmount")] {
+        for (id, marker) in [("recurring", "recurring.add"), ("goals", "goals.add"), ("forecast", "forecast.scope")] {
             app.openHomeEntry(id)
             XCTAssertTrue(app.descendants(matching: .any)[marker].waitForExistence(timeout: 5), "「\(id)」入口沒有進到對應的畫面")
             app.navigationBars.buttons.firstMatch.tap()
             XCTAssertTrue(app.staticTexts["overview.composition"].waitForExistence(timeout: 5), "「\(id)」返回之後沒有回到總覽")
         }
+    }
+
+    /// 接下來 30 天(#189):列出預定收支,右邊的圓圈標示「已繳」;已繳的變淡、念出「已繳,不計入預測」,
+    /// 預測入口的最低餘額由後端重算,進預測頁看到同一筆也是已繳(兩邊同步)。
+    @MainActor
+    func testUpcomingEventsCanBeSettledFromHome() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "overview.settle.sample:rent")).firstMatch
+        XCTAssertTrue(ScrollSupport.revealFully(settle, in: app), "總覽的「接下來 30 天」沒有房租的已繳圓圈")
+        XCTAssertEqual(settle.label, "標示為已繳")
+        let forecastEntry = app.buttons["home.entry.forecast"]
+        XCTAssertTrue(forecastEntry.label.contains("最低 53,440 元"), "勾選前的最低餘額不對:\(forecastEntry.label)")
+
+        settle.tap()
+        let cancel = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "overview.settle.sample:rent", "取消已繳")).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "勾選已繳之後圓圈沒有變成「取消已繳」")
+        XCTAssertTrue(element(in: app, labelContaining: "房租，").exists, "已繳的房租不見了")
+        XCTAssertTrue(element(in: app, labelContaining: "已繳，不計入預測").exists, "已繳的列沒有念出「已繳，不計入預測」")
+        XCTAssertTrue(ScrollSupport.revealFully(forecastEntry, in: app), "找不到現金流預測入口")
+        XCTAssertTrue(forecastEntry.label.contains("65,440"), "已繳之後現金流預測入口的最低餘額沒有由後端重算:\(forecastEntry.label)")
+
+        // 預測頁是同一個功能:進去看到房租已繳。
+        app.openHomeEntry("forecast")
+        let pageButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "forecast.settle.sample:rent")).firstMatch
+        XCTAssertTrue(pageButton.waitForExistence(timeout: 5), "預測頁沒有房租的已繳圓圈")
+        XCTAssertEqual(pageButton.label, "取消已繳", "預測頁的狀態沒有跟首頁同步")
     }
 
     /// 單一入口放不下就整格單欄:預設字級兩欄(同一排)、AX5 單欄(上下排)。
@@ -144,26 +175,46 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(app.buttons["statistics.scope"].waitForExistence(timeout: 3), "超支提示沒有切到統計 tab")
     }
 
-    /// 帳戶卡片(#117):信用卡卡片念成一句話(待繳總額、每月幾日繳款)，點進去是信用卡詳細頁(#73)。
+    /// 帳戶卡(#117、#190):信用卡卡片念成一句話(待繳總額、代墊與私帳、未出帳、繳款日)，橫向捲動;
+    /// 點了切到記帳 tab、只剩該帳戶的收支明細，篩選按鈕顯示套用中的帳戶名稱。
     @MainActor
-    func testCreditCardRowOpensDetail() throws {
+    func testAccountCardOpensTheLedgerForThatAccount() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
         signIn(app)
 
         let card = app.buttons["overview.card.sample-card"]
-        _ = card.waitForExistence(timeout: 5)
-        for _ in 0..<5 where !(card.exists && card.isHittable) { app.swipeUp() }
-        XCTAssertTrue(card.exists, "帳戶卡片沒有信用卡")
-        XCTAssertEqual(card.label, "iOS 測試信用卡，信用卡待繳總額 15,500 元，每月 5 日繳款", "信用卡卡片沒有念出待繳總額與繳款日")
+        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "帳戶卡片沒有信用卡")
+        XCTAssertEqual(
+            card.label,
+            "iOS 測試信用卡，個人私帳，信用卡待繳總額 15,500 元，代墊 3,000 元，私帳 12,500 元，未出帳 3,500 元，每月 5 日繳款",
+            "信用卡卡片沒有念出待繳總額、代墊與私帳、未出帳與繳款日"
+        )
         card.tap()
-        XCTAssertTrue(app.navigationBars["iOS 測試信用卡"].waitForExistence(timeout: 3), "點帳戶卡片的信用卡沒有進入詳細頁")
-        // 詳細頁的欄位是 `LabeledContent`,標籤和值合成一個元素。
-        XCTAssertTrue(app.staticTexts["信用卡待繳總額、$15,500"].waitForExistence(timeout: 3), "從總覽進入的詳細頁沒有信用卡待繳總額")
+
+        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 5), "點帳戶卡片沒有切到記帳 tab")
+        XCTAssertTrue(element(in: app, labelContaining: "耳機").waitForExistence(timeout: 5), "信用卡的收支明細不在清單上")
+        XCTAssertTrue(element(in: app, labelContaining: "午餐").waitForNonExistence(timeout: 5), "帶入了信用卡的篩選，存款帳戶的收支明細還在")
+        XCTAssertTrue(
+            (app.buttons["transactions.filter"].value as? String ?? "").contains("iOS 測試信用卡"), "篩選按鈕的值沒有帳戶名稱:\(String(describing: app.buttons["transactions.filter"].value))"
+        )
     }
 
-    /// 摘要磚與帳戶卡片只在「放得下」時並排(#148):預設字級三格並排、帳戶卡片兩欄;
+    /// 帳戶卡橫向捲動:卡片不是一格一格往下排,而是同一排(同樣的 y),第一張之外的卡可以捲出來。
+    @MainActor
+    func testAccountCardsScrollHorizontally() throws {
+        let app = launchAtContentSize("UICTContentSizeCategoryL")
+        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        let bank = app.buttons["overview.card.sample-bank"], card = app.buttons["overview.card.sample-card"]
+        XCTAssertTrue(ScrollSupport.revealFully(bank, in: app), "沒有活存帳戶卡")
+        XCTAssertTrue(card.exists, "沒有信用卡卡")
+        XCTAssertEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "帳戶卡沒有排在同一排:\(bank.frame) \(card.frame)")
+        XCTAssertGreaterThan(card.frame.minX, bank.frame.maxX - 1, "第二張卡應該在第一張的右邊:\(bank.frame) \(card.frame)")
+    }
+
+    /// 摘要磚只在「放得下」時並排(#148):預設字級三格並排;
     /// XXL、XXXL、無障礙字級放不下，整排改單欄——標籤不折行、金額不被縮小或切到,而且是整排一起改,不是只有某一格。
     @MainActor
     func testTilesAndAccountCardsAreSideBySideOnlyWhenTheyFit() throws {
@@ -176,12 +227,6 @@ final class OverviewUITests: XCTestCase {
         XCTAssertLessThan(tiles[0].frame.minX, tiles[1].frame.minX)
         XCTAssertLessThan(tiles[1].frame.minX, tiles[2].frame.minX)
 
-        // 帳戶卡片兩欄:活存帳戶與第一張信用卡在同一排。
-        let bank = element(in: app, labelContaining: "iOS 測試存款，活存帳戶")
-        let card = app.buttons["overview.card.sample-card"]
-        for _ in 0..<6 where !(bank.exists && card.exists) { app.swipeUp() }
-        XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
-        XCTAssertEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "預設字級帳戶卡片沒有兩欄:\(bank.frame) \(card.frame)")
     }
 
     @MainActor
@@ -199,7 +244,7 @@ final class OverviewUITests: XCTestCase {
         try assertTilesAreSingleColumn(at: "UICTContentSizeCategoryAccessibilityXXXL", labelsStayOnOneLine: true)
     }
 
-    /// 放不下就整排單欄:三格上下堆疊、同樣寬;每格標籤只有一行(不再折成「可支配／現金」兩行)、金額沒有被切到。
+    /// 放不下就整排單欄:三格上下堆疊、同樣寬;每格標籤只有一行(不再折成「可支配／現金」兩行)、金額與組成明細沒有被切到。
     @MainActor
     private func assertTilesAreSingleColumn(at category: String, labelsStayOnOneLine: Bool) throws {
         let app = launchAtContentSize(category)
@@ -216,20 +261,13 @@ final class OverviewUITests: XCTestCase {
             XCTAssertTrue(ScrollSupport.revealFully(tile, in: app), "\(category):第 \(index + 1) 格捲不到整格都看得到:\(tile.frame)")
             let bands = try PixelAnalysis.inkBands(of: tile.screenshot().image)
             XCTAssertFalse(bands.isEmpty, "\(category):第 \(index + 1) 格看不到字")
-            // 標籤一行:標籤與金額同一行(1 條)，或標籤一行在上、金額一行在下(2 條);折成兩行標籤會是 3 條以上。
-            XCTAssertLessThanOrEqual(bands.count, 2, "\(category):第 \(index + 1) 格標籤折行了:\(bands)")
+            // 標籤一行:標籤不折成「可支配／現金」兩行(下面還有組成明細,所以不能數墨跡的行數,改用 OCR 看標籤是不是完整一行)。
+            let lines = try TextRecognition.lines(in: tile.screenshot().image)
+            let label = ["可支配現金", "當月淨收支", "信用卡待繳"][index]
+            XCTAssertTrue(lines.contains { $0.contains(label) }, "\(category):第 \(index + 1) 格標籤折行了，辨識到:\(lines)")
             // 金額沒有被切到:墨跡沒有貼到元素邊緣。
             let width = Int(tile.screenshot().image.size.width * tile.screenshot().image.scale)
             XCTAssertTrue(bands.allSatisfy { $0.minX > 4 && $0.maxX < width - 4 }, "\(category):第 \(index + 1) 格的字貼到邊緣(可能被切到):\(bands) 寬度 \(width)")
-        }
-
-        // 帳戶卡片也單欄(AX5):活存帳戶與第一張信用卡上下排。
-        if category.contains("Accessibility") {
-            let bank = element(in: app, labelContaining: "iOS 測試存款，活存帳戶")
-            let card = app.buttons["overview.card.sample-card"]
-            for _ in 0..<8 where !(bank.exists && card.exists) { app.swipeUp() }
-            XCTAssertTrue(bank.exists && card.exists, "沒有看到帳戶卡片")
-            XCTAssertNotEqual(bank.frame.minY.rounded(), card.frame.minY.rounded(), "AX5 時帳戶卡片沒有單欄:\(bank.frame) \(card.frame)")
         }
     }
 

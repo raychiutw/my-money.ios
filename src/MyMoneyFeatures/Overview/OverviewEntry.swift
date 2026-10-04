@@ -32,3 +32,19 @@ public struct OverviewEntry: Identifiable, Hashable, Sendable {
         [title, spokenValue].compactMap { $0 }.joined(separator: "，")
     }
 }
+
+/// 首頁「接下來 30 天」的一列預定收支(#189):後端預測的事件加上要給人看、給 VoiceOver 念的文字。
+public struct UpcomingEvent: Identifiable, Hashable, Sendable {
+    public let event: ForecastEvent
+    public let dateText: String
+    public let subtitle: String
+    public let amountText: String
+    public let spokenText: String
+
+    public var id: String { event.key ?? "\(event.date.iso)-\(event.name)" }
+    public var isIncome: Bool { event.type == .income }
+    /// 有識別碼而且後端說這個人能勾選，才有勾選圓圈。
+    public var isSettleable: Bool { event.key != nil && event.canSettle }
+    /// 勾選圓圈的 VoiceOver 標籤。
+    public var checkLabel: String { event.isSettled ? "取消已繳" : "標示為已繳" }
+}

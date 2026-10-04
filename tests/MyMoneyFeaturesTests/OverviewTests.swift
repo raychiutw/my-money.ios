@@ -36,20 +36,6 @@ struct OverviewTests {
         return model
     }
 
-    /// 例如記了一筆信用卡支出，總覽還沒重新載入完就點進帳戶一覽的信用卡(code review)。
-    @Test("總覽的資料比目前的資料版本舊時，打開的信用卡詳細頁會重新取得")
-    func cardDetailFromStaleOverviewRefreshes() async throws {
-        let dataVersion = DataVersion()
-        let overview = await loaded(dataVersion: dataVersion)
-        dataVersion.bump()
-        let fetchesBefore = await accounts.fetchCount
-
-        let detail = overview.makeCardDetail(for: try #require(overview.creditCards.first))
-        await detail.refreshIfStale()
-
-        #expect(await accounts.fetchCount == fetchesBefore + 1)
-    }
-
     @Test("帳戶一覽列出現金")
     func accountsListIncludesCash() async {
         let model = OverviewModel(

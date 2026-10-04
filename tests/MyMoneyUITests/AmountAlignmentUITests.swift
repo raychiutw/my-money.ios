@@ -57,11 +57,25 @@ final class AmountAlignmentUITests: XCTestCase {
 
     // MARK: 帳戶卡片
 
-    /// 總覽的信用卡:第二行左邊是小字「5 日繳」,右邊是金額,金額靠右;「N 日繳」不再跟在金額右邊。
+    /// 總覽的信用卡(#190):名稱一行、金額靠右一行,底下兩行小字(代墊與私帳、未出帳與繳款日)靠左。
     @MainActor
-    func testOverviewCreditCardHasDueDayOnTheLeftAndAmountOnTheRight() throws {
+    func testOverviewCreditCardHasAmountOnTheRightAndTwoLinesBelow() throws {
         let app = launch(category: defaultSize)
-        try assertCreditCard(app.buttons["overview.card.sample-card"], in: app, hasCaptionOnTheLeft: true)
+        let card = app.buttons["overview.card.sample-card"]
+        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "捲不到整張卡片都看得到:\(card.frame)")
+        let image = card.screenshot().image
+        let scale = Int(image.scale)
+        let bands = try PixelAnalysis.inkBands(of: image)
+        // 圖示加名稱、金額、兩行小字(窄了小字會折行,所以至少 4 條)。
+        XCTAssertGreaterThanOrEqual(bands.count, 4, "卡片應該是名稱、金額、兩行小字由上往下:\(bands)")
+        try assertRightEdge(bands[1], in: image, "卡片的金額沒有靠右")
+        for line in bands.dropFirst(2) {
+            XCTAssertLessThan(line.minX, 24 * scale, "小字沒有靠左:\(line)")
+        }
+        let observations = try TextRecognition.observations(in: image)
+        XCTAssertTrue(observations.contains { $0.text.contains("代墊") }, "認不出「代墊」:\(observations.map(\.text))")
+        XCTAssertTrue(observations.contains { $0.text.contains("未出帳") }, "認不出「未出帳」:\(observations.map(\.text))")
     }
 
     /// 帳戶頁的信用卡:小字「個人私帳・5 日繳」在左,金額在右。

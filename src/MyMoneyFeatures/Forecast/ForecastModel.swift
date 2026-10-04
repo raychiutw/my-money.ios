@@ -126,6 +126,8 @@ public final class ForecastModel {
             settleError = message.isEmpty ? "更新已繳狀態失敗" : message
             return
         }
+        // 遞增資料版本:總覽「接下來 30 天」等其他畫面也要重抓(#189);先遞增再 `load()`，這頁記下的版本就是新的，不會再重抓一次。
+        dataVersion.bump()
         await load()
     }
 

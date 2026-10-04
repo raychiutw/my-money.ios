@@ -22,8 +22,8 @@ struct MainTabView: View {
         TabView(selection: $selection) {
             Tab("總覽", systemImage: "house", value: .overview) {
                 OverviewScreen(
-                    model: screens.overview, quickEntry: screens.quickEntry, recurring: screens.recurring, goals: screens.goals,
-                    forecast: screens.forecast
+                    model: screens.overview, quickEntry: screens.quickEntry, transactions: screens.transactions,
+                    recurring: screens.recurring, goals: screens.goals, forecast: screens.forecast
                 ) { selection = $0 }
                     .tint(.primary)
             }

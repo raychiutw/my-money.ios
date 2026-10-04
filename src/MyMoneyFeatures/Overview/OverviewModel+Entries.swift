@@ -134,3 +134,26 @@ extension Money {
         self == .zero ? formatted() : "\(sign)\(Money(abs(amount)).formatted())"
     }
 }
+
+// MARK: 接下來 30 天(#189)
+
+extension OverviewModel {
+    /// 首頁「接下來 30 天」最多列幾筆。
+    public static let upcomingLimit = 5
+
+    /// 後端預測裡最近的幾筆預定收支(含已繳的，已繳的變淡);跟著首頁的視角。預測沒有資料(載入失敗)時是空的，這一區不顯示。
+    public var upcomingEvents: [UpcomingEvent] {
+        guard let forecast else { return [] }
+        return forecast.events.prefix(Self.upcomingLimit).map { event in
+            let date = event.date.text(today: today(), locale: locale)
+            let ownership = OwnershipName.title(isShared: event.isShared)
+            var spoken = [event.name, date, ownership, "\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)"]
+            if event.isSettled { spoken.append("已繳，不計入預測") }
+            return UpcomingEvent(
+                event: event, dateText: date, subtitle: event.isSettled ? "\(ownership)・已繳" : ownership,
+                amountText: event.amount.formatted(sign: event.type == .income ? "+" : "−"),
+                spokenText: spoken.joined(separator: "，")
+            )
+        }
+    }
+}
