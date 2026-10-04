@@ -29,10 +29,13 @@ struct AccountPicker: View {
             AccountChoiceList(title: title, selection: $selection, options: options, noneTitle: noneTitle)
         } label: {
             LabeledContent(title) {
+                // 可點的值用 CI 文字色(ADR-0009、#177)。
                 if let valueText {
                     Text(valueText)
+                        .foregroundStyle(Color.ciText)
                 } else if let placeholder, selection == nil {
                     Text(placeholder)
+                        .foregroundStyle(Color.ciText)
                 }
             }
         }

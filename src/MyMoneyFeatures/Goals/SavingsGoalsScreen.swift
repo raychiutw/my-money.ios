@@ -200,7 +200,7 @@ private struct SavingsGoalRow: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             ProgressView(value: goal.progress)
-                .tint(goal.isAchieved ? .green : .accentColor)
+                .tint(goal.isAchieved ? .green : Color.ciFill)
                 .accessibilityHidden(true)
             ViewThatFits(in: .horizontal) {
                 HStack {

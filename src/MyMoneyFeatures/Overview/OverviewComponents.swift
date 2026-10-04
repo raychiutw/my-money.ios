@@ -82,7 +82,7 @@ struct GoalRingRow: View {
     }
 
     private var ring: some View {
-        let color: Color = goal.isAchieved ? .green : .accentColor
+        let color: Color = goal.isAchieved ? .green : Color.ciFill
         return ZStack {
             Circle().stroke(.quaternary, lineWidth: 6)
             Circle()

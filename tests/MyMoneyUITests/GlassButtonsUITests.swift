@@ -71,6 +71,11 @@ final class GlassButtonsUITests: XCTestCase {
         XCTAssertTrue(category.exists, "\(name):沒有找到分類格")
         XCTAssertTrue(category.isSelected, "\(name):餐飲不是選取狀態")
         try assertNotFilled(category, appearance: appearance, "\(name):選取的分類格又被填色了", minimumInk: 0.002)
+        // 右上角是 CI 填色的勾勾徽章(ADR-0009、#177):角落有一塊 CI 色，不只是細細的勾勾。
+        let badge = try PixelAnalysis.statistics(
+            of: category.screenshot().image, region: CGRect(x: 0.72, y: 0.0, width: 0.28, height: 0.32)
+        )
+        XCTAssertGreaterThan(badge.ciFraction, 0.5, "\(name):選取的分類格右上角沒有 CI 色徽章(CI 色占 \(badge.ciFraction))")
         let selectedPixels = try PixelAnalysis.statistics(of: category.screenshot().image)
         XCTAssertGreaterThan(selectedPixels.ci, 200, "\(name):選取的分類格沒有品牌粉紅的外框與勾勾(粉紅像素 \(selectedPixels.ci))")
         let other = app.buttons["交通"]

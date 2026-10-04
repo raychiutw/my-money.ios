@@ -96,6 +96,7 @@ struct RegisterView: View {
                     Button("登入") {
                         dismiss()
                     }
+                    .foregroundStyle(Color.ciText)
                     .accessibilityIdentifier("register.backToLogin")
                 }
                 .frame(maxWidth: .infinity)

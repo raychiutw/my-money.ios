@@ -91,6 +91,7 @@ struct LoginView: View {
                     NavigationLink("立即註冊") {
                         RegisterView(model: register)
                     }
+                    .foregroundStyle(Color.ciText)
                     .fixedSize()
                     .accessibilityIdentifier("login.register")
                 }

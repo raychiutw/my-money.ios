@@ -33,7 +33,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
   - **填色 `Color.ciFill`**:淺色與深色**同一個 `#E23C52`**(增強對比淺色 `#881121`、深色 `#FDA5B1`)，填色上的勾勾與字是 `Color.ciGlyph`(白;只有深色增強對比是黑)。反白字 4.2:1、黑底 5.0:1。
   - **文字與線條 `Color.ciText`**:淺色 `#AD1F32`(白底 7.0:1)、深色 `#F88191`(次層卡片 5.7:1)，增強對比 `#841524`／`#FDA5B1`。
   - 色票的單一來源是 `CIPalette`(純資料)，對比由 `CIPaletteTests` 用 WCAG 公式鎖住。**目前用在**(#175 只換色，行為不變):**套用中的篩選**(`ciText` 空心圓圈)、**選取狀態**(分類格與 emoji 的 `ciFill` 外框、勾勾與內嵌選擇列的勾勾用 `ciText`)，以及 **tab bar 目前所在的 tab**(`ciText`;底下的膠囊仍是淺色白、深色黑)。logo、App icon、頭像(`AvatarPalette`:固定 RGB，淺色與深色同一組粉底黑字，對比 ≥ 7:1，見「導覽」)不變。
-  - **已落地**:✓ 與主要按鈕填 `ciFill`(#176)。**接下來**(#177):選取格改「CI 外框＋淡底＋勾勾徽章」、開關、可點的值與連結、進度、tab 套用。
+  - **已落地**:✓ 與主要按鈕填 `ciFill`(#176);分類格選取是「CI 外框＋淡底＋右上角 CI 填色勾勾徽章」、emoji 選取是 CI 外框加淡底、開關打開是 `ciFill`、帳戶選擇列的值與佔位文字、登入註冊的連結用 `ciText`、進行中的進度條與目標環是 `ciFill`(達成維持綠色)、tab 目前所在是 `ciText`(#177)。
 - **按鈕**(`GlassControls.swift`)——**沒有裸文字按鈕**:
   - 需要文字的次要動作是**玻璃膠囊**(`.glass`,不填色，字用 `ciText`，`GlassCapsuleButton`):例如空狀態的「前往帳戶管理」、儲蓄目標的「存入」、「重試」、機器人記帳的範例句。
   - 主要動作是 **CI 填色的膠囊**(`PrimaryCapsuleButton`:`.glassProminent` 加 `.tint(ciFill)`，字是**粗體**、顏色 `ciGlyph`):例如登入、家庭的建立與加入、「ATM 提款／轉帳」、購買力試算。**一個畫面一個 primary action**。停用時系統淡化，仍看得出是按鈕。
