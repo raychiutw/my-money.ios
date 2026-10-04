@@ -10,11 +10,12 @@ enum ScrollSupport {
         let tabBar = inSheet ? app.tabBars.element(boundBy: 99) : app.tabBars.firstMatch
         let window = app.windows.firstMatch
         let top = window.frame.minY + 130
-        for _ in 0..<40 {
+        for attempt in 0..<40 {
             let bottom = (tabBar.exists ? tabBar.frame.minY : window.frame.maxY) - 8
             guard element.exists else {
                 // 還沒出現(清單只建立畫面附近的列):一次捲大半個畫面找它。AX5 的總覽有七、八個畫面長，260pt 一步 40 次找不到。
-                nudge(app, by: 520)
+                // 往下找了 16 次還沒有，可能已經捲過頭(連續進出子頁面之後清單停在下面)，改往上找。
+                nudge(app, by: attempt < 16 ? 520 : -520)
                 continue
             }
             if element.frame.minY < top {
