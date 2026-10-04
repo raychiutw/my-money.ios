@@ -310,6 +310,28 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部・2025年3月1日–2025年3月31日")
     }
 
+    /// 篩選 sheet 的「重設為本月」是帶圖示的列，不是看起來像標籤的純文字(#165)。
+    @MainActor
+    func testFilterResetRowHasAnIcon() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.tabBars.buttons["交易"].tap()
+        app.buttons["transactions.filter"].tap()
+        let reset = app.buttons["transactionFilter.thisMonth"]
+        XCTAssertTrue(reset.waitForExistence(timeout: 5), "篩選 sheet 沒有「重設為本月」")
+        assertHasLeadingIcon(reset, "重設為本月")
+    }
+
+    /// 一列動作要有圖示:圖示在最左邊、跟文字隔一段距離，截圖裡至少有兩群墨跡。圖示是裝飾，不在 accessibility 階層裡，所以量像素。
+    @MainActor
+    private func assertHasLeadingIcon(_ row: XCUIElement, _ name: String) {
+        let bands = try? PixelAnalysis.inkBands(of: row.screenshot().image)
+        let widest = bands?.max { $0.maxX - $0.minX < $1.maxX - $1.minX }
+        XCTAssertGreaterThanOrEqual(widest?.clusters(minGap: 25) ?? 0, 2, "「\(name)」只有文字，沒有圖示，看不出可以按")
+    }
+
     /// 台灣時間往前 `monthsAgo` 個月的「2026年9月」。
     private static func taipeiMonthTitle(monthsAgo: Int) -> String {
         let (year, month) = taipeiYearMonth(monthsAgo: monthsAgo)

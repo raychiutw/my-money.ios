@@ -35,6 +35,37 @@ final class StatisticsUITests: XCTestCase {
         XCTAssertEqual(dining.label, "餐飲，預算 100 元，已花 120 元，超支 20 元", "餐飲沒有念出分類、預算、已花和超支")
     }
 
+    /// 月份切換跟交易頁是同一個膠囊「‹ 2026年10月 ›」(#164):上一月、下一月、點中間選任意年月。
+    @MainActor
+    func testMonthPillSwitchesMonths() throws {
+        let app = launchSignedIn()
+        app.tabBars.buttons["統計"].tap()
+
+        let title = app.buttons["statistics.month.title"]
+        let previous = app.buttons["statistics.month.previous"]
+        let next = app.buttons["statistics.month.next"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "統計頁沒有年月膠囊")
+        let current = title.value as? String
+        XCTAssertNotNil(current)
+        XCTAssertGreaterThanOrEqual(previous.frame.height, 44, "上一月的觸控範圍不到 44pt")
+        XCTAssertGreaterThanOrEqual(next.frame.height, 44, "下一月的觸控範圍不到 44pt")
+
+        previous.tap()
+        XCTAssertNotEqual(title.value as? String, current, "上一月沒有換月份")
+        next.tap()
+        XCTAssertEqual(title.value as? String, current, "下一月沒有換回來")
+
+        // 點年月選任意年月:2025 年 3 月。
+        title.tap()
+        let year = app.pickerWheels.element(boundBy: 0)
+        let month = app.pickerWheels.element(boundBy: 1)
+        XCTAssertTrue(year.waitForExistence(timeout: 3), "沒有打開選年月")
+        year.adjust(toPickerWheelValue: "2025年")
+        month.adjust(toPickerWheelValue: "3月")
+        app.buttons["statistics.month.done"].tap()
+        XCTAssertEqual(title.value as? String, "2025年3月", "選了 2025年3月 但年月沒有跟著變")
+    }
+
     /// 預算額度只列有預算或本月已花的分類(#76):範例是餐飲、交通、購物;點整列打開設定 sheet,不再有「設定／調整」按鈕。
     @MainActor
     func testAdjustBudgetByTappingRow() throws {

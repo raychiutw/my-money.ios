@@ -25,8 +25,12 @@ struct TransactionFilterView: View {
                     // 迄日不早於起日。
                     DatePicker("迄日", selection: day(\.to), in: model.filterDraft.from.startOfDay..., displayedComponents: .date)
                         .accessibilityIdentifier("transactionFilter.to")
-                    Button("重設為本月") { model.resetFilterDraftToThisMonth() }
-                        .accessibilityIdentifier("transactionFilter.thisMonth")
+                    Button {
+                        model.resetFilterDraftToThisMonth()
+                    } label: {
+                        ActionRowLabel(title: "重設為本月", systemImage: "arrow.counterclockwise")
+                    }
+                    .accessibilityIdentifier("transactionFilter.thisMonth")
                 }
                 .calendarDayTimeZone()
 

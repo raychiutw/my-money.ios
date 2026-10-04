@@ -76,8 +76,10 @@ struct BotScreen: View {
                     }
                 }
             }
-            Button("產生綁定驗證碼") {
+            Button {
                 Task { await model.generatePairingCode() }
+            } label: {
+                ActionRowLabel(title: "產生綁定驗證碼", systemImage: "key")
             }
             .accessibilityIdentifier("bot.generate")
         }
