@@ -137,7 +137,8 @@ final class ForecastUITests: XCTestCase {
         let amount = try XCTUnwrap(bands.last)
         let width = Int(image.size.width * image.scale)
         let gap = width - amount.maxX
-        XCTAssertTrue(gap >= 6 * Int(image.scale) && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
+        // 文字區塊右邊是 44pt 的「已繳」圓圈(#182):金額靠這個區塊的右緣，不會超出去。
+        XCTAssertTrue(gap >= 0 && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
         XCTAssertGreaterThan(amount.minX, width / 3, "金額貼在左邊:\(amount)")
         let recognized = try TextRecognition.lines(in: image).joined(separator: " ")
         XCTAssertFalse(recognized.contains("…") || recognized.contains("..."), "無障礙字級有字被截斷:\(recognized)")
