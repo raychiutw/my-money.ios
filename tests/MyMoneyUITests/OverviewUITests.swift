@@ -61,7 +61,7 @@ final class OverviewUITests: XCTestCase {
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
         }
         // 淨可用餘額底下一行組成(#178),後端的值;三格數字磚各帶兩行組成明細。
-        let composition = app.staticTexts["overview.composition"]
+        let composition = app.descendants(matching: .any)["overview.composition"]
         XCTAssertTrue(composition.exists, "淨可用餘額底下沒有組成一行")
         XCTAssertEqual(composition.label, "現金 0 元，加活存帳戶 50,000 元，減信用卡待繳 28,500 元", "組成一行的念法不對")
         XCTAssertLessThan(available.frame.minY, composition.frame.minY, "組成一行不在淨可用餘額下面")
@@ -85,7 +85,7 @@ final class OverviewUITests: XCTestCase {
             ("household", "家庭"), ("statistics", "統計，"), ("recurring", "週期收支，"), ("goals", "儲蓄目標，已存 4,000 元，整體達成率 2.5%"),
             ("forecast", "現金流預測，最低 53,440 元"),
         ]
-        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         for (id, label) in expected {
             let entry = app.buttons["home.entry.\(id)"]
             XCTAssertTrue(ScrollSupport.revealFully(entry, in: app), "總覽沒有「\(id)」入口")
@@ -104,7 +104,7 @@ final class OverviewUITests: XCTestCase {
             app.openHomeEntry(id)
             XCTAssertTrue(app.descendants(matching: .any)[marker].waitForExistence(timeout: 5), "「\(id)」入口沒有進到對應的畫面")
             app.navigationBars.buttons.firstMatch.tap()
-            XCTAssertTrue(app.staticTexts["overview.composition"].waitForExistence(timeout: 5), "「\(id)」返回之後沒有回到總覽")
+            XCTAssertTrue(app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 5), "「\(id)」返回之後沒有回到總覽")
         }
     }
 
@@ -117,7 +117,7 @@ final class OverviewUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "overview.settle.sample:rent")).firstMatch
         XCTAssertTrue(ScrollSupport.revealFully(settle, in: app), "總覽的「接下來 30 天」沒有房租的已繳圓圈")
         XCTAssertEqual(settle.label, "標示為已繳")
@@ -143,14 +143,14 @@ final class OverviewUITests: XCTestCase {
     @MainActor
     func testEntriesAreTwoColumnsOnlyWhenTheyFit() throws {
         let normal = launchAtContentSize("UICTContentSizeCategoryL")
-        _ = normal.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = normal.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let first = normal.buttons["home.entry.ledger"], second = normal.buttons["home.entry.accounts"]
         XCTAssertTrue(ScrollSupport.revealFully(first, in: normal), "沒有「記帳」入口")
         XCTAssertEqual(first.frame.minY.rounded(), second.frame.minY.rounded(), "預設字級入口格沒有兩欄:\(first.frame) \(second.frame)")
         normal.terminate()
 
         let large = launchAtContentSize("UICTContentSizeCategoryAccessibilityXXXL")
-        _ = large.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = large.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let a = large.buttons["home.entry.ledger"], b = large.buttons["home.entry.accounts"]
         XCTAssertTrue(ScrollSupport.revealFully(a, in: large), "AX5 沒有「記帳」入口")
         XCTAssertTrue(b.exists || ScrollSupport.revealFully(b, in: large), "AX5 沒有「帳戶」入口")
@@ -185,7 +185,7 @@ final class OverviewUITests: XCTestCase {
         signIn(app)
 
         let card = app.buttons["overview.card.sample-card"]
-        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "帳戶卡片沒有信用卡")
         XCTAssertEqual(
             card.label,
@@ -206,7 +206,7 @@ final class OverviewUITests: XCTestCase {
     @MainActor
     func testAccountCardsScrollHorizontally() throws {
         let app = launchAtContentSize("UICTContentSizeCategoryL")
-        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let bank = app.buttons["overview.card.sample-bank"], card = app.buttons["overview.card.sample-card"]
         XCTAssertTrue(ScrollSupport.revealFully(bank, in: app), "沒有活存帳戶卡")
         XCTAssertTrue(card.exists, "沒有信用卡卡")

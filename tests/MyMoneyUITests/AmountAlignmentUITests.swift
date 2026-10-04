@@ -62,7 +62,7 @@ final class AmountAlignmentUITests: XCTestCase {
     func testOverviewCreditCardHasAmountOnTheRightAndTwoLinesBelow() throws {
         let app = launch(category: defaultSize)
         let card = app.buttons["overview.card.sample-card"]
-        _ = app.staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "捲不到整張卡片都看得到:\(card.frame)")
         let image = card.screenshot().image
         let scale = Int(image.scale)

@@ -30,9 +30,16 @@ final class TruncationUITests: XCTestCase {
     @MainActor
     func testAccountCardNamesAreNotTruncatedAtAccessibilitySize() throws {
         let app = launchSignedIn(contentSize: Self.ax5)
+        let first = app.buttons["overview.card.sample-bank"]
+        XCTAssertTrue(ScrollSupport.revealFully(first, in: app), "總覽沒有找到第一張帳戶卡")
+        let window = app.windows.firstMatch.frame
         for (id, name) in [("sample-bank", "測試存款"), ("sample-card", "測試信用卡"), ("sample-low-limit-card", "測試小額卡")] {
             let card = app.buttons["overview.card.\(id)"]
-            XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "總覽沒有找到帳戶卡「\(id)」")
+            // 帳戶卡橫向捲動:無障礙字級一張卡幾乎整個畫面寬,要往左撥到整張卡都在畫面裡。
+            for _ in 0..<6 where !(card.exists && card.frame.minX >= 0 && card.frame.maxX <= window.maxX) {
+                first.swipeLeft()
+            }
+            XCTAssertTrue(card.exists && card.frame.maxX <= window.maxX, "帳戶卡「\(id)」撥不進畫面:\(card.frame)")
             let lines = try TextRecognition.lines(in: card.screenshot().image)
             let text = lines.joined().replacingOccurrences(of: " ", with: "")
             XCTAssertTrue(text.contains(name), "帳戶卡「\(id)」看不到完整名稱「\(name)」,辨識到:\(lines)")

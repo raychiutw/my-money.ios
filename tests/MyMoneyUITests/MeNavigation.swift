@@ -15,7 +15,7 @@ extension XCUIApplication {
         let tab = tabBars.buttons["總覽"]
         if tab.exists, !tab.isSelected { tab.tap() }
         // 載入完成的記號(骨架屏沒有組成一行);載入完才捲,不然會在骨架屏上亂捲。
-        _ = staticTexts["overview.composition"].waitForExistence(timeout: 10)
+        _ = descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let entry = buttons["home.entry.\(identifier)"]
         XCTAssertTrue(ScrollSupport.revealFully(entry, in: self), "總覽找不到「\(identifier)」入口，或捲不到整個露出")
         entry.tap()

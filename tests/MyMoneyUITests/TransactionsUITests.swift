@@ -319,10 +319,13 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["記帳"].tap()
 
+        // 清單是惰性的:一次只建立畫面附近的列，逐一捲到看得到再讀 VoiceOver 念法。
         let billed = element(in: app, labelContaining: "上期晚餐")
         let deferred = element(in: app, labelContaining: "延遲請款的機票")
         let plain = element(in: app, labelContaining: "耳機")
-        XCTAssertTrue(billed.waitForExistence(timeout: 5) && deferred.exists && plain.exists, "範例資料的信用卡消費不在清單上")
+        for (name, row) in [("上期晚餐", billed), ("延遲請款的機票", deferred), ("耳機", plain)] {
+            XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "範例資料的信用卡消費「\(name)」不在清單上")
+        }
         XCTAssertTrue(billed.label.contains("已出帳"), "已出帳的消費沒有念出已出帳:\(billed.label)")
         XCTAssertTrue(deferred.label.contains("延至下期"), "延至下期的消費沒有念出延至下期:\(deferred.label)")
         XCTAssertFalse(plain.label.contains("已出帳") || plain.label.contains("延至下期"), "未出帳的消費不該有標籤:\(plain.label)")
@@ -345,8 +348,10 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<4 where !(toggle.exists && toggle.isHittable) { app.swipeDown() }
         XCTAssertTrue(toggle.waitForExistence(timeout: 3), "選了信用卡卻沒有「列入下期帳單」")
         XCTAssertEqual(toggle.value as? String, "0", "預設應該不勾")
-        toggle.tap()
-        XCTAssertEqual(toggle.value as? String, "1")
+        // 開關在整列的最右邊:點那裡才一定切換(點列的中央有時只是點到標籤)。
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let on = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
+        XCTAssertEqual(XCTWaiter().wait(for: [on], timeout: 3), .completed, "點了之後開關沒有打開:\(String(describing: toggle.value))")
 
         app.chooseQuickEntryAccount("iOS 測試存款")
         XCTAssertFalse(toggle.waitForExistence(timeout: 1), "切回活存帳戶之後「列入下期帳單」還在")
@@ -360,12 +365,15 @@ final class TransactionsUITests: XCTestCase {
         app.launch()
         signIn(app)
         app.tabBars.buttons["記帳"].tap()
-        let card = element(in: app, labelContaining: "iOS 測試信用卡")
+        // 信用卡的消費是「耳機」;存款帳戶那筆還款的備註裡也有卡名，所以不用卡名找。
+        let card = element(in: app, labelContaining: "耳機")
         XCTAssertTrue(card.waitForExistence(timeout: 5), "範例資料裡信用卡的收支明細不在清單上")
 
         app.buttons["transactions.filter"].tap()
-        let account = app.buttons["transactionFilter.account"]
-        XCTAssertTrue(account.waitForExistence(timeout: 5), "篩選 sheet 沒有「帳戶」")
+        XCTAssertTrue(app.buttons["transactionFilter.done"].waitForExistence(timeout: 5), "沒有打開篩選 sheet")
+        // 篩選 sheet 的列是惰性建立的，「帳戶」在視角與日期下面，先捲到看得到。
+        let account = app.descendants(matching: .any)["transactionFilter.account"]
+        XCTAssertTrue(ScrollSupport.revealFully(account, in: app, inSheet: true), "篩選 sheet 沒有「帳戶」")
         account.tap()
         app.buttons["iOS 測試存款"].firstMatch.tap()
         app.buttons["transactionFilter.done"].tap()

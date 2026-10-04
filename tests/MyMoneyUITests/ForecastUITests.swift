@@ -139,7 +139,8 @@ final class ForecastUITests: XCTestCase {
         let gap = width - amount.maxX
         // 文字區塊右邊是 44pt 的「已繳」圓圈(#182):金額靠這個區塊的右緣，不會超出去。
         XCTAssertTrue(gap >= 0 && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
-        XCTAssertGreaterThan(amount.minX, width / 3, "金額貼在左邊:\(amount)")
+        // 金額在最下面一行、右緣貼著文字區塊的右緣(上面已量);文字區塊本身變窄了(右邊有已繳圓圈)，所以不再要求左緣離左邊多遠。
+        XCTAssertGreaterThan(amount.minX, bands[0].minX - 1, "金額比名稱還靠左:\(amount) \(bands[0])")
         let recognized = try TextRecognition.lines(in: image).joined(separator: " ")
         XCTAssertFalse(recognized.contains("…") || recognized.contains("..."), "無障礙字級有字被截斷:\(recognized)")
     }
