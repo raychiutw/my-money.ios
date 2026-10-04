@@ -31,10 +31,9 @@ struct SavingsGoalsScreen: View {
                 case .deposit(let deposit): SavingsGoalDepositView(model: deposit)
                 }
             }
-            .confirmationDialog(
+            .alert(
                 "刪除儲蓄目標",
                 isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                titleVisibility: .visible,
                 presenting: pendingDeletion
             ) { goal in
                 Button("刪除", role: .destructive) {

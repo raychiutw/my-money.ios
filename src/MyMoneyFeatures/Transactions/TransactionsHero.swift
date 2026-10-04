@@ -126,9 +126,10 @@ struct DailyExpenseChart: View {
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            // 最大的一天上面要留空間給金額標註，不然標註會超出圖的上緣。
-            .chartYScale(domain: 0...(days.map { $0.amount.chartValue }.max() ?? 1) * 1.3)
-            .frame(height: 110)
+            // 最大的一天上面的金額標註畫在圖的上緣外面:圖的上方留一個標註的高度(隨字級放大),標註才不會壓到上面的比例條(#163)。
+            .chartYScale(domain: 0...(days.map { $0.amount.chartValue }.max() ?? 1))
+            .frame(height: 110 - AnnotationHeadroom.baseHeight)
+            .annotationHeadroom()
             .accessibilityLabel(summary ?? "本區間每日支出")
 
             HStack {

@@ -54,10 +54,9 @@ struct AccountsScreen: View {
                 .sheet(item: $editor) { sheet in
                     AccountEditorView(model: sheet.model)
                 }
-                .confirmationDialog(
+                .alert(
                     "刪除資產帳戶",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                    titleVisibility: .visible,
                     presenting: pendingDeletion
                 ) { account in
                     Button("刪除", role: .destructive) {
@@ -73,10 +72,9 @@ struct AccountsScreen: View {
                 .sheet(item: $payment) { payment in
                     CardPaymentView(model: payment)
                 }
-                .confirmationDialog(
+                .alert(
                     "結帳日出帳作業",
                     isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
-                    titleVisibility: .visible,
                     presenting: pendingRollover
                 ) { card in
                     Button("出帳作業") {

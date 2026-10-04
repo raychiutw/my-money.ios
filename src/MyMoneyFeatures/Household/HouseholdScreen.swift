@@ -28,22 +28,10 @@ struct HouseholdScreen: View {
             .sheet(item: $model.invitation) { invitation in
                 InvitationSheet(invitation: invitation, expiry: model.expiryText(of: invitation))
             }
-            .confirmationDialog(
-                "離開家庭",
-                isPresented: $isLeaveConfirming,
-                titleVisibility: .visible
-            ) {
-                Button("離開", role: .destructive) {
-                    Task { await model.leave() }
-                }
-                Button("取消", role: .cancel) {}
-            } message: {
-                Text(model.leaveConfirmation)
-            }
-            .confirmationDialog(
+            // 移除成員是從列上滑出或長按選單觸發的,沒有按鈕可以當錨點:用 alert(置中,不會指到不相關的列，#169)。
+            .alert(
                 "移除成員",
                 isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
-                titleVisibility: .visible,
                 presenting: pendingRemoval
             ) { member in
                 Button("移除", role: .destructive) {
@@ -194,6 +182,15 @@ struct HouseholdScreen: View {
                     isLeaveConfirming = true
                 }
                 .accessibilityIdentifier("household.leave")
+                // 確認訊息掛在觸發它的按鈕上(#169)，泡泡的箭頭才指著「離開家庭」。
+                .confirmationDialog("離開家庭", isPresented: $isLeaveConfirming, titleVisibility: .visible) {
+                    Button("離開", role: .destructive) {
+                        Task { await model.leave() }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text(model.leaveConfirmation)
+                }
             }
         }
     }

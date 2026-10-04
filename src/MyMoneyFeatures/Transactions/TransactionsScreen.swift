@@ -63,10 +63,9 @@ struct TransactionsScreen: View {
                 .sheet(item: $editor) { sheet in
                     TransactionFormView(model: sheet.model)
                 }
-                .confirmationDialog(
+                .alert(
                     "刪除\(Terms.transactions)",
                     isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                    titleVisibility: .visible,
                     presenting: pendingDeletion
                 ) { transaction in
                     Button("刪除", role: .destructive) {

@@ -35,12 +35,7 @@ struct SavingsGoalEditorView: View {
                     Toggle("截止日", isOn: $model.hasDeadline)
                         .tint(Color.ciFill)
                     if model.hasDeadline {
-                        DatePicker(
-                            "日期",
-                            selection: Binding(get: { model.deadline.startOfDay }, set: { model.deadline = CalendarDay(date: $0) }),
-                            displayedComponents: .date
-                        )
-                        .calendarDayTimeZone()
+                        DayPickerRow(title: "日期", day: $model.deadline)
                     }
                 }
 

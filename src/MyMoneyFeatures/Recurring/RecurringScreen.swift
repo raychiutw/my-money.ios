@@ -41,10 +41,9 @@ struct RecurringScreen: View {
             .sheet(item: $editor) { sheet in
                 RecurringEditorView(model: sheet.model)
             }
-            .confirmationDialog(
+            .alert(
                 "刪除週期收支",
                 isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                titleVisibility: .visible,
                 presenting: pendingDeletion
             ) { item in
                 Button("刪除", role: .destructive) {

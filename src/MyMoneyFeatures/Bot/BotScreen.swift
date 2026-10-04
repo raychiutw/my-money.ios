@@ -24,10 +24,9 @@ struct BotScreen: View {
         .navigationTitle("機器人記帳")
         .inlineNavigationTitle()
         .task { await model.load() }
-        .confirmationDialog(
+        .alert(
             "解除機器人綁定",
             isPresented: Binding(get: { pendingUnbind != nil }, set: { if !$0 { pendingUnbind = nil } }),
-            titleVisibility: .visible,
             presenting: pendingUnbind
         ) { binding in
             Button("解除", role: .destructive) {

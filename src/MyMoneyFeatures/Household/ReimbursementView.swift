@@ -46,15 +46,9 @@ struct ReimbursementView: View {
                             focus: $focusedField, equals: .amount, identifier: "reimbursement.amount"
                         )
                     }
-                    DatePicker(
-                        "撥款日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
+                    DayPickerRow(title: "撥款日期", day: $model.date)
                     LabeledContent("備註") {
-                        TextField("備註", text: $model.note, prompt: Text("選填"))
-                            .focused($focusedField, equals: .note)
+                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
                             .accessibilityIdentifier("reimbursement.note")
                     }
                     .tapToFocus($focusedField, equals: .note)

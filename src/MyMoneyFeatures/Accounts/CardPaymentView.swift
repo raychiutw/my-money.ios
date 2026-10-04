@@ -46,15 +46,9 @@ struct CardPaymentView: View {
                             focus: $focusedField, equals: .amount, identifier: "cardPayment.amount"
                         )
                     }
-                    DatePicker(
-                        "日期",
-                        selection: Binding(get: { model.date.startOfDay }, set: { model.date = CalendarDay(date: $0) }),
-                        displayedComponents: .date
-                    )
-                    .calendarDayTimeZone()
+                    DayPickerRow(title: "日期", day: $model.date)
                     LabeledContent("備註") {
-                        TextField("備註", text: $model.note, prompt: Text("選填"))
-                            .focused($focusedField, equals: .note)
+                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
                             .accessibilityIdentifier("cardPayment.note")
                     }
                     .tapToFocus($focusedField, equals: .note)
@@ -90,11 +84,9 @@ struct CardPaymentView: View {
                 }
             }
             .keyboardDismissal(clearing: $focusedField)
-            .confirmationDialog(
-                "扣款帳戶餘額不足",
-                isPresented: $isLowBalanceConfirming,
-                titleVisibility: .visible
-            ) {
+            // 送出之後才知道餘額不足,觸發的是導覽列的 ✓ 鈕之後的非同步結果,沒有適合的錨點:
+            // 用 alert(置中、寬度固定、大字級會折行)，不用錨點亂指的泡泡(#169)。
+            .alert("扣款帳戶餘額不足", isPresented: $isLowBalanceConfirming) {
                 Button("仍要扣款") { submit(confirmedLowBalance: true) }
                 Button("取消", role: .cancel) {}
             } message: {
