@@ -95,6 +95,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `forecast-scope-household.json` | `GET /forecast?scope=household` | 200 | 測試帳號不在任何家庭:起始餘額 6900、沒有事件、最低餘額發生在第一天 |
 | `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
 | `forecast-scope-all-settled.json` | 先 `POST /forecast/settle` 把「房租」(`recurring:<id>:<日期>`)標成已繳，再 `GET /forecast?scope=all`(錄完已還原) | 200 | 房租 `is_settled: true`、仍在事件清單，最低餘額 61,570 → 73,570(後端把已繳的 12,000 排除);其他事件 `is_settled: false`、`can_settle: true` |
+| `forecast-credit-card-recurring.json` | 暫時建立信用卡「iOS 測試週期卡」(結帳日 8、繳款日 18)與綁定它的週期支出「iOS 測試卡訂閱」(每月 6 號 500)，再 `GET /forecast?scope=all`(錄完全部刪除，上游 ADR 0019 第 4 點) | 200 | 訂閱的事件日期是**繳款日** 2026-10-18(不是每月 6 號)，名稱「iOS 測試卡訂閱 (iOS 測試週期卡 · 信用卡繳款日扣款)」照後端，`event_key` 的日期部分也是平移後的，`can_settle: true`;最低餘額 61,070 |
+| `forecast-settle-credit-card-recurring.json` | 同上，`POST /forecast/settle` 把那筆訂閱事件標成已繳 | 200 | `{event_key, is_settled:true}` |
+| `forecast-credit-card-recurring-settled.json` | 同上，標成已繳之後再 `GET /forecast?scope=all`(錄完已還原) | 200 | 訂閱事件 `is_settled: true`、仍在清單，最低餘額 61,070 → 61,570(後端排除已繳的 500) |
 | `forecast-settle-on.json` | `POST /forecast/settle {event_key, settled:true}`(上游 ADR 0018) | 200 | `{event_key, is_settled:true}` |
 | `forecast-settle-off.json` | 同上 `settled:false` | 200 | `{event_key, is_settled:false}` |
 | `forecast-settle-invalid.json` | 同上少了 `event_key` | 400 | 「缺少 event_key」原樣傳遞 |
