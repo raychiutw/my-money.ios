@@ -308,7 +308,7 @@ private struct BudgetRowView: View {
         switch row.status {
         case .over: .red
         case .nearLimit: .orange
-        case .unset, .normal: .accentColor
+        case .unset, .normal: Color.ciFill
         }
     }
 }

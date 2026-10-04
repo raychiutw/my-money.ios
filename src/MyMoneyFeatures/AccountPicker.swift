@@ -29,10 +29,13 @@ struct AccountPicker: View {
             AccountChoiceList(title: title, selection: $selection, options: options, noneTitle: noneTitle)
         } label: {
             LabeledContent(title) {
+                // 可點的值用 CI 文字色(ADR-0009、#177)。
                 if let valueText {
                     Text(valueText)
+                        .foregroundStyle(Color.ciText)
                 } else if let placeholder, selection == nil {
                     Text(placeholder)
+                        .foregroundStyle(Color.ciText)
                 }
             }
         }
@@ -85,7 +88,7 @@ private struct AccountChoiceList: View {
                 if isSelected {
                     // 選取的勾勾是品牌粉紅(#147、ADR-0008)。
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.brandPink)
+                        .foregroundStyle(Color.ciText)
                         .accessibilityHidden(true)
                 }
             }

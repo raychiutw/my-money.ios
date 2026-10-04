@@ -34,7 +34,7 @@ struct FilterIconImage: View {
 
     var body: some View {
         Image(systemName: FilterIcon.symbolName(isActive: isActive))
-            .foregroundStyle(isActive ? Color.brandPink : Color.primary)
+            .foregroundStyle(isActive ? Color.ciText : Color.primary)
     }
 }
 
@@ -106,7 +106,7 @@ struct ScopeFilter<Scope: ScopeFilterOption>: ToolbarContent {
                 // 所以只放 symbol,標籤另外用 `accessibilityLabel` 補上。
                 FilterIconImage(isActive: !scope.isDefaultFilter)
             }
-            // 選單裡勾選的項目，勾勾維持系統樣式:系統選單的勾勾不吃 tint(試過 `.tint(.brandPink)`,
+            // 選單裡勾選的項目，勾勾維持系統樣式:系統選單的勾勾不吃 tint(試過 `.tint(.ciText)`,
             // 只有選項前面的符號變粉紅，勾勾還是白的)，不為了這個自己重做選單(#147、ADR-0008)。
             .accessibilityLabel(name)
             .accessibilityValue(scope.title)

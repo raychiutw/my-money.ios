@@ -33,6 +33,7 @@ struct SavingsGoalEditorView: View {
 
                 Section {
                     Toggle("截止日", isOn: $model.hasDeadline)
+                        .tint(Color.ciFill)
                     if model.hasDeadline {
                         DatePicker(
                             "日期",
@@ -90,10 +91,11 @@ private struct EmojiChoices: View {
                     Text(emoji)
                         .font(.title2)
                         .frame(width: 44, height: 44)
-                        // 選取不填色(#147、ADR-0008):品牌粉紅的外框。
+                        // 選取(ADR-0009、#177):CI 外框加淡底。
+                        .background(selection == emoji ? Color.ciFill.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selection == emoji ? Color.brandPink : .clear, lineWidth: 2)
+                                .strokeBorder(selection == emoji ? Color.ciFill : .clear, lineWidth: 2)
                         )
                 }
                 .buttonStyle(.plain)

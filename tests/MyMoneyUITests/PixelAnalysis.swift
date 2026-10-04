@@ -10,13 +10,18 @@ enum PixelAnalysis {
         var lightFraction: Double
         /// 偏藍的像素數(系統藍;背景灰只差個位數)。
         var bluish: Int
-        /// 接近品牌粉紅(任一個變體)的像素數。
-        var brandPink: Int
+        /// 接近 CI 色(填色與文字的任一個變體)的像素數。
+        var ci: Int
+        /// CI 色像素占這個範圍的比例。
+        var ciFraction: Double { Double(ci) / Double(max(total, 1)) }
+        /// 這個範圍的像素總數。
+        var total: Int
     }
 
-    /// 品牌粉紅(舊 AccentColor 的四個變體):互動元素不再用，只留在 logo、App icon 與頭像。
-    static let brandPinks: [(red: Int, green: Int, blue: Int)] = [
-        (0xB8, 0x43, 0x4D), (0xFF, 0x8A, 0x8A), (0x9E, 0x2F, 0x3A), (0xFF, 0xB3, 0xB3),
+    /// CI 色(`CIPalette` 的填色與文字，各外觀與增強對比的所有變體)。
+    static let ciColors: [(red: Int, green: Int, blue: Int)] = [
+        (0xE2, 0x3C, 0x52), (0x88, 0x11, 0x21), (0xFD, 0xA5, 0xB1),
+        (0xAD, 0x1F, 0x32), (0xF8, 0x81, 0x91), (0x84, 0x15, 0x24),
     ]
     static let pinkTolerance = 12
     /// 藍色比紅色多這麼多就算系統藍(iOS 的系統藍 B − R 都在 190 以上)。
@@ -88,7 +93,7 @@ enum PixelAnalysis {
 
         let minX = Int(region.minX * Double(width)), maxX = Int(region.maxX * Double(width))
         let minY = Int(region.minY * Double(height)), maxY = Int(region.maxY * Double(height))
-        var total = 0, dark = 0, light = 0, bluish = 0, pink = 0
+        var total = 0, dark = 0, light = 0, bluish = 0, ci = 0
         for y in minY..<maxY {
             for x in minX..<maxX {
                 let index = (y * width + x) * 4
@@ -96,17 +101,17 @@ enum PixelAnalysis {
                 total += 1
                 let luma = (red * 299 + green * 587 + blue * 114) / 1000
                 if luma < 64 { dark += 1 } else if luma > 192 { light += 1 }
-                if brandPinks.contains(where: {
+                if ciColors.contains(where: {
                     abs($0.red - red) <= pinkTolerance && abs($0.green - green) <= pinkTolerance && abs($0.blue - blue) <= pinkTolerance
                 }) {
-                    pink += 1
+                    ci += 1
                 } else if blue - red > bluishGap {
                     bluish += 1
                 }
             }
         }
         let count = Double(max(total, 1))
-        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, brandPink: pink)
+        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, ci: ci, total: total)
     }
 
     /// 一條橫向的文字帶(同一列文字所在的 y 範圍)與它墨跡的左右邊界;座標是畫素。

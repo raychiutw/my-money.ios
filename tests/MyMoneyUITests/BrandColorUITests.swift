@@ -1,8 +1,7 @@
 import XCTest
 
 /// 正式路徑(不帶 `-uiTesting`,也就是 TestFlight 版的 composition root)的互動色是**單色**(#134、ADR-0007):
-/// 淺色黑字、深色白字，主要按鈕是不填色的玻璃膠囊(#147、ADR-0008);不是系統藍。品牌粉紅用在 logo、App icon、頭像、
-/// 目前所在的 tab、套用中的篩選與選取狀態，登入頁沒有這些，所以不該有粉紅。
+/// 淺色黑字、深色白字;主要按鈕是 CI 色填色的膠囊(ADR-0009、#176);不是系統藍。
 ///
 /// 其他 UI 測試都帶 `-uiTesting`,走不到正式路徑。TestFlight 1.0 (36381212551) 的標題和按鈕都變成系統藍，
 /// 原因是正式路徑的 `App.init()` 建立了 `EnvironmentValues()`(AccentColor 沒套到)。登入頁不會連網路，所以這裡直接啟動正式路徑。
@@ -13,16 +12,16 @@ final class BrandColorUITests: XCTestCase {
     }
 
     @MainActor
-    func testLoginPageHasNoBlueAndNoBrandPinkInLight() throws {
+    func testLoginPageHasNoBlueAndAFilledSubmitInLight() throws {
         try assertLoginPage(appearance: .light)
     }
 
     @MainActor
-    func testLoginPageHasNoBlueAndNoBrandPinkInDark() throws {
+    func testLoginPageHasNoBlueAndAFilledSubmitInDark() throws {
         try assertLoginPage(appearance: .dark)
     }
 
-    /// 登入頁:標題與文字不是系統藍、不是品牌粉紅;「登入」是不填色的玻璃膠囊;沒填資料時停用，看得出來。
+    /// 登入頁:標題與文字不是系統藍;「登入」是 CI 填色的膠囊(#176);沒填資料時停用，看得出來。
     @MainActor
     private func assertLoginPage(appearance: XCUIDevice.Appearance) throws {
         XCUIDevice.shared.appearance = appearance
@@ -50,16 +49,12 @@ final class BrandColorUITests: XCTestCase {
         XCTAssertTrue(submit.isEnabled, "\(name):填了資料，「登入」應該啟用")
 
         let enabled = try PixelAnalysis.statistics(of: submit.screenshot().image, region: PixelAnalysis.center)
-        // 不填色(#147):「登入」是玻璃膠囊，中央不是大面積的黑(淺色)或白(深色);粗體字看得到。
-        let enabledFill = appearance == .dark ? enabled.lightFraction : enabled.darkFraction
-        let disabledFill = appearance == .dark ? disabled.lightFraction : disabled.darkFraction
-        XCTAssertLessThan(enabledFill, 0.3, "\(name):「登入」又被填成實心了(\(appearance == .dark ? "白" : "黑")色占 \(enabledFill))")
-        XCTAssertGreaterThan(enabledFill, 0.003, "\(name):「登入」的字看不到(\(appearance == .dark ? "白" : "黑")色只占 \(enabledFill))")
-        // 停用時字與外框變淡:主要文字色的像素比啟用時少。
-        XCTAssertGreaterThan(enabledFill, disabledFill, "\(name):停用與啟用的「登入」看不出差別(啟用 \(enabledFill)、停用 \(disabledFill))")
+        // 主要按鈕填 CI 色(ADR-0009、#176):啟用時中央大部分是 CI 填色、字是反白粗體;停用時淡化(不再是 CI 色)。
+        XCTAssertGreaterThan(enabled.ciFraction, 0.5, "\(name):「登入」沒有填 CI 色(CI 色只占 \(enabled.ciFraction))")
+        XCTAssertGreaterThan(enabled.lightFraction, 0.003, "\(name):「登入」的反白字看不到(亮色只占 \(enabled.lightFraction))")
+        XCTAssertLessThan(disabled.ciFraction, enabled.ciFraction, "\(name):停用與啟用的「登入」看不出差別(啟用 \(enabled.ciFraction)、停用 \(disabled.ciFraction))")
 
         let page = try PixelAnalysis.statistics(of: XCUIScreen.main.screenshot().image)
         XCTAssertEqual(page.bluish, 0, "\(name):登入頁有系統藍")
-        XCTAssertEqual(page.brandPink, 0, "\(name):登入頁有品牌粉紅(互動色已經單色化，粉紅只留 logo、App icon 與頭像)")
     }
 }

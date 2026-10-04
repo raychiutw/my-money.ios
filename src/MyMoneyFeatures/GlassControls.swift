@@ -1,11 +1,8 @@
 import SwiftUI
 
-// 玻璃按鈕(#134、ADR-0007,#147 以 ADR-0008 修正):按鈕一律**不填色**——背景跟主題底色一樣，只有 Liquid Glass 外框;
-// 主要動作靠粗體與位置區分，不靠反白填滿。淺色黑字、深色白字(accent 色是單色，見 AccentColor 資產);
-// 玻璃只給控制層(按鈕、工具列)，卡片、列、圖表不加。
-//
-// 驗證結果(研究筆記 §11):`.glass` 在淺色、深色、增強對比都正常。以前主要動作用 `.glassProminent` 單色填滿,
-// 字色固定是白色，深色模式白底白字還要特地指定反色;使用者在真機看過後不要填色，所以整套反白填滿作廢。
+// 玻璃按鈕(#134、ADR-0007，ADR-0008 修正，ADR-0009 再修正):一般按鈕(✕、工具列、次要膠囊)**不填色**——只有 Liquid Glass 外框,
+// 次要膠囊的字是 CI 文字色;**✓ 與主要按鈕填 CI 色**(`ciFill`，淺色與深色同一個)，勾勾與字固定用 `ciGlyph`(白，
+// 只有深色增強對比是黑)——不像 ADR-0007 的單色填滿，深色模式不必特例。玻璃只給控制層(按鈕、工具列)，卡片、列、圖表不加。
 
 /// Sheet 左上的關閉鈕:✕ 玻璃圓鈕。VoiceOver 念「關閉」。
 struct SheetCloseButton: ToolbarContent {
@@ -18,8 +15,8 @@ struct SheetCloseButton: ToolbarContent {
     }
 }
 
-/// Sheet 右上的確認鈕:✓ 玻璃圓鈕，跟左上的 ✕ 一樣不填色，靠勾勾與 VoiceOver 標籤區分，每個畫面只有這一個確認。
-/// VoiceOver 念 `title`(「儲存」「完成」等)。不加 `role: .confirm`、也不放 `.confirmationAction`:這兩個在 iOS 26 都會自動畫成 accent 填滿的主要動作鈕,所以放 `.primaryAction`。
+/// Sheet 右上的確認鈕:✓ 圓鈕**填 CI 色**(`ciFill`)、勾勾反白(ADR-0009)，左上的 ✕ 維持不填色的玻璃;每個畫面只有這一個確認。
+/// VoiceOver 念 `title`(「儲存」「完成」等)。仍放 `.primaryAction`、不加 `role: .confirm`:`.confirmationAction` 與 `.confirm` 會自動畫成 accent(黑／白)填滿，蓋掉 CI 色。
 struct SheetConfirmButton: ToolbarContent {
     let title: String
     var isDisabled = false
@@ -35,14 +32,19 @@ struct SheetConfirmButton: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button(title, systemImage: "checkmark", action: action)
-                .disabled(isDisabled)
+            Button(action: action) {
+                Label(title, systemImage: "checkmark")
+                    .foregroundStyle(Color.ciGlyph)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.ciFill)
+            .disabled(isDisabled)
                 .accessibilityIdentifier(identifier)
         }
     }
 }
 
-/// 需要文字的主要動作(「登入」「ATM 提款／轉帳」):玻璃膠囊，不填色，字是粗體。`fillsWidth` 時撐滿一行。停用時系統會淡化。
+/// 需要文字的主要動作(「登入」「ATM 提款／轉帳」):**CI 填色**(`ciFill`)的膠囊，反白粗體字(`ciGlyph`)。`fillsWidth` 時撐滿一行。停用時系統會淡化。一個畫面一個主要動作。
 struct PrimaryCapsuleButton: View {
     let title: String
     var systemImage: String?
@@ -53,9 +55,11 @@ struct PrimaryCapsuleButton: View {
         Button(action: action) {
             label
                 .font(.body.weight(.semibold))
+                .foregroundStyle(Color.ciGlyph)
                 .frame(maxWidth: fillsWidth ? .infinity : nil)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.glassProminent)
+        .tint(Color.ciFill)
         .buttonBorderShape(.capsule)
         .controlSize(.large)
     }
@@ -70,7 +74,7 @@ struct PrimaryCapsuleButton: View {
     }
 }
 
-/// 需要文字的次要動作(「轉帳」「前往帳戶管理」):玻璃膠囊，字是主要文字色。
+/// 需要文字的次要動作(「重試」「前往帳戶管理」「存入」):玻璃膠囊，不填色，字是 CI 文字色(`ciText`)。
 struct GlassCapsuleButton: View {
     let title: String
     var systemImage: String?
@@ -86,6 +90,7 @@ struct GlassCapsuleButton: View {
         }
         .buttonStyle(.glass)
         .buttonBorderShape(.capsule)
+        .foregroundStyle(Color.ciText)
     }
 }
 
