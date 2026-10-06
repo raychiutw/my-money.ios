@@ -11,12 +11,12 @@ final class TruncationUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    // MARK: 總覽的功能入口:關鍵數字長(家庭轉帳建議、預測的最低餘額與日期)，大字級要折行，不能截成「…」
+    // MARK: 總覽的功能入口:關鍵數字長(預測的最低餘額與日期、儲蓄目標)，大字級要折行，不能截成「…」
 
     @MainActor
     func testEntryValuesAreNotTruncatedAtAccessibilitySize() throws {
         let app = launchSignedIn(contentSize: Self.ax5)
-        for (id, expected) in [("household", "轉給"), ("forecast", "最低"), ("goals", "已存")] {
+        for (id, expected) in [("forecast", "最低"), ("goals", "已存")] {
             let entry = app.buttons["home.entry.\(id)"]
             XCTAssertTrue(ScrollSupport.revealFully(entry, in: app), "總覽沒有找到「\(id)」入口")
             let lines = try TextRecognition.lines(in: entry.screenshot().image)

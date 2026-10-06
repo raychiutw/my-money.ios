@@ -8,7 +8,7 @@ final class OverviewUITests: XCTestCase {
 
     /// 從總覽記一筆 250 元 → 當月淨收支和「記帳」入口的本月筆數跟著更新;點「記帳」入口進入記帳 tab。
     @MainActor
-    func testQuickEntryUpdatesMonthNetAndLedgerCount() throws {
+    func testQuickEntryUpdatesMonthNet() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"]
         app.launch()
@@ -16,9 +16,6 @@ final class OverviewUITests: XCTestCase {
 
         // 範例：收入 45,000,支出 120 + 880(信用卡還款不算)。
         XCTAssertTrue(row("當月淨收支", value: "44,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
-        let ledger = app.buttons["home.entry.ledger"]
-        XCTAssertTrue(ScrollSupport.revealFully(ledger, in: app), "總覽沒有「記帳」入口")
-        XCTAssertEqual(ledger.label, "記帳，本月 4 筆", "「記帳」入口沒有念出本月筆數")
 
         app.buttons["overview.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -29,11 +26,6 @@ final class OverviewUITests: XCTestCase {
         app.buttons["quickEntry.save"].tap()
 
         XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
-        XCTAssertTrue(ScrollSupport.revealFully(ledger, in: app), "記一筆後找不到「記帳」入口")
-        XCTAssertEqual(ledger.label, "記帳，本月 5 筆", "記一筆後「記帳」入口的本月筆數沒有更新")
-
-        ledger.tap()
-        XCTAssertTrue(app.buttons["transactions.add"].waitForExistence(timeout: 3), "「記帳」入口沒有進入記帳 tab")
     }
 
     /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面是三格數字磚(#117):
@@ -72,7 +64,7 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue((netTile.value as? String ?? "").contains("收入 45,000 元，支出 1,000 元"), "當月淨收支磚沒有收入與支出:\(String(describing: netTile.value))")
     }
 
-    /// 功能入口格(#178):8 個入口都在,念成「名稱，關鍵數字」;點了切到對應的 tab 或 push 對應的畫面。
+    /// 功能入口格(#178、#196):3 個入口都在,念成「名稱，關鍵數字」;點了切到對應的 tab 或 push 對應的畫面。
     @MainActor
     func testEntriesOpenTheirScreens() throws {
         let app = XCUIApplication()
@@ -81,9 +73,7 @@ final class OverviewUITests: XCTestCase {
         signIn(app)
 
         let expected = [
-            ("ledger", "記帳，本月 4 筆"), ("accounts", "帳戶，3 個帳戶"), ("creditCards", "信用卡，待繳 28,500 元"),
-            ("household", "家庭"), ("statistics", "統計，"), ("recurring", "週期收支，"), ("goals", "儲蓄目標，已存 4,000 元，整體達成率 2.5%"),
-            ("forecast", "現金流預測，最低 53,440 元"),
+            ("recurring", "週期收支，"), ("goals", "儲蓄目標，已存 4,000 元，整體達成率 2.5%"), ("forecast", "現金流預測，最低 53,440 元"),
         ]
         _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         for (id, label) in expected {
@@ -92,11 +82,9 @@ final class OverviewUITests: XCTestCase {
             XCTAssertTrue(entry.label.hasPrefix(label), "「\(id)」入口的念法不對:\(entry.label)，預期以「\(label)」開頭")
         }
 
-        // 切 tab 的入口:點了選到對應的 tab，再回總覽。
-        for (id, tab) in [("ledger", "記帳"), ("accounts", "帳戶"), ("creditCards", "帳戶"), ("household", "家庭"), ("statistics", "統計")] {
-            app.openHomeEntry(id)
-            XCTAssertTrue(app.tabBars.buttons[tab].waitForExistence(timeout: 3) && app.tabBars.buttons[tab].isSelected, "「\(id)」入口沒有切到「\(tab)」")
-            app.tabBars.buttons["總覽"].tap()
+        // tab 已有的功能不放入口(#196):用 tab bar 進去。
+        for id in ["ledger", "accounts", "creditCards", "household", "statistics"] {
+            XCTAssertFalse(app.buttons["home.entry.\(id)"].exists, "「\(id)」是 tab 已有的功能,首頁不該再有入口")
         }
 
         // push 的入口:進得去,返回回到總覽。
@@ -144,16 +132,16 @@ final class OverviewUITests: XCTestCase {
     func testEntriesAreTwoColumnsOnlyWhenTheyFit() throws {
         let normal = launchAtContentSize("UICTContentSizeCategoryL")
         _ = normal.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
-        let first = normal.buttons["home.entry.ledger"], second = normal.buttons["home.entry.accounts"]
-        XCTAssertTrue(ScrollSupport.revealFully(first, in: normal), "沒有「記帳」入口")
+        let first = normal.buttons["home.entry.recurring"], second = normal.buttons["home.entry.goals"]
+        XCTAssertTrue(ScrollSupport.revealFully(first, in: normal), "沒有「週期收支」入口")
         XCTAssertEqual(first.frame.minY.rounded(), second.frame.minY.rounded(), "預設字級入口格沒有兩欄:\(first.frame) \(second.frame)")
         normal.terminate()
 
         let large = launchAtContentSize("UICTContentSizeCategoryAccessibilityXXXL")
         _ = large.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
-        let a = large.buttons["home.entry.ledger"], b = large.buttons["home.entry.accounts"]
-        XCTAssertTrue(ScrollSupport.revealFully(a, in: large), "AX5 沒有「記帳」入口")
-        XCTAssertTrue(b.exists || ScrollSupport.revealFully(b, in: large), "AX5 沒有「帳戶」入口")
+        let a = large.buttons["home.entry.recurring"], b = large.buttons["home.entry.goals"]
+        XCTAssertTrue(ScrollSupport.revealFully(a, in: large), "AX5 沒有「週期收支」入口")
+        XCTAssertTrue(b.exists || ScrollSupport.revealFully(b, in: large), "AX5 沒有「儲蓄目標」入口")
         XCTAssertNotEqual(a.frame.minY.rounded(), b.frame.minY.rounded(), "AX5 入口格沒有單欄:\(a.frame) \(b.frame)")
         XCTAssertGreaterThan(a.frame.width, large.windows.firstMatch.frame.width * 0.8, "AX5 入口格沒有用滿寬度")
     }

@@ -6,10 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class SavingsGoalEditorModel {
-    /// 跟 web 一樣的 12 種 emoji,第一個是預設值。
-    public static let emojiChoices = ["🎯", "✈️", "🏠", "🚗", "💍", "💻", "👶", "🎓", "🏥", "🏖️", "🎒", "🎨"]
-
-    public var emoji = emojiChoices[0]
+    public var icon = SavingsGoalIcon.default
     public var name = ""
     public var targetAmountText = ""
     /// 選填;沒填時是 0。
@@ -49,7 +46,7 @@ public final class SavingsGoalEditorModel {
     ) {
         title = "編輯儲蓄目標"
         editingID = goal.id
-        emoji = goal.emoji
+        icon = goal.icon
         name = goal.name
         targetAmountText = "\(goal.targetAmount.amount)"
         monthlyReserveText = "\(goal.monthlyReserve.amount)"
@@ -74,7 +71,7 @@ public final class SavingsGoalEditorModel {
         // 跟 web 一樣：沒填或看不懂時當作 0;web 的欄位也不允許負數。
         let reserve = Money(wholeNumber: monthlyReserveText) ?? .zero
         let draft = SavingsGoalDraft(
-            name: trimmedName, emoji: emoji, targetAmount: target, monthlyReserve: reserve,
+            name: trimmedName, icon: icon, targetAmount: target, monthlyReserve: reserve,
             deadline: hasDeadline ? deadline : nil
         )
         isSaving = true

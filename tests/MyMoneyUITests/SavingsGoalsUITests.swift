@@ -44,6 +44,27 @@ final class SavingsGoalsUITests: XCTestCase {
         XCTAssertTrue(row("目標金額合計", value: "206,000 元", in: app).waitForExistence(timeout: 5), "建立後目標金額合計沒有更新")
     }
 
+    /// 圖示選擇(#195):12 個圖示按鈕有 VoiceOver 名稱,預設選「目標」,點「旅行」後換成它。
+    @MainActor
+    func testIconPickerHasTwelveNamedChoices() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+        app.openHomeEntry("goals")
+        app.buttons["goals.add"].tap()
+        XCTAssertTrue(app.textFields["goalEditor.name"].waitForExistence(timeout: 3))
+
+        let names = ["目標", "旅行", "住家", "汽車", "珠寶", "電腦", "寶寶", "學業", "健康", "度假", "背包", "藝術"]
+        for name in names {
+            XCTAssertTrue(app.buttons[name].firstMatch.exists, "圖示選擇器沒有「\(name)」")
+        }
+        XCTAssertTrue(app.buttons["目標"].firstMatch.isSelected, "預設沒有選「目標」")
+        app.buttons["旅行"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["旅行"].firstMatch.isSelected, "點了「旅行」沒有被選取")
+        XCTAssertFalse(app.buttons["目標"].firstMatch.isSelected)
+    }
+
     /// 摘要的一般列(`AmountRow` 或 `LabeledContent`):VoiceOver 念標籤，值是金額或百分比。
     @MainActor
     private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {

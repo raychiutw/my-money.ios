@@ -3,6 +3,15 @@ import MyMoneyDomain
 import Observation
 
 /// 現金流預測頁的 model(parity.md「現金流預測」)。
+/// 預測頁的起始餘額(`ForecastModel.startingBalance(of:)`)。
+public struct StartingBalance: Equatable, Sendable {
+    public let amount: Money
+    /// 「現金 $1,750・活存帳戶 $101,200」。
+    public let detail: String
+    /// 起始餘額比現金加活存帳戶少時的說明;相等時是 `nil`。
+    public let note: String?
+}
+
 @MainActor
 @Observable
 public final class ForecastModel {
@@ -86,6 +95,18 @@ public final class ForecastModel {
     /// 已繳事件的說明文字(畫面上不只靠變淡與刪除線);未繳的事件沒有。
     public func settledNote(of event: ForecastEvent) -> String? {
         event.isSettled ? "已繳(不計入預測)" : nil
+    }
+
+    /// 預測頁的「起始餘額」:主數字加「現金」「活存帳戶」兩個數字(都是後端的值,不寫成算式,因為先扣掉的信用卡待繳款讓三者不成加總)。
+    /// 舊回應或缺少任何一個數字時是 `nil`,畫面不顯示這一組。
+    public func startingBalance(of forecast: CashFlowForecast) -> StartingBalance? {
+        guard let start = forecast.startingBalance, let cash = forecast.cashTotal, let bank = forecast.bankTotal else { return nil }
+        return StartingBalance(
+            amount: start,
+            detail: "\(Terms.cash) \(cash.formatted())・\(Terms.bankAccount) \(bank.formatted())",
+            // 後端已把繳款日不在未來 30 天內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
+            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 30 天內的信用卡待繳款"
+        )
     }
 
     /// 最低餘額發生的日期;沒有變動時是「無變動」。

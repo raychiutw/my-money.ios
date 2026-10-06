@@ -189,27 +189,27 @@ struct OverviewTests {
     func refreshesOnDataVersionChange() async {
         let dataVersion = DataVersion()
         let model = await loaded(dataVersion: dataVersion)
-        let fetches = await transactions.queries.count
+        let fetches = await statistics.monthlyQueries.count
 
         await model.refreshIfStale()
-        #expect(await transactions.queries.count == fetches)
+        #expect(await statistics.monthlyQueries.count == fetches)
 
         dataVersion.bump()
         await model.refreshIfStale()
-        #expect(await transactions.queries.count > fetches)
+        #expect(await statistics.monthlyQueries.count > fetches)
     }
 
     /// 畫面用 `refreshIfStale()`:從信用卡詳細頁返回時不重抓，換了視角才重抓(code review)。
     @Test("視角改變後重抓")
     func refreshesOnScopeChange() async {
         let model = await loaded()
-        let fetches = await transactions.queries.count
+        let fetches = await statistics.monthlyQueries.count
 
         model.scope = .household
         await model.refreshIfStale()
 
-        #expect(await transactions.queries.last?.scope == .household)
-        #expect(await transactions.queries.count > fetches)
+        #expect(await statistics.monthlyQueries.last?.scope == .household)
+        #expect(await statistics.monthlyQueries.count > fetches)
     }
 }
 

@@ -26,15 +26,15 @@ public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
     /// 沖繩旅遊(有截止日)、緊急備用金(沒有截止日)、iOS 小目標(已達成)。
     public static let sampleGoals = [
         SavingsGoal(
-            id: SavingsGoalID("sample-trip"), name: "沖繩旅遊", emoji: "✈️", targetAmount: Money(60000),
+            id: SavingsGoalID("sample-trip"), name: "沖繩旅遊", icon: .plane, targetAmount: Money(60000),
             savedAmount: Money(3000), monthlyReserve: Money(5000), deadline: CalendarDay(year: 2027, month: 3, day: 31)
         ),
         SavingsGoal(
-            id: SavingsGoalID("sample-emergency"), name: "緊急備用金", emoji: "🏥", targetAmount: Money(100_000),
+            id: SavingsGoalID("sample-emergency"), name: "緊急備用金", icon: .heartPulse, targetAmount: Money(100_000),
             savedAmount: .zero, monthlyReserve: .zero, deadline: nil
         ),
         SavingsGoal(
-            id: SavingsGoalID("sample-achieved"), name: "iOS 小目標", emoji: "🎒", targetAmount: Money(1000),
+            id: SavingsGoalID("sample-achieved"), name: "iOS 小目標", icon: .backpack, targetAmount: Money(1000),
             savedAmount: Money(1000), monthlyReserve: Money(200), deadline: CalendarDay(year: 2026, month: 12, day: 31)
         ),
     ]
@@ -72,7 +72,7 @@ public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
         stored = stored.map { goal in
             guard goal.id == id else { return goal }
             return SavingsGoal(
-                id: id, name: goal.name, emoji: goal.emoji, targetAmount: goal.targetAmount,
+                id: id, name: goal.name, icon: goal.icon, targetAmount: goal.targetAmount,
                 savedAmount: min(goal.savedAmount + amount, goal.targetAmount),
                 monthlyReserve: goal.monthlyReserve, deadline: goal.deadline
             )
@@ -87,7 +87,7 @@ public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
 
     private static func goal(_ id: SavingsGoalID, from draft: SavingsGoalDraft, saved: Money) -> SavingsGoal {
         SavingsGoal(
-            id: id, name: draft.name, emoji: draft.emoji, targetAmount: draft.targetAmount, savedAmount: saved,
+            id: id, name: draft.name, icon: draft.icon, targetAmount: draft.targetAmount, savedAmount: saved,
             monthlyReserve: draft.monthlyReserve, deadline: draft.deadline
         )
     }

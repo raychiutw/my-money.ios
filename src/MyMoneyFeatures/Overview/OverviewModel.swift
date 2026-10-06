@@ -57,11 +57,7 @@ public final class OverviewModel {
         settleError = nil
     }
 
-    // 功能入口(#178)的資料來源:各自獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
-    /// 本月(1 號到今天)的收支明細筆數。
-    private(set) var monthTransactionCount: Int?
-    /// 本月各成員的公帳代墊。
-    private(set) var householdShares: [HouseholdShare]?
+    // 功能入口(#178、#196)的資料來源:獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
     private(set) var goals: [SavingsGoal]?
 
     /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
@@ -193,11 +189,9 @@ public final class OverviewModel {
             async let budgets = statisticsRepository.budgets(month: month)
             // 以下是額外的資料來源(走勢圖、功能入口的關鍵數字):失敗不能讓整個總覽失敗，所以不 throw，失敗就是那一項沒有值。
             async let forecast = Self.fetchForecast(forecastRepository, scope: scope)
-            async let monthCount = Self.fetchMonthTransactionCount(transactionRepository, today: day, scope: scope)
             async let goals = try? goalRepository.goals()
-            async let shares = try? statisticsRepository.householdShares(month: month)
             let (loadedSummary, loadedAccounts, loadedSummaries, loadedBudgets) = try await (summary, accounts, summaries, budgets)
-            let (loadedForecast, loadedCount, loadedGoals, loadedShares) = await (forecast, monthCount, goals, shares)
+            let (loadedForecast, loadedGoals) = await (forecast, goals)
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             self.summary = loadedSummary
@@ -208,8 +202,6 @@ public final class OverviewModel {
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
-            monthTransactionCount = loadedCount
-            householdShares = loadedShares
             self.goals = loadedGoals
             self.forecast = loadedForecast
             loadedVersion = version
@@ -226,13 +218,6 @@ public final class OverviewModel {
     private static func fetchForecast(_ repository: (any ForecastRepository)?, scope: ViewScope) async -> CashFlowForecast? {
         guard let repository else { return nil }
         return try? await repository.forecast(scope: scope)
-    }
-
-    /// 本月(1 號到今天)的收支明細筆數,跟收支明細頁預設的期間一樣;失敗是 `nil`。
-    private static func fetchMonthTransactionCount(
-        _ repository: any TransactionRepository, today: CalendarDay, scope: ViewScope
-    ) async -> Int? {
-        try? await repository.allTransactions(from: today.firstOfMonth, to: today, scope: scope).count
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從首頁 push 的畫面(週期收支等)返回時沒變就不重抓。

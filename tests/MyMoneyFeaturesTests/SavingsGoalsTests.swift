@@ -18,7 +18,7 @@ struct SavingsGoalsTests {
 
     private func goal(target: Int, saved: Int) -> SavingsGoal {
         SavingsGoal(
-            id: SavingsGoalID("x"), name: "x", emoji: "🎯", targetAmount: Money(Decimal(target)),
+            id: SavingsGoalID("x"), name: "x", icon: .target, targetAmount: Money(Decimal(target)),
             savedAmount: Money(Decimal(saved)), monthlyReserve: .zero, deadline: nil
         )
     }
@@ -38,11 +38,11 @@ struct SavingsGoalsTests {
     @Test("目標列 VoiceOver 念成一句：名稱、已存、目標、達成百分比、截止日，已達成時加註")
     func goalSpokenText() {
         let trip = SavingsGoal(
-            id: SavingsGoalID("t"), name: "沖繩旅遊", emoji: "✈️", targetAmount: Money(60000),
+            id: SavingsGoalID("t"), name: "沖繩旅遊", icon: .plane, targetAmount: Money(60000),
             savedAmount: Money(3000), monthlyReserve: Money(5000), deadline: CalendarDay(year: 2027, month: 3, day: 31)
         )
         let done = SavingsGoal(
-            id: SavingsGoalID("d"), name: "iOS 小目標", emoji: "🎒", targetAmount: Money(1000),
+            id: SavingsGoalID("d"), name: "iOS 小目標", icon: .backpack, targetAmount: Money(1000),
             savedAmount: Money(1000), monthlyReserve: .zero, deadline: nil
         )
 
@@ -100,7 +100,7 @@ struct SavingsGoalsTests {
 
         #expect(achieved.isAchieved)
         #expect(model.makeDeposit(for: achieved) == nil)
-        #expect(model.makeDeposit(for: trip)?.title == "存入「✈️ 沖繩旅遊」")
+        #expect(model.makeDeposit(for: trip)?.title == "存入「沖繩旅遊」")
     }
 
     @Test("刪除後資料版本遞增;確認文字包含名稱")

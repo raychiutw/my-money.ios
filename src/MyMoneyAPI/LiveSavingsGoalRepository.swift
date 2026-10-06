@@ -58,7 +58,7 @@ private struct SavingsGoalDTO: Decodable {
         return SavingsGoal(
             id: SavingsGoalID(id),
             name: name,
-            emoji: emoji ?? "🎯",
+            icon: SavingsGoalIcon(wire: emoji),
             targetAmount: Money(targetAmount),
             savedAmount: Money(savedAmount),
             monthlyReserve: Money(monthlyReserve ?? 0),
@@ -70,6 +70,7 @@ private struct SavingsGoalDTO: Decodable {
 /// `deadline` 是 `nil` 時整個欄位不送(跟 web 一樣)。
 private struct SavingsGoalBody: Encodable {
     let name: String
+    /// 欄位叫 `emoji`,上游 efd5064 起存的是圖示代號。
     let emoji: String
     let targetAmount: Decimal
     let monthlyReserve: Decimal
@@ -83,7 +84,7 @@ private struct SavingsGoalBody: Encodable {
 
     init(_ draft: SavingsGoalDraft) {
         name = draft.name
-        emoji = draft.emoji
+        emoji = draft.icon.rawValue
         targetAmount = draft.targetAmount.amount
         monthlyReserve = draft.monthlyReserve.amount
         deadline = draft.deadline?.iso

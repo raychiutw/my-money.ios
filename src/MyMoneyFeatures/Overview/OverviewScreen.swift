@@ -213,10 +213,6 @@ struct OverviewScreen: View {
 
     private func open(_ entry: OverviewEntry) {
         switch entry.destination {
-        case .ledger: show(.transactions)
-        case .accounts, .creditCards: show(.accounts)
-        case .household: show(.household)
-        case .statistics: show(.statistics)
         case .recurring: path.append(.recurring)
         case .goals: path.append(.goals)
         case .forecast: path.append(.forecast)

@@ -125,7 +125,7 @@ struct TransferTests {
 
         let message = await model.submit()
 
-        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 ➡️ iOS 測試皮夾)")
+        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 -> iOS 測試皮夾)")
         #expect(await repository.transfers == [AccountTransfer(
             fromAccountID: SampleAccounts.savings.id, toAccountID: SampleAccounts.wallet.id,
             amount: Money(500), date: today, note: "ATM 提款"

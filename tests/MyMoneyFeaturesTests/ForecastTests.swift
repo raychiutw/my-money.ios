@@ -265,7 +265,7 @@ struct ForecastTests {
             isShared: true, accountName: "洋蔥玉山-共同基金"
         )
         let cardDue = ForecastEvent(
-            date: CalendarDay(year: 2026, month: 10, day: 20), name: "💳 繳卡費 · 玉山 U Bear", type: .expense, amount: Money(8586),
+            date: CalendarDay(year: 2026, month: 10, day: 20), name: "繳卡費 · 玉山 U Bear（已出帳 $5,000 + 待出帳 $3,586）", type: .expense, amount: Money(8586),
             isShared: false, accountName: "玉山 U Bear"
         )
         let salary = ForecastEvent(
@@ -279,7 +279,64 @@ struct ForecastTests {
         #expect(model.accountText(of: salary) == nil)
         #expect(model.spokenText(of: rent) == "房租,10月5日,家庭公帳,帳戶 洋蔥玉山-共同基金,支出 12,000 元")
         #expect(model.spokenText(of: salary) == "薪水,10月25日,個人私帳,收入 52,000 元")
-        #expect(model.spokenText(of: cardDue).contains("繳卡費"), "事件名稱照後端念")
+        #expect(model.spokenText(of: cardDue).contains("繳卡費 · 玉山 U Bear（已出帳 $5,000 + 待出帳 $3,586）"), "事件名稱照後端念，含組成")
+    }
+
+    // MARK: 起始餘額(上游 5b2faa6，#195)
+
+    private func startingForecast(start: Int?, cash: Int?, bank: Int?) -> CashFlowForecast {
+        CashFlowForecast(
+            dailyBalances: [], minBalance: .zero, minDate: nil, willOverdraft: false, events: [],
+            startingBalance: start.map { Money(Decimal($0)) }, cashTotal: cash.map { Money(Decimal($0)) },
+            bankTotal: bank.map { Money(Decimal($0)) }
+        )
+    }
+
+    @Test("起始餘額:主數字加「現金」「活存帳戶」兩行,三個數字照後端、不寫成算式")
+    func startingBalanceSummary() throws {
+        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
+
+        let summary = try #require(model.startingBalance(of: startingForecast(start: 102950, cash: 1750, bank: 101200)))
+
+        #expect(summary.amount == Money(102950))
+        #expect(summary.detail == "現金 $1,750・活存帳戶 $101,200")
+        #expect(summary.note == nil, "起始餘額等於現金加活存帳戶時不加說明")
+    }
+
+    @Test("起始餘額比現金加活存帳戶少時,說明已先扣掉繳款日不在未來 30 天內的信用卡待繳款")
+    func startingBalanceDeduction() throws {
+        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
+
+        let summary = try #require(model.startingBalance(of: startingForecast(start: 86570, cash: 1750, bank: 101200)))
+
+        #expect(summary.note == "已先扣掉繳款日不在未來 30 天內的信用卡待繳款")
+    }
+
+    @Test("舊回應沒有起始餘額,或缺少現金、活存帳戶其中一個:不顯示這一組")
+    func startingBalanceMissing() {
+        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
+
+        #expect(model.startingBalance(of: startingForecast(start: nil, cash: nil, bank: nil)) == nil)
+        #expect(model.startingBalance(of: startingForecast(start: 100, cash: 50, bank: nil)) == nil)
+    }
+
+    @Test("記憶體替身的預測帶起始餘額,畫面跟著視角")
+    func sampleHasStartingBalance() async throws {
+        // 用獨立的 UserDefaults:`scope` 會寫進 `.standard`,不隔離會污染其他測試。
+        let model = ForecastModel(
+            repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(),
+            defaults: UserDefaults(suiteName: "ForecastTests.\(UUID().uuidString)")!
+        )
+        await model.load()
+        let allForecast = try #require(model.forecast)
+        let all = try #require(model.startingBalance(of: allForecast))
+        #expect(all.amount == Money(65440))
+
+        model.scope = .household
+        await model.load()
+        let householdForecast = try #require(model.forecast)
+        let household = try #require(model.startingBalance(of: householdForecast))
+        #expect(household.amount == Money(30000))
     }
 
     // MARK: 預測事件已繳(上游 ADR 0018，#182)

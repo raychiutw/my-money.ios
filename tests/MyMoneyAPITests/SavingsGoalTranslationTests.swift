@@ -29,7 +29,7 @@ struct SavingsGoalTranslationTests {
         #expect(goals[0] == SavingsGoal(
             id: SavingsGoalID("ace9807e-ebb5-4c86-b7e0-9939a642c5a4"),
             name: "沖繩旅遊",
-            emoji: "✈️",
+            icon: .plane,
             targetAmount: Money(60000),
             savedAmount: Money(3000),
             monthlyReserve: Money(5000),
@@ -37,6 +37,26 @@ struct SavingsGoalTranslationTests {
         ))
         #expect(goals[1].deadline == nil)
         #expect(goals[2].isAchieved)
+    }
+
+    @Test("後端現在存圖示代號:web 新建的目標(代號)與沒帶圖示的預設 target 都解讀成圖示;舊資料的 emoji 轉成代號")
+    func listDecodesIconKeys() async throws {
+        try stub.reply(status: 200, fixture: "goals-list-icon-keys.json")
+
+        let goals = try await repository.goals()
+
+        #expect(goals.map(\.icon) == [.plane, .heartPulse, .target, .plane], "✈️、🏥 是舊資料;target、plane 是代號")
+    }
+
+    @Test("建立時沒帶圖示,後端預設存 target(真實回應)")
+    func defaultIconResponse() async throws {
+        try stub.reply(status: 201, fixture: "goals-new-default.json")
+
+        try await repository.create(SavingsGoalDraft(
+            name: "iOS 圖示測試", icon: .target, targetAmount: Money(1000), monthlyReserve: .zero, deadline: nil
+        ))
+
+        #expect(try body(stub.requests.first)["emoji"] as? String == "target")
     }
 
     @Test("沒有任何儲蓄目標")
@@ -51,7 +71,7 @@ struct SavingsGoalTranslationTests {
         try stub.reply(status: 201, fixture: "goals-create-trip.json")
 
         try await repository.create(SavingsGoalDraft(
-            name: "沖繩旅遊", emoji: "✈️", targetAmount: Money(60000), monthlyReserve: Money(5000),
+            name: "沖繩旅遊", icon: .plane, targetAmount: Money(60000), monthlyReserve: Money(5000),
             deadline: CalendarDay(year: 2027, month: 3, day: 31)
         ))
 
@@ -59,7 +79,7 @@ struct SavingsGoalTranslationTests {
         #expect(request.httpMethod == "POST")
         let json = try body(request)
         #expect(json["name"] as? String == "沖繩旅遊")
-        #expect(json["emoji"] as? String == "✈️")
+        #expect(json["emoji"] as? String == "plane", "送出的是圖示代號,不是 emoji(上游 efd5064)")
         #expect(json["target_amount"] as? Int == 60000)
         #expect(json["monthly_reserve"] as? Int == 5000)
         #expect(json["deadline"] as? String == "2027-03-31")
@@ -70,7 +90,7 @@ struct SavingsGoalTranslationTests {
         try stub.reply(status: 200, fixture: "goals-update.json")
 
         try await repository.update(SavingsGoalID("0a8d69f5-9d92-4ac0-b574-16032fef5064"), with: SavingsGoalDraft(
-            name: "iOS 小目標(改)", emoji: "🎨", targetAmount: Money(2000), monthlyReserve: .zero, deadline: nil
+            name: "iOS 小目標(改)", icon: .palette, targetAmount: Money(2000), monthlyReserve: .zero, deadline: nil
         ))
 
         let request = try #require(stub.requests.first)
@@ -100,7 +120,7 @@ struct SavingsGoalTranslationTests {
         try stub.reply(status: 400, fixture: "goals-create-missing-name.json")
         await #expect(throws: RepositoryError.rejected("請填寫目標名稱和金額")) {
             try await repository.create(SavingsGoalDraft(
-                name: "", emoji: "🎯", targetAmount: Money(1000), monthlyReserve: .zero, deadline: nil
+                name: "", icon: .target, targetAmount: Money(1000), monthlyReserve: .zero, deadline: nil
             ))
         }
 

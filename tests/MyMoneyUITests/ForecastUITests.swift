@@ -26,6 +26,21 @@ final class ForecastUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "不建議購買").waitForExistence(timeout: 5), "沒有顯示評估結果")
     }
 
+    /// 起始餘額(上游 5b2faa6、#195):預測頁多一組「起始餘額」,念出金額與現金、活存帳戶各是多少。
+    @MainActor
+    func testStartingBalanceShowsCashAndBankTotals() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession"]
+        app.launch()
+        signIn(app)
+
+        app.openHomeEntry("forecast")
+        let start = app.descendants(matching: .any)["forecast.startingBalance"]
+        XCTAssertTrue(start.waitForExistence(timeout: 5), "預測頁沒有起始餘額")
+        XCTAssertEqual(start.label, "起始餘額")
+        XCTAssertEqual(start.value as? String, "65,440 元,現金 $1,500・活存帳戶 $63,940")
+    }
+
     /// 視角(上游 ADR 0016、#153):預測頁切到家庭公帳,最低餘額與預定收支換成公帳的;購買力試算跟著視角,切換時結論清掉。
     @MainActor
     func testScopeFilterChangesTheForecastAndClearsThePurchaseCheck() throws {

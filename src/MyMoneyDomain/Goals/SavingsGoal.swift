@@ -11,7 +11,7 @@ public struct SavingsGoalID: Hashable, Sendable {
 public struct SavingsGoal: Hashable, Sendable, Identifiable {
     public let id: SavingsGoalID
     public let name: String
-    public let emoji: String
+    public let icon: SavingsGoalIcon
     public let targetAmount: Money
     /// 已存金額;後端把它的上限卡在目標金額。
     public let savedAmount: Money
@@ -22,7 +22,7 @@ public struct SavingsGoal: Hashable, Sendable, Identifiable {
     public init(
         id: SavingsGoalID,
         name: String,
-        emoji: String,
+        icon: SavingsGoalIcon,
         targetAmount: Money,
         savedAmount: Money,
         monthlyReserve: Money,
@@ -30,7 +30,7 @@ public struct SavingsGoal: Hashable, Sendable, Identifiable {
     ) {
         self.id = id
         self.name = name
-        self.emoji = emoji
+        self.icon = icon
         self.targetAmount = targetAmount
         self.savedAmount = savedAmount
         self.monthlyReserve = monthlyReserve
@@ -46,15 +46,15 @@ public struct SavingsGoal: Hashable, Sendable, Identifiable {
 /// 建立或編輯儲蓄目標時送出的內容。
 public struct SavingsGoalDraft: Hashable, Sendable {
     public let name: String
-    public let emoji: String
+    public let icon: SavingsGoalIcon
     public let targetAmount: Money
     public let monthlyReserve: Money
     /// `nil` 是沒有截止日;編輯時等於移除截止日。
     public let deadline: CalendarDay?
 
-    public init(name: String, emoji: String, targetAmount: Money, monthlyReserve: Money, deadline: CalendarDay?) {
+    public init(name: String, icon: SavingsGoalIcon, targetAmount: Money, monthlyReserve: Money, deadline: CalendarDay?) {
         self.name = name
-        self.emoji = emoji
+        self.icon = icon
         self.targetAmount = targetAmount
         self.monthlyReserve = monthlyReserve
         self.deadline = deadline

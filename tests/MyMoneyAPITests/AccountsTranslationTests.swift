@@ -296,7 +296,7 @@ struct AccountsTranslationTests {
             note: "ATM 提款"
         ))
 
-        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 ➡️ iOS 測試皮夾)")
+        #expect(message == "ATM 提款成功 NT$ 500 (iOS 測試存款 -> iOS 測試皮夾)")
         let request = try #require(stub.requests.first)
         #expect(request.httpMethod == "POST")
         #expect(request.url == stub.baseURL.appending(path: "accounts/transfer"))
