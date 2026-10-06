@@ -205,7 +205,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
         let isATM: Bool
         if case .bank = from, case .cash = to { isATM = true } else { isATM = false }
-        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.backendText) (\(from.name) ➡️ \(to.name))"
+        return "\(isATM ? "ATM 提款" : "內部轉帳")成功 NT$ \(transfer.amount.backendText) (\(from.name) -> \(to.name))"
     }
 
     /// 現金和活存帳戶的餘額;信用卡沒有(後端不檢查信用卡的餘額)。

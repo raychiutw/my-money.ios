@@ -64,7 +64,7 @@ struct BotTranslationTests {
         let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
         #expect(json["text"] as? String == "午餐 120")
         #expect(json["platform"] as? String == "line")
-        #expect(reply.hasPrefix("📝 記帳成功！"))
+        #expect(reply.hasPrefix("記帳成功！"), "機器人回覆已無 emoji(上游 aa57b1b)")
         #expect(reply.contains("金額：NT$ 120"))
     }
 
@@ -72,7 +72,7 @@ struct BotTranslationTests {
     func query() async throws {
         try stub.reply(status: 200, fixture: "bot-simulate-query.json")
 
-        #expect(try await repository.simulate("查帳").hasPrefix("📊 即時財務總覽"))
+        #expect(try await repository.simulate("查帳").hasPrefix("即時財務總覽"))
     }
 
     @Test("沒有訊息時原樣傳遞「請輸入測試訊息」")

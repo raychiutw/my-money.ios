@@ -91,7 +91,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-list-scope-personal.json` | `GET /recurring?scope=personal` | 200 | 我建立的個人私帳項目 |
 | `recurring-amortize-scope-all.json` | `GET /recurring/amortize?scope=all` | 200 | 除了 `monthly_expense`、`monthly_income`,後端也回 `items`(iOS 不解碼) |
 | `recurring-amortize-scope-household.json` | `GET /recurring/amortize?scope=household` | 200 | 兩個合計都是 0 |
-| `forecast-scope-all.json` | `GET /forecast?scope=all`(上游 ADR 0016、0017 起) | 200 | 含「💳 繳卡費 · 卡名」事件(信用卡繳款日,金額是該視角應負擔的已出帳待繳款);`minDate` 永遠有值 |
+| `forecast-scope-all.json` | `GET /forecast?scope=all`(上游 ADR 0016、0017 起) | 200 | 上游 5b2faa6 起:多 `startingBalance`、`cashTotal`、`bankTotal`;繳卡費是合併事件「繳卡費 · 卡名（已出帳）」(金額＝已出帳＋待出帳,沒有 💳);`minDate` 永遠有值。2026-10-06 重錄 |
 | `forecast-scope-household.json` | `GET /forecast?scope=household` | 200 | 測試帳號不在任何家庭:起始餘額 6900、沒有事件、最低餘額發生在第一天 |
 | `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
 | `forecast-scope-all-settled.json` | 先 `POST /forecast/settle` 把「房租」(`recurring:<id>:<日期>`)標成已繳，再 `GET /forecast?scope=all`(錄完已還原) | 200 | 房租 `is_settled: true`、仍在事件清單，最低餘額 61,570 → 73,570(後端把已繳的 12,000 排除);其他事件 `is_settled: false`、`can_settle: true` |
@@ -114,6 +114,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `goals-deposit.json` | `POST /goals/:id/deposit {amount: 3000}`,存入「沖繩旅遊」 | 200 | 回傳更新後的目標(已存 3000) |
 | `goals-deposit-capped.json` | 用暫時建立的 🎒「iOS 小目標」(目標 1000)存入 5000 | 200 | 後端把已存金額卡在目標金額 1000 |
 | `goals-deposit-invalid.json` | `POST /goals/:id/deposit {amount: 0}` | 400 | 「金額必須大於 0」原樣傳遞 |
+| `goals-new-default.json` | `POST /goals {name, target_amount}`(沒帶圖示;上游 efd5064,錄完刪除) | 200 | 後端預設存 `emoji: "target"` |
+| `goals-new-key.json` | 同上帶 `emoji: "plane"` | 200 | 圖示代號原樣存回 |
+| `goals-list-icon-keys.json` | `GET /goals`,舊資料(✈️、🏥)與上面兩個新目標並存 | 200 | 同一個欄位新舊值並存(emoji 與代號);錄完刪除兩個新目標 |
 | `goals-list.json` | `GET /goals`,上面三個目標建立並存入之後 | 200 | snake_case;`deadline` 可以是 `null`;含已達成的目標 |
 | `goals-update.json` | `PUT /goals/:id`,改暫時目標(改名、改 emoji、不送 `deadline`),錄完就刪掉 | 200 | 沒送 `deadline` 時後端清成 `null`;已存金額不變(後端的 PUT 不動 `saved_amount`) |
 | `goals-delete.json` | `DELETE /goals/:id`,刪除上面那個暫時目標 | 200 | `{success, data: null}` 視為成功 |
@@ -137,7 +140,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `bot-bindings-empty.json` | `GET /bot/bindings`,測試帳號還沒有機器人綁定時 | 200 | 空清單 |
 | `bot-pairing-code.json` | `POST /bot/pairing-code` | 200 | 6 碼大寫英數的綁定驗證碼、`expires_in_seconds: 600` |
 | `bot-simulate-missing-text.json` | `POST /bot/test-simulate {text: "", platform: "line"}` | 400 | 「請輸入測試訊息」原樣傳遞 |
-| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的收支明細**(預期的結果) | 200 | `reply` 是機器人的回覆文字 |
+| `bot-simulate-expense.json` | 同上 `{text: "午餐 120"}`。**會在測試帳號寫入一筆真的收支明細**(預期的結果) | 200 | `reply` 是機器人的回覆文字;上游 aa57b1b 起沒有 emoji(▪ 符號)。2026-10-06 重錄(明細已刪除) |
 | `bot-simulate-query.json` | 同上 `{text: "查帳"}` | 200 | 查帳不寫入任何資料 |
 | `bot-bindings.json` | `GET /bot/bindings`,模擬對話之後 | 200 | 後端會自動建立「模擬測試助手」的 LINE 綁定 |
 | `bot-unbind.json` | `DELETE /bot/bindings/:id`,解除上面那個綁定;錄完測試帳號回到沒有綁定 | 200 | 只回 `{success, message}` |
@@ -166,7 +169,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-list-household-card-advance.json` | `GET /accounts?scope=household`(2026-10-03,上游 `4fbf863`),測試帳號的個人信用卡記了一筆公帳支出 777 之後;錄完把交易刪掉，帳號還原 | 200 | 公帳範圍多回自己有家庭代墊欠款的個人信用卡(`shared_debt` 777、`unbilled` 777、沒有 `is_masked`);確認 prod 已部署 ADR 0015。**錄不到他人的脫敏卡**(需要第二個帳號)，`is_masked` 的解碼測試用這份真實回應手改欄位，測試裡有註明 |
 | `accounts-balance-household-card-advance.json` | `GET /accounts/balance?scope=household`,同上 | 200 | 私卡的家庭代墊算進信用卡待繳:`ccUnbilled` 777、淨可用餘額 `available` 6123 = 6900 − 777 |
 | `accounts-balance-personal.json` | `GET /accounts/balance?scope=personal` | 200 | 不含歸屬家庭共同基金的帳戶：活存帳戶 94700(少了共同基金 7000)、淨可用餘額 66820 |
-| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」收支明細 |
+| `accounts-transfer-atm.json` | `POST /accounts/transfer`,「iOS 測試存款」轉 500 到「iOS 測試皮夾」,日期 2026-09-28,備註「ATM 提款」 | 200 | 訊息在 `data.message`;後端建立兩筆「ATM提款」收支明細;上游 efd5064 起訊息箭頭是 `->`(原本 ➡️)。2026-10-06 重錄:轉帳明細是系統分類刪不掉,錄完反向轉帳 500 還原餘額 |
 | `accounts-transfer-same-account.json` | 同上，轉出與轉入都是「iOS 測試皮夾」 | 400 | 「轉出與轉入帳戶不能相同」原樣傳遞 |
 | `accounts-transfer-insufficient.json` | 同上，從「iOS 測試皮夾」轉 999999 | 400 | 「轉出帳戶餘額不足（目前餘額：NT$ 2,000）」原樣傳遞 |
 | `transactions-list-with-transfer.json` | `GET /transactions?from=2026-09-28&to=2026-09-28&scope=all&limit=200&offset=0`,上面的 ATM 提款之後 | 200 | 兩筆分類「ATM提款」(一筆支出、一筆收入)是系統分類 |
