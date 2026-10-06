@@ -163,7 +163,7 @@ struct SavingsGoalsScreen: View {
     }
 }
 
-/// 一個儲蓄目標：emoji、名稱、截止日、已存金額、目標金額、進度、每月預留，以及「存入」(#77)。
+/// 一個儲蓄目標：圖示、名稱、截止日、已存金額、目標金額、進度、每月預留，以及「存入」(#77)。
 /// 百分比交給進度條，畫面上不另外寫;VoiceOver 念百分比。已達成時用成功色，並停用存入(parity 刻意偏離第 6 項)。
 /// 已存和目標放不下同一行時(大字級)改成上下堆疊，金額一律單行。
 private struct SavingsGoalRow: View {
@@ -174,14 +174,14 @@ private struct SavingsGoalRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // emoji 和名稱並排放不下時(大字級)改成上下堆疊，截止日才不會被擠成好幾行。
+            // 圖示和名稱並排放不下時(大字級)改成上下堆疊，截止日才不會被擠成好幾行。
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
-                    emoji
+                    iconView
                     titles
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    emoji
+                    iconView
                     titles
                 }
             }
@@ -218,9 +218,10 @@ private struct SavingsGoalRow: View {
         .accessibilityLabel(goal.spokenText(deadline: deadline))
     }
 
-    private var emoji: some View {
-        Text(goal.emoji)
+    private var iconView: some View {
+        Image(systemName: goal.icon.symbolName)
             .font(.title)
+            .foregroundStyle(Color.ciFill)
             .accessibilityHidden(true)
     }
 

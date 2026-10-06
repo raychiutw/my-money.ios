@@ -140,7 +140,7 @@ public final class SavingsGoalDepositModel {
     @ObservationIgnored private let dataVersion: DataVersion
 
     init(goal: SavingsGoal, repository: any SavingsGoalRepository, dataVersion: DataVersion) {
-        title = "存入「\(goal.emoji) \(goal.name)」"
+        title = "存入「\(goal.name)」"
         summary = "目前已存 \(goal.savedAmount.formatted()) / 目標 \(goal.targetAmount.formatted())"
         goalID = goal.id
         self.repository = repository

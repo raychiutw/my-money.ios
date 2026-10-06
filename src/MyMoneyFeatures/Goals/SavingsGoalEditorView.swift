@@ -17,7 +17,7 @@ struct SavingsGoalEditorView: View {
         NavigationStack {
             Form {
                 Section("圖示") {
-                    EmojiChoices(selection: $model.emoji)
+                    IconChoices(selection: $model.icon)
                 }
 
                 Section {
@@ -73,28 +73,29 @@ struct SavingsGoalEditorView: View {
     }
 }
 
-/// 12 種 emoji 的按鈕，選中的標記為已選取。
-private struct EmojiChoices: View {
-    @Binding var selection: String
+/// 12 款圖示(SF Symbol)的按鈕，選中的標記為已選取。
+private struct IconChoices: View {
+    @Binding var selection: SavingsGoalIcon
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 44)), count: 6), spacing: 8) {
-            ForEach(SavingsGoalEditorModel.emojiChoices, id: \.self) { emoji in
+            ForEach(SavingsGoalIcon.allCases, id: \.self) { icon in
                 Button {
-                    selection = emoji
+                    selection = icon
                 } label: {
-                    Text(emoji)
+                    Image(systemName: icon.symbolName)
                         .font(.title2)
                         .frame(width: 44, height: 44)
                         // 選取(ADR-0009、#177):CI 外框加淡底。
-                        .background(selection == emoji ? Color.ciFill.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                        .background(selection == icon ? Color.ciFill.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(selection == emoji ? Color.ciFill : .clear, lineWidth: 2)
+                                .strokeBorder(selection == icon ? Color.ciFill : .clear, lineWidth: 2)
                         )
                 }
                 .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == emoji ? .isSelected : [])
+                .accessibilityLabel(icon.title)
+                .accessibilityAddTraits(selection == icon ? .isSelected : [])
             }
         }
     }
