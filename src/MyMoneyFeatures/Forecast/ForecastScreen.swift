@@ -95,6 +95,23 @@ struct ForecastScreen: View {
                     .foregroundStyle(forecast.willOverdraft ? .red : .green)
             }
             .accessibilityElement(children: .combine)
+            if let start = model.startingBalance(of: forecast) {
+                VStack(alignment: .leading, spacing: 4) {
+                    AmountRow(title: "起始餘額", amount: start.amount)
+                    Text(start.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let note = start.note {
+                        Text(note)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("起始餘額")
+                .accessibilityValue(([start.amount.spokenText, start.detail] + [start.note].compactMap { $0 }).joined(separator: ","))
+                .accessibilityIdentifier("forecast.startingBalance")
+            }
             SummaryRow(
                 title: "最低餘額",
                 amount: forecast.minBalance,

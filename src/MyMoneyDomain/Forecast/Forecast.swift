@@ -9,7 +9,7 @@ public struct DailyBalance: Hashable, Sendable {
     }
 }
 
-/// 預定收支：未來 30 天內，週期收支或信用卡繳款日(「繳卡費」,上游 ADR 0017)預計發生的一次。
+/// 預定收支：未來 30 天內，週期收支或信用卡繳款日(「繳卡費」,上游 ADR 0017;5b2faa6 起是已出帳加待出帳合併的一筆)預計發生的一次。
 public struct ForecastEvent: Hashable, Sendable {
     public let date: CalendarDay
     public let name: String
@@ -51,8 +51,21 @@ public struct CashFlowForecast: Hashable, Sendable {
     /// 透支風險：最低餘額低於 0。
     public let willOverdraft: Bool
     public let events: [ForecastEvent]
+    /// 第 0 天的起始餘額(後端 `startingBalance`,上游 5b2faa6):現金加活存帳戶，再扣掉繳款日不在未來 30 天內的信用卡待繳款。
+    /// 舊回應沒有時是 `nil`。三個數字都是後端的值,client 不加總也不扣減。
+    public let startingBalance: Money?
+    /// 現金總額(後端 `cashTotal`);舊回應沒有時是 `nil`。
+    public let cashTotal: Money?
+    /// 活存帳戶總額(後端 `bankTotal`);舊回應沒有時是 `nil`。
+    public let bankTotal: Money?
 
-    public init(dailyBalances: [DailyBalance], minBalance: Money, minDate: CalendarDay?, willOverdraft: Bool, events: [ForecastEvent]) {
+    public init(
+        dailyBalances: [DailyBalance], minBalance: Money, minDate: CalendarDay?, willOverdraft: Bool, events: [ForecastEvent],
+        startingBalance: Money? = nil, cashTotal: Money? = nil, bankTotal: Money? = nil
+    ) {
+        self.startingBalance = startingBalance
+        self.cashTotal = cashTotal
+        self.bankTotal = bankTotal
         self.dailyBalances = dailyBalances
         self.minBalance = minBalance
         self.minDate = minDate

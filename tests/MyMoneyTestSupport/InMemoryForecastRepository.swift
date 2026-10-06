@@ -82,7 +82,9 @@ public actor InMemoryForecastRepository: ForecastRepository {
             return CashFlowForecast(
                 dailyBalances: dailyBalances, minBalance: low?.balance ?? .zero,
                 minDate: dailyBalances.first { $0.balance == low?.balance }?.date,
-                willOverdraft: (low?.balance ?? .zero) < .zero, events: marked
+                willOverdraft: (low?.balance ?? .zero) < .zero, events: marked,
+                startingBalance: Money(Decimal(start)), cashTotal: Money(Decimal(min(start, 1500))),
+                bankTotal: Money(Decimal(start - min(start, 1500)))
             )
         }
         let rentDay = day(today, plus: 7), salaryDay = day(today, plus: 27)

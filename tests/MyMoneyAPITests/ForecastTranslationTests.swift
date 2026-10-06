@@ -83,7 +83,7 @@ struct ForecastTranslationTests {
             #expect(forecast.events.isEmpty)
             #expect(forecast.minDate == forecast.dailyBalances.first?.date)
         case .all, .personal:
-            #expect(forecast.events.contains { $0.name.hasPrefix("💳 繳卡費") }, "信用卡繳款日的繳卡費事件(上游 ADR 0017)")
+            #expect(forecast.events.contains { $0.name.hasPrefix("繳卡費 · ") }, "信用卡繳款日的繳卡費事件(上游 ADR 0017)")
         }
     }
 
@@ -107,22 +107,43 @@ struct ForecastTranslationTests {
         }
     }
 
-    @Test("預定收支帶歸屬(is_shared 0/1)與資產帳戶名稱(account_name，可能沒有);繳卡費事件的名稱照後端")
+    @Test("預定收支帶歸屬(is_shared 0/1)與資產帳戶名稱(account_name，可能沒有);繳卡費事件是合併的一筆,名稱與金額照後端(上游 5b2faa6)")
     func eventsCarryOwnershipAndAccount() async throws {
         try stub.reply(status: 200, fixture: "forecast-scope-all.json")
 
         let events = try await repository.forecast(scope: .all).events
 
-        try #require(events.count == 4)
-        #expect(events[0] == ForecastEvent(
-            date: CalendarDay(year: 2026, month: 10, day: 5), name: "房租", type: .expense, amount: Money(12000),
-            key: "recurring:46105044-a9d2-4e49-bf37-215361aabf32:2026-10-05", canSettle: true
-        ))
-        #expect(events[1].name == "💳 繳卡費 · iOS 測試信用卡", "事件名稱照後端，client 不加工")
-        #expect(events[1].accountName == "iOS 測試信用卡")
-        #expect(events[1].amount == Money(16380))
+        try #require(events.count == 2)
+        #expect(events[0].name == "繳卡費 · iOS 測試小額卡（已出帳）", "事件名稱照後端，client 不加工;不再有 💳")
+        #expect(events[0].accountName == "iOS 測試小額卡")
+        #expect(events[0].amount == Money(13000))
+        #expect(events[0].key == "card_due:a1d2f913-9872-4868-88de-0e523ca46a3c:2026-10-20")
+        #expect(events[0].canSettle)
         #expect(events.allSatisfy { !$0.isShared }, "測試帳號沒有家庭公帳的事件")
-        #expect(events[3].accountName == nil)
+        #expect(events[1].accountName == nil)
+    }
+
+    @Test("起始餘額、現金總額、活存帳戶總額照後端(上游 5b2faa6);client 不加總也不扣減")
+    func startingBalanceFields() async throws {
+        try stub.reply(status: 200, fixture: "forecast-scope-all.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        #expect(forecast.startingBalance == Money(86570))
+        #expect(forecast.cashTotal == Money(1750))
+        #expect(forecast.bankTotal == Money(101200))
+        #expect(forecast.dailyBalances.first?.balance == Money(86570))
+    }
+
+    @Test("舊的回應沒有起始餘額三個欄位:當成沒有,不壞掉")
+    func legacyForecastHasNoStartingBalance() async throws {
+        try stub.reply(status: 200, fixture: "forecast.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        #expect(forecast.startingBalance == nil)
+        #expect(forecast.cashTotal == nil)
+        #expect(forecast.bankTotal == nil)
     }
 
     @Test("舊的回應事件沒有 is_shared、account_name 時：當個人私帳、沒有帳戶，不壞掉")

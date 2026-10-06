@@ -20,7 +20,10 @@ public struct LiveForecastRepository: ForecastRepository {
             // 上游 `e138bd9` 起 `minDate` 永遠有值(沒有變動時是第一天);更早的版本是空字串，仍然當作沒有。
             minDate: CalendarDay(iso: dto.minDate),
             willOverdraft: dto.willOverdraft,
-            events: try dto.events.map { try $0.event() }
+            events: try dto.events.map { try $0.event() },
+            startingBalance: dto.startingBalance.map(Money.init),
+            cashTotal: dto.cashTotal.map(Money.init),
+            bankTotal: dto.bankTotal.map(Money.init)
         )
     }
 
@@ -58,6 +61,10 @@ private struct ForecastDTO: Decodable {
     let minDate: String
     let willOverdraft: Bool
     let events: [EventDTO]
+    /// 上游 5b2faa6 起的欄位;舊的回應沒有。
+    let startingBalance: Decimal?
+    let cashTotal: Decimal?
+    let bankTotal: Decimal?
 }
 
 private struct EventDTO: Decodable {
