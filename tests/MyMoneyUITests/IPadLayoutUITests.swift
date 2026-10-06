@@ -58,7 +58,7 @@ final class IPadLayoutUITests: XCTestCase {
         add(screenshot)
 
         // 總覽:功能入口兩欄合起來的寬度。
-        let first = app.buttons["home.entry.ledger"], second = app.buttons["home.entry.accounts"]
+        let first = app.buttons["home.entry.recurring"], second = app.buttons["home.entry.goals"]
         XCTAssertTrue(ScrollSupport.revealFully(first, in: app), "總覽沒有功能入口")
         let span = max(first.frame.maxX, second.frame.maxX) - min(first.frame.minX, second.frame.minX)
         XCTAssertLessThanOrEqual(span, limit, "總覽的功能入口撐滿寬度(\(span)pt):\(first.frame) \(second.frame)")

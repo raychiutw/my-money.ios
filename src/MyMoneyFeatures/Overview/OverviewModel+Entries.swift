@@ -47,28 +47,11 @@ extension OverviewModel {
 
     // MARK: 功能入口
 
-    /// 8 個功能入口,順序固定;每格一個關鍵數字。資料還沒有或那一項載入失敗時 `value` 是 `nil`。
+    /// 3 個功能入口,順序固定(tab 已有的功能不放,#196):週期收支、儲蓄目標、現金流預測;每格一個關鍵數字。
+    /// 資料還沒有或那一項載入失敗時 `value` 是 `nil`。
     public var entries: [OverviewEntry] {
-        let accountCount = cashWallets.count + bankAccounts.count + creditCards.count
-        let due = totalCardDue
         let amortization = summary?.monthlyAmortization
         return [
-            OverviewEntry(
-                .ledger, title: Terms.ledger, symbolName: "list.bullet.rectangle",
-                value: monthTransactionCount.map { "本月 \($0) 筆" }
-            ),
-            OverviewEntry(.accounts, title: "帳戶", symbolName: "building.columns", value: summary == nil ? nil : "\(accountCount) 個帳戶"),
-            OverviewEntry(
-                .creditCards, title: "信用卡", symbolName: "creditcard",
-                value: due.map { "待繳 \($0.formatted())" }, spokenValue: due.map { "待繳 \($0.spokenText)" },
-                isWarning: (due ?? .zero) > .zero
-            ),
-            householdEntry,
-            OverviewEntry(
-                .statistics, title: "統計", symbolName: "chart.bar",
-                value: summary == nil ? nil : "\(CalendarMonth(today()).month) 月支出 \(monthExpense.formatted())",
-                spokenValue: summary == nil ? nil : "\(CalendarMonth(today()).month) 月支出 \(monthExpense.spokenText)"
-            ),
             OverviewEntry(
                 .recurring, title: "週期收支", symbolName: "arrow.triangle.2.circlepath",
                 value: amortization.map { "每月平均 \($0.formatted())" },
@@ -77,21 +60,6 @@ extension OverviewModel {
             goalsEntry,
             forecastEntry,
         ]
-    }
-
-    /// 家庭:剛好兩位成員有公帳代墊時,誰轉多少給誰(跟統計頁、家庭頁同一個分攤建議);個人私帳視角沒有數字。
-    private var householdEntry: OverviewEntry {
-        func make(_ value: String?, spoken: String? = nil) -> OverviewEntry {
-            OverviewEntry(.household, title: "家庭", symbolName: "person.2", value: value, spokenValue: spoken ?? value)
-        }
-        guard scope != .personal, let shares = householdShares, let settlement = StatisticsModel.settlement(for: shares) else {
-            return make(nil)
-        }
-        guard let transfer = settlement.transfer else { return make("兩人一樣多") }
-        return make(
-            "\(transfer.from)轉給\(transfer.to) \(transfer.amount.formatted())",
-            spoken: "\(transfer.from)轉給\(transfer.to) \(transfer.amount.spokenText)"
-        )
     }
 
     /// 儲蓄目標:已存金額合計加整體達成率(跟儲蓄目標頁同一個算法);還沒有目標寫「尚無目標」。

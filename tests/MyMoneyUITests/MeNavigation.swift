@@ -8,8 +8,7 @@ extension XCUIApplication {
     }
 
     /// 從總覽的功能入口進去(#178;週期收支、儲蓄目標、現金流預測原本在「我的」的「規劃」分頁)。
-    /// `identifier` 是入口的 destination(`home.entry.<identifier>`):ledger、accounts、creditCards、household、statistics、
-    /// recurring、goals、forecast。入口可能在畫面下方(大字級更下面),先捲到整個看得到再點。
+    /// `identifier` 是入口的 destination(`home.entry.<identifier>`):recurring、goals、forecast(#196:tab 已有的功能不再有入口)。入口可能在畫面下方(大字級更下面),先捲到整個看得到再點。
     @MainActor
     func openHomeEntry(_ identifier: String) {
         let tab = tabBars.buttons["總覽"]

@@ -5,11 +5,6 @@ import MyMoneyDomain
 public struct OverviewEntry: Identifiable, Hashable, Sendable {
     /// 入口去哪裡。畫面依它決定是切 tab 還是在總覽的導覽堆疊 push。
     public enum Destination: String, CaseIterable, Hashable, Sendable {
-        case ledger
-        case accounts
-        case creditCards
-        case household
-        case statistics
         case recurring
         case goals
         case forecast
