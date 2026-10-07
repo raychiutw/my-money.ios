@@ -138,7 +138,7 @@ struct ForecastTests {
         let check = PurchaseCheck(amount: Money(60000), verdict: .danger, minBalance: Money(-6560), affectedGoalNames: [])
 
         #expect(check.title == "不建議購買")
-        #expect(check.message == "花 $60,000 之後，未來 30 天的餘額最低會跌到 -$6,560。")
+        #expect(check.message == "花 $60,000 之後，未來 30 天的餘額最低會跌到 −$6,560。")
     }
 
     @Test("試算失敗時顯示後端的訊息")

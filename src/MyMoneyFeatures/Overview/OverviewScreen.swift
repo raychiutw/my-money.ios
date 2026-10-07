@@ -122,7 +122,7 @@ struct OverviewScreen: View {
                 NumberTileRow {
                     ForEach(model.summaryTiles) { tile in
                         NumberTile(
-                            title: tile.title, amount: tile.amount, style: tile.isWarning ? .red : nil, spokenTitle: tile.spokenTitle,
+                            title: tile.title, amount: tile.amount, text: tile.text, style: tile.tone.color, spokenTitle: tile.spokenTitle,
                             details: tile.details, spokenDetails: tile.spokenDetails
                         )
                     }

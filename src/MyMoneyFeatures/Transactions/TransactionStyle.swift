@@ -35,9 +35,9 @@ extension TransactionCategory {
 }
 
 extension MyMoneyDomain.Transaction {
-    /// 帶正負號的金額，例如 `+$45,000`、`-$120`。
+    /// 帶正負號的金額，例如 `+$45,000`、`−$120`。
     var signedAmountText: String {
-        (type == .income ? "+" : "-") + amount.formatted()
+        amount.formatted(flow: type == .income ? .inflow : .outflow)
     }
 
     /// 列上的名稱:備註，沒有備註時用分類名稱。
@@ -49,7 +49,7 @@ extension MyMoneyDomain.Transaction {
     }
 
     var amountColor: Color {
-        type == .income ? .green : .red
+        amount.tone(of: type == .income ? .inflow : .outflow).color ?? .primary
     }
 }
 

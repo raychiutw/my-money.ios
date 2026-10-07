@@ -12,6 +12,9 @@ enum PixelAnalysis {
         var bluish: Int
         /// 接近 CI 色(填色與文字的任一個變體)的像素數。
         var ci: Int
+        /// 系統紅(金額的負數與支出)與系統綠(正數與收入)的像素數(#202);CI 粉紅色不算。
+        var red: Int
+        var green: Int
         /// CI 色像素占這個範圍的比例。
         var ciFraction: Double { Double(ci) / Double(max(total, 1)) }
         /// 這個範圍的像素總數。
@@ -93,7 +96,7 @@ enum PixelAnalysis {
 
         let minX = Int(region.minX * Double(width)), maxX = Int(region.maxX * Double(width))
         let minY = Int(region.minY * Double(height)), maxY = Int(region.maxY * Double(height))
-        var total = 0, dark = 0, light = 0, bluish = 0, ci = 0
+        var total = 0, dark = 0, light = 0, bluish = 0, ci = 0, redInk = 0, greenInk = 0
         for y in minY..<maxY {
             for x in minX..<maxX {
                 let index = (y * width + x) * 4
@@ -107,11 +110,15 @@ enum PixelAnalysis {
                     ci += 1
                 } else if blue - red > bluishGap {
                     bluish += 1
+                } else if red > 200, green < 100, blue < 100 {
+                    redInk += 1
+                } else if green > 150, red < 110, blue < 130 {
+                    greenInk += 1
                 }
             }
         }
         let count = Double(max(total, 1))
-        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, ci: ci, total: total)
+        return Statistics(darkFraction: Double(dark) / count, lightFraction: Double(light) / count, bluish: bluish, ci: ci, red: redInk, green: greenInk, total: total)
     }
 
     /// 一條橫向的文字帶(同一列文字所在的 y 範圍)與它墨跡的左右邊界;座標是畫素。

@@ -8,16 +8,21 @@ struct SummaryRow: View {
     let amount: Money
     var detail: String?
     var warnsWhenNegative = false
+    /// 顯示的文字與顏色(#202):流量帶 +/−;沒有指定時照金額與 `warnsWhenNegative`。
+    var text: String?
+    var style: Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(amount.formatted())
+            Text(text ?? amount.formatted())
                 .font(.title2.bold())
                 .monospacedDigit()
-                .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .foregroundStyle(
+                    style.map(AnyShapeStyle.init) ?? (warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                )
             if let detail {
                 Text(detail)
                     .font(.subheadline)

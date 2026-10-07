@@ -331,6 +331,7 @@
 | 65 | 上游用詞:「銀行存款帳戶」「現金錢包」「交易」(功能的名字，例如側欄與頁面標題)「交易記錄／交易明細」(記錄本身，`b456545` 起改叫「收支明細」)「分攤平滑」(`b456545` 起改叫「週期支出每月平均」)，以及「待報銷代墊總額」「從共同基金一鍵報銷」(`b456545` 起改叫「待報銷總額」「報銷沖帳」) | 使用者決定(#179):**活存帳戶**、**現金**、**記帳**(功能的名字)、**收支明細**(記錄本身，跟上游新詞一致)、**週期支出每月平均**、**待報銷總額**、**報銷沖帳**。全 app 的字取自 `Terms`(單一來源)，`TermsRulesTests` 掃描 `src/` 的字串常值，出現舊詞就失敗;型別與 wire 名稱(`bank`、`cash`、`transaction`)不動;後端訊息與使用者自己的資料照原樣顯示。對照表在 `CONTEXT.md`「iOS 用詞更名」。**已向上游回報**([onion523/my-money#87](https://github.com/onion523/my-money/issues/87)):iOS 的詞彙表與上游 `CONTEXT.md` 不同，上游日後改詞時對照 | 詞彙 |
 | 66 | 儲蓄目標的圖示是 Lucide 向量圖示(`efd5064` 起，後端 `emoji` 欄位存代號 `target`、`plane`…，舊 emoji 由前端轉成代號) | 改用 12 個對應的 SF Symbol(target、airplane、house、car、diamond、laptopcomputer、figure.and.child.holdinghands、graduationcap、heart.text.square、beach.umbrella、backpack、paintpalette)，選擇器每格有 VoiceOver 名稱(目標、旅行、住家、汽車、珠寶、電腦、寶寶、學業、健康、度假、背包、藝術)。翻譯層做跟 web 一樣的轉換(舊 emoji→代號，空值與認不得→target)，送出的是代號;「存入」sheet 標題只寫名稱(文字標題放不了符號)。功能層不變，DESIGN.md「不用 emoji 當介面圖示」 | HIG 轉譯 |
 | 67 | web 的公式提示 tooltip(預測的起始餘額與預測各項、`5b2faa6`、`029ae5e`)、手機版 RWD 與底部抽屜(`470ba36`)、換頁捲回頂端、懸浮記帳鈕、全站 Lucide 圖示(`efd5064`) | 不做:tooltip 在觸控沒有慣例，iOS 直接把組成寫在畫面上(第 43 項、預測的「起始餘額」);RWD、換頁捲動、記帳入口與圖示 iOS 已有原生做法(NavigationStack、toolbar「+」、SF Symbols) | HIG 轉譯 |
+| 68 | web 的金額正負與顏色沒有統一規則(負債多半是紅色正數、淨額為正沒有綠色、符號用 ASCII `-`) | 流量與負債一律紅色負數 `−`、正向一律綠色正數 `+`,存量(餘額)為正維持一般色;符號統一 `−`(U+2212),詳見 `DESIGN.md`「金額的正負與顏色」(#202)。VoiceOver 念法不變 | HIG 轉譯 |
 
 第 27、29、31、32 項已經刪除:web 在 `bd0507b` 改成顯示錯誤橫幅加「重新嘗試」、用當地日期顯示加入時間、信用卡待繳總額是 0 時不顯示還款按鈕，也不再用結帳日判斷能不能做出帳作業，兩邊一致。
 

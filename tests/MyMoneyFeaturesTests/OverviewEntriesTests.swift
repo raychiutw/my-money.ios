@@ -222,7 +222,7 @@ struct OverviewEntriesTests {
         }
         let forecast = try entry(.forecast, in: await loaded(custom))
         #expect(forecast.isWarning)
-        #expect(forecast.value == "最低 -$15,000・10月11日")
+        #expect(forecast.value == "最低 −$15,000・10月11日")
         #expect(try !entry(.goals, in: await loaded()).isWarning)
     }
 }

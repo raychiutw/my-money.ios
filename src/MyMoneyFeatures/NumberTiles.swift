@@ -28,6 +28,8 @@ struct BigNumber: View {
     var text: String?
     /// 負數用紅色。
     var warnsWhenNegative = true
+    /// 指定顏色(#202:流量的淨額正數綠、負數紅);沒有指定時照 `warnsWhenNegative`。
+    var style: Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -40,7 +42,9 @@ struct BigNumber: View {
                 number(digits: .title.weight(.bold), symbol: .title3.weight(.semibold))
             }
             .lineLimit(1)
-            .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            .foregroundStyle(
+                style.map(AnyShapeStyle.init) ?? (warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -271,6 +275,8 @@ struct NumberCard: View {
     let symbol: String
     let symbolColor: Color
     let amount: Money
+    /// 顯示的文字,預設是金額;信用卡待繳是負數(#202)另外傳。
+    var text: String?
     /// 警示狀態(例如信用卡有待繳):金額用紅色。
     var isWarning = false
     /// 金額同一行左邊的小字，例如「個人私帳・5 日繳」;沒有就只有金額。
@@ -323,7 +329,7 @@ struct NumberCard: View {
     }
 
     private var amountText: some View {
-        Text(amount.formatted())
+        Text(text ?? amount.formatted())
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)

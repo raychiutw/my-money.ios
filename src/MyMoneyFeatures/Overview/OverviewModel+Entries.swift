@@ -103,13 +103,6 @@ extension OverviewEntry {
     }
 }
 
-extension Money {
-    /// 帶正負號的金額,例如 `+$45,000`、`−$1,250`;0 不帶號。
-    func formatted(sign: String) -> String {
-        self == .zero ? formatted() : "\(sign)\(Money(abs(amount)).formatted())"
-    }
-}
-
 // MARK: 接下來 30 天(#189)
 
 extension OverviewModel {
@@ -126,7 +119,7 @@ extension OverviewModel {
             if event.isSettled { spoken.append("已繳，不計入預測") }
             return UpcomingEvent(
                 event: event, dateText: date, subtitle: event.isSettled ? "\(ownership)・已繳" : ownership,
-                amountText: event.amount.formatted(sign: event.type == .income ? "+" : "−"),
+                amountText: event.amount.formatted(flow: event.type == .income ? .inflow : .outflow),
                 spokenText: spoken.joined(separator: "，")
             )
         }

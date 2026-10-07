@@ -99,6 +99,22 @@ struct OverviewLowerTests {
         #expect(settled.summaryTiles.map(\.isWarning) == [false, false, false])
     }
 
+    @Test("磚的數字與顏色(#202):可支配現金是存量(負才紅)、當月淨收支依正負帶號與綠紅、信用卡待繳是紅色負數")
+    func tileSignsAndTones() async throws {
+        let summary = BalanceSummary(
+            cashTotal: .zero, bankBalanceTotal: Money(1000), billedDebtTotal: Money(9000), unbilledDebtTotal: Money(178),
+            availableBalance: Money(500), monthlyAmortization: .zero, monthlySavingsReserve: .zero, disposableCash: Money(-97799)
+        )
+        let overview = await loaded(accounts: InMemoryAccountRepository(accounts: [], summary: summary))
+
+        let tiles = overview.summaryTiles
+        #expect(tiles.map(\.text) == ["−$97,799", "+$43,750", "−$9,178"])
+        #expect(tiles.map(\.tone) == [.negative, .positive, .negative])
+        let healthy = await loaded(accounts: InMemoryAccountRepository(accounts: [], summary: .zero))
+        #expect(healthy.summaryTiles.map(\.text) == ["$0", "+$43,750", "$0"])
+        #expect(healthy.summaryTiles.map(\.tone) == [.neutral, .positive, .neutral], "存量為正維持一般色、不上綠;沒有待繳不是紅色")
+    }
+
     // MARK: 帳戶卡片
 
     @Test("帳戶卡片的順序跟帳戶頁一樣:現金、活存帳戶、信用卡;每張卡是名稱加大金額，信用卡的金額是信用卡待繳總額")
@@ -119,6 +135,8 @@ struct OverviewLowerTests {
 
         #expect(overview.accountCards[0].isDue)
         #expect(!overview.accountCards[1].isDue)
+        #expect(overview.accountCards.map(\.amountText) == ["−$1,000", "$0"], "待繳是負數(後端的值是正數,顯示層加號)")
+        #expect(overview.accountCards.map(\.tone) == [.negative, .neutral])
     }
 
     @Test("現金與活存帳戶卡片:VoiceOver 念名稱、類型、歸屬、餘額")
@@ -127,6 +145,7 @@ struct OverviewLowerTests {
         let wallet = try #require(overview.accountCards.first)
         let bank = overview.accountCards[1]
 
+        #expect(wallet.amountText == "$1,500" && wallet.tone == .neutral, "存量為正不加號、不上綠")
         #expect(wallet.spokenText == "iOS 測試皮夾，現金，個人私帳，餘額 1,500 元")
         #expect(bank.spokenText == "iOS 測試存款，活存帳戶，個人私帳，餘額 50,000 元")
         #expect(!wallet.isDue)

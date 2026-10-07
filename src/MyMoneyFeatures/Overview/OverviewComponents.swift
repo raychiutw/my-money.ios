@@ -154,7 +154,7 @@ struct UpcomingEventRow: View {
     private var amount: some View {
         Text(row.amountText)
             .monospacedDigit()
-            .foregroundStyle(row.isIncome ? .green : .red)
+            .foregroundStyle(row.event.amount.tone(of: row.isIncome ? .inflow : .outflow).color ?? .primary)
             .strikethrough(row.event.isSettled)
             .lineLimit(1)
             .fixedSize()
@@ -181,11 +181,11 @@ struct OverviewAccountCardView: View {
                 Image(systemName: card.symbolName)
                     .foregroundStyle(Color(hex: card.colorHex) ?? .gray)
             }
-            Text(card.amount.formatted())
+            Text(card.amountText)
                 .font(.title3.bold())
                 .monospacedDigit()
                 .lineLimit(1)
-                .foregroundStyle(card.isDue ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .foregroundStyle(card.tone.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(maxWidth: .infinity, alignment: .trailing)
             ForEach(card.detailLines, id: \.self) { line in
                 BreakableLine(text: line, alignment: .leading)

@@ -27,9 +27,9 @@ struct TransactionsHero: View {
 
     /// 淨收支的大數字，收入與支出在旁邊;放不下時改成上下堆疊，再放不下收入與支出也上下堆疊。
     private var numbers: some View {
-        let net = BigNumber(title: "淨收支", amount: model.net)
-        let income = stat("收入", model.totalIncome, text: "+\(model.totalIncome.formatted())", color: .green)
-        let expense = stat("支出", model.totalExpense, text: "-\(model.totalExpense.formatted())", color: .red)
+        let net = BigNumber(title: "淨收支", amount: model.net, text: model.net.signedFormatted(), style: model.net.tone.color)
+        let income = stat("收入", model.totalIncome, text: model.totalIncome.formatted(flow: .inflow), color: .green)
+        let expense = stat("支出", model.totalExpense, text: model.totalExpense.formatted(flow: .outflow), color: .red)
         return ViewThatFits(in: .horizontal) {
             HStack(alignment: .bottom, spacing: 16) {
                 net

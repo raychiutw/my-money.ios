@@ -13,19 +13,27 @@ struct CardPaymentView: View {
         case note
     }
 
+    /// 負債列(#202):金額是紅色負數,零不帶號、一般色。
+    private func debtRow(_ title: String, _ amount: Money) -> some View {
+        LabeledContent(title) {
+            Text(amount.formatted(flow: .outflow))
+                .foregroundStyle(amount.tone(of: .outflow).color ?? .primary)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     if model.isMaskedCard {
                         // 他人的卡只看得到家庭代墊(上游 ADR 0015)。
-                        LabeledContent("家庭公帳代墊待繳總額", value: model.card.sharedDebt.formatted())
+                        debtRow("家庭公帳代墊待繳總額", model.card.sharedDebt)
                     } else {
-                        LabeledContent("信用卡待繳總額", value: model.card.totalDue.formatted())
-                        LabeledContent("已出帳待繳款", value: model.card.billedDebt.formatted())
-                        LabeledContent("未出帳款", value: model.card.unbilledDebt.formatted())
-                        LabeledContent(OwnershipName.household, value: model.card.sharedDebt.formatted())
-                        LabeledContent(OwnershipName.personal, value: model.card.personalDebt.formatted())
+                        debtRow("信用卡待繳總額", model.card.totalDue)
+                        debtRow("已出帳待繳款", model.card.billedDebt)
+                        debtRow("未出帳款", model.card.unbilledDebt)
+                        debtRow(OwnershipName.household, model.card.sharedDebt)
+                        debtRow(OwnershipName.personal, model.card.personalDebt)
                     }
                 } header: {
                     Text(model.card.name)

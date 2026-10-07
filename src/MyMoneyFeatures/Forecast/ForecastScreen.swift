@@ -327,9 +327,9 @@ private struct ForecastEventRow: View {
 
     /// 金額一律單行，帶正負號(收入綠、支出紅)。
     private var amount: some View {
-        Text(event.type == .income ? "+\(event.amount.formatted())" : "-\(event.amount.formatted())")
+        Text(event.amount.formatted(flow: event.type == .income ? .inflow : .outflow))
             .monospacedDigit()
-            .foregroundStyle(event.type == .income ? .green : .red)
+            .foregroundStyle(event.amount.tone(of: event.type == .income ? .inflow : .outflow).color ?? .primary)
             .strikethrough(event.isSettled)
             .lineLimit(1)
             .fixedSize()
