@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 總覽「30 天走勢」圖的呈現資料(#116):後端算好的每日預測餘額，加上畫圖需要的零線位置與 VoiceOver 摘要。
+/// 總覽「走勢」圖(60 天)的呈現資料(#116):後端算好的每日預測餘額，加上畫圖需要的零線位置與 VoiceOver 摘要。
 /// 只整理後端的值，不重算任何業務規則(CLAUDE.md「規則」)。
 public struct ForecastTrend: Sendable {
     public struct Point: Hashable, Sendable {
@@ -43,9 +43,12 @@ public struct ForecastTrend: Sendable {
         crossesZero ? maximum / (maximum - minimum) : nil
     }
 
+    /// 走勢圖右下的標籤,例如「60 天後」。
+    public static var endLabel: String { "\(ForecastHorizon.days) 天後" }
+
     /// 給 VoiceOver 念的一句話:最低餘額、發生的日期、會不會透支。顏色之外，透支也用文字說出來(不只靠顏色)。
     public func spokenSummary(today: CalendarDay, locale: Locale) -> String {
-        var parts = ["未來 30 天預測餘額", "最低餘額 \(minBalance.spokenText)"]
+        var parts = ["未來 \(ForecastHorizon.days) 天預測餘額", "最低餘額 \(minBalance.spokenText)"]
         if let minDate {
             parts.append(minDate.text(today: today, locale: locale))
         }

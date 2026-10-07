@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("總覽「接下來 30 天」:預定收支與已繳勾選(#189)")
+@Suite("總覽「接下來 60 天」:預定收支與已繳勾選(#189)")
 struct OverviewUpcomingTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let defaults: UserDefaults
@@ -53,6 +53,12 @@ struct OverviewUpcomingTests {
         #expect(rows.map(\.subtitle) == ["家庭公帳", "個人私帳"])
         #expect(rows.map(\.amountText) == ["−$12,000", "+$45,000"])
         #expect(rows.map(\.isIncome) == [false, true])
+    }
+
+    @Test("區塊標題與走勢圖右下標籤跟著 60 天期程")
+    func horizonLabels() {
+        #expect(OverviewModel.upcomingTitle == "接下來 60 天")
+        #expect(ForecastTrend.endLabel == "60 天後")
     }
 
     @Test("最多列 5 筆,順序跟後端一樣")

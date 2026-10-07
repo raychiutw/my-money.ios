@@ -71,7 +71,7 @@ public actor InMemoryForecastRepository: ForecastRepository {
                 )
             }
             var balance = Money(Decimal(start))
-            let dailyBalances = (0..<30).map { offset in
+            let dailyBalances = (0..<ForecastHorizon.days).map { offset in
                 let date = day(today, plus: offset)
                 for event in marked where event.date == date && !event.isSettled {
                     balance = event.type == .income ? balance + event.amount : balance - event.amount
@@ -120,7 +120,7 @@ public actor InMemoryForecastRepository: ForecastRepository {
         let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(35000))
         let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000))
         var balance = Money(20000)
-        let dailyBalances = (0..<30).map { offset in
+        let dailyBalances = (0..<ForecastHorizon.days).map { offset in
             let date = day(today, plus: offset)
             for event in [rent, salary] where event.date == date {
                 balance = event.type == .income ? balance + event.amount : balance - event.amount

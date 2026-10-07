@@ -103,10 +103,13 @@ extension OverviewEntry {
     }
 }
 
-// MARK: 接下來 30 天(#189)
+// MARK: 接下來 60 天(#189)
 
 extension OverviewModel {
-    /// 首頁「接下來 30 天」最多列幾筆。
+    /// 首頁「接下來 60 天」區塊的標題(期程是後端的 60 天)。
+    public static var upcomingTitle: String { "接下來 \(ForecastHorizon.days) 天" }
+
+    /// 首頁「接下來」最多列幾筆。
     public static let upcomingLimit = 5
 
     /// 後端預測裡最近的幾筆預定收支(含已繳的，已繳的變淡);跟著首頁的視角。預測沒有資料(載入失敗)時是空的，這一區不顯示。

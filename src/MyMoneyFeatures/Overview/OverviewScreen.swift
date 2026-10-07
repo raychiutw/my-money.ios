@@ -106,7 +106,7 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 主視覺(#116):超大的淨可用餘額、它的組成一行(#178)加 30 天走勢線;下面是三格數字磚(#117),每格帶兩行組成明細(#178)。
+    /// 主視覺(#116):超大的淨可用餘額、它的組成一行(#178)加走勢線;下面是三格數字磚(#117),每格帶兩行組成明細(#178)。
     @ViewBuilder
     private var summarySection: some View {
         if let summary = model.summary {
@@ -219,7 +219,7 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 接下來 30 天(#189):後端預測最近的幾筆預定收支,每筆右邊有「已繳」圓圈(跟現金流預測頁是同一個功能);
+    /// 接下來(#189):後端預測最近的幾筆預定收支,每筆右邊有「已繳」圓圈(跟現金流預測頁是同一個功能);
     /// 預測載入失敗(或沒有預定收支)時整區不出現,其他照常。區塊標題右邊的「…」到現金流預測。
     @ViewBuilder
     private var upcomingSection: some View {
@@ -231,7 +231,7 @@ struct OverviewScreen: View {
                     }
                 }
             } header: {
-                header("接下來 30 天") {
+                header(OverviewModel.upcomingTitle) {
                     MoreMenu(label: "預定收支的更多動作", identifier: "overview.upcoming.more") {
                         Button("現金流預測", systemImage: "chart.line.uptrend.xyaxis") { path.append(.forecast) }
                     }
@@ -251,7 +251,7 @@ struct OverviewScreen: View {
     }
 }
 
-/// 首次載入的骨架屏:跟載入後一樣的主視覺(大數字與走勢圖)、三格數字磚、功能入口格、接下來 30 天和帳戶卡片。
+/// 首次載入的骨架屏:跟載入後一樣的主視覺(大數字與走勢圖)、三格數字磚、功能入口格、接下來和帳戶卡片。
 private struct OverviewSkeleton: View {
     var body: some View {
         Section {
@@ -284,7 +284,7 @@ private struct OverviewSkeleton: View {
                     .skeletonRow()
             }
         } header: {
-            SkeletonHeader("接下來 30 天")
+            SkeletonHeader(OverviewModel.upcomingTitle)
         }
         Section {
             OverviewAccountCardRow {

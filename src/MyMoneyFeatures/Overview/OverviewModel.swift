@@ -60,14 +60,14 @@ public final class OverviewModel {
     // 功能入口(#178、#196)的資料來源:獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
     private(set) var goals: [SavingsGoal]?
 
-    /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
+    /// 後端算好的 60 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
     /// 不分家庭公帳或個人);載入失敗時是 `nil`，不影響總覽的其他區塊。
     public private(set) var forecast: CashFlowForecast?
 
     /// 走勢圖的呈現資料:零線位置、紅色切換點等。
     public var forecastTrend: ForecastTrend? { forecast.map(ForecastTrend.init(forecast:)) }
 
-    /// 走勢圖的 VoiceOver 摘要，例如「未來 30 天預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
+    /// 走勢圖的 VoiceOver 摘要，例如「未來 60 天預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
     public var forecastSummary: String? {
         forecastTrend?.spokenSummary(today: today(), locale: locale)
     }

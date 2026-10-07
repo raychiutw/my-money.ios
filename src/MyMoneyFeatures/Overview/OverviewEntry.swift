@@ -28,7 +28,7 @@ public struct OverviewEntry: Identifiable, Hashable, Sendable {
     }
 }
 
-/// 首頁「接下來 30 天」的一列預定收支(#189):後端預測的事件加上要給人看、給 VoiceOver 念的文字。
+/// 首頁「接下來 60 天」的一列預定收支(#189):後端預測的事件加上要給人看、給 VoiceOver 念的文字。
 public struct UpcomingEvent: Identifiable, Hashable, Sendable {
     public let event: ForecastEvent
     public let dateText: String

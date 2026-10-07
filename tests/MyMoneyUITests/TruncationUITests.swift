@@ -65,7 +65,7 @@ final class TruncationUITests: XCTestCase {
     private func assertForecastAxis(contentSize: String) throws {
         let app = launchSignedIn(contentSize: contentSize)
         app.openHomeEntry("forecast")
-        let chartTitle = app.staticTexts["未來 30 天逐日餘額"]
+        let chartTitle = app.staticTexts["未來 60 天逐日餘額"]
         // 大字級時預測圖在摘要下面，清單還沒捲到就不在畫面上。
         for _ in 0..<10 where !chartTitle.exists { app.swipeUp() }
         XCTAssertTrue(chartTitle.exists, "沒有看到預測圖")

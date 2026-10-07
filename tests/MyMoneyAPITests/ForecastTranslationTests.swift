@@ -12,7 +12,7 @@ struct ForecastTranslationTests {
         LiveForecastRepository(client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session))
     }
 
-    @Test("30 天逐日餘額、最低餘額與日期、透支風險、預定收支")
+    @Test("逐日餘額(舊回應是 30 天)、最低餘額與日期、透支風險、預定收支")
     func forecast() async throws {
         try stub.reply(status: 200, fixture: "forecast.json")
 
@@ -75,7 +75,7 @@ struct ForecastTranslationTests {
         let forecast = try await repository.forecast(scope: scope)
 
         #expect(stub.requests.first?.url?.query() == "scope=\(scope.rawValue)")
-        #expect(forecast.dailyBalances.count == 30)
+        #expect(forecast.dailyBalances.count == 60, "上游 b1f6067 起預測是 60 天")
         switch scope {
         case .household:
             // 測試帳號沒有加入家庭:公帳視角只有一個家庭共同帳戶的餘額、沒有預定收支;最低餘額就是起始餘額，發生在第一天。
@@ -113,7 +113,7 @@ struct ForecastTranslationTests {
 
         let events = try await repository.forecast(scope: .all).events
 
-        try #require(events.count == 2)
+        try #require(events.count == 6, "60 天內:兩張卡的已出帳繳卡費、兩個月的薪水與房租")
         #expect(events[0].name == "繳卡費 · iOS 測試小額卡（已出帳）", "事件名稱照後端，client 不加工;不再有 💳")
         #expect(events[0].accountName == "iOS 測試小額卡")
         #expect(events[0].amount == Money(13000))
@@ -123,16 +123,50 @@ struct ForecastTranslationTests {
         #expect(events[1].accountName == nil)
     }
 
+    @Test("已出帳與未出帳是兩筆各自獨立的繳卡費,未出帳的識別碼尾巴是 :unbilled,名稱「（未出帳）」(上游 b1f6067,prod 實錄)")
+    func billedAndUnbilledCardDueAreSeparateEvents() async throws {
+        try stub.reply(status: 200, fixture: "forecast-card-billed-and-unbilled.json")
+
+        let events = try await repository.forecast(scope: .all).events
+
+        let cardEvents = events.filter { $0.name.hasPrefix("繳卡費 · iOS 測試信用卡") }
+        try #require(cardEvents.count == 2)
+        let billed = cardEvents[0], unbilled = cardEvents[1]
+        #expect(billed.name == "繳卡費 · iOS 測試信用卡（已出帳）")
+        #expect(billed.amount == Money(16380))
+        #expect(billed.date == CalendarDay(year: 2026, month: 11, day: 5))
+        #expect(unbilled.name == "繳卡費 · iOS 測試信用卡（未出帳）")
+        #expect(unbilled.amount == Money(880))
+        #expect(unbilled.date == CalendarDay(year: 2026, month: 12, day: 5))
+        #expect(unbilled.key == "card_due:70b75089-3652-40a3-8c47-c23d04aab28c:2026-12-05:unbilled")
+        #expect(billed.key != unbilled.key && unbilled.canSettle, "兩筆各自可以勾已繳")
+    }
+
+    @Test("未出帳那筆勾已繳:送出的是後端給的識別碼(含 :unbilled),已繳的未出帳留在清單並由後端排除(最低餘額不變)")
+    func unbilledCardDueCanBeSettled() async throws {
+        let key = "card_due:70b75089-3652-40a3-8c47-c23d04aab28c:2026-12-05:unbilled"
+        try stub.reply(status: 200, fixture: "forecast-settle-card-unbilled.json")
+        try await repository.setSettled(true, forEventKey: key)
+        let body = try #require(stub.requests.first?.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["event_key"] as? String == key)
+
+        try stub.reply(status: 200, fixture: "forecast-card-unbilled-settled.json")
+        let events = try await repository.forecast(scope: .all).events
+        let unbilled = try #require(events.first { $0.key == key })
+        #expect(unbilled.isSettled && unbilled.name.hasSuffix("（未出帳）"))
+    }
+
     @Test("起始餘額、現金總額、活存帳戶總額照後端(上游 5b2faa6);client 不加總也不扣減")
     func startingBalanceFields() async throws {
         try stub.reply(status: 200, fixture: "forecast-scope-all.json")
 
         let forecast = try await repository.forecast(scope: .all)
 
-        #expect(forecast.startingBalance == Money(86570))
+        #expect(forecast.startingBalance == Money(102950), "兩張卡的繳款日都在 60 天內,沒有先扣:現金加活存帳戶")
         #expect(forecast.cashTotal == Money(1750))
         #expect(forecast.bankTotal == Money(101200))
-        #expect(forecast.dailyBalances.first?.balance == Money(86570))
+        #expect(forecast.dailyBalances.first?.balance == Money(102950))
     }
 
     @Test("舊的回應沒有起始餘額三個欄位:當成沒有,不壞掉")

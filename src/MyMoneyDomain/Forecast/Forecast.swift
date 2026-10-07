@@ -1,3 +1,8 @@
+/// 預測的期程(上游 b1f6067 起後端回 60 天):畫面上描述期程的字都用這個值。期程本身由後端決定,逐日餘額有幾筆就畫幾筆。
+public enum ForecastHorizon {
+    public static let days = 60
+}
+
 /// 現金流預測的一天：當天結束時的餘額。
 public struct DailyBalance: Hashable, Sendable {
     public let date: CalendarDay
@@ -9,7 +14,7 @@ public struct DailyBalance: Hashable, Sendable {
     }
 }
 
-/// 預定收支：未來 30 天內，週期收支或信用卡繳款日(「繳卡費」,上游 ADR 0017;5b2faa6 起是已出帳加待出帳合併的一筆)預計發生的一次。
+/// 預定收支：未來 60 天內，週期收支或信用卡繳款日(「繳卡費」,上游 ADR 0017;b1f6067 起已出帳與未出帳各一筆)預計發生的一次。
 public struct ForecastEvent: Hashable, Sendable {
     public let date: CalendarDay
     public let name: String
@@ -51,7 +56,7 @@ public struct CashFlowForecast: Hashable, Sendable {
     /// 透支風險：最低餘額低於 0。
     public let willOverdraft: Bool
     public let events: [ForecastEvent]
-    /// 第 0 天的起始餘額(後端 `startingBalance`,上游 5b2faa6):現金加活存帳戶，再扣掉繳款日不在未來 30 天內的信用卡待繳款。
+    /// 第 0 天的起始餘額(後端 `startingBalance`,上游 5b2faa6):現金加活存帳戶，再扣掉繳款日不在未來 60 天內的信用卡待繳款。
     /// 舊回應沒有時是 `nil`。三個數字都是後端的值,client 不加總也不扣減。
     public let startingBalance: Money?
     /// 現金總額(後端 `cashTotal`);舊回應沒有時是 `nil`。
@@ -102,7 +107,7 @@ public struct PurchaseCheck: Hashable, Sendable {
 
 /// 現金流預測(`/forecast`)。
 public protocol ForecastRepository: Sendable {
-    /// 這個視角的 30 天預測(上游 ADR 0016):起始餘額、預定收支都由後端依視角算好。
+    /// 這個視角的 60 天預測(上游 ADR 0016):起始餘額、預定收支都由後端依視角算好。
     func forecast(scope: ViewScope) async throws -> CashFlowForecast
 
     /// 這個視角的購買力試算;公帳視角後端不檢核成員個人的儲蓄目標。

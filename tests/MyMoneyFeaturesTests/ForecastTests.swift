@@ -26,6 +26,14 @@ struct ForecastTests {
         )
     }
 
+    @Test("預測頁的期程文字跟著後端的 60 天(b1f6067)")
+    func horizonTexts() {
+        #expect(ForecastHorizon.days == 60)
+        #expect(ForecastModel.chartTitle == "未來 60 天逐日餘額")
+        #expect(ForecastModel.eventsCountTitle == "未來 60 天的預定收支")
+        #expect(ForecastModel.noEventsText == "未來 60 天沒有預定收支")
+    }
+
     @Test("資料回來之前沒有預測(畫面不會先顯示「安全」或 $0)")
     func nothingBeforeLoading() {
         let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
@@ -50,7 +58,7 @@ struct ForecastTests {
         #expect(forecast(overdraft: overdraft, minDate: today).riskTitle == expected)
     }
 
-    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「2026/10/05」。預測是未來 30 天，跨年時才寫年份。
+    /// 系統依地區的格式(DESIGN.md「日期」),不再是 web 的「2026/10/05」。預測是未來 60 天，跨年時才寫年份。
     @Test("最低餘額的發生日期、預定收支日是「10月5日」這種系統格式，不是今年的加上年份;沒有變動時顯示「無變動」")
     func dateTexts() async throws {
         let model = ForecastModel(
@@ -72,7 +80,7 @@ struct ForecastTests {
         let forecast = try #require(model.forecast)
 
         #expect(forecast.events.map(\.name) == ["房租", "薪水"])
-        #expect(forecast.dailyBalances.count == 30)
+        #expect(forecast.dailyBalances.count == ForecastHorizon.days)
     }
 
     @Test("購買力試算的金額要是正數", arguments: ["", "0", "-1", "abc", "1,000", "12.5"])
@@ -122,7 +130,7 @@ struct ForecastTests {
         let check = PurchaseCheck(amount: Money(1000), verdict: .safe, minBalance: Money(52440), affectedGoalNames: ["沖繩旅遊"])
 
         #expect(check.title == "放心購買")
-        #expect(check.message == "花 $1,000 之後，未來 30 天的最低餘額仍有 $52,440,也不影響儲蓄目標的每月預留。")
+        #expect(check.message == "花 $1,000 之後，未來 60 天的最低餘額仍有 $52,440,也不影響儲蓄目標的每月預留。")
     }
 
     @Test("審慎評估：列出受影響的儲蓄目標，用「、」串接")
@@ -138,7 +146,7 @@ struct ForecastTests {
         let check = PurchaseCheck(amount: Money(60000), verdict: .danger, minBalance: Money(-6560), affectedGoalNames: [])
 
         #expect(check.title == "不建議購買")
-        #expect(check.message == "花 $60,000 之後，未來 30 天的餘額最低會跌到 −$6,560。")
+        #expect(check.message == "花 $60,000 之後，未來 60 天的餘額最低會跌到 −$6,560。")
     }
 
     @Test("試算失敗時顯示後端的訊息")
@@ -303,13 +311,13 @@ struct ForecastTests {
         #expect(summary.note == nil, "起始餘額等於現金加活存帳戶時不加說明")
     }
 
-    @Test("起始餘額比現金加活存帳戶少時,說明已先扣掉繳款日不在未來 30 天內的信用卡待繳款")
+    @Test("起始餘額比現金加活存帳戶少時,說明已先扣掉繳款日不在未來 60 天內的信用卡待繳款")
     func startingBalanceDeduction() throws {
         let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
 
         let summary = try #require(model.startingBalance(of: startingForecast(start: 86570, cash: 1750, bank: 101200)))
 
-        #expect(summary.note == "已先扣掉繳款日不在未來 30 天內的信用卡待繳款")
+        #expect(summary.note == "已先扣掉繳款日不在未來 60 天內的信用卡待繳款")
     }
 
     @Test("舊回應沒有起始餘額,或缺少現金、活存帳戶其中一個:不顯示這一組")
@@ -372,7 +380,7 @@ struct ForecastTests {
         #expect(model.settlingKeys.isEmpty)
     }
 
-    @Test("勾選已繳成功後遞增資料版本(總覽「接下來 30 天」等其他畫面跟著重抓，#189);失敗時不遞增")
+    @Test("勾選已繳成功後遞增資料版本(總覽「接下來 60 天」等其他畫面跟著重抓，#189);失敗時不遞增")
     func settleBumpsTheDataVersion() async throws {
         let (model, repository) = await loaded()
         let before = model.dataVersion.value
