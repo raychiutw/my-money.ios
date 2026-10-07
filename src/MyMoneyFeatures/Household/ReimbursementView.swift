@@ -46,6 +46,7 @@ struct ReimbursementView: View {
                             focus: $focusedField, equals: .amount, identifier: "reimbursement.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "撥款日期", day: $model.date)
                     LabeledContent("備註") {
                         NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)

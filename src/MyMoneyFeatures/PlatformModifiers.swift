@@ -53,13 +53,7 @@ extension View {
     /// 但表單大多在 sheet 裡，在最上面往下拖拉動的是 sheet 本身。
     func keyboardDismissal<Field: Hashable>(clearing focus: FocusState<Field?>.Binding) -> some View {
         #if os(iOS)
-        toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("完成") { focus.wrappedValue = nil }
-            }
-        }
-        .scrollDismissesKeyboard(.immediately)
+        modifier(KeyboardDismissal(focus: focus))
         #else
         self
         #endif
@@ -127,3 +121,27 @@ func copyToPasteboard(_ text: String) {
     NSPasteboard.general.setString(text, forType: .string)
     #endif
 }
+
+#if os(iOS)
+/// `keyboardDismissal` 的實作:「完成」鈕在 iOS 26 是浮在鍵盤上方的玻璃圓鈕,系統把焦點欄位捲到鍵盤上緣就停,
+/// 欄位的下半部被這顆鈕(或整個欄位被鍵盤)蓋住。有焦點(鍵盤出現)時,在底部多留一段鈕的高度,捲動才會把欄位捲到鈕的上面。
+private struct KeyboardDismissal<Field: Hashable>: ViewModifier {
+    let focus: FocusState<Field?>.Binding
+    /// 「完成」鈕的高度加上它與欄位之間的空隙;跟著字級放大。
+    @ScaledMetric(relativeTo: .body) private var doneHeight = 88
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { focus.wrappedValue = nil }
+                }
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: focus.wrappedValue == nil ? 0 : doneHeight)
+            }
+    }
+}
+#endif

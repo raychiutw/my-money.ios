@@ -22,6 +22,7 @@ struct SavingsGoalDepositView: View {
                             focus: $focusedField, equals: .amount, identifier: "goalDeposit.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                 }
 
                 if let message = model.errorMessage {

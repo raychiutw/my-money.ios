@@ -10,6 +10,8 @@ struct HouseholdScreen: View {
     @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
     @State private var reimbursement: ReimbursementModel?
+    private enum Field: Hashable { case createName, joinCode }
+    @FocusState private var focusedField: Field?
 
     var body: some View {
         NavigationStack {
@@ -117,8 +119,10 @@ struct HouseholdScreen: View {
             Section("建立家庭") {
                 LabeledContent("名稱") {
                     TextField("家庭名稱", text: $model.createName, prompt: Text("例如：溫馨小家庭"))
+                        .focused($focusedField, equals: .createName)
                         .accessibilityIdentifier("household.createName")
                 }
+                .tapToFocus($focusedField, equals: .createName)
                 PrimaryCapsuleButton(title: "建立", fillsWidth: true) {
                     Task { await model.create() }
                 }
@@ -131,8 +135,10 @@ struct HouseholdScreen: View {
                 LabeledContent("邀請碼") {
                     TextField("邀請碼", text: $model.joinCode, prompt: Text(verbatim: "FAM-XXXX"))
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .joinCode)
                         .accessibilityIdentifier("household.joinCode")
                 }
+                .tapToFocus($focusedField, equals: .joinCode)
                 PrimaryCapsuleButton(title: "加入", fillsWidth: true) {
                     Task { await model.join() }
                 }
