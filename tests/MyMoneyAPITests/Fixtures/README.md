@@ -92,6 +92,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `recurring-amortize-scope-all.json` | `GET /recurring/amortize?scope=all` | 200 | 除了 `monthly_expense`、`monthly_income`,後端也回 `items`(iOS 不解碼) |
 | `recurring-amortize-scope-household.json` | `GET /recurring/amortize?scope=household` | 200 | 兩個合計都是 0 |
 | `forecast-scope-all.json` | `GET /forecast?scope=all`(上游 ADR 0016、0017 起) | 200 | 上游 5b2faa6 起:多 `startingBalance`、`cashTotal`、`bankTotal`;繳卡費是合併事件「繳卡費 · 卡名（已出帳）」(金額＝已出帳＋待出帳,沒有 💳);`minDate` 永遠有值。2026-10-06 重錄 |
+| `forecast-card-billed-and-unbilled.json` | 暫時在「iOS 測試信用卡」記一筆私帳支出 880(未出帳),再 `GET /forecast?scope=all`(2026-10-07,錄完刪除該筆) | 200 | 60 天;已出帳與未出帳是兩筆獨立事件:「繳卡費 · iOS 測試信用卡（已出帳）」16,380(11/5)與「（未出帳）」880(12/5,識別碼 `card_due:<帳戶>:2026-12-05:unbilled`) |
+| `forecast-settle-card-unbilled.json` | 同上,`POST /forecast/settle` 把未出帳那筆標成已繳(之後已取消還原) | 200 | `{event_key(含 :unbilled), is_settled:true}` |
+| `forecast-card-unbilled-settled.json` | 同上標成已繳後 `GET /forecast?scope=all` | 200 | 未出帳那筆 `is_settled: true` 仍在清單 |
 | `forecast-scope-household.json` | `GET /forecast?scope=household` | 200 | 測試帳號不在任何家庭:起始餘額 6900、沒有事件、最低餘額發生在第一天 |
 | `forecast-scope-personal.json` | `GET /forecast?scope=personal` | 200 | 個人私帳:自己的帳戶與項目 |
 | `forecast-scope-all-settled.json` | 先 `POST /forecast/settle` 把「房租」(`recurring:<id>:<日期>`)標成已繳，再 `GET /forecast?scope=all`(錄完已還原) | 200 | 房租 `is_settled: true`、仍在事件清單，最低餘額 61,570 → 73,570(後端把已繳的 12,000 排除);其他事件 `is_settled: false`、`can_settle: true` |
@@ -132,7 +135,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `budgets-put-update.json` | `PUT /budgets`,餐飲改成 100(同分類同月份會調整原本那筆) | 200 | 同一個 `id` |
 | `budgets-put-missing-amount.json` | `PUT /budgets`,沒有 `amount` | 400 | 「請填寫所有欄位」原樣傳遞 |
 | `budgets-list.json` | `GET /budgets?month=2026-09`,餐飲 100、購物 1000 設定之後 | 200 | 後端算好的 `spent` 與 `over`(餐飲超支、購物 88%)。預算額度無法刪除，會留在測試帳號的 2026-09 |
-| `forecast.json` | `GET /forecast`,台灣時間 2026-09-28 早上錄的 | 200 | camelCase;30 天逐日餘額、`minBalance`、`minDate`、`willOverdraft`、預定收支(房租、薪水)。第一天是 2026-09-27,因為當時後端用 UTC 的今天(`bd0507b` 已改用台灣時間) |
+| `forecast.json` | `GET /forecast`,台灣時間 2026-09-28 早上錄的 | 200 | camelCase;(舊回應)30 天逐日餘額、`minBalance`、`minDate`、`willOverdraft`、預定收支(房租、薪水)。第一天是 2026-09-27,因為當時後端用 UTC 的今天(`bd0507b` 已改用台灣時間) |
 | `forecast-purchase-safe.json` | `POST /forecast/purchase-check {amount: 1000}` | 200 | 放心購買;`affectedGoals` 列出所有有每月預留的儲蓄目標，不管評估結果是哪一種 |
 | `forecast-purchase-caution.json` | 同上 `{amount: 50000}`。錄之前先把「沖繩旅遊」的每月預留暫時改成 20000,錄完改回 5000 | 200 | 審慎評估(`affectsSavings: true`) |
 | `forecast-purchase-danger.json` | 同上 `{amount: 60000}` | 200 | 不建議購買，最低餘額 -6560 |

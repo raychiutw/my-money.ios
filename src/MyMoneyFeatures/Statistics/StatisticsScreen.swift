@@ -80,7 +80,10 @@ struct StatisticsScreen: View {
             }
         case .loaded:
             Section {
-                BigNumber(title: model.expenseTitle, amount: model.totalCategoryExpense, warnsWhenNegative: false)
+                BigNumber(
+                    title: model.expenseTitle, amount: model.totalCategoryExpense, text: model.totalCategoryExpense.formatted(flow: .outflow),
+                    warnsWhenNegative: false, style: model.totalCategoryExpense.tone(of: .outflow).color
+                )
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .clearListRow()
@@ -178,8 +181,9 @@ struct StatisticsScreen: View {
                 .padding(.vertical, 8)
                 ForEach(model.categoryExpenses, id: \.category) { expense in
                     LabeledContent {
-                        Text(expense.total.formatted())
+                        Text(expense.total.formatted(flow: .outflow))
                             .monospacedDigit()
+                            .foregroundStyle(expense.total.tone(of: .outflow).color ?? .primary)
                     } label: {
                         Label {
                             Text(expense.category.name)
@@ -291,8 +295,8 @@ private struct BudgetRowView: View {
     /// 「已花 / 預算」:已花是主要數字，預算(或「未設定」)是次要色。金額一律單行(DESIGN.md「列與欄位」)。
     private var figures: some View {
         HStack(spacing: 4) {
-            Text(row.spent.formatted())
-                .foregroundStyle(row.status.isOver ? Color.red : .primary)
+            Text(row.spent.formatted(flow: .outflow))
+                .foregroundStyle(row.spent.tone(of: .outflow).color ?? .primary)
             Text("/")
                 .foregroundStyle(.secondary)
             Text(row.budget.map { $0.amount.formatted() } ?? "未設定")
@@ -333,7 +337,7 @@ extension BudgetRow {
 
     fileprivate func statusText(spoken: Bool) -> String? {
         switch status {
-        case .over(let amount): "超支 \(spoken ? amount.spokenText : amount.formatted())"
+        case .over(let amount): "超支 \(spoken ? amount.spokenText : amount.formatted(flow: .outflow))"
         case .nearLimit: "接近上限"
         case .unset, .normal: nil
         }

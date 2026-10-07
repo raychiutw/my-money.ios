@@ -108,14 +108,14 @@ final class ForecastUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        let chart = element(in: app, labelContaining: "未來 30 天預測餘額")
+        let chart = element(in: app, labelContaining: "未來 60 天預測餘額")
         XCTAssertTrue(chart.waitForExistence(timeout: 5), "全部視角沒有走勢線")
         let filter = app.buttons["overview.scope"]
         for scope in ["家庭公帳", "個人私帳"] {
             filter.tap()
             app.buttons[scope].tap()
             XCTAssertEqual(filter.value as? String, scope)
-            XCTAssertTrue(element(in: app, labelContaining: "未來 30 天預測餘額").waitForExistence(timeout: 5), "\(scope)視角沒有走勢線")
+            XCTAssertTrue(element(in: app, labelContaining: "未來 60 天預測餘額").waitForExistence(timeout: 5), "\(scope)視角沒有走勢線")
         }
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 35,440 元").exists, "個人私帳視角的走勢線不是該視角的預測")
     }

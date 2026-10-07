@@ -26,7 +26,8 @@ final class AmountAlignmentUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(bands.count, 3, "三欄的磚應該是標籤、金額、組成明細由上往下:\(bands)")
             let amount = bands[1]
             try assertRightEdge(amount, in: image, "第 \(index + 1) 格的金額沒有靠右")
-            XCTAssertGreaterThan(amount.minX, 14 * Int(image.scale), "第 \(index + 1) 格的金額貼到左邊:\(amount)")
+            // 磚的內距 12pt:金額最寬時(帶 +/−,#202)左緣就是內距;小於 10pt 才是貼到邊或被切到。
+            XCTAssertGreaterThan(amount.minX, 10 * Int(image.scale), "第 \(index + 1) 格的金額貼到左邊:\(amount)")
             let label = bands[0]
             XCTAssertLessThan(label.minX, 20 * Int(image.scale), "標籤沒有靠左:\(label)")
             for detail in bands.dropFirst(2) {

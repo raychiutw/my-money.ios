@@ -19,11 +19,8 @@ public struct TransactionDay: Identifiable, Sendable {
     /// 當天有收入或支出才有淨額可以顯示;只有信用卡還款這類系統分類的那天沒有。
     public var hasNet: Bool { income > .zero || expense > .zero }
 
-    /// 日標頭右邊的淨額，帶正負號，例如「+$45,000」「-$1,000」;零是「$0」。
-    public var netText: String {
-        guard net != .zero else { return net.formatted() }
-        return (net > .zero ? "+" : "-") + Money(abs(net.amount)).formatted()
-    }
+    /// 日標頭右邊的淨額，帶正負號，例如「+$45,000」「−$1,000」;零是「$0」。
+    public var netText: String { net.signedFormatted() }
 }
 
 /// 交易頁的 model(parity.md「交易」)。

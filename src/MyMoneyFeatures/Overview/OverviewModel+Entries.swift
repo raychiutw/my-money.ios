@@ -53,7 +53,7 @@ extension OverviewModel {
         let amortization = summary?.monthlyAmortization
         return [
             OverviewEntry(
-                .recurring, title: "週期收支", symbolName: "arrow.triangle.2.circlepath",
+                .recurring, title: OverviewEntry.Destination.recurring.title, symbolName: "arrow.triangle.2.circlepath",
                 value: amortization.map { "每月平均 \($0.formatted())" },
                 spokenValue: amortization.map { "\(Terms.expenseAmortization) \($0.spokenText)" }
             ),
@@ -65,7 +65,7 @@ extension OverviewModel {
     /// 儲蓄目標:已存金額合計加整體達成率(跟儲蓄目標頁同一個算法);還沒有目標寫「尚無目標」。
     private var goalsEntry: OverviewEntry {
         func make(_ value: String?, spoken: String? = nil) -> OverviewEntry {
-            OverviewEntry(.goals, title: "儲蓄目標", symbolName: "target", value: value, spokenValue: spoken ?? value)
+            OverviewEntry(.goals, title: OverviewEntry.Destination.goals.title, symbolName: "target", value: value, spokenValue: spoken ?? value)
         }
         guard let goals else { return make(nil) }
         guard !goals.isEmpty else { return make("尚無目標") }
@@ -79,11 +79,11 @@ extension OverviewModel {
     /// 現金流預測:後端算好的最低餘額與發生日;會透支用警示色。
     private var forecastEntry: OverviewEntry {
         guard let forecast else {
-            return OverviewEntry(.forecast, title: "現金流預測", symbolName: "chart.line.uptrend.xyaxis", value: nil)
+            return OverviewEntry(.forecast, title: OverviewEntry.Destination.forecast.title, symbolName: "chart.line.uptrend.xyaxis", value: nil)
         }
         let date = forecast.minDate?.text(today: today(), locale: locale)
         return OverviewEntry(
-            .forecast, title: "現金流預測", symbolName: "chart.line.uptrend.xyaxis",
+            .forecast, title: OverviewEntry.Destination.forecast.title, symbolName: "chart.line.uptrend.xyaxis",
             value: (["最低 \(forecast.minBalance.formatted())"] + [date].compactMap { $0 }).joined(separator: "・"),
             spokenValue: (["最低 \(forecast.minBalance.spokenText)"] + [date].compactMap { $0 }).joined(separator: "，"),
             isWarning: forecast.willOverdraft
@@ -103,17 +103,13 @@ extension OverviewEntry {
     }
 }
 
-extension Money {
-    /// 帶正負號的金額,例如 `+$45,000`、`−$1,250`;0 不帶號。
-    func formatted(sign: String) -> String {
-        self == .zero ? formatted() : "\(sign)\(Money(abs(amount)).formatted())"
-    }
-}
-
-// MARK: 接下來 30 天(#189)
+// MARK: 接下來 60 天(#189)
 
 extension OverviewModel {
-    /// 首頁「接下來 30 天」最多列幾筆。
+    /// 首頁「接下來 60 天」區塊的標題(期程是後端的 60 天)。
+    public static var upcomingTitle: String { "接下來 \(ForecastHorizon.days) 天" }
+
+    /// 首頁「接下來」最多列幾筆。
     public static let upcomingLimit = 5
 
     /// 後端預測裡最近的幾筆預定收支(含已繳的，已繳的變淡);跟著首頁的視角。預測沒有資料(載入失敗)時是空的，這一區不顯示。
@@ -126,7 +122,7 @@ extension OverviewModel {
             if event.isSettled { spoken.append("已繳，不計入預測") }
             return UpcomingEvent(
                 event: event, dateText: date, subtitle: event.isSettled ? "\(ownership)・已繳" : ownership,
-                amountText: event.amount.formatted(sign: event.type == .income ? "+" : "−"),
+                amountText: event.amount.formatted(flow: event.type == .income ? .inflow : .outflow),
                 spokenText: spoken.joined(separator: "，")
             )
         }

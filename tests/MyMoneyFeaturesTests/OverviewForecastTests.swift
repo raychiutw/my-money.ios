@@ -5,7 +5,7 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("總覽的 30 天走勢:後端依視角算的現金流預測，每個視角都顯示，失敗不影響其他區塊(#116、#153)")
+@Suite("總覽的 60 天走勢:後端依視角算的現金流預測，每個視角都顯示，失敗不影響其他區塊(#116、#153)")
 struct OverviewForecastTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let defaults: UserDefaults
@@ -35,7 +35,7 @@ struct OverviewForecastTests {
         await overview.load()
 
         #expect(overview.phase == .loaded)
-        #expect(overview.forecast?.dailyBalances.count == 30)
+        #expect(overview.forecast?.dailyBalances.count == ForecastHorizon.days)
         #expect(overview.forecast?.minBalance == Money(53440))
         #expect(await repository.fetchCount == 1)
     }
@@ -48,8 +48,8 @@ struct OverviewForecastTests {
 
         await overview.load()
 
-        #expect(overview.forecastTrend?.points.count == 30)
-        #expect(overview.forecastSummary?.hasPrefix("未來 30 天預測餘額，最低餘額 53,440 元，") == true)
+        #expect(overview.forecastTrend?.points.count == ForecastHorizon.days)
+        #expect(overview.forecastSummary?.hasPrefix("未來 60 天預測餘額，最低餘額 53,440 元，") == true)
         #expect(overview.forecastSummary?.hasSuffix("不會透支") == true)
     }
 
@@ -62,7 +62,7 @@ struct OverviewForecastTests {
         await overview.load()
 
         #expect(overview.phase == .loaded)
-        #expect(overview.forecast?.dailyBalances.count == 30)
+        #expect(overview.forecast?.dailyBalances.count == ForecastHorizon.days)
         #expect(overview.forecast?.minBalance == (scope == .household ? Money(18000) : Money(35440)))
         #expect(await repository.requestedScopes == [scope], "總覽用目前的視角取預測")
     }
@@ -107,7 +107,7 @@ struct OverviewForecastTests {
     }
 }
 
-@Suite("30 天走勢的呈現:零線的位置、顏色切換點與 VoiceOver 摘要")
+@Suite("60 天走勢的呈現:零線的位置、顏色切換點與 VoiceOver 摘要")
 struct ForecastTrendTests {
     private func trend(_ balances: [Int], minDate: CalendarDay? = nil) -> ForecastTrend {
         let start = CalendarDay(year: 2026, month: 9, day: 28).startOfDay
@@ -145,10 +145,10 @@ struct ForecastTrendTests {
         let today = CalendarDay(year: 2026, month: 9, day: 28)
         let locale = Locale(identifier: "zh_Hant_TW")
         let overdraft = trend([30, -10, 5], minDate: CalendarDay(year: 2026, month: 9, day: 29))
-        #expect(overdraft.spokenSummary(today: today, locale: locale) == "未來 30 天預測餘額，最低餘額 負 10 元，9月29日，會透支")
+        #expect(overdraft.spokenSummary(today: today, locale: locale) == "未來 60 天預測餘額，最低餘額 負 10 元，9月29日，會透支")
 
         let safe = trend([30, 20, 25], minDate: CalendarDay(year: 2026, month: 9, day: 29))
-        #expect(safe.spokenSummary(today: today, locale: locale) == "未來 30 天預測餘額，最低餘額 20 元，9月29日，不會透支")
+        #expect(safe.spokenSummary(today: today, locale: locale) == "未來 60 天預測餘額，最低餘額 20 元，9月29日，不會透支")
     }
 
     @Test("沒有任何一天時沒有圖")

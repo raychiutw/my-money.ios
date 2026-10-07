@@ -28,7 +28,7 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
     }
 
-    /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 30 天走勢圖，再下面是三格數字磚(#117):
+    /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 60 天走勢圖，再下面是三格數字磚(#117):
     /// 真實可支配現金、當月淨收支、信用卡待繳;沒有公式明細。
     @MainActor
     func testHeroShowsBigBalanceAndForecastChartAboveSummaryTiles() throws {
@@ -39,9 +39,9 @@ final class OverviewUITests: XCTestCase {
 
         let available = row("淨可用餘額", value: "21,500 元", in: app)
         XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
-        // 後端預測的 30 天走勢圖:念出最低餘額與會不會透支(範例預測不會透支)，位置在大數字下面、摘要列上面。
-        let chart = element(in: app, labelContaining: "未來 30 天預測餘額，最低餘額")
-        XCTAssertTrue(chart.exists, "沒有 30 天走勢圖")
+        // 後端預測的 60 天走勢圖:念出最低餘額與會不會透支(範例預測不會透支)，位置在大數字下面、摘要列上面。
+        let chart = element(in: app, labelContaining: "未來 60 天預測餘額，最低餘額")
+        XCTAssertTrue(chart.exists, "沒有 60 天走勢圖")
         XCTAssertTrue(chart.label.hasSuffix("不會透支"), "走勢圖的摘要沒有說明會不會透支:\(chart.label)")
         XCTAssertLessThan(available.frame.minY, chart.frame.minY, "走勢圖不在淨可用餘額下面")
         // 大數字比一般金額列大很多。
@@ -96,7 +96,7 @@ final class OverviewUITests: XCTestCase {
         }
     }
 
-    /// 接下來 30 天(#189):列出預定收支,右邊的圓圈標示「已繳」;已繳的變淡、念出「已繳,不計入預測」,
+    /// 接下來 60 天(#189):列出預定收支,右邊的圓圈標示「已繳」;已繳的變淡、念出「已繳,不計入預測」,
     /// 預測入口的最低餘額由後端重算,進預測頁看到同一筆也是已繳(兩邊同步)。
     @MainActor
     func testUpcomingEventsCanBeSettledFromHome() throws {
@@ -107,7 +107,7 @@ final class OverviewUITests: XCTestCase {
 
         _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "overview.settle.sample:rent")).firstMatch
-        XCTAssertTrue(ScrollSupport.revealFully(settle, in: app), "總覽的「接下來 30 天」沒有房租的已繳圓圈")
+        XCTAssertTrue(ScrollSupport.revealFully(settle, in: app), "總覽的「接下來 60 天」沒有房租的已繳圓圈")
         XCTAssertEqual(settle.label, "標示為已繳")
         let forecastEntry = app.buttons["home.entry.forecast"]
         XCTAssertTrue(forecastEntry.label.contains("最低 53,440 元"), "勾選前的最低餘額不對:\(forecastEntry.label)")

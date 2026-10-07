@@ -2,7 +2,7 @@ import Charts
 import MyMoneyDomain
 import SwiftUI
 
-/// 總覽最上面的主視覺(#116、#124):超大的淨可用餘額，下面是後端預測的 30 天走勢線;
+/// 總覽最上面的主視覺(#116、#124):超大的淨可用餘額，下面是後端預測的走勢線(60 天);
 /// 直接放在背景上，沒有卡片底(設計稿)。
 /// 這是 DESIGN.md「字級維持現狀」唯一的例外:全 app 最重要的一個數字，用「大數字」放大。
 struct OverviewHero: View {
@@ -41,8 +41,8 @@ struct OverviewHero: View {
     }
 }
 
-/// 30 天走勢線:零線是虛線，零以上用一般色、零以下紅色，零以上的線下面有淡出的填色，起點(今天)有圓點;
-/// 不畫座標軸，只標「今天」和「30 天後」。只用後端的預測值(CLAUDE.md「不在 client 端重算業務規則」)。
+/// 走勢線(60 天):零線是虛線，零以上用一般色、零以下紅色，零以上的線下面有淡出的填色，起點(今天)有圓點;
+/// 不畫座標軸，只標「今天」和「60 天後」。只用後端的預測值(CLAUDE.md「不在 client 端重算業務規則」)。
 struct ForecastTrendChart: View {
     let trend: ForecastTrend
     let summary: String?
@@ -91,12 +91,12 @@ struct ForecastTrendChart: View {
             .chartYScale(domain: yDomain)
             .chartXScale(range: .plotDimension(padding: 8))
             .frame(height: 120)
-            .accessibilityLabel(summary ?? "未來 30 天預測餘額")
+            .accessibilityLabel(summary ?? "未來 \(ForecastHorizon.days) 天預測餘額")
 
             HStack {
                 Text("今天")
                 Spacer()
-                Text("30 天後")
+                Text(ForecastTrend.endLabel)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)

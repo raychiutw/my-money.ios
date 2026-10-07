@@ -9,6 +9,8 @@ import SwiftUI
 enum Skeleton {
     /// 只用來撐出版面寬度;套上 `.redacted` 後不會顯示數字。
     static let amount = Money(88_888)
+    /// 數字磚的佔位金額:跟真實內容一樣寬(含負號的六位數),欄數規則才會跟真實畫面算出同樣的結果(#201)。
+    static let tileAmount = Money(-888_888)
     static let text = "佔位文字佔位文字"
     static let upcomingEvent = UpcomingEvent(
         event: ForecastEvent(
@@ -30,9 +32,12 @@ enum Skeleton {
 extension View {
     /// 骨架屏的一列：系統的佔位樣式、不能點,VoiceOver 略過。
     func skeletonRow() -> some View {
-        redacted(reason: .placeholder)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        modifier(SkeletonRow())
+    }
+
+    /// 骨架裡的一格(#201):UI 測試要量骨架的欄數與格數,所以只有 `exposesSkeletonToAccessibility` 時才變成可查詢的元素。
+    func skeletonCell(_ identifier: String) -> some View {
+        modifier(SkeletonCell(identifier: identifier))
     }
 
     /// 骨架屏的第一列：跟 `skeletonRow()` 一樣，但 VoiceOver 念「載入中」。
@@ -118,6 +123,38 @@ struct SkeletonChart: View {
         RoundedRectangle(cornerRadius: 8)
             .fill(.quaternary)
             .frame(height: height)
+    }
+}
+
+extension EnvironmentValues {
+    /// UI 測試用(`-uiTesting` 才開):骨架屏不對 VoiceOver 隱藏,測試才查得到骨架每一格的位置。一般使用者永遠是 `false`。
+    @Entry public var exposesSkeletonToAccessibility = false
+}
+
+private struct SkeletonRow: ViewModifier {
+    @Environment(\.exposesSkeletonToAccessibility) private var exposed
+
+    func body(content: Content) -> some View {
+        content
+            .redacted(reason: .placeholder)
+            .allowsHitTesting(false)
+            .accessibilityHidden(!exposed)
+    }
+}
+
+private struct SkeletonCell: ViewModifier {
+    let identifier: String
+    @Environment(\.exposesSkeletonToAccessibility) private var exposed
+
+    func body(content: Content) -> some View {
+        if exposed {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("骨架")
+                .accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 

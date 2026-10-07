@@ -248,7 +248,7 @@ struct AccountsScreen: View {
                 NumberTile(title: Terms.cash, amount: model.cashTotal ?? .zero, spokenTitle: "\(Terms.cash)總額")
                 NumberTile(title: Terms.bankAccount, amount: model.bankBalanceTotal ?? .zero, spokenTitle: "\(Terms.bankAccount)餘額合計")
                 NumberTile(
-                    title: "信用卡待繳", amount: model.totalCardDue ?? .zero,
+                    title: "信用卡待繳", amount: model.totalCardDue ?? .zero, text: (model.totalCardDue ?? .zero).formatted(flow: .outflow),
                     style: (model.totalCardDue ?? .zero) > .zero ? .red : nil, spokenTitle: "信用卡待繳總額"
                 )
             }
@@ -336,7 +336,7 @@ struct AccountsScreen: View {
         } label: {
             NumberCard(
                 title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.totalDue,
-                isWarning: card.isDue, caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
+                text: card.totalDue.formatted(flow: .outflow), isWarning: card.isDue, caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
             )
         }
         .buttonStyle(.plain)

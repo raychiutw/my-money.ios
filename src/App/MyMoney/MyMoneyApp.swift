@@ -23,6 +23,8 @@ struct MyMoneyApp: App {
     /// 不要在 `init()` 建立 `EnvironmentValues()` 來取預設值：這麼早建立會讓整個 app 的
     /// accent 色變回系統藍(TestFlight 1.0 (36381212551) 的標題、按鈕都是藍的)。
     private let copiedFeedbackOverride: Duration?
+    /// UI 測試要量骨架屏的版面(#201):骨架不對 VoiceOver 隱藏。一般使用者永遠是 `false`。
+    private let exposesSkeleton: Bool
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     init() {
@@ -47,9 +49,17 @@ struct MyMoneyApp: App {
             register = RegisterModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
+            // `-uiTestingHoldOverview`:帳戶查詢停 20 秒才放行(登入要打字,啟動後十幾秒才進到總覽),總覽的骨架屏停留夠久,UI 測試才量得到(#201)。
+            let holdGate = arguments.contains("-uiTestingHoldOverview") ? Gate() : nil
+            if let holdGate {
+                Task {
+                    try? await Task.sleep(for: .seconds(20))
+                    await holdGate.open()
+                }
+            }
             let accounts = includesFamily
                 ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
-                : InMemoryAccountRepository.sample()
+                : InMemoryAccountRepository.sample(gate: holdGate)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
                 includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling")
@@ -84,6 +94,7 @@ struct MyMoneyApp: App {
             }
             suggestsStrongPasswords = false
             copiedFeedbackOverride = .seconds(30)
+            exposesSkeleton = true
             return
         }
         #endif
@@ -114,6 +125,7 @@ struct MyMoneyApp: App {
         }
         suggestsStrongPasswords = true
         copiedFeedbackOverride = nil
+        exposesSkeleton = false
     }
 
     var body: some Scene {
@@ -123,6 +135,7 @@ struct MyMoneyApp: App {
                 .environment(appearance)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
+                .environment(\.exposesSkeletonToAccessibility, exposesSkeleton)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
                 }

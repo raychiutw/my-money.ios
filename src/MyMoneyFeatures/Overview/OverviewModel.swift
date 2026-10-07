@@ -60,14 +60,14 @@ public final class OverviewModel {
     // 功能入口(#178、#196)的資料來源:獨立載入，失敗就是 `nil`，只有那一格沒有數字，不影響首頁其他部分。
     private(set) var goals: [SavingsGoal]?
 
-    /// 後端算好的 30 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
+    /// 後端算好的 60 天現金流預測，給首頁的走勢圖用(#116)。只有視角是「全部」時有值(預測是整體的現金流，
     /// 不分家庭公帳或個人);載入失敗時是 `nil`，不影響總覽的其他區塊。
     public private(set) var forecast: CashFlowForecast?
 
     /// 走勢圖的呈現資料:零線位置、紅色切換點等。
     public var forecastTrend: ForecastTrend? { forecast.map(ForecastTrend.init(forecast:)) }
 
-    /// 走勢圖的 VoiceOver 摘要，例如「未來 30 天預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
+    /// 走勢圖的 VoiceOver 摘要，例如「未來 60 天預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
     public var forecastSummary: String? {
         forecastTrend?.spokenSummary(today: today(), locale: locale)
     }
@@ -114,6 +114,12 @@ public final class OverviewModel {
 
     public var monthNet: Money { monthIncome - monthExpense }
 
+    /// 數字磚排法的記憶(#201):載入完成時記下並排或單欄,骨架屏用同一種。存在這個 model 的 `defaults`(UI 測試的每次啟動都會清掉)。
+    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults) }
+
+    /// 功能入口格排法的記憶(#201),同上。
+    public var entryLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "overview.entryLayout") }
+
     /// 標題隨視角改變;「個人私帳」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
         switch scope {
@@ -138,17 +144,19 @@ public final class OverviewModel {
         let cardDue = totalCardDue ?? .zero
         return [
             SummaryTile(
-                title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash, isWarning: summary.disposableCash < .zero,
+                title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash,
+                text: summary.disposableCash.formatted(), tone: summary.disposableCash < .zero ? .negative : .neutral,
                 details: ["每月平均 \(summary.monthlyAmortization.formatted())", "每月預留 \(summary.monthlySavingsReserve.formatted())"],
                 spokenDetails: "\(Terms.expenseAmortization) \(summary.monthlyAmortization.spokenText)，每月預留 \(summary.monthlySavingsReserve.spokenText)"
             ),
             SummaryTile(
-                title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, isWarning: monthNet < .zero,
-                details: ["收入 \(monthIncome.formatted(sign: "+"))", "支出 \(monthExpense.formatted(sign: "−"))"],
+                title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, text: monthNet.signedFormatted(), tone: monthNet.tone,
+                details: ["收入 \(monthIncome.formatted(flow: .inflow))", "支出 \(monthExpense.formatted(flow: .outflow))"],
                 spokenDetails: "收入 \(monthIncome.spokenText)，支出 \(monthExpense.spokenText)"
             ),
             SummaryTile(
-                title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue, isWarning: cardDue > .zero,
+                title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue,
+                text: cardDue.formatted(flow: .outflow), tone: cardDue.tone(of: .outflow),
                 details: cardTileDetails, spokenDetails: cardTileSpokenDetails
             ),
         ]
@@ -234,8 +242,12 @@ public struct SummaryTile: Identifiable, Hashable, Sendable {
     /// VoiceOver 念的正名。
     public let spokenTitle: String
     public let amount: Money
+    /// 畫面上的數字文字(#202):可支配現金是存量照原樣、當月淨收支依正負帶 +/−、信用卡待繳是負數。
+    public let text: String
+    /// 數字的顏色角色(#202):負數紅、正數綠;存量為正與零是一般色。
+    public let tone: AmountTone
     /// 用警示色(負數的可支配現金與淨收支、有待繳的信用卡)。
-    public let isWarning: Bool
+    public var isWarning: Bool { tone == .negative }
     /// 磚上的兩行組成明細(#178);VoiceOver 念 `spokenDetails`。
     public let details: [String]
     public let spokenDetails: String
@@ -307,6 +319,16 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
 
     /// 信用卡有待繳款:金額用警示色。
     public var isDue: Bool { isCreditCard && amount > .zero }
+
+    /// 金額的畫面文字(#202):信用卡待繳是負數(後端的值是正數),現金與活存帳戶是存量照原樣。
+    public var amountText: String {
+        isCreditCard ? amount.formatted(flow: .outflow) : amount.formatted()
+    }
+
+    /// 金額的顏色角色:有待繳的信用卡與負的餘額是紅色,其餘一般色。
+    public var tone: AmountTone {
+        isCreditCard ? amount.tone(of: .outflow) : (amount < .zero ? .negative : .neutral)
+    }
 }
 
 /// 超支警告的一列：分類名稱和超支金額(#75)。已花、預算額度在統計頁的預算額度。

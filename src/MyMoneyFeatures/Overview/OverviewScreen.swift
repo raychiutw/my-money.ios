@@ -82,7 +82,7 @@ struct OverviewScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            OverviewSkeleton()
+            OverviewSkeleton(tileMemory: model.tileLayoutMemory, entryMemory: model.entryLayoutMemory)
         case .failed(let message):
             Section {
                 ContentUnavailableView {
@@ -106,7 +106,7 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 主視覺(#116):超大的淨可用餘額、它的組成一行(#178)加 30 天走勢線;下面是三格數字磚(#117),每格帶兩行組成明細(#178)。
+    /// 主視覺(#116):超大的淨可用餘額、它的組成一行(#178)加走勢線;下面是三格數字磚(#117),每格帶兩行組成明細(#178)。
     @ViewBuilder
     private var summarySection: some View {
         if let summary = model.summary {
@@ -119,10 +119,10 @@ struct OverviewScreen: View {
             }
             .compactSectionSpacing()
             Section {
-                NumberTileRow {
+                NumberTileRow(memory: model.tileLayoutMemory) {
                     ForEach(model.summaryTiles) { tile in
                         NumberTile(
-                            title: tile.title, amount: tile.amount, style: tile.isWarning ? .red : nil, spokenTitle: tile.spokenTitle,
+                            title: tile.title, amount: tile.amount, text: tile.text, style: tile.tone.color, spokenTitle: tile.spokenTitle,
                             details: tile.details, spokenDetails: tile.spokenDetails
                         )
                     }
@@ -193,7 +193,7 @@ struct OverviewScreen: View {
     /// 每格是一個按鈕,VoiceOver 念「名稱,關鍵數字」;失敗或還沒有的數字只是不顯示,不影響其他格。
     private var entriesSection: some View {
         Section {
-            OverviewEntryGrid {
+            OverviewEntryGrid(memory: model.entryLayoutMemory) {
                 ForEach(model.entries) { entry in
                     Button { open(entry) } label: {
                         OverviewEntryCard(title: entry.title, symbolName: entry.symbolName, value: entry.value, isWarning: entry.isWarning)
@@ -219,7 +219,7 @@ struct OverviewScreen: View {
         }
     }
 
-    /// 接下來 30 天(#189):後端預測最近的幾筆預定收支,每筆右邊有「已繳」圓圈(跟現金流預測頁是同一個功能);
+    /// 接下來(#189):後端預測最近的幾筆預定收支,每筆右邊有「已繳」圓圈(跟現金流預測頁是同一個功能);
     /// 預測載入失敗(或沒有預定收支)時整區不出現,其他照常。區塊標題右邊的「…」到現金流預測。
     @ViewBuilder
     private var upcomingSection: some View {
@@ -231,7 +231,7 @@ struct OverviewScreen: View {
                     }
                 }
             } header: {
-                header("接下來 30 天") {
+                header(OverviewModel.upcomingTitle) {
                     MoreMenu(label: "預定收支的更多動作", identifier: "overview.upcoming.more") {
                         Button("現金流預測", systemImage: "chart.line.uptrend.xyaxis") { path.append(.forecast) }
                     }
@@ -251,26 +251,46 @@ struct OverviewScreen: View {
     }
 }
 
-/// 首次載入的骨架屏:跟載入後一樣的主視覺(大數字與走勢圖)、三格數字磚、功能入口格、接下來 30 天和帳戶卡片。
+/// 首次載入的骨架屏:跟載入後一樣的主視覺(大數字與走勢圖)、三格數字磚、功能入口格、接下來和帳戶卡片。
 private struct OverviewSkeleton: View {
+    let tileMemory: TileLayoutMemory
+    let entryMemory: TileLayoutMemory
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var width: Double?
+
     var body: some View {
         Section {
             OverviewHeroSkeleton()
                 .clearListRow()
         }
         Section {
-            NumberTileRow {
-                ForEach(0..<3, id: \.self) { _ in
-                    NumberTile(title: "摘要數字", amount: Skeleton.amount, details: ["組成明細", "組成明細"])
+            // 跟著實際版面(#201):用上一次載入完成時記下的並排或單欄;沒有記錄時佔位字跟真實內容一樣寬(5 個字的標籤、含負號的六位數金額),
+            // 由同一套欄數規則自己算。
+            NumberTileRow(
+                forcedSingleColumn: tileMemory.singleColumn(forWidth: width, sizeKey: String(describing: dynamicTypeSize))
+            ) {
+                ForEach(0..<3, id: \.self) { index in
+                    NumberTile(
+                        title: "可支配現金", amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted(),
+                        details: ["組成明細", "組成明細"]
+                    )
+                    .skeletonCell("overview.skeleton.tile.\(index)")
                 }
             }
+            .onGeometryChange(for: Double.self) { $0.size.width } action: { width = $0 }
             .clearListRow()
             .skeletonRow()
         }
         Section {
-            OverviewEntryGrid {
-                ForEach(0..<8, id: \.self) { _ in
-                    OverviewEntryCard(title: "功能名稱", symbolName: "circle", value: "關鍵數字")
+            // 沒有記錄時:無障礙字級入口一律單欄(DESIGN.md「功能入口格」),其餘由欄數規則算。
+            OverviewEntryGrid(
+                forcedSingleColumn: entryMemory.singleColumn(forWidth: width, sizeKey: String(describing: dynamicTypeSize))
+                    ?? (dynamicTypeSize.isAccessibilitySize ? true : nil)
+            ) {
+                // 格數跟真實入口同一個來源(#201;#196 之後只剩 3 格)。
+                ForEach(OverviewEntry.Destination.allCases, id: \.self) { destination in
+                    OverviewEntryCard(title: destination.title, symbolName: "circle", value: "關鍵數字")
+                        .skeletonCell("overview.skeleton.entry.\(destination.rawValue)")
                 }
             }
             .clearListRow()
@@ -284,7 +304,7 @@ private struct OverviewSkeleton: View {
                     .skeletonRow()
             }
         } header: {
-            SkeletonHeader("接下來 30 天")
+            SkeletonHeader(OverviewModel.upcomingTitle)
         }
         Section {
             OverviewAccountCardRow {

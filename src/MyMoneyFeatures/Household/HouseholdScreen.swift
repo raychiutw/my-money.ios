@@ -309,9 +309,9 @@ private struct AdvanceDetails: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("\(isIncome ? "+" : "-")\(amount.formatted())")
+            Text(amount.formatted(flow: isIncome ? .inflow : .outflow))
                 .monospacedDigit()
-                .foregroundStyle(isIncome ? .green : .red)
+                .foregroundStyle(amount.tone(of: isIncome ? .inflow : .outflow).color ?? .primary)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date)),\(account)")
@@ -386,7 +386,7 @@ private struct MemberRow: View {
                     Text("待報銷")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(advance.pendingReimbursement.formatted())
+                    Text(advance.pendingReimbursement.formatted(flow: .outflow))
                         .font(.headline)
                         .monospacedDigit()
                         .foregroundStyle(.red)

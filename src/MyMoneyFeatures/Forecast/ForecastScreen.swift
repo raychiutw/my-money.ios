@@ -3,7 +3,7 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 規劃 → 現金流預測：透支風險、最低餘額、預定收支、30 天逐日餘額與購買力試算(parity.md「現金流預測」)。
+/// 規劃 → 現金流預測：透支風險、最低餘額、預定收支、逐日餘額與購買力試算(parity.md「現金流預測」)。
 struct ForecastScreen: View {
     @Bindable var model: ForecastModel
     @FocusState private var focusedField: Field?
@@ -71,7 +71,7 @@ struct ForecastScreen: View {
             // 資料回來之前不顯示「安全」或 $0,改顯示骨架屏(parity 刻意偏離第 7 項)。
             List {
                 SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
-                SkeletonSection(title: "未來 30 天逐日餘額", count: 1) { SkeletonChart() }
+                SkeletonSection(title: ForecastModel.chartTitle, count: 1) { SkeletonChart() }
                 SkeletonSection(title: "預定收支", count: 3) { SkeletonItemRow() }
             }
         }
@@ -118,12 +118,12 @@ struct ForecastScreen: View {
                 detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))",
                 warnsWhenNegative: true
             )
-            LabeledContent("未來 30 天的預定收支", value: "\(forecast.events.count) 筆")
+            LabeledContent(ForecastModel.eventsCountTitle, value: "\(forecast.events.count) 筆")
         }
     }
 
     private func chartSection(_ forecast: CashFlowForecast) -> some View {
-        Section("未來 30 天逐日餘額") {
+        Section(ForecastModel.chartTitle) {
             Chart(forecast.dailyBalances, id: \.date) { day in
                 AreaMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
                     .foregroundStyle(.tint.opacity(0.2))
@@ -173,7 +173,7 @@ struct ForecastScreen: View {
     private func eventsSection(_ forecast: CashFlowForecast) -> some View {
         Section("預定收支") {
             if forecast.events.isEmpty {
-                Text("未來 30 天沒有預定收支")
+                Text(ForecastModel.noEventsText)
                     .foregroundStyle(.secondary)
             }
             ForEach(Array(forecast.events.enumerated()), id: \.offset) { _, event in
@@ -327,9 +327,9 @@ private struct ForecastEventRow: View {
 
     /// 金額一律單行，帶正負號(收入綠、支出紅)。
     private var amount: some View {
-        Text(event.type == .income ? "+\(event.amount.formatted())" : "-\(event.amount.formatted())")
+        Text(event.amount.formatted(flow: event.type == .income ? .inflow : .outflow))
             .monospacedDigit()
-            .foregroundStyle(event.type == .income ? .green : .red)
+            .foregroundStyle(event.amount.tone(of: event.type == .income ? .inflow : .outflow).color ?? .primary)
             .strikethrough(event.isSettled)
             .lineLimit(1)
             .fixedSize()
@@ -337,7 +337,7 @@ private struct ForecastEventRow: View {
 }
 
 /// 預定收支右邊的「已繳」圓圈(上游 ADR 0018，#182):未繳是空心圓、已繳是 CI 填色加勾勾;觸控範圍 44×44pt，
-/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 30 天」共用。
+/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 60 天」共用。
 struct SettleButton: View {
     let isSettled: Bool
     let isBusy: Bool

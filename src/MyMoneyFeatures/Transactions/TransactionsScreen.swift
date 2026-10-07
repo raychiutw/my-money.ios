@@ -254,7 +254,7 @@ private struct DayHeader: View {
             Text(day.netText)
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(day.net > .zero ? Color.green : (day.net < .zero ? Color.red : Color.secondary))
+                .foregroundStyle(day.net.tone.color ?? Color.secondary)
                 .accessibilityLabel("當日淨額 \(day.net.spokenText)")
         }
     }

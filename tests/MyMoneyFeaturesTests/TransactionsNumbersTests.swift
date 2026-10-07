@@ -28,7 +28,7 @@ struct TransactionsNumbersTests {
 
         // 9/28:午餐 120 + 耳機 880。
         #expect(list.days[0].net == Money(-1000))
-        #expect(list.days[0].netText == "-$1,000")
+        #expect(list.days[0].netText == "−$1,000")
         // 9/1:薪資 45,000。
         #expect(list.days[2].net == Money(45000))
         #expect(list.days[2].netText == "+$45,000")

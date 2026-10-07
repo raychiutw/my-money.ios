@@ -142,9 +142,17 @@ struct RecurringScreen: View {
     /// 摘要：週期支出每月平均是主數字，其餘是一般列(DESIGN.md「列與欄位」第 6 條，#77)。
     private var summarySection: some View {
         Section {
-            SummaryRow(title: Terms.expenseAmortization, amount: model.monthlyExpense)
-            AmountRow(title: Terms.incomeAmortization, amount: model.monthlyIncome)
-            AmountRow(title: "每月週期淨額", amount: model.monthlyNet, warnsWhenNegative: true)
+            SummaryRow(
+                title: Terms.expenseAmortization, amount: model.monthlyExpense, text: model.monthlyExpense.formatted(flow: .outflow),
+                style: model.monthlyExpense.tone(of: .outflow).color
+            )
+            AmountRow(
+                title: Terms.incomeAmortization, amount: model.monthlyIncome, text: model.monthlyIncome.formatted(flow: .inflow),
+                style: model.monthlyIncome.tone(of: .inflow).color
+            )
+            AmountRow(
+                title: "每月週期淨額", amount: model.monthlyNet, text: model.monthlyNet.signedFormatted(), style: model.monthlyNet.tone.color
+            )
         }
     }
 
@@ -250,9 +258,9 @@ private struct RecurringRow: View {
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amountText: some View {
         // 金額一律帶正負號，收入綠色、支出紅色(DESIGN.md「顏色」)。
-        Text(item.type == .income ? "+\(item.amount.formatted())" : "-\(item.amount.formatted())")
+        Text(item.amount.formatted(flow: item.type == .income ? .inflow : .outflow))
             .monospacedDigit()
-            .foregroundStyle(item.type == .income ? .green : .red)
+            .foregroundStyle(item.amount.tone(of: item.type == .income ? .inflow : .outflow).color ?? .primary)
             .lineLimit(1)
             .fixedSize()
     }

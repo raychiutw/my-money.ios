@@ -28,6 +28,8 @@ struct BigNumber: View {
     var text: String?
     /// 負數用紅色。
     var warnsWhenNegative = true
+    /// 指定顏色(#202:流量的淨額正數綠、負數紅);沒有指定時照 `warnsWhenNegative`。
+    var style: Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -40,7 +42,9 @@ struct BigNumber: View {
                 number(digits: .title.weight(.bold), symbol: .title3.weight(.semibold))
             }
             .lineLimit(1)
-            .foregroundStyle(warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            .foregroundStyle(
+                style.map(AnyShapeStyle.init) ?? (warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -192,20 +196,62 @@ struct NumberTile: View {
 /// 一排數字磚(#148):每一格的理想寬度(標籤單行、金額原尺寸，加內距)都放得進「可用寬度除以欄數」才並排，
 /// 否則整排改單欄(一格一列)。只看實際可用的寬度，不看裝置或字級屬性(#117)。欄數的判斷見 `TileColumns`。
 struct NumberTileRow<Content: View>: View {
+    /// 骨架屏用:直接指定單欄或並排(來自上一次載入完成時記下的排法,#201);`nil` 是由空間決定。
+    var forcedSingleColumn: Bool?
+    /// 載入完成後的真實畫面用:把實際選到的排法記下來給骨架屏參考(只有總覽傳)。
+    var memory: TileLayoutMemory?
     @ViewBuilder var content: () -> Content
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var width: Double?
+    @State private var chosenSingleColumn: Bool?
+
     var body: some View {
-        // `ViewThatFits` 取第一個理想寬度放得下的：並排的理想寬度就是 `TileColumns.requiredWidth`。
-        ViewThatFits(in: .horizontal) {
-            EqualColumnsLayout(maxColumns: 3, spacing: 8, rowSpacing: 8) {
-                content()
+        arranged
+            .onGeometryChange(for: Double.self) { $0.size.width } action: {
+                width = $0
+                flush()
             }
-            .environment(\.numberTileStyle, .column)
-            VStack(spacing: 8) {
-                content()
+    }
+
+    @ViewBuilder
+    private var arranged: some View {
+        if let forcedSingleColumn {
+            if forcedSingleColumn { rows } else { columns }
+        } else {
+            // `ViewThatFits` 取第一個理想寬度放得下的：並排的理想寬度就是 `TileColumns.requiredWidth`。
+            ViewThatFits(in: .horizontal) {
+                columns
+                    .onAppear { remember(isSingleColumn: false) }
+                rows
+                    .onAppear { remember(isSingleColumn: true) }
             }
-            .environment(\.numberTileStyle, .row)
         }
+    }
+
+    private var columns: some View {
+        EqualColumnsLayout(maxColumns: 3, spacing: 8, rowSpacing: 8) {
+            content()
+        }
+        .environment(\.numberTileStyle, .column)
+    }
+
+    private var rows: some View {
+        VStack(spacing: 8) {
+            content()
+        }
+        .environment(\.numberTileStyle, .row)
+    }
+
+    private func remember(isSingleColumn: Bool) {
+        chosenSingleColumn = isSingleColumn
+        flush()
+    }
+
+    /// 寬度與選到的排法都知道了才記(兩者到達的順序不一定)。
+    private func flush() {
+        guard let memory, let width, let chosenSingleColumn else { return }
+        memory.record(isSingleColumn: chosenSingleColumn, width: width, sizeKey: String(describing: dynamicTypeSize))
     }
 }
 
@@ -271,6 +317,8 @@ struct NumberCard: View {
     let symbol: String
     let symbolColor: Color
     let amount: Money
+    /// 顯示的文字,預設是金額;信用卡待繳是負數(#202)另外傳。
+    var text: String?
     /// 警示狀態(例如信用卡有待繳):金額用紅色。
     var isWarning = false
     /// 金額同一行左邊的小字，例如「個人私帳・5 日繳」;沒有就只有金額。
@@ -323,7 +371,7 @@ struct NumberCard: View {
     }
 
     private var amountText: some View {
-        Text(amount.formatted())
+        Text(text ?? amount.formatted())
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
