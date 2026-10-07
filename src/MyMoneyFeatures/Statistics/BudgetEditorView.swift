@@ -22,6 +22,7 @@ struct BudgetEditorView: View {
                             focus: $focusedField, equals: .amount, identifier: "budgetEditor.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                 } header: {
                     Text(model.monthTitle)
                 } footer: {

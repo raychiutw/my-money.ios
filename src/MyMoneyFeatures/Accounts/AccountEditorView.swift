@@ -33,6 +33,7 @@ struct AccountEditorView: View {
                             .focused($focusedField, equals: .name)
                             .accessibilityIdentifier("accountEditor.name")
                     }
+                    .tapToFocus($focusedField, equals: .name)
                     if model.showsAmountField {
                         amountRow(model.amountLabel, text: $model.amountText, field: .amount, identifier: "accountEditor.amount")
                     }
@@ -101,6 +102,7 @@ struct AccountEditorView: View {
                 focus: $focusedField, equals: field, identifier: identifier
             )
         }
+        .tapToFocus($focusedField, equals: field)
     }
 
     private func dayPicker(_ label: String, selection: Binding<Int?>) -> some View {

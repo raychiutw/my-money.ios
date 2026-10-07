@@ -10,6 +10,8 @@ extension XCUIApplication {
         // 只在 collection view 裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕，但 tab bar 不是 collection view。
         let row = collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
         for _ in 0..<6 where !(row.exists && row.isHittable) { swipeUp() }
+        // 收起鍵盤後表單停在哪裡取決於剛才聚焦的欄位:帳戶列也可能在目前位置的上面。
+        for _ in 0..<8 where !(row.exists && row.isHittable) { swipeDown() }
         XCTAssertTrue(row.exists && row.isHittable, "記一筆沒有「帳戶」列")
         row.tap()
         let option = buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch

@@ -201,6 +201,7 @@ struct ForecastScreen: View {
                     focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
                 )
             }
+            .tapToFocus($focusedField, equals: .amount)
             PrimaryCapsuleButton(title: "進行購買力試算", fillsWidth: true) {
                 focusedField = nil
                 Task { await model.checkPurchase() }

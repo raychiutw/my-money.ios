@@ -27,6 +27,7 @@ struct SavingsGoalEditorView: View {
                             .focused($focusedField, equals: .name)
                             .accessibilityIdentifier("goalEditor.name")
                     }
+                    .tapToFocus($focusedField, equals: .name)
                     amountRow("目標金額", text: $model.targetAmountText, field: .target, identifier: "goalEditor.target")
                     amountRow("每月預留(選填)", text: $model.monthlyReserveText, field: .reserve, identifier: "goalEditor.reserve")
                 }
@@ -70,6 +71,7 @@ struct SavingsGoalEditorView: View {
         LabeledContent(label) {
             AmountField(label, text: text, focus: $focusedField, equals: field, identifier: identifier)
         }
+        .tapToFocus($focusedField, equals: field)
     }
 }
 

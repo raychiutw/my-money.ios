@@ -41,12 +41,14 @@ struct RecurringEditorView: View {
                         .focused($focusedField, equals: .name)
                         .accessibilityIdentifier("recurringEditor.name")
                     }
+                    .tapToFocus($focusedField, equals: .name)
                     LabeledContent("每期金額") {
                         AmountField(
                             "每期金額", text: $model.amountText, prompt: Text("例如：15000"),
                             focus: $focusedField, equals: .amount, identifier: "recurringEditor.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                 }
 
                 // 週期只有 5 個選項:內嵌選擇列，點一下就選(ADR-0004、#91)。

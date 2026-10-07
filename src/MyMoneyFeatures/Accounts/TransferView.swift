@@ -46,6 +46,7 @@ struct TransferView: View {
                             focus: $focusedField, equals: .amount, identifier: "transfer.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "日期", day: $model.date)
                     LabeledContent("備註") {
                         NoteField(text: $model.note, prompt: "例如：超商 ATM 提款", focus: $focusedField, value: .note)

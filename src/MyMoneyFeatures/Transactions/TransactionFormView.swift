@@ -87,6 +87,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                             focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
                         )
                     }
+                    .tapToFocus($focusedField, equals: .amount)
                 }
 
                 // 備註放在金額正下方、分類格上面:金額欄一打開就對焦，數字鍵盤蓋住下半部，16 格分類很高，
