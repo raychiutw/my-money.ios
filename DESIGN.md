@@ -418,3 +418,8 @@ Tab bar(iPad 用 .sidebarAdaptable)
 - 以 lucide `BookHeart`(ISC 授權)加品牌粉為基礎，用 Icon Composer 做成 Liquid Glass 分層 icon。素材、設計說明和授權聲明在 `design/app-icon/`。
 - 深色外觀另外指定顏色：書用 `#FF8A8A`,愛心用 `#FFB3B3`。clear 和 tinted 變體由系統自動產生。
 - SF Symbols 的授權不允許用在 app icon。
+
+## 鍵盤(#198、#200)
+
+- 有鍵盤的表單一律用 `keyboardDismissal`:鍵盤上方的「完成」是浮在鍵盤上的玻璃鈕,有焦點時在底部多留一段它的高度,欄位才會被捲到鈕的上面;金額與名稱欄所在的 `LabeledContent` 都加 `tapToFocus`(無障礙字級標籤在欄位上方,點整列要能開始輸入)。
+- 驗收(`KeyboardUITests`):12 個表單、一般與最大無障礙字級,欄位底邊要在「完成」鈕上緣 8pt 之上。iPhone 全跑;iPad 直向全跑,橫向只自動驗證不在 sheet 裡的預測頁與家庭頁(橫向的 sheet 是置中的矮卡片,旋轉後清單重建,UI 測試讀不到欄位)。**橫向的 sheet 表單是手動驗收**:轉帳、記一筆、信用卡還款、報銷、儲蓄目標(建立與存入)、預算、週期收支、帳戶編輯各點金額與備註欄,確認欄位在「完成」鈕上方。
