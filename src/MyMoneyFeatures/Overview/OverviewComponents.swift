@@ -80,17 +80,58 @@ struct OverviewEntryCard: View {
 
 /// 入口格(#178):跟帳戶卡片網格同一套欄數規則(`TileColumns`),最多兩欄。
 struct OverviewEntryGrid<Content: View>: View {
+    /// 骨架屏用:直接指定單欄或兩欄(#201,上一次載入完成時記下的排法);`nil` 是由空間決定。
+    var forcedSingleColumn: Bool?
+    /// 載入完成後的真實畫面用:把實際選到的排法記下來給骨架屏參考。
+    var memory: TileLayoutMemory?
     @ViewBuilder var content: () -> Content
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var width: Double?
+    @State private var chosenSingleColumn: Bool?
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            EqualColumnsLayout(maxColumns: 2, spacing: 10, rowSpacing: 10) {
-                content()
+        arranged
+            .onGeometryChange(for: Double.self) { $0.size.width } action: {
+                width = $0
+                flush()
             }
-            VStack(spacing: 10) {
-                content()
+    }
+
+    @ViewBuilder
+    private var arranged: some View {
+        if let forcedSingleColumn {
+            if forcedSingleColumn { rows } else { columns }
+        } else {
+            ViewThatFits(in: .horizontal) {
+                columns
+                    .onAppear { remember(isSingleColumn: false) }
+                rows
+                    .onAppear { remember(isSingleColumn: true) }
             }
         }
+    }
+
+    private var columns: some View {
+        EqualColumnsLayout(maxColumns: 2, spacing: 10, rowSpacing: 10) {
+            content()
+        }
+    }
+
+    private var rows: some View {
+        VStack(spacing: 10) {
+            content()
+        }
+    }
+
+    private func remember(isSingleColumn: Bool) {
+        chosenSingleColumn = isSingleColumn
+        flush()
+    }
+
+    private func flush() {
+        guard let memory, let width, let chosenSingleColumn else { return }
+        memory.record(isSingleColumn: chosenSingleColumn, width: width, sizeKey: String(describing: dynamicTypeSize))
     }
 }
 

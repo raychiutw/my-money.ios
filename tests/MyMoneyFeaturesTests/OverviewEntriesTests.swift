@@ -63,6 +63,13 @@ struct OverviewEntriesTests {
 
     // MARK: 淨可用餘額的組成
 
+    @Test("入口格數只有一個來源:骨架與真實畫面都用它(#201)")
+    func entryCountHasOneSource() async {
+        let overview = await loaded()
+        #expect(OverviewEntry.Destination.allCases.count == overview.entries.count)
+        #expect(OverviewEntry.Destination.allCases.count == 3)
+    }
+
     @Test("淨可用餘額底下一行組成:現金＋活存帳戶−信用卡待繳,全是後端的值;載入前沒有")
     func composition() async {
         let overview = model(sources())

@@ -53,7 +53,7 @@ extension OverviewModel {
         let amortization = summary?.monthlyAmortization
         return [
             OverviewEntry(
-                .recurring, title: "週期收支", symbolName: "arrow.triangle.2.circlepath",
+                .recurring, title: OverviewEntry.Destination.recurring.title, symbolName: "arrow.triangle.2.circlepath",
                 value: amortization.map { "每月平均 \($0.formatted())" },
                 spokenValue: amortization.map { "\(Terms.expenseAmortization) \($0.spokenText)" }
             ),
@@ -65,7 +65,7 @@ extension OverviewModel {
     /// 儲蓄目標:已存金額合計加整體達成率(跟儲蓄目標頁同一個算法);還沒有目標寫「尚無目標」。
     private var goalsEntry: OverviewEntry {
         func make(_ value: String?, spoken: String? = nil) -> OverviewEntry {
-            OverviewEntry(.goals, title: "儲蓄目標", symbolName: "target", value: value, spokenValue: spoken ?? value)
+            OverviewEntry(.goals, title: OverviewEntry.Destination.goals.title, symbolName: "target", value: value, spokenValue: spoken ?? value)
         }
         guard let goals else { return make(nil) }
         guard !goals.isEmpty else { return make("尚無目標") }
@@ -79,11 +79,11 @@ extension OverviewModel {
     /// 現金流預測:後端算好的最低餘額與發生日;會透支用警示色。
     private var forecastEntry: OverviewEntry {
         guard let forecast else {
-            return OverviewEntry(.forecast, title: "現金流預測", symbolName: "chart.line.uptrend.xyaxis", value: nil)
+            return OverviewEntry(.forecast, title: OverviewEntry.Destination.forecast.title, symbolName: "chart.line.uptrend.xyaxis", value: nil)
         }
         let date = forecast.minDate?.text(today: today(), locale: locale)
         return OverviewEntry(
-            .forecast, title: "現金流預測", symbolName: "chart.line.uptrend.xyaxis",
+            .forecast, title: OverviewEntry.Destination.forecast.title, symbolName: "chart.line.uptrend.xyaxis",
             value: (["最低 \(forecast.minBalance.formatted())"] + [date].compactMap { $0 }).joined(separator: "・"),
             spokenValue: (["最低 \(forecast.minBalance.spokenText)"] + [date].compactMap { $0 }).joined(separator: "，"),
             isWarning: forecast.willOverdraft

@@ -8,6 +8,15 @@ public struct OverviewEntry: Identifiable, Hashable, Sendable {
         case recurring
         case goals
         case forecast
+
+        /// 入口的名稱(骨架屏與真實畫面共用,#201:名稱的寬度會影響入口格幾欄)。
+        public var title: String {
+            switch self {
+            case .recurring: "週期收支"
+            case .goals: "儲蓄目標"
+            case .forecast: "現金流預測"
+            }
+        }
     }
 
     public let destination: Destination
