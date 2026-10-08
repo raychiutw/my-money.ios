@@ -10,7 +10,7 @@ final class SwipeActionUITests: XCTestCase {
     @MainActor
     private func launch(dark: Bool, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"] + extra + (dark ? ["-AppleInterfaceStyle", "Dark"] : [])
+        app.launchArguments = ["-uiTesting", "-resetSession"] + extra + (dark ? ["-uiTestingDark"] : [])
         app.launch()
         app.signInWithSampleAccount()
         return app

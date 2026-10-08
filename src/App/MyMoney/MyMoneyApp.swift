@@ -44,6 +44,8 @@ struct MyMoneyApp: App {
             }
             session = AppSession(storage: storage)
             appearance = AppearanceSetting(defaults: defaults)
+            // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
+            if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
