@@ -49,17 +49,15 @@ struct MyMoneyApp: App {
             register = RegisterModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
-            // `-uiTestingHoldOverview`:帳戶查詢停 20 秒才放行(登入要打字,啟動後十幾秒才進到總覽),總覽的骨架屏停留夠久,UI 測試才量得到(#201)。
-            let holdGate = arguments.contains("-uiTestingHoldOverview") ? Gate() : nil
-            if let holdGate {
-                Task {
-                    try? await Task.sleep(for: .seconds(20))
-                    await holdGate.open()
-                }
-            }
+            // `-uiTestingHoldOverview`:帳戶查詢停 30 秒才放行(登入要打字,啟動後十幾秒才進到總覽),總覽的骨架屏停留夠久,UI 測試才量得到(#201)。
+            // `-uiTestingHoldHousehold`:家庭查詢同樣停住(家庭頁骨架,#204)。
+            let holdsAccounts = arguments.contains("-uiTestingHoldOverview")
+            let holdsHousehold = arguments.contains("-uiTestingHoldHousehold")
+            // 每次查詢先等 30 秒(不用 Gate:切 tab 取消一個等待者會放行所有等待者,別的畫面就提早載入完成)。
+            let hold = Duration.seconds(30)
             let accounts = includesFamily
                 ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
-                : InMemoryAccountRepository.sample(gate: holdGate)
+                : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
                 includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling")
@@ -80,9 +78,10 @@ struct MyMoneyApp: App {
             // `-uiTestingMemberRole`:範例帳號是一般成員(小美才是家庭管理員)，驗證邀請與撥款報銷的權限防呆(#132)。
             let household = arguments.contains("-uiTestingJoinedHousehold") || arguments.contains("-uiTestingMemberRole")
                 ? InMemoryHouseholdRepository.sample(
-                    myRole: arguments.contains("-uiTestingMemberRole") ? .member : .admin, advances: advances
+                    myRole: arguments.contains("-uiTestingMemberRole") ? .member : .admin, advances: advances,
+                    loadDelay: holdsHousehold ? hold : nil
                 )
-                : InMemoryHouseholdRepository(household: nil, advances: advances)
+                : InMemoryHouseholdRepository(household: nil, advances: advances, loadDelay: holdsHousehold ? hold : nil)
             let bot = InMemoryBotRepository.sample()
             signedIn = SignedInScreens { user in
                 MainScreens(

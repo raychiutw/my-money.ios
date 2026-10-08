@@ -37,6 +37,33 @@ public final class AccountsModel {
     @ObservationIgnored private let permissions: PermissionsModel?
     /// 公帳範圍的待報銷橫幅用(上游 ADR 0015、#141);沒有就不顯示橫幅。
     @ObservationIgnored private let households: (any HouseholdRepository)?
+    @ObservationIgnored private let defaults: UserDefaults
+
+    /// 骨架屏各區塊的張數(#204):上次載入完成時的張數(依範圍),第一次沒有記錄時現金 0、活存帳戶 1、信用卡 1。
+    public struct SkeletonCounts: Equatable, Sendable {
+        public let cash: Int
+        public let bank: Int
+        public let creditCard: Int
+
+        public init(cash: Int, bank: Int, creditCard: Int) {
+            self.cash = cash
+            self.bank = bank
+            self.creditCard = creditCard
+        }
+    }
+
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.accounts.\(scope)") }
+
+    public var skeletonCounts: SkeletonCounts {
+        let memory = skeletonMemory
+        return SkeletonCounts(
+            cash: memory.count(for: "cash", default: 0), bank: memory.count(for: "bank", default: 1),
+            creditCard: memory.count(for: "card", default: 1)
+        )
+    }
+
+    /// 數字磚排法的記憶(#204),同總覽。
+    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "accounts.tileLayout") }
 
     /// 公帳範圍:各成員待報銷的代墊款加總(web 也是這樣加，不是 iOS 重算業務規則);其他範圍、取不到、沒有家庭時是 `nil`。
     public private(set) var pendingAdvanceTotal: Money?
@@ -46,8 +73,10 @@ public final class AccountsModel {
         dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
         households: (any HouseholdRepository)? = nil,
+        defaults: UserDefaults = .standard,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.defaults = defaults
         self.repository = repository
         self.dataVersion = dataVersion
         self.permissions = permissions
@@ -234,6 +263,10 @@ public final class AccountsModel {
             bankAccounts = loadedAccounts.compactMap { if case .bank(let account) = $0 { account } else { nil } }
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
+            let memory = skeletonMemory
+            memory.record(count: cashWallets.count, for: "cash")
+            memory.record(count: bankAccounts.count, for: "bank")
+            memory.record(count: creditCards.count, for: "card")
             pendingAdvanceTotal = loadedPendingAdvances
             loadedVersion = version
             loadedScope = scope
