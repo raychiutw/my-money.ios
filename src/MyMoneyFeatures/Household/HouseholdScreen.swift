@@ -213,9 +213,7 @@ extension HouseholdScreen {
                 MemberRow(name: member.name, roleTitle: member.role.title, advance: advance)
                     .swipeActions {
                         if model.canRemove(member) {
-                            Button("移除", systemImage: "person.badge.minus", role: .destructive) {
-                                pendingRemoval = member
-                            }
+                            DestructiveSwipeButton("移除", systemImage: "person.badge.minus") { pendingRemoval = member }
                         }
                     }
                     .contextMenu {

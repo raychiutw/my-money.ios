@@ -137,10 +137,8 @@ struct SavingsGoalsScreen: View {
                         sheet = model.makeDeposit(for: goal).map(ActiveSheet.deposit)
                     }
                     .swipeActions {
-                        Button("刪除", systemImage: "trash", role: .destructive) {
-                            pendingDeletion = goal
-                        }
-                        Button("編輯", systemImage: "pencil") {
+                        DestructiveSwipeButton { pendingDeletion = goal }
+                        NeutralSwipeButton(title: "編輯", systemImage: "pencil") {
                             sheet = .editor(model.makeEditor(editing: goal))
                         }
                     }

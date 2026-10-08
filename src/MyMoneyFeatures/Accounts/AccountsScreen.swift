@@ -144,16 +144,13 @@ struct AccountsScreen: View {
         .clearListRow()
         .swipeActions {
             if canModify {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = account
-                }
+                DestructiveSwipeButton { pendingDeletion = account }
             }
         }
         .swipeActions(edge: .leading) {
             if let transferTitle {
                 // 滑動動作的字固定是白色，深色模式 accent 是白色會白底白字:用中性灰(#134)。
-                Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
-                    .tint(.gray)
+                NeutralSwipeButton(title: transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
             }
         }
         .contextMenu {
@@ -344,9 +341,7 @@ struct AccountsScreen: View {
         .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
         .swipeActions {
             if model.canModify(.creditCard(card)) {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = .creditCard(card)
-                }
+                DestructiveSwipeButton { pendingDeletion = .creditCard(card) }
             }
         }
         .contextMenu {

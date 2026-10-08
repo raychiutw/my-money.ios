@@ -197,9 +197,7 @@ struct TransactionsScreen: View {
             }
             .tint(.primary)
             .swipeActions {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = transaction
-                }
+                DestructiveSwipeButton { pendingDeletion = transaction }
             }
             .contextMenu {
                 Button("編輯", systemImage: "pencil") {

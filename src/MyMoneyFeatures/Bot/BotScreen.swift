@@ -106,9 +106,7 @@ struct BotScreen: View {
             ForEach(model.bindings ?? []) { binding in
                 LabeledContent(binding.platform.title, value: binding.displayName ?? "")
                     .swipeActions {
-                        Button("解除", systemImage: "xmark.circle", role: .destructive) {
-                            pendingUnbind = binding
-                        }
+                        DestructiveSwipeButton("解除", systemImage: "xmark.circle") { pendingUnbind = binding }
                     }
                     .contextMenu {
                         Button("解除", systemImage: "xmark.circle", role: .destructive) {
