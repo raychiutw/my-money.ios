@@ -7,6 +7,9 @@ public actor InMemoryAccountRepository: AccountRepository {
     private var summary: BalanceSummary
     private var failure: RepositoryError?
     private let gate: Gate?
+    /// UI 測試的骨架屏要停留夠久(#204):每次查詢先等這麼久。不用 `Gate`——任何一個等待者被取消(切 tab)
+    /// 都會放行所有等待者,別的畫面的載入就提早回來了。
+    private let loadDelay: Duration?
 
     /// 新增過的內容，依送出順序。
     public private(set) var createdDrafts: [AccountDraft] = []
@@ -20,10 +23,11 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// `accounts()` 被呼叫的次數，用來確認有沒有重抓。
     public private(set) var fetchCount = 0
 
-    public init(accounts: [Account], summary: BalanceSummary, gate: Gate? = nil) {
+    public init(accounts: [Account], summary: BalanceSummary, gate: Gate? = nil, loadDelay: Duration? = nil) {
         storedAccounts = accounts
         self.summary = summary
         self.gate = gate
+        self.loadDelay = loadDelay
     }
 
     /// 停在 gate 的查詢放行後，跟 URLSession 一樣：工作已經被取消時丟出 `CancellationError`。
@@ -36,6 +40,7 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):公帳範圍只留歸屬公帳的，加上有家庭代墊欠款的個人信用卡;私帳範圍只留私帳。
     public func accounts(scope: AccountScope) async throws -> [Account] {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         fetchCount += 1
@@ -55,6 +60,7 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
     public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         requestedSummaryScopes.append(scope)
@@ -256,8 +262,8 @@ extension Money {
 
 extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個活存帳戶、兩張信用卡帳戶。
-    public static func sample(gate: Gate? = nil) -> InMemoryAccountRepository {
-        InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate)
+    public static func sample(gate: Gate? = nil, loadDelay: Duration? = nil) -> InMemoryAccountRepository {
+        InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate, loadDelay: loadDelay)
     }
 
     /// 同上，再加一個現金「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。

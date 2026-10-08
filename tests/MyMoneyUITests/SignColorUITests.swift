@@ -10,7 +10,7 @@ final class SignColorUITests: XCTestCase {
     @MainActor
     private func launch(_ appearance: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"] + (appearance.map { ["-AppleInterfaceStyle", $0] } ?? [])
+        app.launchArguments = ["-uiTesting", "-resetSession"] + (appearance.map { _ in ["-uiTestingDark"] } ?? [])
         app.launch()
         app.signInWithSampleAccount()
         return app

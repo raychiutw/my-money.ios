@@ -11,6 +11,8 @@ struct AccountsScreen: View {
     /// 切到別的 tab(待報銷橫幅的「前往家庭」)。
     var showTab: (AppTab) -> Void = { _ in }
     @State private var editor: EditorSheet?
+    @State private var skeletonWidth: Double?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingDeletion: Account?
     @State private var pendingRollover: CreditCard?
     @State private var payment: CardPaymentModel?
@@ -144,16 +146,13 @@ struct AccountsScreen: View {
         .clearListRow()
         .swipeActions {
             if canModify {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = account
-                }
+                DestructiveSwipeButton { pendingDeletion = account }
             }
         }
         .swipeActions(edge: .leading) {
             if let transferTitle {
                 // 滑動動作的字固定是白色，深色模式 accent 是白色會白底白字:用中性灰(#134)。
-                Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
-                    .tint(.gray)
+                NeutralSwipeButton(title: transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
             }
         }
         .contextMenu {
@@ -189,17 +188,27 @@ struct AccountsScreen: View {
                     .clearListRow()
                 }
                 Section {
-                    NumberTileRow {
-                        ForEach(0..<3, id: \.self) { _ in
-                            NumberTile(title: "摘要數字", amount: Skeleton.amount)
+                    // 跟著實際版面(#204):磚用上次記下的並排或單欄,佔位字跟真實內容一樣寬;卡片張數用上次的張數。
+                    NumberTileRow(forcedSingleColumn: model.tileLayoutMemory.singleColumn(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize))) {
+                        ForEach([Terms.cash, Terms.bankAccount, "信用卡待繳"], id: \.self) { title in
+                            NumberTile(title: title, amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted())
+                                .skeletonCell("accounts.skeleton.tile.\(title)")
                         }
                     }
+                    .onGeometryChange(for: Double.self) { $0.size.width } action: { skeletonWidth = $0 }
                     .clearListRow()
                     .skeletonRow()
                 }
-                SkeletonSection(title: Terms.cash, count: 1) { skeletonCard.clearListRow() }
-                SkeletonSection(title: Terms.bankAccount, count: 2) { skeletonCard.clearListRow() }
-                SkeletonSection(title: "信用卡", count: 1) { skeletonCard.clearListRow() }
+                let counts = model.skeletonCounts
+                if counts.cash > 0 {
+                    SkeletonSection(title: Terms.cash, count: counts.cash) { skeletonCard.clearListRow() }
+                }
+                if counts.bank > 0 {
+                    SkeletonSection(title: Terms.bankAccount, count: counts.bank) { skeletonCard.clearListRow() }
+                }
+                if counts.creditCard > 0 {
+                    SkeletonSection(title: "信用卡", count: counts.creditCard) { skeletonCard.clearListRow() }
+                }
             }
         case .failed(let message):
             ContentUnavailableView {
@@ -224,6 +233,7 @@ struct AccountsScreen: View {
 
     private var skeletonCard: some View {
         NumberCard(title: "帳戶名稱", symbol: "building.columns", symbolColor: .gray, amount: Skeleton.amount, caption: "佔位", spokenText: "")
+            .skeletonCell("accounts.skeleton.card")
             .skeletonRow()
     }
 
@@ -244,7 +254,7 @@ struct AccountsScreen: View {
             .clearListRow()
         }
         Section {
-            NumberTileRow {
+            NumberTileRow(memory: model.tileLayoutMemory) {
                 NumberTile(title: Terms.cash, amount: model.cashTotal ?? .zero, spokenTitle: "\(Terms.cash)總額")
                 NumberTile(title: Terms.bankAccount, amount: model.bankBalanceTotal ?? .zero, spokenTitle: "\(Terms.bankAccount)餘額合計")
                 NumberTile(
@@ -344,9 +354,7 @@ struct AccountsScreen: View {
         .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
         .swipeActions {
             if model.canModify(.creditCard(card)) {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = .creditCard(card)
-                }
+                DestructiveSwipeButton { pendingDeletion = .creditCard(card) }
             }
         }
         .contextMenu {

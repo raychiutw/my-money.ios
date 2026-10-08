@@ -6,6 +6,8 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     private var stored: Household?
     private var failure: RepositoryError?
     private let gate: Gate?
+    /// UI 測試的骨架屏要停留夠久(#204):`current()` 先等這麼久(原因見 `InMemoryAccountRepository`)。
+    private let loadDelay: Duration?
 
     public private(set) var createdNames: [String] = []
     public private(set) var joinedCodes: [String] = []
@@ -19,10 +21,11 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     /// 撥款報銷送出過的內容，依送出順序。
     public private(set) var reimbursements: [Reimbursement] = []
 
-    public init(household: Household?, advances: [HouseholdAdvance] = [], gate: Gate? = nil) {
+    public init(household: Household?, advances: [HouseholdAdvance] = [], gate: Gate? = nil, loadDelay: Duration? = nil) {
         stored = household
         storedAdvances = advances
         self.gate = gate
+        self.loadDelay = loadDelay
     }
 
     /// 登入的範例帳號用個人現金替家裡墊付了晚餐 250,還沒報銷。
@@ -90,7 +93,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
     /// 「我們家」:小明(就是登入的範例帳號)和小美;`myRole` 是小明的角色(預設家庭管理員)，小美是另一個角色，
     /// 名冊跟 `myRole` 一致。
     public static func sample(
-        myRole: HouseholdRole = .admin, advances: [HouseholdAdvance] = [], gate: Gate? = nil
+        myRole: HouseholdRole = .admin, advances: [HouseholdAdvance] = [], gate: Gate? = nil, loadDelay: Duration? = nil
     ) -> InMemoryHouseholdRepository {
         let joined = Date(timeIntervalSince1970: 1_790_000_000)
         return InMemoryHouseholdRepository(household: Household(name: "我們家", myRole: myRole, members: [
@@ -99,10 +102,11 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 userID: UserID("sample-mei"), name: "小美", email: "mei@example.com", role: myRole == .admin ? .member : .admin,
                 joinedAt: joined.addingTimeInterval(86_400)
             ),
-        ]), advances: advances, gate: gate)
+        ]), advances: advances, gate: gate, loadDelay: loadDelay)
     }
 
     public func current() async throws -> Household? {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         if let failure { throw failure }
         return stored
     }

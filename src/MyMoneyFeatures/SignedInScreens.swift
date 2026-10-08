@@ -53,7 +53,8 @@ public struct MainScreens {
             defaults: defaults
         )
         accounts = AccountsModel(
-            repository: accountRepository, dataVersion: dataVersion, permissions: permissions, households: householdRepository
+            repository: accountRepository, dataVersion: dataVersion, permissions: permissions, households: householdRepository,
+            defaults: defaults
         )
         transactions = TransactionsModel(
             repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
@@ -69,7 +70,7 @@ public struct MainScreens {
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion, defaults: defaults)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
-            currentUser: currentUser, permissions: permissions, dataVersion: dataVersion
+            currentUser: currentUser, permissions: permissions, dataVersion: dataVersion, defaults: defaults
         )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }

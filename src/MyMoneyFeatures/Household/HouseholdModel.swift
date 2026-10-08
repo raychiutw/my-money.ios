@@ -44,6 +44,23 @@ public final class HouseholdModel {
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let defaults: UserDefaults
+
+    /// 骨架屏的形狀(#204):上次載入時有沒有家庭、幾位成員;沒有記錄時畫成還沒加入(沒有家庭的人比較多)。
+    public enum SkeletonShape: Equatable, Sendable {
+        case notJoined
+        /// `hasMyAdvance`:上次有我自己的代墊統計(三格數字磚);沒有時整個區塊不畫。
+        case joined(members: Int, hasMyAdvance: Bool)
+    }
+
+    public var skeletonShape: SkeletonShape {
+        let memory = SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.household")
+        guard memory.flag(for: "joined") == true else { return .notJoined }
+        return .joined(members: memory.count(for: "members", default: 2), hasMyAdvance: memory.flag(for: "myAdvance") ?? true)
+    }
+
+    /// 數字磚排法的記憶(#204),同總覽。
+    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "household.tileLayout") }
 
     /// `locale` 決定日期的格式，預設跟著系統。
     public init(
@@ -53,9 +70,11 @@ public final class HouseholdModel {
         currentUser: UserID? = nil,
         permissions: PermissionsModel? = nil,
         dataVersion: DataVersion,
+        defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.defaults = defaults
         self.repository = repository
         self.accounts = accounts
         self.statistics = statistics
@@ -134,6 +153,10 @@ public final class HouseholdModel {
             advances = household == nil ? [] : try await repository.advances()
             // 本月各成員的公帳代墊是額外的資料來源:取不到不能讓家庭頁失敗。
             shares = household == nil ? [] : await fetchShares()
+            let memory = SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.household")
+            memory.record(flag: household != nil, for: "joined")
+            memory.record(count: household?.members.count ?? 0, for: "members")
+            memory.record(flag: myAdvance != nil, for: "myAdvance")
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)

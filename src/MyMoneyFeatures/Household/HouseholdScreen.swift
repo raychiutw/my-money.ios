@@ -10,6 +10,8 @@ struct HouseholdScreen: View {
     @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
     @State private var reimbursement: ReimbursementModel?
+    @State private var skeletonWidth: Double?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private enum Field: Hashable { case createName, joinCode }
     @FocusState private var focusedField: Field?
 
@@ -71,27 +73,12 @@ struct HouseholdScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 16) {
-                        BigNumber(title: "分攤建議", amount: Skeleton.amount)
-                        SkeletonChart(height: 160)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .skeletonAnnouncement()
-                    .clearListRow()
-                }
-                Section {
-                    NumberTileRow {
-                        ForEach(0..<3, id: \.self) { _ in
-                            NumberTile(title: "摘要數字", amount: Skeleton.amount)
-                        }
-                    }
-                    .clearListRow()
-                    .skeletonRow()
-                }
-                SkeletonSection(title: "成員", count: 2) { SkeletonItemRow() }
+            // 跟著實際內容(#204):上次載入時有沒有家庭、幾位成員、有沒有我的代墊統計;沒有記錄時畫成還沒加入。
+            switch model.skeletonShape {
+            case .notJoined:
+                notJoinedSkeleton
+            case .joined(let members, let hasMyAdvance):
+                joinedSkeleton(members: members, hasMyAdvance: hasMyAdvance)
             }
         case .failed(let message):
             ContentUnavailableView {
@@ -110,6 +97,59 @@ struct HouseholdScreen: View {
                 notJoined
             }
         }
+    }
+
+    /// 還沒加入家庭的骨架:兩個表單的形狀(建立家庭、用邀請碼加入),跟真實的 `notJoined` 一樣。
+    private var notJoinedSkeleton: some View {
+        Form {
+            Section("建立家庭") {
+                LabeledContent("名稱") { Text("例如：溫馨小家庭") }
+                    .skeletonAnnouncement()
+                Text("建立").frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .skeletonRow()
+            }
+            .skeletonCell("household.skeleton.notJoined")
+            Section("用邀請碼加入") {
+                LabeledContent("邀請碼") { Text(verbatim: "FAM-XXXX") }
+                    .skeletonRow()
+                Text("加入").frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .skeletonRow()
+            }
+        }
+    }
+
+    /// 已加入家庭的骨架:家庭名稱、分攤建議與圖、(我的代墊三格磚)、成員列。
+    private func joinedSkeleton(members: Int, hasMyAdvance: Bool) -> some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    BigNumber(title: "分攤建議", amount: Skeleton.amount)
+                    SkeletonChart(height: 160)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .skeletonAnnouncement()
+                .clearListRow()
+            }
+            if hasMyAdvance {
+                Section {
+                    NumberTileRow(forcedSingleColumn: tileMemoryChoice) {
+                        ForEach(["累計代墊", "已報銷", "待報銷"], id: \.self) { title in
+                            NumberTile(title: title, amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted())
+                                .skeletonCell("household.skeleton.tile.\(title)")
+                        }
+                    }
+                    .onGeometryChange(for: Double.self) { $0.size.width } action: { skeletonWidth = $0 }
+                    .clearListRow()
+                    .skeletonRow()
+                }
+            }
+            SkeletonSection(title: "成員", count: max(members, 1)) { SkeletonItemRow() }
+        }
+    }
+
+    private var tileMemoryChoice: Bool? {
+        model.tileLayoutMemory.singleColumn(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize))
     }
 
     private var notJoined: some View {
@@ -168,7 +208,7 @@ struct HouseholdScreen: View {
 
             if let mine = model.myAdvance {
                 Section {
-                    MyAdvanceTiles(advance: mine)
+                    MyAdvanceTiles(advance: mine, memory: model.tileLayoutMemory)
                         .clearListRow()
                 }
             }
@@ -213,9 +253,7 @@ extension HouseholdScreen {
                 MemberRow(name: member.name, roleTitle: member.role.title, advance: advance)
                     .swipeActions {
                         if model.canRemove(member) {
-                            Button("移除", systemImage: "person.badge.minus", role: .destructive) {
-                                pendingRemoval = member
-                            }
+                            DestructiveSwipeButton("移除", systemImage: "person.badge.minus") { pendingRemoval = member }
                         }
                     }
                     .contextMenu {

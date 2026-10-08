@@ -1,7 +1,7 @@
 import XCTest
 
 /// 總覽的骨架屏跟載入後的版面一樣(#201):數字磚的欄數、功能入口的格數與欄數。
-/// `-uiTestingHoldOverview` 讓帳戶查詢停 20 秒,骨架屏停留夠久才量得到;`-uiTesting` 下骨架不對 VoiceOver 隱藏,查得到每一格的位置。
+/// `-uiTestingHoldOverview` 讓帳戶查詢停 30 秒,骨架屏停留夠久才量得到;`-uiTesting` 下骨架不對 VoiceOver 隱藏,查得到每一格的位置。
 final class SkeletonLayoutUITests: XCTestCase {
     private static let ax5 = "UICTContentSizeCategoryAccessibilityXXXL"
     private static let entryDestinations = ["recurring", "goals", "forecast"]
@@ -86,5 +86,108 @@ final class SkeletonLayoutUITests: XCTestCase {
 
         let second = launch(reset: false)
         assertSkeletonMatchesLoaded(second, "重開 app(有記錄)")
+    }
+}
+
+/// 帳戶頁與家庭頁的骨架屏(#204):跟載入後一樣的排法、張數與形狀。
+final class AccountsHouseholdSkeletonUITests: XCTestCase {
+    private static let ax5 = "UICTContentSizeCategoryAccessibilityXXXL"
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    private func launch(reset: Bool, size: String? = nil, extra: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"] + (reset ? ["-resetSession"] : []) + extra
+            + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func columns(_ elements: [XCUIElement]) -> Int {
+        guard let first = elements.first else { return 0 }
+        return elements.filter { abs($0.frame.minY - first.frame.minY) < 2 }.count
+    }
+
+    @MainActor
+    private func any(_ app: XCUIApplication, _ id: String) -> XCUIElement { app.descendants(matching: .any)[id] }
+
+    @MainActor
+    private func skeletonTileColumns(_ app: XCUIApplication, prefix: String, titles: [String]) -> Int {
+        let tiles = titles.map { any(app, "\(prefix).\($0)") }
+        if !tiles[0].waitForExistence(timeout: 15) {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "沒有骨架 \(prefix)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            XCTFail("沒有看到骨架屏的數字磚(\(prefix))")
+        }
+        return columns(tiles)
+    }
+
+    @MainActor
+    private func loadedTileColumns(_ app: XCUIApplication, labels: [String]) -> Int {
+        let tiles = labels.map { app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", $0)).firstMatch }
+        XCTAssertTrue(tiles[0].waitForExistence(timeout: 45), "載入後沒有看到數字磚")
+        return columns(tiles)
+    }
+
+    /// 帳戶頁:磚的欄數載入前後一樣(一般與 AX5)。
+    @MainActor
+    func testAccountsTilesMatchTheLoadedLayout() throws {
+        for size in [nil, Self.ax5] as [String?] {
+            let app = launch(reset: true, size: size, extra: ["-uiTestingHoldOverview"])
+            app.signInWithSampleAccount()
+            app.tabBars.buttons["帳戶"].tap()
+            let before = skeletonTileColumns(app, prefix: "accounts.skeleton.tile", titles: ["現金", "活存帳戶", "信用卡待繳"])
+            let after = loadedTileColumns(app, labels: ["現金總額", "活存帳戶餘額合計", "信用卡待繳總額"])
+            XCTAssertEqual(before, after, "帳戶頁數字磚的欄數載入前(\(before))與載入後(\(after))不同(\(size ?? "一般字級"))")
+            app.terminate()
+        }
+    }
+
+    /// 帳戶頁:第一次用預設張數(活存帳戶 1、信用卡 1),重開 app 後用上次的張數(範例資料:活存帳戶 1、信用卡 2)。
+    @MainActor
+    func testAccountsSkeletonCardCountFollowsTheLastLoad() throws {
+        let first = launch(reset: true, extra: ["-uiTestingHoldOverview"])
+        first.signInWithSampleAccount()
+        first.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(any(first, "accounts.skeleton.card").waitForExistence(timeout: 15), "第一次沒有看到骨架屏的卡片")
+        XCTAssertEqual(first.descendants(matching: .any).matching(identifier: "accounts.skeleton.card").count, 2, "第一次沒有記錄:預設活存帳戶 1、信用卡 1")
+        XCTAssertTrue(first.buttons["accounts.card.sample-card"].waitForExistence(timeout: 45), "第一次沒有載入完成")
+        first.terminate()
+
+        let second = launch(reset: false, extra: ["-uiTestingHoldOverview"])
+        second.tabBars.buttons["帳戶"].tap()
+        XCTAssertTrue(any(second, "accounts.skeleton.card").waitForExistence(timeout: 15), "重開後沒有看到骨架屏的卡片")
+        XCTAssertEqual(second.descendants(matching: .any).matching(identifier: "accounts.skeleton.card").count, 3, "重開後照上次:活存帳戶 1、信用卡 2")
+    }
+
+    /// 家庭頁:還沒加入家庭的人看到的骨架是兩個表單的形狀;載入後也是表單。
+    @MainActor
+    func testHouseholdNotJoinedSkeletonIsTheForms() throws {
+        let app = launch(reset: true, extra: ["-uiTestingHoldHousehold"])
+        app.signInWithSampleAccount()
+        app.tabBars.buttons["家庭"].tap()
+        XCTAssertTrue(any(app, "household.skeleton.notJoined").waitForExistence(timeout: 15), "沒有加入家庭的骨架不是表單的形狀")
+        XCTAssertTrue(app.buttons["household.create"].waitForExistence(timeout: 45), "載入後沒有「建立」鈕")
+    }
+
+    /// 家庭頁:已加入家庭的人,重開 app 後骨架是已加入的形狀(分攤建議、我的代墊三格磚),不是表單。
+    @MainActor
+    func testHouseholdJoinedSkeletonFollowsTheLastLoad() throws {
+        let first = launch(reset: true, extra: ["-uiTestingJoinedHousehold", "-uiTestingHoldHousehold"])
+        first.signInWithSampleAccount()
+        first.tabBars.buttons["家庭"].tap()
+        XCTAssertTrue(first.buttons["household.leave"].waitForExistence(timeout: 45) || first.staticTexts["我們家"].waitForExistence(timeout: 5), "第一次沒有載入完成")
+        first.terminate()
+
+        let second = launch(reset: false, extra: ["-uiTestingJoinedHousehold", "-uiTestingHoldHousehold"])
+        second.tabBars.buttons["家庭"].tap()
+        XCTAssertTrue(any(second, "household.skeleton.tile.累計代墊").waitForExistence(timeout: 15), "重開後骨架不是已加入家庭的形狀")
+        XCTAssertFalse(any(second, "household.skeleton.notJoined").exists)
     }
 }

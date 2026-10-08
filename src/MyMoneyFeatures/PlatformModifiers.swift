@@ -66,6 +66,10 @@ extension View {
         navigationTitle(name)
             .toolbarTitleDisplayMode(.inline)
             .toolbar(removing: .title)
+            // 頂端遮罩(#205):隱藏標題後導覽列只剩工具列按鈕,系統的捲動邊緣效果卻仍從狀態列蓋到工具列底下一大塊。
+            // 關掉它,只在狀態列(靈動島)那一條放遮罩;工具列那一排只有按鈕自己的玻璃。
+            .scrollEdgeEffectHidden(true, for: .top)
+            .overlay(alignment: .top) { StatusBarMask() }
         #else
         navigationTitle(name)
         #endif
@@ -142,6 +146,28 @@ private struct KeyboardDismissal<Field: Hashable>: ViewModifier {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear.frame(height: focus.wrappedValue == nil ? 0 : doneHeight)
             }
+    }
+}
+#endif
+
+#if os(iOS)
+/// 只蓋狀態列(靈動島)那一條的遮罩(#205):高度是視窗的頂端安全區(有、沒有動態島的機型自動不同),
+/// 系統材質加底部淡出,捲過去的內容不會跟時間、訊號、電量混在一起。
+private struct StatusBarMask: View {
+    var body: some View {
+        Rectangle()
+            .fill(.bar)
+            .frame(height: Self.statusBarHeight)
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0.6), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+            .ignoresSafeArea(.container, edges: .top)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    /// 視窗的頂端安全區高度(狀態列);取不到時用 0(沒有遮罩,不會壞)。
+    private static var statusBarHeight: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene?.windows.first(where: \.isKeyWindow)?.safeAreaInsets.top ?? scene?.statusBarManager?.statusBarFrame.height ?? 0
     }
 }
 #endif

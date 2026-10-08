@@ -168,9 +168,7 @@ struct RecurringScreen: View {
             }
             .tint(.primary)
             .swipeActions {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = item
-                }
+                DestructiveSwipeButton { pendingDeletion = item }
             }
             .contextMenu {
                 Button("編輯", systemImage: "pencil") {
