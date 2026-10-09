@@ -62,7 +62,7 @@ struct SignedInScreensTests {
             isShared: true, recorderName: "mei", recorderID: UserID("mei")
         )
 
-        #expect(current.transactions.recorderName(of: mine) == nil)
+        #expect(current.transactions.content(of: mine).spokenRecorder == nil)
     }
 
     @Test("登出時丟掉畫面")

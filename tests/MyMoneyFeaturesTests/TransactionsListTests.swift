@@ -127,9 +127,9 @@ struct TransactionsListTests {
             currentUser: me.id, today: { today }
         )
 
-        #expect(list.recorderName(of: recorded(by: me.name, id: me.id)) == nil)
-        #expect(list.recorderName(of: recorded(by: "小美", id: UserID("mei"))) == "小美")
-        #expect(list.recorderName(of: recorded(by: me.name, id: UserID("another-ming"))) == me.name)
+        #expect(list.content(of: recorded(by: me.name, id: me.id)).spokenRecorder == nil)
+        #expect(list.content(of: recorded(by: "小美", id: UserID("mei"))).spokenRecorder == "小美")
+        #expect(list.content(of: recorded(by: me.name, id: UserID("another-ming"))).spokenRecorder == me.name)
     }
 
     /// 記帳時間(上游 718ace9、#207):次要文字最前面是台灣時間的 HH:mm;沒有時間時照舊。
@@ -148,12 +148,12 @@ struct TransactionsListTests {
         // UTC 2026-09-27 19:57:02 = 台灣 9/28 03:57。
         let date = try #require(RecordedTime.date(fromBackend: "2026-09-27 19:57:02"))
 
-        let subtitle = list.subtitle(of: tx(recordedAt: date))
+        let subtitle = list.content(of: tx(recordedAt: date)).subtitle
 
         #expect(subtitle.text == "03:57・小明・個人私帳")
         #expect(subtitle.time == "03:57")
-        #expect(list.subtitle(of: tx(recordedAt: nil)).text == "小明・個人私帳")
-        #expect(list.subtitle(of: tx(recordedAt: nil)).time == nil)
+        #expect(list.content(of: tx(recordedAt: nil)).subtitle.text == "小明・個人私帳")
+        #expect(list.content(of: tx(recordedAt: nil)).subtitle.time == nil)
     }
 
     @Test("VoiceOver 念記帳時間(系統的時間念法,台灣時間);沒有時間不念")
@@ -179,12 +179,12 @@ struct TransactionsListTests {
             )
         }
 
-        #expect(list.subtitle(of: tx("小美", UserID("mei"), shared: true)).text == "小美・家庭公帳")
-        #expect(list.subtitle(of: tx(me.name, me.id, shared: true)).text == "\(me.name)・家庭公帳")
-        #expect(list.subtitle(of: tx(me.name, me.id, shared: false)).text == "\(me.name)・個人私帳")
-        #expect(list.subtitle(of: tx(me.name, me.id, shared: true, category: .creditCardRepayment)).text == "系統紀錄・家庭公帳")
-        #expect(list.subtitle(of: tx("小美", UserID("mei"), shared: false, category: .internalTransfer)).text == "系統紀錄・個人私帳")
-        #expect(list.subtitle(of: tx(nil, nil, shared: true)).text == "家庭公帳")
+        #expect(list.content(of: tx("小美", UserID("mei"), shared: true)).subtitle.text == "小美・家庭公帳")
+        #expect(list.content(of: tx(me.name, me.id, shared: true)).subtitle.text == "\(me.name)・家庭公帳")
+        #expect(list.content(of: tx(me.name, me.id, shared: false)).subtitle.text == "\(me.name)・個人私帳")
+        #expect(list.content(of: tx(me.name, me.id, shared: true, category: .creditCardRepayment)).subtitle.text == "系統紀錄・家庭公帳")
+        #expect(list.content(of: tx("小美", UserID("mei"), shared: false, category: .internalTransfer)).subtitle.text == "系統紀錄・個人私帳")
+        #expect(list.content(of: tx(nil, nil, shared: true)).subtitle.text == "家庭公帳")
         // 信用卡的帳單狀態(上游 ADR 0020，#188):已出帳、延至下期寫在歸屬後面;未出帳不標。
         func card(_ billing: BillingStatus) -> Transaction {
             Transaction(
@@ -193,14 +193,14 @@ struct TransactionsListTests {
                 recorderName: me.name, recorderID: me.id, billing: billing
             )
         }
-        #expect(list.subtitle(of: card(.billed)).text == "\(me.name)・個人私帳・已出帳")
-        #expect(list.subtitle(of: card(.deferred)).text == "\(me.name)・個人私帳・延至下期")
-        #expect(list.subtitle(of: card(.unbilled)).text == "\(me.name)・個人私帳")
-        #expect(list.subtitle(of: card(.deferred)).billing == "延至下期")
-        #expect(list.subtitle(of: card(.unbilled)).billing == nil)
-        #expect(list.subtitle(of: card(.deferred)).ownership == "個人私帳", "標籤不混進歸屬，畫面截斷時歸屬與標籤保留")
+        #expect(list.content(of: card(.billed)).subtitle.text == "\(me.name)・個人私帳・已出帳")
+        #expect(list.content(of: card(.deferred)).subtitle.text == "\(me.name)・個人私帳・延至下期")
+        #expect(list.content(of: card(.unbilled)).subtitle.text == "\(me.name)・個人私帳")
+        #expect(list.content(of: card(.deferred)).subtitle.billing == "延至下期")
+        #expect(list.content(of: card(.unbilled)).subtitle.billing == nil)
+        #expect(list.content(of: card(.deferred)).subtitle.ownership == "個人私帳", "標籤不混進歸屬，畫面截斷時歸屬與標籤保留")
         // 截斷時先截名稱、歸屬保留:畫面用 recorder 與 ownership 分開排版。
-        let family = list.subtitle(of: tx("小美", UserID("mei"), shared: true))
+        let family = list.content(of: tx("小美", UserID("mei"), shared: true)).subtitle
         #expect(family.recorder == "小美")
         #expect(family.ownership == "家庭公帳")
     }
