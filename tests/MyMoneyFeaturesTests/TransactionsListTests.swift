@@ -132,6 +132,37 @@ struct TransactionsListTests {
         #expect(list.recorderName(of: recorded(by: me.name, id: UserID("another-ming"))) == me.name)
     }
 
+    /// 記帳時間(上游 718ace9、#207):次要文字最前面是台灣時間的 HH:mm;沒有時間時照舊。
+    @Test("次要文字最前面是記帳時間(台灣時間 HH:mm);沒有時間時不多出空白或佔位")
+    func rowSubtitleHasTheRecordedTime() throws {
+        let list = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: []), dataVersion: DataVersion(), today: { today }
+        )
+        func tx(recordedAt: Date?) -> Transaction {
+            Transaction(
+                id: TransactionID("time"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+                type: .expense, category: .dining, amount: Money(120), note: "午餐", date: today, isShared: false,
+                recorderName: "小明", recordedAt: recordedAt
+            )
+        }
+        // UTC 2026-09-27 19:57:02 = 台灣 9/28 03:57。
+        let date = try #require(RecordedTime.date(fromBackend: "2026-09-27 19:57:02"))
+
+        let subtitle = list.subtitle(of: tx(recordedAt: date))
+
+        #expect(subtitle.text == "03:57・小明・個人私帳")
+        #expect(subtitle.time == "03:57")
+        #expect(list.subtitle(of: tx(recordedAt: nil)).text == "小明・個人私帳")
+        #expect(list.subtitle(of: tx(recordedAt: nil)).time == nil)
+    }
+
+    @Test("VoiceOver 念記帳時間(系統的時間念法,台灣時間);沒有時間不念")
+    func spokenTime() throws {
+        let date = try #require(RecordedTime.date(fromBackend: "2026-09-27 19:57:02"))
+        let spoken = try #require(RecordedTime.spokenText(of: date))
+        #expect(spoken.contains("3") && spoken.contains("57"), "台灣時間 03:57 的念法:\(spoken)")
+    }
+
     /// 次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統產生的紀錄記帳人換成「系統紀錄」;沒有記帳人名稱時只寫歸屬。
     @Test("次要文字是「記帳人・歸屬」:家人記的、自己的公帳、自己的私帳、系統紀錄")
     func rowSubtitle() {

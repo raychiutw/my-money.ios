@@ -87,8 +87,11 @@ struct TransactionsTranslationTests {
             date: CalendarDay(year: 2026, month: 9, day: 27),
             isShared: false,
             recorderName: "iOS 測試帳號",
-            recorderID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d")
+            recorderID: UserID("ff646114-6f6b-4a37-9e27-4757868af51d"),
+            recordedAt: RecordedTime.date(fromBackend: "2026-09-27 19:57:02")
         ))
+        #expect(transactions[0].recordedAt.map(RecordedTime.clockText(of:)) == "03:57", "created_at 是 UTC:2026-09-27 19:57:02 → 台灣 28 日 03:57(#207)")
+        #expect(transactions.allSatisfy { $0.recordedAt != nil })
         #expect(transactions[1].isShared)
         #expect(transactions[2].type == .income)
         #expect(transactions[2].category == .salary)

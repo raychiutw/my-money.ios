@@ -181,6 +181,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-reimburse.json` | `POST /households/reimburse`,從「iOS 家庭共同基金」撥 100 給自己的「iOS 測試存款」 | 200 | 訊息在 `data.message`;後端建立兩筆「公帳代墊報銷」收支明細 |
 | `households-reimburse-not-joint.json` | 同上，撥款帳戶用個人的「iOS 測試存款」 | 400 | 「撥款帳戶必須為家庭共同基金公帳 (公用帳戶)」原樣傳遞 |
 | `households-advances-after-reimburse.json` | `GET /households/advances`,上面的報銷之後 | 200 | 已報銷 100、待報銷 150;報銷明細帶收款帳戶名稱 |
+| `households-advances-with-time.json` | **手寫**(不是 prod 實錄):`households-advances-after-reimburse.json` 的代墊與報銷明細各加 `created_at: "2026-09-27 19:57:02"`。測試帳號沒有加入家庭,依上游 718ace9 的原始碼(B:handlers/households.ts)補欄位;格式與 `GET /transactions` 的 `created_at` 相同(UTC,無時區標記) | 200 | 718ace9 起明細帶 `created_at` |
 | `households-advances-no-household.json` | `GET /households/advances`,離開測試家庭群組之後 | 200 | 沒有家庭群組時是空陣列 |
 
 ### 對齊上游 `b5cbe09`(#45)

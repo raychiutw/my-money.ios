@@ -1,3 +1,4 @@
+import Foundation
 /// 交易記錄的 ID,由後端產生。
 public struct TransactionID: Hashable, Sendable {
     public let rawValue: String
@@ -109,6 +110,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 信用卡消費的帳單狀態(上游 ADR 0020);其他收支明細是 `.unbilled`。
     public let billing: BillingStatus
 
+    /// 記錄時間(後端 `created_at`,上游 718ace9、#207):建立當下由後端自動記下;沒有或看不懂時是 `nil`。顯示成台灣時間的 HH:mm。
+    public let recordedAt: Date?
+
     public init(
         id: TransactionID,
         accountID: AccountID,
@@ -121,8 +125,10 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         isShared: Bool,
         recorderName: String?,
         recorderID: UserID? = nil,
-        billing: BillingStatus = .unbilled
+        billing: BillingStatus = .unbilled,
+        recordedAt: Date? = nil
     ) {
+        self.recordedAt = recordedAt
         self.id = id
         self.accountID = accountID
         self.accountName = accountName

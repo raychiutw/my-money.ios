@@ -287,7 +287,7 @@ extension HouseholdScreen {
         }
         .accessibilityIdentifier("household.advanceDetails")
         if model.isShowingDetails(of: advance.memberID) {
-            AdvanceDetails(advance: advance, dateText: model.dateText)
+            AdvanceDetails(advance: advance, dateText: model.dateTimeText)
         }
         if model.canReimburse(advance) {
             Button(Terms.reimburse, systemImage: "arrow.uturn.left.circle") {
@@ -302,8 +302,8 @@ extension HouseholdScreen {
 /// 就地展開的兩份明細：個人代墊消費明細、共同基金撥款沖帳紀錄。
 private struct AdvanceDetails: View {
     let advance: HouseholdAdvance
-    /// 明細的日期(畫面 model 依系統格式產生)。
-    let dateText: (CalendarDay) -> String
+    /// 明細的「日期 時間」(畫面 model 依系統格式產生,時間是台灣時間 HH:mm,#207)。
+    let dateText: (CalendarDay, Date?) -> String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -316,7 +316,8 @@ private struct AdvanceDetails: View {
             }
             ForEach(advance.advanceItems) { item in
                 detailRow(
-                    date: item.date, title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
+                    date: item.date, time: item.recordedAt,
+                    title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
                     account: item.accountName, amount: item.amount, isIncome: false
                 )
             }
@@ -330,7 +331,7 @@ private struct AdvanceDetails: View {
             }
             ForEach(advance.reimbursementItems) { item in
                 detailRow(
-                    date: item.date, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
+                    date: item.date, time: item.recordedAt, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
                     account: item.accountName, amount: item.amount, isIncome: true
                 )
             }
@@ -338,11 +339,11 @@ private struct AdvanceDetails: View {
     }
 
     /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
-    private func detailRow(date: CalendarDay, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
+    private func detailRow(date: CalendarDay, time: Date?, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                Text("\(dateText(date)) · \(account)")
+                Text("\(dateText(date, time)) · \(account)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -352,7 +353,7 @@ private struct AdvanceDetails: View {
                 .foregroundStyle(amount.tone(of: isIncome ? .inflow : .outflow).color ?? .primary)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date)),\(account)")
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)")
     }
 }
 

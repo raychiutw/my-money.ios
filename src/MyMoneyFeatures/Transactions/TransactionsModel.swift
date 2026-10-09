@@ -353,7 +353,8 @@ public final class TransactionsModel {
         TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
             ownership: OwnershipName.title(isShared: transaction.isShared),
-            billing: transaction.billing.label
+            billing: transaction.billing.label,
+            time: transaction.recordedAt.map(RecordedTime.clockText(of:))
         )
     }
 
@@ -464,8 +465,11 @@ public struct TransactionSubtitle: Equatable, Sendable {
     public let ownership: String
     /// 信用卡的帳單狀態標籤「已出帳」「延至下期」(上游 ADR 0020，#188);其他沒有。
     public let billing: String?
+    /// 記帳時間(台灣時間 HH:mm,上游 718ace9、#207);沒有時間資料是 `nil`。放在最前面。
+    public let time: String?
 
-    public init(recorder: String?, ownership: String, billing: String? = nil) {
+    public init(recorder: String?, ownership: String, billing: String? = nil, time: String? = nil) {
+        self.time = time
         self.recorder = recorder
         self.ownership = ownership
         self.billing = billing
@@ -476,9 +480,9 @@ public struct TransactionSubtitle: Equatable, Sendable {
         [ownership, billing].compactMap { $0 }.joined(separator: "・")
     }
 
-    /// 例如「小美・家庭公帳・延至下期」;沒有記帳人名稱時只有歸屬(與標籤)。
+    /// 例如「14:05・小美・家庭公帳・延至下期」;沒有時間就沒有最前面那一段,沒有記帳人名稱時只有歸屬(與標籤)。
     public var text: String {
-        [recorder, tail].compactMap { $0 }.joined(separator: "・")
+        [time, recorder, tail].compactMap { $0 }.joined(separator: "・")
     }
 }
 

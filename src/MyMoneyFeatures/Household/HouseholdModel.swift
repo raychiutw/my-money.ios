@@ -90,6 +90,11 @@ public final class HouseholdModel {
         day.text(today: today(), locale: locale)
     }
 
+    /// 代墊與報銷明細的「日期 時間」(上游 718ace9、#207),例如「9月27日 03:57」(台灣時間);沒有時間只有日期。
+    public func dateTimeText(_ day: CalendarDay, _ time: Date?) -> String {
+        [dateText(day), time.map(RecordedTime.clockText(of:))].compactMap { $0 }.joined(separator: " ")
+    }
+
     /// 邀請碼的有效期限(台灣時間),例如「10月5日 下午3:00」,不是今年的加上年份。
     public func expiryText(of invitation: HouseholdInvitation) -> String {
         invitation.expiresAt.dateTimeText(today: today(), locale: locale)

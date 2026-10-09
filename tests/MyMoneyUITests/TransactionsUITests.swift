@@ -6,6 +6,28 @@ final class TransactionsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// 記帳時間(上游 718ace9、#207):每列第二行最前面是台灣時間的 HH:mm,VoiceOver 也念;一般與最大字級都不截斷。
+    @MainActor
+    func testRowShowsTheRecordedTime() throws {
+        for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] as [String?] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-resetSession"] + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+            app.launch()
+            signIn(app)
+            app.tabBars.buttons["記帳"].tap()
+            // 範例的午餐記在台灣時間 12:30。
+            let lunch = element(in: app, labelContaining: "午餐")
+            _ = lunch.waitForExistence(timeout: 5)
+            for _ in 0..<8 where !lunch.exists { app.swipeUp() }
+            XCTAssertTrue(ScrollSupport.revealFully(lunch, in: app), "找不到午餐這一列")
+            XCTAssertTrue(lunch.label.contains("12:30"), "VoiceOver 沒有念記帳時間:\(lunch.label)")
+            let image = lunch.screenshot().image
+            let text = try TextRecognition.lines(in: image).joined(separator: " ")
+            XCTAssertTrue(text.contains("12:30"), "列上看不到記帳時間 12:30(\(size ?? "一般字級")):\(text)")
+            app.terminate()
+        }
+    }
+
     /// 列表顯示本月的收支明細;記一筆 250 元後出現在列表上。
     @MainActor
     func testListShowsThisMonthAndQuickEntryAddsTransaction() throws {

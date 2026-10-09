@@ -88,6 +88,13 @@ struct TransactionRow: View {
                 Text(subtitle.text)
             } else if let recorder = subtitle.recorder {
                 HStack(spacing: 0) {
+                    // 記帳時間(#207)放最前面、不被截。
+                    if let time = subtitle.time {
+                        Text("\(time)・")
+                            .lineLimit(1)
+                            .fixedSize()
+                            .monospacedDigit()
+                    }
                     Text(recorder)
                         .lineLimit(1)
                     Text("・\(subtitle.tail)")
@@ -95,8 +102,9 @@ struct TransactionRow: View {
                         .fixedSize()
                 }
             } else {
-                Text(subtitle.tail)
+                Text([subtitle.time, subtitle.tail].compactMap { $0 }.joined(separator: "・"))
                     .lineLimit(1)
+                    .monospacedDigit()
             }
         }
         .font(.subheadline)
@@ -146,6 +154,7 @@ struct TransactionRow: View {
         var parts = [transaction.category.name]
         if !transaction.note.isEmpty { parts.append(transaction.note) }
         parts.append("帳戶 \(account)")
+        if let time = RecordedTime.spokenText(of: transaction.recordedAt) { parts.append(time) }
         if let recorder { parts.append("記帳人 \(recorder)") }
         parts.append(OwnershipName.title(isShared: transaction.isShared))
         if let billing = transaction.billing.label { parts.append(billing) }

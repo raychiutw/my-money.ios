@@ -90,7 +90,9 @@ public actor InMemoryTransactionRepository: TransactionRepository {
             isShared: draft.isShared,
             recorderName: InMemoryAuthRepository.Member.sample.user.name,
             recorderID: InMemoryAuthRepository.Member.sample.user.id,
-            billing: draft.defersToNextStatement ? .deferred : .unbilled
+            billing: draft.defersToNextStatement ? .deferred : .unbilled,
+            // 跟後端一樣:建立當下自動記下時間(使用者只選日期,上游 718ace9、#207)。
+            recordedAt: Date()
         ))
     }
 
@@ -111,7 +113,9 @@ public actor InMemoryTransactionRepository: TransactionRepository {
                 isShared: draft.isShared,
                 recorderName: transaction.recorderName,
                 recorderID: transaction.recorderID,
-                billing: draft.defersToNextStatement ? .deferred : transaction.billing
+                billing: draft.defersToNextStatement ? .deferred : transaction.billing,
+                // 跟後端一樣:編輯收支保留原建立時間。
+                recordedAt: transaction.recordedAt
             )
         }
     }
@@ -190,7 +194,7 @@ public enum SampleTransactions {
             id: TransactionID(id), accountID: SampleAccounts.card.id, accountName: SampleAccounts.card.name, type: .expense,
             category: TransactionCategory("購物"), amount: Money(Decimal(amount)), note: note, date: date, isShared: false,
             recorderName: InMemoryAuthRepository.Member.sample.user.name, recorderID: InMemoryAuthRepository.Member.sample.user.id,
-            billing: billing
+            billing: billing, recordedAt: clock(date, 13, 5)
         )
     }
 
@@ -199,8 +203,15 @@ public enum SampleTransactions {
         Transaction(
             id: TransactionID(id), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, type: .expense,
             category: .dining, amount: Money(Decimal(amount)), note: note, date: date, isShared: true, recorderName: "小美",
-            recorderID: UserID("sample-mei")
+            recorderID: UserID("sample-mei"), recordedAt: clock(date, 9, 41)
         )
+    }
+
+    /// 台灣時間某天的幾點幾分(範例收支的記錄時間)。
+    static func clock(_ day: CalendarDay, _ hour: Int, _ minute: Int) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = CalendarDay.timeZone
+        return calendar.date(from: DateComponents(year: day.year, month: day.month, day: day.day, hour: hour, minute: minute)) ?? Date()
     }
 
     private static func transaction(
@@ -238,7 +249,8 @@ public enum SampleTransactions {
             date: date,
             isShared: shared,
             recorderName: InMemoryAuthRepository.Member.sample.user.name,
-            recorderID: InMemoryAuthRepository.Member.sample.user.id
+            recorderID: InMemoryAuthRepository.Member.sample.user.id,
+            recordedAt: clock(date, 12, 30)
         )
     }
 }
