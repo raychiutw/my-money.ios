@@ -8,7 +8,7 @@ import Observation
 /// 收款帳戶是收款成員的可收款帳戶(後端 `b1382f4` 附在代墊統計裡，只有名稱和類型，不含餘額)。
 @MainActor
 @Observable
-public final class ReimbursementModel {
+public final class ReimbursementModel: Submitting {
     public let advance: HouseholdAdvance
     public private(set) var fundAccounts: [Account] = []
     public let receivingAccounts: [ReceivingAccount]
@@ -18,8 +18,8 @@ public final class ReimbursementModel {
     public var date: CalendarDay
     public var note: String
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     @ObservationIgnored private let households: any HouseholdRepository
     @ObservationIgnored private let accounts: any AccountRepository
@@ -83,20 +83,14 @@ public final class ReimbursementModel {
             errorMessage = "請輸入大於 0 的金額"
             return nil
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
-            let message = try await households.reimburse(Reimbursement(
+        guard let message = await submitting(failure: "撥款報銷失敗", {
+            try await households.reimburse(Reimbursement(
                 memberID: advance.memberID, fromAccountID: fromAccountID, toAccountID: toAccountID, amount: amount,
                 date: date, note: note.trimmingCharacters(in: .whitespacesAndNewlines)
             ))
-            dataVersion.bump()
-            return message
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "撥款報銷失敗" : message
-            return nil
-        }
+        }) else { return nil }
+        dataVersion.bump()
+        return message
     }
 
     private static func holdsMoney(_ account: Account) -> Bool {

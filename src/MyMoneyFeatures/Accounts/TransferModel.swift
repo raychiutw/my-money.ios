@@ -7,7 +7,7 @@ import Observation
 /// 只能在現金錢包和銀行存款帳戶之間轉，信用卡不在選項裡。後端會產生兩筆系統交易記錄，不算生活消費。
 @MainActor
 @Observable
-public final class TransferModel {
+public final class TransferModel: Submitting {
     /// 可選的帳戶：現金錢包與銀行存款帳戶，順序照後端。
     public private(set) var candidates: [Account] = []
     public var fromAccountID: AccountID?
@@ -16,8 +16,8 @@ public final class TransferModel {
     public var date: CalendarDay
     public var note = ""
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
@@ -112,20 +112,14 @@ public final class TransferModel {
             errorMessage = "轉出與轉入帳戶不能相同"
             return nil
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
-            let message = try await repository.transfer(AccountTransfer(
+        guard let message = await submitting(failure: "轉帳失敗", {
+            try await repository.transfer(AccountTransfer(
                 fromAccountID: fromAccountID, toAccountID: toAccountID, amount: amount, date: date,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines)
             ))
-            dataVersion.bump()
-            return message
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "轉帳失敗" : message
-            return nil
-        }
+        }) else { return nil }
+        dataVersion.bump()
+        return message
     }
 
     private var firstBank: Account? {

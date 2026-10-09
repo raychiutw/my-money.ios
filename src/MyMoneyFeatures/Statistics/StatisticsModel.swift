@@ -237,14 +237,14 @@ public final class StatisticsModel {
 /// 設定預算額度的 sheet。
 @MainActor
 @Observable
-public final class BudgetEditorModel {
+public final class BudgetEditorModel: Submitting {
     /// 可以設定預算的是全部支出分類(16 種)。
     public static let categories = TransactionCategory.expenseCategories
 
     public var category: TransactionCategory
     public var amountText: String
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public let month: CalendarMonth
     /// 月份，例如「2026年9月」(DESIGN.md「日期」)。
@@ -279,15 +279,9 @@ public final class BudgetEditorModel {
             errorMessage = "請輸入有效預算金額"
             return false
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "預算設定失敗", {
             try await repository.setBudget(amount, for: category, month: month)
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "預算設定失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         return true
     }

@@ -5,7 +5,7 @@ import Observation
 /// 新增或編輯資產帳戶的 sheet(parity.md「帳戶」)。
 @MainActor
 @Observable
-public final class AccountEditorModel {
+public final class AccountEditorModel: Submitting {
     /// 新增時可以切換類型，切換後套用該類型的預設值;編輯時不能改類型(後端的 PUT 也不接受)。
     ///
     /// 不用 `didSet` 把值改回去:`@Observable` 會把屬性改寫成 setter,在 `didSet` 裡指派會無限遞迴。
@@ -30,8 +30,8 @@ public final class AccountEditorModel {
     public var statementDay: Int?
     public var paymentDueDay: Int?
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public var title: String {
         (editingID == nil ? "新增" : "編輯") + kind.title
@@ -125,21 +125,15 @@ public final class AccountEditorModel {
             return false
         }
         let draft = draft(named: trimmedName)
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "儲存帳戶失敗", {
             if let editingID {
                 try await repository.update(editingID, with: draft)
             } else {
                 try await repository.create(draft)
             }
-            dataVersion.bump()
-            return true
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "儲存帳戶失敗" : message
-            return false
-        }
+        }) != nil else { return false }
+        dataVersion.bump()
+        return true
     }
 
     private func draft(named name: String) -> AccountDraft {

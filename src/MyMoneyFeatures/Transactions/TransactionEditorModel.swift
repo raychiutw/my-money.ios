@@ -5,7 +5,7 @@ import Observation
 /// 編輯一筆交易記錄的 sheet(parity.md「交易」)。家人記的也能編輯;「信用卡還款」不能編輯(不會建立這個 model)。
 @MainActor
 @Observable
-public final class TransactionEditorModel {
+public final class TransactionEditorModel: Submitting {
     public private(set) var accounts: [Account] = []
     public var isShared: Bool
 
@@ -35,8 +35,8 @@ public final class TransactionEditorModel {
         accounts.first { $0.id == accountID }?.kind == .creditCard
     }
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public let title = "編輯\(Terms.transactions)"
 
@@ -105,9 +105,7 @@ public final class TransactionEditorModel {
             errorMessage = "請輸入有效金額"
             return false
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "操作失敗", {
             try await transactions.update(id, with: TransactionDraft(
                 accountID: accountID,
                 type: type,
@@ -118,11 +116,7 @@ public final class TransactionEditorModel {
                 isShared: isShared,
                 defersToNextStatement: isCreditCardSelected && defersToNextStatement
             ))
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "操作失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         return true
     }

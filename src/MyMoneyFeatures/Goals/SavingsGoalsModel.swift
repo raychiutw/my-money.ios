@@ -144,10 +144,10 @@ extension SavingsGoal {
 /// 存入儲蓄目標的 sheet。存入**不會**動到任何資產帳戶。
 @MainActor
 @Observable
-public final class SavingsGoalDepositModel {
+public final class SavingsGoalDepositModel: Submitting {
     public var amountText = ""
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public let title: String
     /// 例如「目前已存 $3,000 / 目標 $60,000」。
@@ -172,15 +172,9 @@ public final class SavingsGoalDepositModel {
             errorMessage = "請輸入有效存款金額"
             return false
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "存入失敗", {
             try await repository.deposit(amount, into: goalID)
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "存入失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         return true
     }
