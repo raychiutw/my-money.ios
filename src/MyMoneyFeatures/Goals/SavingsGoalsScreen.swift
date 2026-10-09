@@ -43,14 +43,7 @@ struct SavingsGoalsScreen: View {
             } message: { goal in
                 Text(model.deleteConfirmation(for: goal))
             }
-            .alert(
-                "無法刪除",
-                isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-            ) {
-                Button("好") {}
-            } message: {
-                Text(model.alertMessage ?? "")
-            }
+            .errorAlert("無法刪除", message: model.alertMessage) { model.alertMessage = nil }
     }
 
     /// 建立、編輯與存入共用一個 sheet。

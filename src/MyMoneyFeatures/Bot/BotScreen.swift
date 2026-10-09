@@ -36,14 +36,7 @@ struct BotScreen: View {
         } message: { binding in
             Text(model.unbindConfirmation(for: binding))
         }
-        .alert(
-            "無法完成",
-            isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-        ) {
-            Button("好") {}
-        } message: {
-            Text(model.alertMessage ?? "")
-        }
+        .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
     }
 
     private var pairingSection: some View {

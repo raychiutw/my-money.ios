@@ -7,7 +7,7 @@ import Observation
 /// 繳款、出帳作業、校準未出帳、編輯都在這一頁;成功後資料版本遞增，這一頁、帳戶頁和總覽都重新取得。
 @MainActor
 @Observable
-public final class CreditCardDetailModel {
+public final class CreditCardDetailModel: Alerting {
     /// 目前的信用卡帳戶。
     public private(set) var card: CreditCard
 
@@ -123,12 +123,7 @@ public final class CreditCardDetailModel {
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本(詳細頁、帳戶頁和總覽都重新取得)。
     public func rollOver() async {
         guard canOperate else { return }
-        do {
-            noticeMessage = try await repository.rollOverStatement(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        if let notice = await commit(dataVersion, { try await repository.rollOverStatement(card.id) }) { noticeMessage = notice }
     }
 
     /// 正在校準未出帳;送出期間停用「校準未出帳」。
@@ -148,12 +143,7 @@ public final class CreditCardDetailModel {
         guard canOperate else { return }
         isReconciling = true
         defer { isReconciling = false }
-        do {
-            noticeMessage = try await repository.reconcileUnbilled(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        if let notice = await commit(dataVersion, { try await repository.reconcileUnbilled(card.id) }) { noticeMessage = notice }
     }
 
     /// 信用卡扣款還款的 sheet(「繳款」選單的項目):扣款帳戶是同一個帳戶檢視範圍的銀行存款帳戶。

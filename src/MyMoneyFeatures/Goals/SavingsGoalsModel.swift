@@ -5,7 +5,7 @@ import Observation
 /// 儲蓄目標頁的 model(parity.md「儲蓄目標」)。
 @MainActor
 @Observable
-public final class SavingsGoalsModel {
+public final class SavingsGoalsModel: Alerting {
     public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
@@ -97,12 +97,7 @@ public final class SavingsGoalsModel {
 
     /// 刪除;成功後遞增資料版本。
     public func delete(_ goal: SavingsGoal) async {
-        do {
-            try await repository.delete(goal.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(goal.id) }
     }
 
     public func makeEditor() -> SavingsGoalEditorModel {

@@ -29,7 +29,7 @@ public struct TransactionDay: Identifiable, Sendable {
 /// 視角、起迄日、類型、分類在篩選 sheet 裡改一份草稿，按「完成」才套用(#74);關鍵字照舊即時過濾。
 @MainActor
 @Observable
-public final class TransactionsModel {
+public final class TransactionsModel: Alerting {
     public typealias Phase = LoadPhase
 
     /// 類型篩選(只在本機過濾)。
@@ -356,12 +356,7 @@ public final class TransactionsModel {
     /// 刪除;成功後遞增資料版本。家人記的也能刪除。
     public func delete(_ transaction: Transaction) async {
         guard canModify(transaction) else { return }
-        do {
-            try await repository.delete(transaction.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(transaction.id) }
     }
 
     /// 目前起迄日的 CSV,檔名跟 web 一樣是 `my-money-今天.csv`。

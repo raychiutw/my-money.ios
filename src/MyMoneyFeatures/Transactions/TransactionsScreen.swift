@@ -84,14 +84,7 @@ struct TransactionsScreen: View {
                 } message: { transaction in
                     Text("\(model.lockReason(for: transaction) ?? "")。")
                 }
-                .alert(
-                    "無法刪除",
-                    isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-                ) {
-                    Button("好") {}
-                } message: {
-                    Text(model.alertMessage ?? "")
-                }
+                .errorAlert("無法刪除", message: model.alertMessage) { model.alertMessage = nil }
         }
     }
 

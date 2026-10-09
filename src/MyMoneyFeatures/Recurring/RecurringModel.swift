@@ -5,7 +5,7 @@ import Observation
 /// 週期收支頁的 model(parity.md「週期收支」)。
 @MainActor
 @Observable
-public final class RecurringModel {
+public final class RecurringModel: Alerting {
     public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
@@ -139,12 +139,7 @@ public final class RecurringModel {
 
     /// 刪除;成功後遞增資料版本。
     public func delete(_ item: RecurringItem) async {
-        do {
-            try await repository.delete(item.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(item.id) }
     }
 
     /// 新增：歸屬預設隨視角(家庭公帳視角 → 家庭公帳，其他 → 個人私帳，跟 web 一致)。

@@ -62,14 +62,7 @@ struct RecurringScreen: View {
             } message: { item in
                 Text("\(model.lockReason(for: item) ?? "")。")
             }
-            .alert(
-                "無法刪除",
-                isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-            ) {
-                Button("好") {}
-            } message: {
-                Text(model.alertMessage ?? "")
-            }
+            .errorAlert("無法刪除", message: model.alertMessage) { model.alertMessage = nil }
     }
 
     /// 編輯 sheet 需要 `Identifiable`。

@@ -5,7 +5,7 @@ import Observation
 /// 帳戶頁(瀏覽)的 model(parity.md「帳戶」)。
 @MainActor
 @Observable
-public final class AccountsModel {
+public final class AccountsModel: Alerting {
     public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
@@ -146,12 +146,7 @@ public final class AccountsModel {
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
     public func rollOver(_ card: CreditCard) async {
         guard canOperate(card) else { return }
-        do {
-            noticeMessage = try await repository.rollOverStatement(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        if let notice = await commit(dataVersion, { try await repository.rollOverStatement(card.id) }) { noticeMessage = notice }
     }
 
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
@@ -175,12 +170,7 @@ public final class AccountsModel {
     /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
     public func delete(_ account: Account) async {
         guard canModify(account) else { return }
-        do {
-            try await repository.delete(account.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(account.id) }
     }
 
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
