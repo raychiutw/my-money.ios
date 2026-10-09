@@ -35,19 +35,13 @@ struct StatisticsScreen: View {
             }
             .refreshable { await model.load() }
             // 月份、視角或資料版本任一改變就重抓。
-            .task(id: QueryKey(month: model.month, scope: model.scope, version: model.dataVersion.value)) {
+            .task(id: model.reloadKey) {
                 await model.load()
             }
             .sheet(item: $budgetEditor) { editor in
                 BudgetEditorView(model: editor)
             }
         }
-    }
-
-    private struct QueryKey: Equatable {
-        let month: CalendarMonth
-        let scope: ViewScope
-        let version: Int
     }
 
     @ViewBuilder

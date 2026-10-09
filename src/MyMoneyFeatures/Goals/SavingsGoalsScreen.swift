@@ -22,7 +22,7 @@ struct SavingsGoalsScreen: View {
                     .accessibilityIdentifier("goals.add")
                 }
             }
-            .task(id: model.dataVersion.value) {
+            .task(id: model.reloadKey) {
                 await model.refreshIfStale()
             }
             .sheet(item: $sheet) { sheet in

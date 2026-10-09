@@ -20,7 +20,10 @@ public final class CreditCardDetailModel {
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let permissions: PermissionsModel?
     /// 上一次取得時的資料版本;`nil` 是還沒取得過。
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
+
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:資料版本變了就要重載。
+    public var reloadKey: ReloadKey<Unscoped> { ReloadKey(version: dataVersion.value) }
 
     /// `card`、`bankAccounts` 是精簡列所在畫面剛載入的資料,`loadedVersion` 是那次載入的資料版本
     /// (不是現在的：那個畫面可能還在重新載入);`scope` 是那個畫面的帳戶檢視範圍，重新取得時沿用。
@@ -41,7 +44,7 @@ public final class CreditCardDetailModel {
         self.dataVersion = dataVersion
         self.permissions = permissions
         self.today = today
-        self.loadedVersion = loadedVersion
+        if let loadedVersion { freshness.markLoaded(ReloadKey(version: loadedVersion)) }
     }
 
     /// toolbar 的「編輯」:家庭信用卡只有建立者或家庭管理員，個人信用卡只有持卡人(上游 ADR 0013、#133)。
@@ -171,13 +174,13 @@ public final class CreditCardDetailModel {
 
     /// 資料版本在上一次取得之後改變過，才重新取得。剛打開時用精簡列的資料，不另外抓。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 
     /// 重新取得這張卡和扣款帳戶。取得失敗時保留目前的內容，顯示錯誤。
     public func load() async {
-        let version = dataVersion.value
+        let key = reloadKey
         do {
             let accounts = try await repository.accounts(scope: scope)
             guard !Task.isCancelled else { return }
@@ -188,7 +191,7 @@ public final class CreditCardDetailModel {
             }
             self.card = card
             bankAccounts = accounts.compactMap { if case .bank(let bank) = $0 { bank } else { nil } }
-            loadedVersion = version
+            freshness.markLoaded(key)
         } catch {
             guard !Task.isCancelled else { return }
             alertMessage = error.localizedDescription

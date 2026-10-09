@@ -35,7 +35,7 @@ struct RecurringScreen: View {
                 }
             }
             // 視角或資料版本改變就重抓。
-            .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
+            .task(id: model.reloadKey) {
                 await model.refreshIfStale()
             }
             .sheet(item: $editor) { sheet in
@@ -70,11 +70,6 @@ struct RecurringScreen: View {
             } message: {
                 Text(model.alertMessage ?? "")
             }
-    }
-
-    private struct QueryKey: Hashable {
-        let scope: ViewScope
-        let version: Int
     }
 
     /// 編輯 sheet 需要 `Identifiable`。

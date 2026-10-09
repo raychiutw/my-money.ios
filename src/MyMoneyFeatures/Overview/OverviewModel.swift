@@ -80,6 +80,9 @@ public final class OverviewModel {
     @ObservationIgnored let locale: Locale
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
+
     private static let scopeKey = "overview.scope"
 
     public init(
@@ -177,8 +180,8 @@ public final class OverviewModel {
 
     /// 載入總覽的所有區塊。當月淨收支用當月的收支趨勢(後端排除「信用卡還款」);預算額度帶入明確的當月。
     public func load() async {
-        let version = dataVersion.value
-        let scope = scope
+        let key = reloadKey
+        let scope = key.scope
         let day = today()
         let month = CalendarMonth(day)
         do {
@@ -203,7 +206,7 @@ public final class OverviewModel {
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             self.goals = loadedGoals
             self.forecast = loadedForecast
-            freshness.markLoaded(version: version, scope: scope)
+            freshness.markLoaded(key)
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
@@ -220,7 +223,7 @@ public final class OverviewModel {
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從首頁 push 的畫面(週期收支等)返回時沒變就不重抓。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 }

@@ -41,7 +41,7 @@ struct CreditCardDetailScreen: View {
         }
         .refreshable { await model.load() }
         // 資料版本改變(這一頁或其他畫面新增、修改、刪除成功)就重新取得。
-        .task(id: model.dataVersion.value) {
+        .task(id: model.reloadKey) {
             await model.refreshIfStale()
         }
         // 這張卡已經不在這個帳戶檢視範圍(被刪除，或歸屬改了):回到上一頁。

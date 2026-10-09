@@ -87,7 +87,18 @@ public final class StatisticsModel {
 
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
+    @ObservationIgnored private var freshness = LoadFreshness<Selection>()
+
+    /// 統計頁載入的條件:月份與檢視範圍(再加資料版本就是重載鍵)。
+    public struct Selection: Hashable, Sendable {
+        public let month: CalendarMonth
+        public let scope: ViewScope
+    }
+
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:月份、檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<Selection> {
+        ReloadKey(scope: Selection(month: month, scope: scope), version: dataVersion.value)
+    }
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -178,7 +189,7 @@ public final class StatisticsModel {
     /// 依目前的月份與視角載入。已花不隨視角改變，所以另外抓個人視角的分類支出。
     /// 收支趨勢帶入所選月份的年份(parity 刻意偏離第 12 項)。
     public func load() async {
-        let version = dataVersion.value
+        let key = reloadKey
         let (month, scope) = (month, scope)
         do {
             async let expenses = repository.categoryExpenses(month: month, scope: scope)
@@ -202,7 +213,7 @@ public final class StatisticsModel {
                 )
             }
             .filter { $0.budget != nil || $0.spent > .zero }
-            freshness.markLoaded(version: version)
+            freshness.markLoaded(key)
             skeletonMemory.record(count: categoryExpenses.count, for: "categories")
             skeletonMemory.record(count: budgetRows.count, for: "budgets")
             phase = .loaded
@@ -215,7 +226,7 @@ public final class StatisticsModel {
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 

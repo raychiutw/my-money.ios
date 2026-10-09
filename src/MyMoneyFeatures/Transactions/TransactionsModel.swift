@@ -76,6 +76,9 @@ public final class TransactionsModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
 
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:資料版本變了就要重載。
+    public var reloadKey: ReloadKey<Unscoped> { ReloadKey(version: dataVersion.value) }
+
     /// 骨架屏每天的列數(#204 核對):上次載入完成時前三天各有幾筆(每天最多 4);第一次沒有記錄時兩天、3 與 2 筆。
     public var skeletonDayRows: [Int] {
         let stored = defaults.array(forKey: "skeleton.transactions.dayRows") as? [Int]
@@ -292,7 +295,7 @@ public final class TransactionsModel {
 
     /// 依目前套用的起迄日與視角，抓齊區間內的所有交易記錄。
     public func load() async {
-        let version = dataVersion.value
+        let key = reloadKey
         let query = filter.query
         do {
             let transactions = try await repository.allTransactions(
@@ -301,7 +304,7 @@ public final class TransactionsModel {
             // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
             guard query == filter.query else { return }
             loaded = transactions
-            freshness.markLoaded(version: version)
+            freshness.markLoaded(key)
             defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
             await permissions?.loadIfNeeded()
@@ -313,7 +316,7 @@ public final class TransactionsModel {
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 

@@ -165,6 +165,9 @@ public final class AccountsModel {
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
     @ObservationIgnored private var freshness = LoadFreshness<AccountScope>()
 
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<AccountScope> { ReloadKey(scope: scope, version: dataVersion.value) }
+
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
     }
@@ -182,7 +185,7 @@ public final class AccountsModel {
 
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 
@@ -243,8 +246,8 @@ public final class AccountsModel {
 
     /// 載入這個範圍的資產帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
-        let version = dataVersion.value
-        let scope = scope
+        let key = reloadKey
+        let scope = key.scope
         do {
             async let accounts = repository.accounts(scope: scope)
             async let summary = repository.balanceSummary(scope: scope)
@@ -262,7 +265,7 @@ public final class AccountsModel {
             memory.record(count: bankAccounts.count, for: "bank.\(scope)")
             memory.record(count: creditCards.count, for: "card.\(scope)")
             pendingAdvanceTotal = loadedPendingAdvances
-            freshness.markLoaded(version: version, scope: scope)
+            freshness.markLoaded(key)
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {

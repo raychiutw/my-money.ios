@@ -29,6 +29,9 @@ public final class RecurringModel {
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
+
     private static let scopeKey = "recurring.scope"
 
     /// 骨架屏各區塊的筆數(#204 核對):上次載入完成時的筆數;第一次沒有記錄時支出 3、收入 1。
@@ -80,8 +83,8 @@ public final class RecurringModel {
     /// 載入週期收支與分攤平滑。任一個失敗都顯示載入失敗，不把分攤平滑當成 0
     /// (web 用 `.catch(() => null)` 顯示 $0,parity 刻意偏離第 27 項)。重新載入時保留舊資料。
     public func load() async {
-        let version = dataVersion.value
-        let scope = scope
+        let key = reloadKey
+        let scope = key.scope
         do {
             async let items = repository.items(scope: scope)
             async let amortization = repository.amortization(scope: scope)
@@ -90,7 +93,7 @@ public final class RecurringModel {
             guard !Task.isCancelled, scope == self.scope else { return }
             self.items = loadedItems
             self.amortization = loadedAmortization
-            freshness.markLoaded(version: version, scope: scope)
+            freshness.markLoaded(key)
             skeletonMemory.record(count: expenses.count, for: "expenses")
             skeletonMemory.record(count: incomes.count, for: "incomes")
             phase = .loaded
@@ -103,7 +106,7 @@ public final class RecurringModel {
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 

@@ -51,7 +51,7 @@ struct TransactionsScreen: View {
                     AccountToolbarItem()
                 }
                 // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
-                .task(id: model.dataVersion.value) {
+                .task(id: model.reloadKey) {
                     await model.load()
                 }
                 .sheet(isPresented: $model.isEditingFilter) {

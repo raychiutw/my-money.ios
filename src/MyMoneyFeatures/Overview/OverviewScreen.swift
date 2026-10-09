@@ -48,7 +48,7 @@ struct OverviewScreen: View {
                 AccountToolbarItem()
             }
             // 視角或資料版本改變就重抓(例如從總覽或交易頁記一筆之後);從信用卡詳細頁返回時 task 會重跑，沒變就不重抓。
-            .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
+            .task(id: model.reloadKey) {
                 await model.refreshIfStale()
             }
             // 規劃的三個畫面:model 由 composition root 建立,這裡只負責路由。
@@ -71,11 +71,6 @@ struct OverviewScreen: View {
                 Text(model.settleError ?? "")
             }
         }
-    }
-
-    private struct QueryKey: Equatable {
-        let scope: ViewScope
-        let version: Int
     }
 
     @ViewBuilder
