@@ -4,36 +4,39 @@
 public actor Gate {
     private var reached = false
     private var isOpen = false
+    /// 停住的等待者:每一個有自己的編號,取消只放行被取消的那一個(以前一律放行全部,切 tab 取消一個請求會讓別的畫面停住的請求也提早回來)。
+    private var passWaiters: [Int: CheckedContinuation<Void, Never>] = [:]
+    private var nextWaiterID = 0
     private var arrivalWaiters: [CheckedContinuation<Void, Never>] = []
-    private var passWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init() {}
 
     /// repository 端：通知請求已送達，然後停在這裡直到測試放行。
     ///
-    /// 也會回應取消：測試寫錯、永遠不放行時，`.timeLimit` 取消測試後這裡就放行，測試記下失敗後結束，
-    /// 不會讓整個測試程序卡住。
+    /// 也會回應取消:測試寫錯、永遠不放行時，`.timeLimit` 取消測試後這個等待者就放行，測試記下失敗後結束，
+    /// 不會讓整個測試程序卡住;**只放行被取消的這一個**。
     public func pass() async {
         reached = true
         arrivalWaiters.forEach { $0.resume() }
         arrivalWaiters.removeAll()
         guard !isOpen else { return }
+        let id = nextWaiterID
+        nextWaiterID += 1
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 if Task.isCancelled {
                     continuation.resume()
                 } else {
-                    passWaiters.append(continuation)
+                    passWaiters[id] = continuation
                 }
             }
         } onCancel: {
-            Task { await self.releasePassWaiters() }
+            Task { await self.release(waiter: id) }
         }
     }
 
-    private func releasePassWaiters() {
-        passWaiters.forEach { $0.resume() }
-        passWaiters.removeAll()
+    private func release(waiter id: Int) {
+        passWaiters.removeValue(forKey: id)?.resume()
     }
 
     /// 測試端：等到 repository 收到請求。
@@ -63,7 +66,7 @@ public actor Gate {
     /// 測試端：讓停住的請求繼續回應;之後的請求也不再停。
     public func open() {
         isOpen = true
-        passWaiters.forEach { $0.resume() }
+        passWaiters.values.forEach { $0.resume() }
         passWaiters.removeAll()
     }
 
