@@ -191,3 +191,33 @@ final class AccountsHouseholdSkeletonUITests: XCTestCase {
         XCTAssertFalse(any(second, "household.skeleton.notJoined").exists)
     }
 }
+
+/// 記帳、統計、預測、週期收支、儲蓄目標的骨架屏(#204 核對):載入中看得到骨架(「載入中」),附截圖給人核對版面;
+/// 數量的記憶由單元測試(`ScreenSkeletonMemoryTests`)保證。
+final class ScreenSkeletonsUITests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    private func assertSkeleton(_ name: String, open: (XCUIApplication) -> Void, extra: [String] = []) {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession", "-uiTestingHoldScreens"] + extra
+        app.launch()
+        app.signInWithSampleAccount()
+        open(app)
+        let loading = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "載入中")).firstMatch
+        XCTAssertTrue(loading.waitForExistence(timeout: 15), "\(name):沒有看到骨架屏")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "\(name) 骨架"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.terminate()
+    }
+
+    @MainActor func testTransactionsSkeleton() { assertSkeleton("記帳") { $0.tabBars.buttons["記帳"].tap() } }
+    @MainActor func testStatisticsSkeleton() { assertSkeleton("統計") { $0.tabBars.buttons["統計"].tap() } }
+    @MainActor func testForecastSkeleton() { assertSkeleton("預測") { $0.openHomeEntry("forecast") } }
+    @MainActor func testRecurringSkeleton() { assertSkeleton("週期收支") { $0.openHomeEntry("recurring") } }
+    @MainActor func testGoalsSkeleton() { assertSkeleton("儲蓄目標") { $0.openHomeEntry("goals") } }
+}

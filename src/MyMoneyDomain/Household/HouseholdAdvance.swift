@@ -1,3 +1,4 @@
+import Foundation
 /// 一位成員的家庭公帳代墊統計(`GET /households/advances`),全部由後端算好。
 ///
 /// 只有從個人帳戶(個人私帳、私卡、個人現金錢包，`is_joint = 0`)付的家庭公帳支出才算代墊;
@@ -67,11 +68,14 @@ public struct AdvanceItem: Hashable, Sendable, Identifiable {
     public let accountName: String
     /// 扣款帳戶的類型;帳戶已刪除時是 `nil`。
     public let accountKind: AccountKind?
+    /// 記錄時間(後端 `created_at`,#207);舊回應沒有時是 `nil`。
+    public let recordedAt: Date?
 
     public init(
         id: TransactionID, date: CalendarDay, category: TransactionCategory, note: String, amount: Money,
-        accountName: String, accountKind: AccountKind?
+        accountName: String, accountKind: AccountKind?, recordedAt: Date? = nil
     ) {
+        self.recordedAt = recordedAt
         self.id = id
         self.date = date
         self.category = category
@@ -90,8 +94,11 @@ public struct ReimbursementItem: Hashable, Sendable, Identifiable {
     public let note: String
     /// 收款帳戶;帳戶已刪除時後端補「收款帳戶」。
     public let accountName: String
+    /// 記錄時間(後端 `created_at`,#207);舊回應沒有時是 `nil`。
+    public let recordedAt: Date?
 
-    public init(id: TransactionID, date: CalendarDay, amount: Money, note: String, accountName: String) {
+    public init(id: TransactionID, date: CalendarDay, amount: Money, note: String, accountName: String, recordedAt: Date? = nil) {
+        self.recordedAt = recordedAt
         self.id = id
         self.date = date
         self.amount = amount

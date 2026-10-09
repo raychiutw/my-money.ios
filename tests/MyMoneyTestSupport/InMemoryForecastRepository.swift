@@ -3,6 +3,13 @@ import MyMoneyDomain
 
 /// 不連網路的現金流預測與購買力試算，記下每一次試算的金額。
 public actor InMemoryForecastRepository: ForecastRepository {
+    /// UI 測試的骨架屏要停留夠久(#204 核對):主要的讀取先等這麼久。每次查詢各自 sleep,不用 `Gate`(它的取消會放行所有等待者)。
+    private var loadDelay: Duration?
+
+    public func setLoadDelay(_ delay: Duration?) {
+        loadDelay = delay
+    }
+
     private let stored: [ViewScope: CashFlowForecast]
     /// 依「已繳的事件」重算預測(後端的行為:已繳事件不計入逐日餘額、最低餘額與透支風險);沒有就原樣回傳。
     private let rebuild: (@Sendable (ViewScope, Set<String>) -> CashFlowForecast)?
@@ -136,6 +143,7 @@ public actor InMemoryForecastRepository: ForecastRepository {
     }
 
     public func forecast(scope: ViewScope) async throws -> CashFlowForecast {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         fetchCount += 1
         requestedScopes.append(scope)
         await gate?.pass()

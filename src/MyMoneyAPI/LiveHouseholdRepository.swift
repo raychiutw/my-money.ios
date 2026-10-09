@@ -63,11 +63,14 @@ private struct AdvanceDTO: Decodable {
         let amount: Decimal
         let accountName: String
         let accountType: String
+        /// 718ace9 起的欄位(UTC);舊的回應沒有。
+        let createdAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id, date, category, note, amount
             case accountName = "account_name"
             case accountType = "account_type"
+            case createdAt = "created_at"
         }
     }
 
@@ -83,10 +86,12 @@ private struct AdvanceDTO: Decodable {
         let amount: Decimal
         let note: String?
         let accountName: String
+        let createdAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id, date, amount, note
             case accountName = "account_name"
+            case createdAt = "created_at"
         }
     }
 
@@ -123,14 +128,14 @@ private struct AdvanceDTO: Decodable {
                 return AdvanceItem(
                     id: TransactionID(item.id), date: date, category: TransactionCategory(item.category),
                     note: item.note ?? "", amount: Money(item.amount), accountName: item.accountName,
-                    accountKind: Self.kind(item.accountType)
+                    accountKind: Self.kind(item.accountType), recordedAt: RecordedTime.date(fromBackend: item.createdAt)
                 )
             },
             reimbursementItems: try (reimbursementItems ?? []).map { item in
                 guard let date = CalendarDay(iso: item.date) else { throw RepositoryError.unreadableResponse }
                 return ReimbursementItem(
                     id: TransactionID(item.id), date: date, amount: Money(item.amount), note: item.note ?? "",
-                    accountName: item.accountName
+                    accountName: item.accountName, recordedAt: RecordedTime.date(fromBackend: item.createdAt)
                 )
             },
             // 可收款帳戶只有銀行存款帳戶和現金錢包;其他類型(信用卡或不認得的)略過那一筆。

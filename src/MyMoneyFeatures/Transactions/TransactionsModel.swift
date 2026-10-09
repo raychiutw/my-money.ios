@@ -77,7 +77,14 @@ public final class TransactionsModel {
     /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var loadedVersion: Int?
+
+    /// 骨架屏每天的列數(#204 核對):上次載入完成時前三天各有幾筆(每天最多 4);第一次沒有記錄時兩天、3 與 2 筆。
+    public var skeletonDayRows: [Int] {
+        let stored = defaults.array(forKey: "skeleton.transactions.dayRows") as? [Int]
+        return (stored?.isEmpty == false ? stored : nil) ?? [3, 2]
+    }
 
     /// `currentUser` 是登入的人：自己記的交易記錄不顯示記帳人。`locale` 決定日期的格式，預設跟著系統。
     public init(
@@ -86,9 +93,11 @@ public final class TransactionsModel {
         dataVersion: DataVersion,
         currentUser: UserID? = nil,
         permissions: PermissionsModel? = nil,
+        defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.defaults = defaults
         self.repository = repository
         accountRepository = accounts
         self.dataVersion = dataVersion
@@ -297,6 +306,7 @@ public final class TransactionsModel {
             guard query == filter.query else { return }
             loaded = transactions
             loadedVersion = version
+            defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
@@ -343,7 +353,8 @@ public final class TransactionsModel {
         TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
             ownership: OwnershipName.title(isShared: transaction.isShared),
-            billing: transaction.billing.label
+            billing: transaction.billing.label,
+            time: transaction.recordedAt.map(RecordedTime.clockText(of:))
         )
     }
 
@@ -454,8 +465,11 @@ public struct TransactionSubtitle: Equatable, Sendable {
     public let ownership: String
     /// 信用卡的帳單狀態標籤「已出帳」「延至下期」(上游 ADR 0020，#188);其他沒有。
     public let billing: String?
+    /// 記帳時間(台灣時間 HH:mm,上游 718ace9、#207);沒有時間資料是 `nil`。放在最前面。
+    public let time: String?
 
-    public init(recorder: String?, ownership: String, billing: String? = nil) {
+    public init(recorder: String?, ownership: String, billing: String? = nil, time: String? = nil) {
+        self.time = time
         self.recorder = recorder
         self.ownership = ownership
         self.billing = billing
@@ -466,9 +480,9 @@ public struct TransactionSubtitle: Equatable, Sendable {
         [ownership, billing].compactMap { $0 }.joined(separator: "・")
     }
 
-    /// 例如「小美・家庭公帳・延至下期」;沒有記帳人名稱時只有歸屬(與標籤)。
+    /// 例如「14:05・小美・家庭公帳・延至下期」;沒有時間就沒有最前面那一段,沒有記帳人名稱時只有歸屬(與標籤)。
     public var text: String {
-        [recorder, tail].compactMap { $0 }.joined(separator: "・")
+        [time, recorder, tail].compactMap { $0 }.joined(separator: "・")
     }
 }
 

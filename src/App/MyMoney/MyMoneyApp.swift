@@ -84,6 +84,16 @@ struct MyMoneyApp: App {
                     loadDelay: holdsHousehold ? hold : nil
                 )
                 : InMemoryHouseholdRepository(household: nil, advances: advances, loadDelay: holdsHousehold ? hold : nil)
+            // `-uiTestingHoldScreens`:記帳、統計、預測、週期收支、儲蓄目標的查詢各先等 30 秒(核對骨架屏,#204)。
+            if arguments.contains("-uiTestingHoldScreens") {
+                Task {
+                    await transactions.setLoadDelay(hold)
+                    await statistics.setLoadDelay(hold)
+                    await forecast.setLoadDelay(hold)
+                    await recurring.setLoadDelay(hold)
+                    await goals.setLoadDelay(hold)
+                }
+            }
             let bot = InMemoryBotRepository.sample()
             signedIn = SignedInScreens { user in
                 MainScreens(

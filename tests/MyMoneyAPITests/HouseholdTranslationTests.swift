@@ -19,6 +19,19 @@ struct HouseholdTranslationTests {
         return try #require(json as? [String: Any])
     }
 
+    @Test("代墊明細與報銷明細帶記錄時間(上游 718ace9、#207):created_at 是 UTC,轉成台灣時間;沒有這個欄位的舊回應是 nil")
+    func advancesCarryRecordedTime() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-with-time.json")
+        let withTime = try await repository.advances()
+        let times = withTime.flatMap { $0.advanceItems.map(\.recordedAt) + $0.reimbursementItems.map(\.recordedAt) }
+        try #require(!times.isEmpty)
+        #expect(times.allSatisfy { $0.map(RecordedTime.clockText(of:)) == "03:57" })
+
+        try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
+        let legacy = try await repository.advances()
+        #expect(legacy.flatMap { $0.advanceItems.map(\.recordedAt) }.allSatisfy { $0 == nil })
+    }
+
     @Test("代墊統計:GET /households/advances 解讀成每位成員的累計代墊、已報銷、待報銷與兩份明細")
     func advancesDecodeSummaryAndItems() async throws {
         try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")

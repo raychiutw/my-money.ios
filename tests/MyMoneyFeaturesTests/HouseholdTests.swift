@@ -402,6 +402,10 @@ struct HouseholdTests {
 
         #expect(model.dateText(CalendarDay(year: 2026, month: 9, day: 27)) == "9月27日")
         #expect(model.dateText(CalendarDay(year: 2025, month: 12, day: 31)) == "2025年12月31日")
+        // 代墊與報銷明細多記帳時間(上游 718ace9、#207):「9月27日 03:57」(台灣時間);沒有時間時只有日期。
+        let time = RecordedTime.date(fromBackend: "2026-09-27 19:57:02")
+        #expect(model.dateTimeText(CalendarDay(year: 2026, month: 9, day: 27), time) == "9月27日 03:57")
+        #expect(model.dateTimeText(CalendarDay(year: 2026, month: 9, day: 27), nil) == "9月27日")
         #expect(model.expiryText(of: invitation) == "10月5日 下午3:00")
     }
 }

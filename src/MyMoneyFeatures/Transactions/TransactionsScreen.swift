@@ -123,8 +123,10 @@ struct TransactionsScreen: View {
                     TransactionsHeroSkeleton()
                         .clearListRow()
                 }
-                SkeletonSection(count: 3) { TransactionRow(transaction: Skeleton.transaction) }
-                SkeletonSection(count: 2) { TransactionRow(transaction: Skeleton.transaction) }
+                // 跟著實際內容(#204 核對):每天幾筆用上次載入完成時前三天的筆數。
+                ForEach(Array(model.skeletonDayRows.enumerated()), id: \.offset) { _, rows in
+                    SkeletonSection(count: max(rows, 1)) { TransactionRow(transaction: Skeleton.transaction) }
+                }
             case .failed(let message):
                 Section {
                     Label(message, systemImage: "exclamationmark.triangle")

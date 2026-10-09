@@ -63,9 +63,21 @@ struct StatisticsScreen: View {
                 .skeletonAnnouncement()
                 .clearListRow()
             }
-            SkeletonSection(title: "支出分類", count: 1) { SkeletonChart() }
-            SkeletonSection(title: "收支趨勢", count: 1) { SkeletonChart(height: 160) }
-            SkeletonSection(title: "預算額度", count: 4) { SkeletonItemRow() }
+            // 跟著實際內容(#204 核對):圓餅圖加每個分類一列、年份開頭的收支趨勢、預算列數(上次的)加「新增預算額度」。
+            let counts = model.skeletonCounts
+            Section {
+                SkeletonChart().skeletonRow()
+                ForEach(0..<counts.categories, id: \.self) { _ in SkeletonItemRow().skeletonRow() }
+            } header: {
+                SkeletonHeader("支出分類")
+            }
+            SkeletonSection(title: "\(model.yearTitle)收支趨勢", count: 1) { SkeletonChart(height: 180) }
+            Section {
+                ForEach(0..<counts.budgets, id: \.self) { _ in SkeletonItemRow().skeletonRow() }
+                ActionRowLabel(title: "新增預算額度", systemImage: "plus").skeletonRow()
+            } header: {
+                SkeletonHeader("預算額度")
+            }
         case .failed(let message):
             Section {
                 ContentUnavailableView {

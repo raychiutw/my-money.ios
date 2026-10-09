@@ -93,14 +93,37 @@ public final class StatisticsModel {
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var loadedVersion: Int?
     @ObservationIgnored private let locale: Locale
+    @ObservationIgnored private let defaults: UserDefaults
+
+    /// 骨架屏的分類列數與預算列數(#204 核對);第一次沒有記錄時各 3。
+    public struct SkeletonCounts: Equatable, Sendable {
+        public let categories: Int
+        public let budgets: Int
+
+        public init(categories: Int, budgets: Int) {
+            self.categories = categories
+            self.budgets = budgets
+        }
+    }
+
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.statistics") }
+
+    public var skeletonCounts: SkeletonCounts {
+        SkeletonCounts(
+            categories: skeletonMemory.count(for: "categories", default: 3, limit: 6),
+            budgets: skeletonMemory.count(for: "budgets", default: 3, limit: 6)
+        )
+    }
 
     /// `locale` 決定月份的格式，預設跟著系統。
     public init(
         repository: any StatisticsRepository,
         dataVersion: DataVersion,
+        defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.defaults = defaults
         self.repository = repository
         self.dataVersion = dataVersion
         self.locale = locale
@@ -184,6 +207,8 @@ public final class StatisticsModel {
             }
             .filter { $0.budget != nil || $0.spent > .zero }
             loadedVersion = version
+            skeletonMemory.record(count: categoryExpenses.count, for: "categories")
+            skeletonMemory.record(count: budgetRows.count, for: "budgets")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。

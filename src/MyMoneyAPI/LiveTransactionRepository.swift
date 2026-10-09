@@ -63,9 +63,12 @@ private struct TransactionDTO: Decodable {
     /// 上游 ADR 0020 起的欄位(0/1);舊的回應沒有，當成未出帳。
     let isBilled: Int?
     let defersToNextStatement: Int?
+    /// 後端自動記下的建立時間(UTC,`YYYY-MM-DD HH:mm:ss`,#207)。
+    let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
+        case createdAt = "created_at"
         case accountID = "account_id"
         case accountName = "account_name"
         case isShared = "is_shared"
@@ -91,7 +94,8 @@ private struct TransactionDTO: Decodable {
             isShared: isShared == 1,
             recorderName: userName,
             recorderID: userID.map(UserID.init),
-            billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0)
+            billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0),
+            recordedAt: RecordedTime.date(fromBackend: createdAt)
         )
     }
 }

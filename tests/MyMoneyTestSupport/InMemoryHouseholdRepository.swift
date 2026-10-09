@@ -37,7 +37,8 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         pendingReimbursement: Money(250),
         advanceItems: [AdvanceItem(
             id: TransactionID("sample-advance"), date: CalendarDay(year: 2026, month: 9, day: 28), category: .dining,
-            note: "全家晚餐", amount: Money(250), accountName: "iOS 測試皮夾", accountKind: .cash
+            note: "全家晚餐", amount: Money(250), accountName: "iOS 測試皮夾", accountKind: .cash,
+            recordedAt: SampleTransactions.clock(CalendarDay(year: 2026, month: 9, day: 28), 19, 20)
         )],
         reimbursementItems: [],
         receivingAccounts: [
@@ -81,7 +82,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
                 advanceItems: advance.advanceItems,
                 reimbursementItems: [ReimbursementItem(
                     id: TransactionID("in-memory-reimbursement-\(reimbursements.count)"), date: reimbursement.date,
-                    amount: reimbursement.amount, note: reimbursement.note, accountName: "收款帳戶"
+                    amount: reimbursement.amount, note: reimbursement.note, accountName: "收款帳戶", recordedAt: Date()
                 )] + advance.reimbursementItems,
                 receivingAccounts: advance.receivingAccounts
             )

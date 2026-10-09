@@ -6,6 +6,28 @@ final class TransactionsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// 記帳時間(上游 718ace9、#207):每列第二行最前面是台灣時間的 HH:mm,VoiceOver 也念;一般與最大字級都不截斷。
+    @MainActor
+    func testRowShowsTheRecordedTime() throws {
+        for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] as [String?] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-uiTesting", "-resetSession"] + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+            app.launch()
+            signIn(app)
+            app.tabBars.buttons["記帳"].tap()
+            // 範例的午餐記在台灣時間 12:30。
+            let lunch = element(in: app, labelContaining: "午餐")
+            _ = lunch.waitForExistence(timeout: 5)
+            for _ in 0..<8 where !lunch.exists { app.swipeUp() }
+            XCTAssertTrue(ScrollSupport.revealFully(lunch, in: app), "找不到午餐這一列")
+            XCTAssertTrue(lunch.label.contains("12:30"), "VoiceOver 沒有念記帳時間:\(lunch.label)")
+            let image = lunch.screenshot().image
+            let text = try TextRecognition.lines(in: image).joined(separator: " ")
+            XCTAssertTrue(text.contains("12:30"), "列上看不到記帳時間 12:30(\(size ?? "一般字級")):\(text)")
+            app.terminate()
+        }
+    }
+
     /// 列表顯示本月的收支明細;記一筆 250 元後出現在列表上。
     @MainActor
     func testListShowsThisMonthAndQuickEntryAddsTransaction() throws {
@@ -528,7 +550,10 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["記帳"].tap()
 
-        let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元"]
+        // 記帳時間(#207)念在帳戶之後、歸屬之前:「…，帳戶 iOS 測試存款，中午12:30，家庭公帳，支出 120 元」。
+        let lunch = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "餐飲，午餐，帳戶 iOS 測試存款，", "，家庭公帳，支出 120 元")
+        ).firstMatch
         XCTAssertTrue(lunch.waitForExistence(timeout: 5), "午餐那一列沒有念成一句完整的話")
         XCTAssertTrue(
             app.staticTexts[Self.taipeiTodayHeader()].exists,
@@ -542,7 +567,9 @@ final class TransactionsUITests: XCTestCase {
         )
 
         // 沒有備註的列用分類名稱，不重複念兩次。薪資在本月 1 號，在清單最下面。
-        let salary = app.descendants(matching: .any)["薪資，帳戶 iOS 測試存款，家庭公帳，收入 45,000 元"]
+        let salary = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "薪資，帳戶 iOS 測試存款，", "，家庭公帳，收入 45,000 元")
+        ).firstMatch
         for _ in 0..<5 where !salary.exists { app.swipeUp() }
         XCTAssertTrue(salary.exists, "沒有備註的列沒有用分類名稱念成一句話")
     }

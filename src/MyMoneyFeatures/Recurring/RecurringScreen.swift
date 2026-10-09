@@ -100,8 +100,10 @@ struct RecurringScreen: View {
                             .skeletonRow()
                     }
                 }
-                SkeletonSection(title: "週期支出", count: 3) { SkeletonItemRow() }
-                SkeletonSection(title: "週期收入", count: 1) { SkeletonItemRow() }
+                // 跟著實際內容(#204 核對):標題帶筆數,筆數是上次載入完成時的筆數(沒有項目時是一列「尚未新增…」)。
+                let counts = model.skeletonCounts
+                SkeletonSection(title: "週期支出(\(counts.expenses))", count: max(counts.expenses, 1)) { SkeletonItemRow() }
+                SkeletonSection(title: "週期收入(\(counts.incomes))", count: max(counts.incomes, 1)) { SkeletonItemRow() }
             }
         case .failed(let message):
             ContentUnavailableView {

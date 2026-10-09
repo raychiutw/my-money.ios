@@ -2,6 +2,13 @@ import MyMoneyDomain
 
 /// 不連網路的儲蓄目標，記下建立、編輯、存入、刪除的內容。
 public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
+    /// UI 測試的骨架屏要停留夠久(#204 核對):主要的讀取先等這麼久。每次查詢各自 sleep,不用 `Gate`(它的取消會放行所有等待者)。
+    private var loadDelay: Duration?
+
+    public func setLoadDelay(_ delay: Duration?) {
+        loadDelay = delay
+    }
+
     public struct Deposit: Equatable, Sendable {
         public let id: SavingsGoalID
         public let amount: Money
@@ -48,6 +55,7 @@ public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
     }
 
     public func goals() async throws -> [SavingsGoal] {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         fetchCount += 1
         if let failure { throw failure }
         return stored
