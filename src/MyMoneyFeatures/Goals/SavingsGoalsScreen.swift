@@ -72,10 +72,10 @@ struct SavingsGoalsScreen: View {
         case .loading:
             List {
                 Section {
-                    SummaryRow(title: "已存金額合計", amount: Skeleton.amount)
+                    SummaryRow(title: "已存金額合計", amount: .plain(Skeleton.amount))
                         .skeletonAnnouncement()
                     ForEach(0..<3, id: \.self) { _ in
-                        AmountRow(title: "摘要數字", amount: Skeleton.amount)
+                        AmountRow(title: "摘要數字", amount: .plain(Skeleton.amount))
                             .skeletonRow()
                     }
                 }
@@ -102,8 +102,8 @@ struct SavingsGoalsScreen: View {
             List {
                 // 摘要：已存金額合計是主數字，其餘是一般列(DESIGN.md「列與欄位」第 6 條，#77)。
                 Section {
-                    SummaryRow(title: "已存金額合計", amount: model.totalSaved)
-                    AmountRow(title: "目標金額合計", amount: model.totalTarget)
+                    SummaryRow(title: "已存金額合計", amount: .plain(model.totalSaved))
+                    AmountRow(title: "目標金額合計", amount: .plain(model.totalTarget))
                     LabeledContent("整體達成率") {
                         // 值用主要文字色，跟同一區 `AmountRow` 的金額一致(`LabeledContent` 預設是次要文字色)。
                         Text(model.overallRateText)
@@ -115,7 +115,7 @@ struct SavingsGoalsScreen: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("整體達成率")
                     .accessibilityValue(model.overallRateText)
-                    AmountRow(title: "每月預留合計", amount: model.totalMonthlyReserve)
+                    AmountRow(title: "每月預留合計", amount: .plain(model.totalMonthlyReserve))
                 }
                 if model.goals.isEmpty {
                     Section {

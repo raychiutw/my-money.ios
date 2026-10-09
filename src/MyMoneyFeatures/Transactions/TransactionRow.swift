@@ -139,9 +139,8 @@ struct TransactionRow: View {
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amount: some View {
-        Text(transaction.signedAmountText)
+        AmountText(transaction.amountPresentation)
             .monospacedDigit()
-            .foregroundStyle(transaction.amountColor)
             .lineLimit(1)
             .fixedSize()
     }

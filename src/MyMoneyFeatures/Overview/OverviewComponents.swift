@@ -180,11 +180,11 @@ struct OverviewAccountCardView: View {
                 Image(systemName: card.symbolName)
                     .foregroundStyle(Color(hex: card.colorHex) ?? .gray)
             }
-            Text(card.amountText)
+            Text(card.presentation.text)
                 .font(.title3.bold())
                 .monospacedDigit()
                 .lineLimit(1)
-                .foregroundStyle(card.tone.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+                .foregroundStyle(card.presentation.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(maxWidth: .infinity, alignment: .trailing)
             ForEach(card.detailLines, id: \.self) { line in
                 BreakableLine(text: line, alignment: .leading)

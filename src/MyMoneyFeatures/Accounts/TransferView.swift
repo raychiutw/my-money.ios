@@ -31,7 +31,7 @@ struct TransferView: View {
                         placeholder: "請選擇轉出帳戶"
                     )
                     if let balance = model.availableBalance {
-                        AmountRow(title: "可用餘額", amount: balance)
+                        AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
                     AccountPicker(
                         title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init),

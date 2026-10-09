@@ -23,7 +23,7 @@ struct ReimbursementView: View {
                         placeholder: "請選擇家庭共同基金帳戶"
                     )
                     if let balance = model.availableBalance {
-                        AmountRow(title: "可用餘額", amount: balance)
+                        AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
                     // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
                     AccountPicker(

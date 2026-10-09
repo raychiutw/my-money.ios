@@ -10,7 +10,7 @@ struct AccountsHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            BigNumber(title: "淨可用餘額", amount: balance)
+            BigNumber(title: "淨可用餘額", amount: .stock(balance))
             if !segments.isEmpty {
                 CompositionBar(segments: segments, summary: summary ?? "")
             }

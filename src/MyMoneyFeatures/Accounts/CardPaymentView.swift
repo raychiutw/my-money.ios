@@ -16,8 +16,7 @@ struct CardPaymentView: View {
     /// 負債列(#202):金額是紅色負數,零不帶號、一般色。
     private func debtRow(_ title: String, _ amount: Money) -> some View {
         LabeledContent(title) {
-            Text(amount.formatted(flow: .outflow))
-                .foregroundStyle(amount.tone(of: .outflow).color ?? .primary)
+            AmountText(.outflow(amount))
         }
     }
 
@@ -46,7 +45,7 @@ struct CardPaymentView: View {
                         placeholder: "請選擇扣款銀行"
                     )
                     if let balance = model.availableBalance {
-                        AmountRow(title: "可用餘額", amount: balance)
+                        AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
                     LabeledContent("繳款金額") {
                         AmountField(

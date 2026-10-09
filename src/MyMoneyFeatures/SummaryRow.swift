@@ -5,24 +5,18 @@ import SwiftUI
 /// 明細選填(例如整體達成率);解釋算法的說明不寫，見 DESIGN.md「說明文字」。
 struct SummaryRow: View {
     let title: String
-    let amount: Money
+    let amount: AmountPresentation
     var detail: String?
-    var warnsWhenNegative = false
-    /// 顯示的文字與顏色(#202):流量帶 +/−;沒有指定時照金額與 `warnsWhenNegative`。
-    var text: String?
-    var style: Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(text ?? amount.formatted())
+            Text(amount.text)
                 .font(.title2.bold())
                 .monospacedDigit()
-                .foregroundStyle(
-                    style.map(AnyShapeStyle.init) ?? (warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                )
+                .foregroundStyle(amount.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
             if let detail {
                 Text(detail)
                     .font(.subheadline)
@@ -39,17 +33,12 @@ struct SummaryRow: View {
 /// 金額一律單行。VoiceOver 念標籤，值是金額。
 struct AmountRow: View {
     let title: String
-    let amount: Money
-    /// 顯示的文字，預設是金額;交易頁的總收入、總支出另外帶正負號。
-    var text: String?
-    /// 金額的顏色，預設是主要文字色;`warnsWhenNegative` 時負數用紅色。
-    var style: Color?
-    var warnsWhenNegative = false
+    let amount: AmountPresentation
 
     var body: some View {
         LabeledContent(title) {
-            Text(text ?? amount.formatted())
-                .foregroundStyle(color)
+            Text(amount.text)
+                .foregroundStyle(amount.color ?? .primary)
                 .monospacedDigit()
                 .lineLimit(1)
                 .fixedSize()
@@ -58,9 +47,18 @@ struct AmountRow: View {
         .accessibilityLabel(title)
         .accessibilityValue(amount.spokenText)
     }
+}
 
-    private var color: Color {
-        if let style { return style }
-        return warnsWhenNegative && amount < .zero ? .red : .primary
+/// 一個金額的文字(#208):文字與顏色都來自 `AmountPresentation`,呼叫端不再自己配對。字級、行數等由呼叫端接著加。
+struct AmountText: View {
+    let amount: AmountPresentation
+
+    init(_ amount: AmountPresentation) {
+        self.amount = amount
+    }
+
+    var body: some View {
+        Text(amount.text)
+            .foregroundStyle(amount.color ?? .primary)
     }
 }

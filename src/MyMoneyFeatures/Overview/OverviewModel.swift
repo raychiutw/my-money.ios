@@ -142,19 +142,17 @@ public final class OverviewModel {
         let cardDue = totalCardDue ?? .zero
         return [
             SummaryTile(
-                title: "可支配現金", spokenTitle: "真實可支配現金", amount: summary.disposableCash,
-                text: summary.disposableCash.formatted(), tone: summary.disposableCash < .zero ? .negative : .neutral,
+                title: "可支配現金", spokenTitle: "真實可支配現金", presentation: .stock(summary.disposableCash),
                 details: ["每月平均 \(summary.monthlyAmortization.formatted())", "每月預留 \(summary.monthlySavingsReserve.formatted())"],
                 spokenDetails: "\(Terms.expenseAmortization) \(summary.monthlyAmortization.spokenText)，每月預留 \(summary.monthlySavingsReserve.spokenText)"
             ),
             SummaryTile(
-                title: "當月淨收支", spokenTitle: netTitle, amount: monthNet, text: monthNet.signedFormatted(), tone: monthNet.tone,
+                title: "當月淨收支", spokenTitle: netTitle, presentation: .net(monthNet),
                 details: ["收入 \(monthIncome.formatted(flow: .inflow))", "支出 \(monthExpense.formatted(flow: .outflow))"],
                 spokenDetails: "收入 \(monthIncome.spokenText)，支出 \(monthExpense.spokenText)"
             ),
             SummaryTile(
-                title: "信用卡待繳", spokenTitle: "信用卡待繳", amount: cardDue,
-                text: cardDue.formatted(flow: .outflow), tone: cardDue.tone(of: .outflow),
+                title: "信用卡待繳", spokenTitle: "信用卡待繳", presentation: .outflow(cardDue),
                 details: cardTileDetails, spokenDetails: cardTileSpokenDetails
             ),
         ]
@@ -239,11 +237,11 @@ public struct SummaryTile: Identifiable, Hashable, Sendable {
     public let title: String
     /// VoiceOver 念的正名。
     public let spokenTitle: String
-    public let amount: Money
-    /// 畫面上的數字文字(#202):可支配現金是存量照原樣、當月淨收支依正負帶 +/−、信用卡待繳是負數。
-    public let text: String
-    /// 數字的顏色角色(#202):負數紅、正數綠;存量為正與零是一般色。
-    public let tone: AmountTone
+    /// 數字的呈現(#202、#208):可支配現金是存量、當月淨收支依正負帶 +/−、信用卡待繳是負數。
+    public let presentation: AmountPresentation
+    public var amount: Money { presentation.amount }
+    public var text: String { presentation.text }
+    public var tone: AmountTone { presentation.tone }
     /// 用警示色(負數的可支配現金與淨收支、有待繳的信用卡)。
     public var isWarning: Bool { tone == .negative }
     /// 磚上的兩行組成明細(#178);VoiceOver 念 `spokenDetails`。
@@ -318,15 +316,13 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     /// 信用卡有待繳款:金額用警示色。
     public var isDue: Bool { isCreditCard && amount > .zero }
 
-    /// 金額的畫面文字(#202):信用卡待繳是負數(後端的值是正數),現金與活存帳戶是存量照原樣。
-    public var amountText: String {
-        isCreditCard ? amount.formatted(flow: .outflow) : amount.formatted()
+    /// 金額的呈現(#202、#208):信用卡待繳是負數(後端的值是正數),現金與活存帳戶是存量照原樣、負的餘額紅色。
+    public var presentation: AmountPresentation {
+        isCreditCard ? .outflow(amount) : .stock(amount)
     }
 
-    /// 金額的顏色角色:有待繳的信用卡與負的餘額是紅色,其餘一般色。
-    public var tone: AmountTone {
-        isCreditCard ? amount.tone(of: .outflow) : (amount < .zero ? .negative : .neutral)
-    }
+    public var amountText: String { presentation.text }
+    public var tone: AmountTone { presentation.tone }
 }
 
 /// 超支警告的一列：分類名稱和超支金額(#75)。已花、預算額度在統計頁的預算額度。

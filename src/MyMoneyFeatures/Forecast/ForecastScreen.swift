@@ -100,7 +100,7 @@ struct ForecastScreen: View {
             .accessibilityElement(children: .combine)
             if let start = model.startingBalance(of: forecast) {
                 VStack(alignment: .leading, spacing: 4) {
-                    AmountRow(title: "起始餘額", amount: start.amount)
+                    AmountRow(title: "起始餘額", amount: .stock(start.amount))
                     Text(start.detail)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -117,9 +117,8 @@ struct ForecastScreen: View {
             }
             SummaryRow(
                 title: "最低餘額",
-                amount: forecast.minBalance,
-                detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))",
-                warnsWhenNegative: true
+                amount: .stock(forecast.minBalance),
+                detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))"
             )
             LabeledContent(ForecastModel.eventsCountTitle, value: "\(forecast.events.count) 筆")
         }
@@ -330,9 +329,8 @@ private struct ForecastEventRow: View {
 
     /// 金額一律單行，帶正負號(收入綠、支出紅)。
     private var amount: some View {
-        Text(event.amount.formatted(flow: event.type == .income ? .inflow : .outflow))
+        AmountText(event.type == .income ? .inflow(event.amount) : .outflow(event.amount))
             .monospacedDigit()
-            .foregroundStyle(event.amount.tone(of: event.type == .income ? .inflow : .outflow).color ?? .primary)
             .strikethrough(event.isSettled)
             .lineLimit(1)
             .fixedSize()

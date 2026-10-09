@@ -122,7 +122,7 @@ struct OverviewScreen: View {
                 NumberTileRow(memory: model.skeletonShape) {
                     ForEach(model.summaryTiles) { tile in
                         NumberTile(
-                            title: tile.title, amount: tile.amount, text: tile.text, style: tile.tone.color, spokenTitle: tile.spokenTitle,
+                            title: tile.title, amount: tile.presentation, spokenTitle: tile.spokenTitle,
                             details: tile.details, spokenDetails: tile.spokenDetails
                         )
                     }
@@ -270,7 +270,7 @@ private struct OverviewSkeleton: View {
             ) {
                 ForEach(0..<3, id: \.self) { index in
                     NumberTile(
-                        title: "可支配現金", amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted(),
+                        title: "可支配現金", amount: .plain(Skeleton.tileAmount),
                         details: ["組成明細", "組成明細"]
                     )
                     .skeletonCell("overview.skeleton.tile.\(index)")

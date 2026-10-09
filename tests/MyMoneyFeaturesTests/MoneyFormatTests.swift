@@ -82,3 +82,42 @@ struct AmountSignTests {
         #expect(Money.zero.tone(of: .outflow) == .neutral)
     }
 }
+
+/// 金額呈現(#208):文字、顏色角色與 VoiceOver 念法由同一個 interface 一次決定,元件只收這個結果。
+@Suite("金額呈現(AmountPresentation)")
+struct AmountPresentationTests {
+    @Test("存量:原樣顯示,正數與零一般色、負數紅色負數;念法是金額本身")
+    func stock() {
+        #expect(AmountPresentation.stock(Money(50000)).text == "$50,000")
+        #expect(AmountPresentation.stock(Money(50000)).tone == .neutral)
+        #expect(AmountPresentation.stock(Money(-82156)).text == "−$82,156")
+        #expect(AmountPresentation.stock(Money(-82156)).tone == .negative)
+        #expect(AmountPresentation.stock(Money(-82156)).spokenText == "負 82,156 元")
+        #expect(AmountPresentation.stock(.zero).tone == .neutral)
+    }
+
+    @Test("流量與負債:錢出去紅色負數、錢進來綠色正數,零不帶號一般色")
+    func flows() {
+        #expect(AmountPresentation.outflow(Money(9178)).text == "−$9,178")
+        #expect(AmountPresentation.outflow(Money(9178)).tone == .negative)
+        #expect(AmountPresentation.inflow(Money(45000)).text == "+$45,000")
+        #expect(AmountPresentation.inflow(Money(45000)).tone == .positive)
+        #expect(AmountPresentation.outflow(.zero).text == "$0")
+        #expect(AmountPresentation.outflow(.zero).tone == .neutral)
+        #expect(AmountPresentation.outflow(Money(9178)).spokenText == "9,178 元", "念法不念符號(後端的值是正數)")
+    }
+
+    @Test("淨額:依自己的正負帶 +/−、綠或紅")
+    func net() {
+        #expect(AmountPresentation.net(Money(4206)).text == "+$4,206")
+        #expect(AmountPresentation.net(Money(4206)).tone == .positive)
+        #expect(AmountPresentation.net(Money(-4206)).text == "−$4,206")
+        #expect(AmountPresentation.net(Money(-4206)).tone == .negative)
+    }
+
+    @Test("plain:原樣、一般色(骨架佔位、不需要警示的數字),負數也不變色")
+    func plain() {
+        #expect(AmountPresentation.plain(Money(-10)).text == "−$10")
+        #expect(AmountPresentation.plain(Money(-10)).tone == .neutral)
+    }
+}

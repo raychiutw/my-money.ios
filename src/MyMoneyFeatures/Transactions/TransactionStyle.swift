@@ -35,9 +35,9 @@ extension TransactionCategory {
 }
 
 extension MyMoneyDomain.Transaction {
-    /// 帶正負號的金額，例如 `+$45,000`、`−$120`。
-    var signedAmountText: String {
-        amount.formatted(flow: type == .income ? .inflow : .outflow)
+    /// 金額的呈現(#208):收入綠色 `+$45,000`、支出紅色 `−$120`。
+    var amountPresentation: AmountPresentation {
+        type == .income ? .inflow(amount) : .outflow(amount)
     }
 
     /// 列上的名稱:備註，沒有備註時用分類名稱。
@@ -48,9 +48,6 @@ extension MyMoneyDomain.Transaction {
         (type == .income ? "收入 " : "支出 ") + amount.spokenText
     }
 
-    var amountColor: Color {
-        amount.tone(of: type == .income ? .inflow : .outflow).color ?? .primary
-    }
 }
 
 /// 公帳或私帳的標記：symbol 加文字，不只靠顏色(DESIGN.md「顏色」)。

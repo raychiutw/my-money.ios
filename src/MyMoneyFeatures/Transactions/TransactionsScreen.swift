@@ -264,7 +264,7 @@ private struct DayHeader: View {
 private struct TransactionsHeroSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            BigNumber(title: "淨收支", amount: Skeleton.amount)
+            BigNumber(title: "淨收支", amount: .plain(Skeleton.amount))
             SkeletonChart(height: 110)
         }
         .padding(.horizontal, 8)

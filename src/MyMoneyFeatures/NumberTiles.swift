@@ -23,13 +23,7 @@ extension Color {
 /// 整塊是一個 VoiceOver 元素:標籤是標題，值是金額。
 struct BigNumber: View {
     let title: String
-    let amount: Money
-    /// 顯示的文字，預設是金額。
-    var text: String?
-    /// 負數用紅色。
-    var warnsWhenNegative = true
-    /// 指定顏色(#202:流量的淨額正數綠、負數紅);沒有指定時照 `warnsWhenNegative`。
-    var style: Color?
+    let amount: AmountPresentation
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -42,9 +36,7 @@ struct BigNumber: View {
                 number(digits: .title.weight(.bold), symbol: .title3.weight(.semibold))
             }
             .lineLimit(1)
-            .foregroundStyle(
-                style.map(AnyShapeStyle.init) ?? (warnsWhenNegative && amount < .zero ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-            )
+            .foregroundStyle(amount.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
@@ -53,7 +45,7 @@ struct BigNumber: View {
 
     /// 開頭的符號與貨幣(第一個數字之前，例如「$」「-$」)是小的灰字，數字本身是大字。
     private func number(digits digitsFont: Font, symbol symbolFont: Font) -> Text {
-        let full = text ?? amount.formatted()
+        let full = amount.text
         let digitsStart = full.firstIndex(where: \.isNumber) ?? full.startIndex
         let symbol = Text(String(full[..<digitsStart]))
             .font(symbolFont)
@@ -91,12 +83,7 @@ extension EnvironmentValues {
 /// 數字單行，不折行、不截斷、不縮小(單欄時有整列的寬度)。VoiceOver 念「標籤，金額」。
 struct NumberTile: View {
     let title: String
-    let amount: Money
-    /// 顯示的文字，預設是金額;帶正負號的總收入、總支出另外傳。
-    var text: String?
-    /// 數字的顏色，預設是主要文字色;`warnsWhenNegative` 時負數用紅色。
-    var style: Color?
-    var warnsWhenNegative = false
+    let amount: AmountPresentation
     /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 CONTEXT.md 的正名(例如「信用卡待繳總額」)。
     var spokenTitle: String?
     /// 金額底下的組成明細(總覽的三格數字,#178):小字、靠右、放不下就折行(不截斷)。
@@ -180,16 +167,11 @@ struct NumberTile: View {
     }
 
     private var number: some View {
-        Text(text ?? amount.formatted())
+        Text(amount.text)
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
-            .foregroundStyle(color)
-    }
-
-    private var color: Color {
-        if let style { return style }
-        return warnsWhenNegative && amount < .zero ? .red : .primary
+            .foregroundStyle(amount.color ?? .primary)
     }
 }
 
@@ -273,11 +255,7 @@ struct NumberCard: View {
     let title: String
     let symbol: String
     let symbolColor: Color
-    let amount: Money
-    /// 顯示的文字,預設是金額;信用卡待繳是負數(#202)另外傳。
-    var text: String?
-    /// 警示狀態(例如信用卡有待繳):金額用紅色。
-    var isWarning = false
+    let amount: AmountPresentation
     /// 金額同一行左邊的小字，例如「個人私帳・5 日繳」;沒有就只有金額。
     var caption: String?
     /// VoiceOver 念的整句。
@@ -328,11 +306,11 @@ struct NumberCard: View {
     }
 
     private var amountText: some View {
-        Text(text ?? amount.formatted())
+        Text(amount.text)
             .font(.title3.bold())
             .monospacedDigit()
             .lineLimit(1)
-            .foregroundStyle(isWarning ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            .foregroundStyle(amount.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
     }
 }
 

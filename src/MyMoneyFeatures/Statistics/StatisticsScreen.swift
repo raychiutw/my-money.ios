@@ -56,7 +56,7 @@ struct StatisticsScreen: View {
         case .loading:
             Section {
                 VStack(alignment: .leading, spacing: 16) {
-                    BigNumber(title: "支出", amount: Skeleton.amount)
+                    BigNumber(title: "支出", amount: .plain(Skeleton.amount))
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -92,10 +92,7 @@ struct StatisticsScreen: View {
             }
         case .loaded:
             Section {
-                BigNumber(
-                    title: model.expenseTitle, amount: model.totalCategoryExpense, text: model.totalCategoryExpense.formatted(flow: .outflow),
-                    warnsWhenNegative: false, style: model.totalCategoryExpense.tone(of: .outflow).color
-                )
+                BigNumber(title: model.expenseTitle, amount: .outflow(model.totalCategoryExpense))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .clearListRow()
@@ -193,9 +190,8 @@ struct StatisticsScreen: View {
                 .padding(.vertical, 8)
                 ForEach(model.categoryExpenses, id: \.category) { expense in
                     LabeledContent {
-                        Text(expense.total.formatted(flow: .outflow))
+                        AmountText(.outflow(expense.total))
                             .monospacedDigit()
-                            .foregroundStyle(expense.total.tone(of: .outflow).color ?? .primary)
                     } label: {
                         Label {
                             Text(expense.category.name)
@@ -307,8 +303,7 @@ private struct BudgetRowView: View {
     /// 「已花 / 預算」:已花是主要數字，預算(或「未設定」)是次要色。金額一律單行(DESIGN.md「列與欄位」)。
     private var figures: some View {
         HStack(spacing: 4) {
-            Text(row.spent.formatted(flow: .outflow))
-                .foregroundStyle(row.spent.tone(of: .outflow).color ?? .primary)
+            AmountText(.outflow(row.spent))
             Text("/")
                 .foregroundStyle(.secondary)
             Text(row.budget.map { $0.amount.formatted() } ?? "未設定")

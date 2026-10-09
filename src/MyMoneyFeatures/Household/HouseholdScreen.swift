@@ -123,7 +123,7 @@ struct HouseholdScreen: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
-                    BigNumber(title: "分攤建議", amount: Skeleton.amount)
+                    BigNumber(title: "分攤建議", amount: .plain(Skeleton.amount))
                     SkeletonChart(height: 160)
                 }
                 .padding(.horizontal, 8)
@@ -135,7 +135,7 @@ struct HouseholdScreen: View {
                 Section {
                     NumberTileRow(forcedSingleColumn: tileMemoryChoice) {
                         ForEach(["累計代墊", "已報銷", "待報銷"], id: \.self) { title in
-                            NumberTile(title: title, amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted())
+                            NumberTile(title: title, amount: .plain(Skeleton.tileAmount))
                                 .skeletonCell("household.skeleton.tile.\(title)")
                         }
                     }
@@ -348,9 +348,8 @@ private struct AdvanceDetails: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(amount.formatted(flow: isIncome ? .inflow : .outflow))
+            AmountText(isIncome ? .inflow(amount) : .outflow(amount))
                 .monospacedDigit()
-                .foregroundStyle(amount.tone(of: isIncome ? .inflow : .outflow).color ?? .primary)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)")
@@ -425,10 +424,9 @@ private struct MemberRow: View {
                     Text("待報銷")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(advance.pendingReimbursement.formatted(flow: .outflow))
+                    AmountText(.outflow(advance.pendingReimbursement))
                         .font(.headline)
                         .monospacedDigit()
-                        .foregroundStyle(.red)
                         .lineLimit(1)
                         .fixedSize()
                 }
