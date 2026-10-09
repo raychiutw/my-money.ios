@@ -6,12 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class AccountsModel {
-    public enum Phase: Equatable {
-        /// 第一次載入，還沒有任何資料:畫面只顯示載入中，不顯示 `$0`。
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
 
@@ -86,7 +81,7 @@ public final class AccountsModel {
 
     /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。
     public var showsPendingAdvanceBanner: Bool {
-        loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
+        freshness.scope == .household && (pendingAdvanceTotal ?? .zero) > .zero
     }
 
     /// 橫幅的一句話，例如「家庭公帳待報銷總額 $850」。
@@ -114,7 +109,7 @@ public final class AccountsModel {
     /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。看的是畫面上已載入的範圍:切換範圍重新載入期間，
     /// 畫面還是舊範圍的內容，念法與標籤要跟著內容走。
     func isPrivateCardAdvance(_ card: CreditCard) -> Bool {
-        (loadedScope ?? scope) == .household && !card.isJointFund
+        (freshness.scope ?? scope) == .household && !card.isJointFund
     }
 
     /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「家庭公帳／個人私帳・N 日繳」。
@@ -168,8 +163,7 @@ public final class AccountsModel {
     }
 
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
-    @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: AccountScope?
+    @ObservationIgnored private var freshness = LoadFreshness<AccountScope>()
 
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
@@ -188,7 +182,7 @@ public final class AccountsModel {
 
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
+        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
         await load()
     }
 
@@ -200,7 +194,7 @@ public final class AccountsModel {
     /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
+            card: card, bankAccounts: bankAccounts, loadedVersion: freshness.version, scope: scope, repository: repository,
             dataVersion: dataVersion, permissions: permissions, today: today
         )
     }
@@ -268,14 +262,13 @@ public final class AccountsModel {
             memory.record(count: bankAccounts.count, for: "bank.\(scope)")
             memory.record(count: creditCards.count, for: "card.\(scope)")
             pendingAdvanceTotal = loadedPendingAdvances
-            loadedVersion = version
-            loadedScope = scope
+            freshness.markLoaded(version: version, scope: scope)
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 }

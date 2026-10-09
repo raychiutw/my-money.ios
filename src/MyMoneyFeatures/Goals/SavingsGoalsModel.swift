@@ -6,11 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class SavingsGoalsModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
     public private(set) var goals: [SavingsGoal] = []
@@ -20,7 +16,7 @@ public final class SavingsGoalsModel {
 
     @ObservationIgnored private let repository: any SavingsGoalRepository
     @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let defaults: UserDefaults
@@ -77,18 +73,18 @@ public final class SavingsGoalsModel {
         let version = dataVersion.value
         do {
             goals = try await repository.goals()
-            loadedVersion = version
+            freshness.markLoaded(version: version)
             skeletonMemory.record(count: datedGoals.count, for: "dated")
             skeletonMemory.record(count: undatedGoals.count, for: "undated")
             phase = .loaded
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(version: dataVersion.value) else { return }
         await load()
     }
 

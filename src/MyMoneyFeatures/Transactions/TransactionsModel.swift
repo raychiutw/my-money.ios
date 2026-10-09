@@ -30,11 +30,7 @@ public struct TransactionDay: Identifiable, Sendable {
 @MainActor
 @Observable
 public final class TransactionsModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     /// 類型篩選(只在本機過濾)。
     public enum TypeFilter: Hashable, Sendable {
@@ -78,7 +74,7 @@ public final class TransactionsModel {
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
 
     /// 骨架屏每天的列數(#204 核對):上次載入完成時前三天各有幾筆(每天最多 4);第一次沒有記錄時兩天、3 與 2 筆。
     public var skeletonDayRows: [Int] {
@@ -305,19 +301,19 @@ public final class TransactionsModel {
             // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
             guard query == filter.query else { return }
             loaded = transactions
-            loadedVersion = version
+            freshness.markLoaded(version: version)
             defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
             guard query == filter.query else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(version: dataVersion.value) else { return }
         await load()
     }
 

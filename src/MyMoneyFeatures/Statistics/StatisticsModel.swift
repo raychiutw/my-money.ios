@@ -63,11 +63,7 @@ public struct Settlement: Equatable, Sendable {
 @MainActor
 @Observable
 public final class StatisticsModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     /// 預設本月(台灣時間)。
     public var month: CalendarMonth
@@ -91,7 +87,7 @@ public final class StatisticsModel {
 
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -206,20 +202,20 @@ public final class StatisticsModel {
                 )
             }
             .filter { $0.budget != nil || $0.spent > .zero }
-            loadedVersion = version
+            freshness.markLoaded(version: version)
             skeletonMemory.record(count: categoryExpenses.count, for: "categories")
             skeletonMemory.record(count: budgetRows.count, for: "budgets")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, month == self.month, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(version: dataVersion.value) else { return }
         await load()
     }
 

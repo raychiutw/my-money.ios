@@ -6,11 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class RecurringModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
     public private(set) var items: [RecurringItem] = []
@@ -31,8 +27,7 @@ public final class RecurringModel {
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let today: () -> CalendarDay
-    @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: ViewScope?
+    @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
     private static let scopeKey = "recurring.scope"
 
@@ -95,21 +90,20 @@ public final class RecurringModel {
             guard !Task.isCancelled, scope == self.scope else { return }
             self.items = loadedItems
             self.amortization = loadedAmortization
-            loadedVersion = version
-            loadedScope = scope
+            freshness.markLoaded(version: version, scope: scope)
             skeletonMemory.record(count: expenses.count, for: "expenses")
             skeletonMemory.record(count: incomes.count, for: "incomes")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
+        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
         await load()
     }
 

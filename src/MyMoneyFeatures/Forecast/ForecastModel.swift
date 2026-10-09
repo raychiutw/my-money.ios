@@ -15,11 +15,7 @@ public struct StartingBalance: Equatable, Sendable {
 @MainActor
 @Observable
 public final class ForecastModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
     /// 資料回來之前是 `nil`:畫面不會先顯示「安全」或 $0(parity 刻意偏離第 7 項)。
@@ -46,8 +42,7 @@ public final class ForecastModel {
 
     @ObservationIgnored private let repository: any ForecastRepository
     @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: ViewScope?
+    @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
@@ -148,15 +143,14 @@ public final class ForecastModel {
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             forecast = loaded
-            loadedVersion = version
-            loadedScope = scope
+            freshness.markLoaded(version: version, scope: scope)
             skeletonMemory.record(count: loaded.events.count, for: "events")
             skeletonMemory.record(flag: loaded.startingBalance != nil, for: "startingBalance")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
@@ -186,7 +180,7 @@ public final class ForecastModel {
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
+        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
         await load()
     }
 

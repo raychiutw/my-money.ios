@@ -6,11 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class HouseholdModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
     public private(set) var household: Household?
@@ -164,7 +160,7 @@ public final class HouseholdModel {
             memory.record(flag: myAdvance != nil, for: "myAdvance")
             phase = .loaded
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 

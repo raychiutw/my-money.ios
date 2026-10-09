@@ -6,11 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class OverviewModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     /// 預設全部;選過的視角記在 UserDefaults。
     public var scope: ViewScope {
@@ -82,8 +78,7 @@ public final class OverviewModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored let today: () -> CalendarDay
     @ObservationIgnored let locale: Locale
-    @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: ViewScope?
+    @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
     private static let scopeKey = "overview.scope"
 
@@ -208,13 +203,12 @@ public final class OverviewModel {
             overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
             self.goals = loadedGoals
             self.forecast = loadedForecast
-            loadedVersion = version
-            loadedScope = scope
+            freshness.markLoaded(version: version, scope: scope)
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
@@ -226,7 +220,7 @@ public final class OverviewModel {
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入;從首頁 push 的畫面(週期收支等)返回時沒變就不重抓。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
+        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
         await load()
     }
 }
