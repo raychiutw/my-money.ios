@@ -58,6 +58,7 @@ struct TransferView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("transfer.error")
                     }
@@ -78,6 +79,7 @@ struct TransferView: View {
             }
             .keyboardDismissal(clearing: $focusedField)
             .task { await model.load() }
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

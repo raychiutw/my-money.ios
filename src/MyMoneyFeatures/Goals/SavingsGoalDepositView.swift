@@ -28,6 +28,7 @@ struct SavingsGoalDepositView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("goalDeposit.error")
                     }
@@ -44,6 +45,7 @@ struct SavingsGoalDepositView: View {
                 }
             }
             .keyboardDismissal(clearing: $focusedField)
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

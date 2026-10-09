@@ -78,6 +78,7 @@ struct CardPaymentView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("cardPayment.error")
                     }
@@ -100,6 +101,7 @@ struct CardPaymentView: View {
             } message: {
                 Text(model.lowBalanceConfirmation ?? "")
             }
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()
