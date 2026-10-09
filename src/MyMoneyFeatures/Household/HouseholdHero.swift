@@ -110,7 +110,7 @@ struct MemberShareChart: View {
 /// 我的累計代墊、已報銷、待報銷(後端的值)三格數字磚;待報銷有餘額時是紅色負數，已結清不帶號、一般色(#202)。
 struct MyAdvanceTiles: View {
     let advance: HouseholdAdvance
-    var memory: TileLayoutMemory?
+    var memory: SkeletonShapeMemory?
 
     var body: some View {
         NumberTileRow(memory: memory) {

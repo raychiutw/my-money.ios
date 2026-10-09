@@ -189,7 +189,7 @@ struct AccountsScreen: View {
                 }
                 Section {
                     // 跟著實際版面(#204):磚用上次記下的並排或單欄,佔位字跟真實內容一樣寬;卡片張數用上次的張數。
-                    NumberTileRow(forcedSingleColumn: model.tileLayoutMemory.singleColumn(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize))) {
+                    NumberTileRow(forcedSingleColumn: model.skeletonShape.arrangement(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize), for: "tiles")) {
                         ForEach([Terms.cash, Terms.bankAccount, "信用卡待繳"], id: \.self) { title in
                             NumberTile(title: title, amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted())
                                 .skeletonCell("accounts.skeleton.tile.\(title)")
@@ -254,7 +254,7 @@ struct AccountsScreen: View {
             .clearListRow()
         }
         Section {
-            NumberTileRow(memory: model.tileLayoutMemory) {
+            NumberTileRow(memory: model.skeletonShape) {
                 NumberTile(title: Terms.cash, amount: model.cashTotal ?? .zero, spokenTitle: "\(Terms.cash)總額")
                 NumberTile(title: Terms.bankAccount, amount: model.bankBalanceTotal ?? .zero, spokenTitle: "\(Terms.bankAccount)餘額合計")
                 NumberTile(

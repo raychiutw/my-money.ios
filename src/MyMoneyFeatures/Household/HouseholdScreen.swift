@@ -149,7 +149,7 @@ struct HouseholdScreen: View {
     }
 
     private var tileMemoryChoice: Bool? {
-        model.tileLayoutMemory.singleColumn(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize))
+        model.skeletonMemory.arrangement(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize), for: "tiles")
     }
 
     private var notJoined: some View {
@@ -208,7 +208,7 @@ struct HouseholdScreen: View {
 
             if let mine = model.myAdvance {
                 Section {
-                    MyAdvanceTiles(advance: mine, memory: model.tileLayoutMemory)
+                    MyAdvanceTiles(advance: mine, memory: model.skeletonMemory)
                         .clearListRow()
                 }
             }

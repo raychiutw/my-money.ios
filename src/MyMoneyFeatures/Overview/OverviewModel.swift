@@ -114,11 +114,9 @@ public final class OverviewModel {
 
     public var monthNet: Money { monthIncome - monthExpense }
 
-    /// 數字磚排法的記憶(#201):載入完成時記下並排或單欄,骨架屏用同一種。存在這個 model 的 `defaults`(UI 測試的每次啟動都會清掉)。
-    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults) }
-
-    /// 功能入口格排法的記憶(#201),同上。
-    public var entryLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "overview.entryLayout") }
+    /// 骨架屏的形狀記憶(#201、#208):數字磚(`tiles`)與功能入口格(`entries`)載入完成時記下並排或單欄,骨架用同一種。
+    /// 存在這個 model 的 `defaults`(UI 測試的每次啟動都會清掉)。
+    public var skeletonShape: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.overview") }
 
     /// 標題隨視角改變;「個人私帳」是我記的全部(parity 刻意偏離第 9 項)。
     public var netTitle: String {
