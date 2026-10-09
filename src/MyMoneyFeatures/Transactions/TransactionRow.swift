@@ -86,29 +86,38 @@ struct TransactionRow: View {
             if dynamicTypeSize.isAccessibilitySize {
                 // 無障礙字級有的是縱向空間:整句折行顯示，不截斷。
                 Text(subtitle.text)
-            } else if let recorder = subtitle.recorder {
-                HStack(spacing: 0) {
-                    // 記帳時間(#207)放最前面、不被截。
-                    if let time = subtitle.time {
-                        Text("\(time)・")
-                            .lineLimit(1)
-                            .fixedSize()
-                            .monospacedDigit()
-                    }
-                    Text(recorder)
-                        .lineLimit(1)
-                    Text("・\(subtitle.tail)")
-                        .lineLimit(1)
-                        .fixedSize()
-                }
             } else {
-                Text([subtitle.time, subtitle.tail].compactMap { $0 }.joined(separator: "・"))
-                    .lineLimit(1)
-                    .monospacedDigit()
+                // 記帳時間(#207)是最次要的資訊:整行放得下才顯示;放不下就省略時間,不能擠掉記帳人與歸屬(它們被截到剩一個字比沒有時間糟)。
+                ViewThatFits(in: .horizontal) {
+                    if let time = subtitle.time {
+                        subtitleLine(recorder: subtitle.recorder, tail: subtitle.tail, time: time, truncatesRecorder: false)
+                    }
+                    subtitleLine(recorder: subtitle.recorder, tail: subtitle.tail, time: nil, truncatesRecorder: true)
+                }
             }
         }
         .font(.subheadline)
         .foregroundStyle(.secondary)
+    }
+
+    /// 「(時間・)記帳人・歸屬」一行;`truncatesRecorder` 時名稱放不下從結尾截(歸屬與標籤不被截)。
+    @ViewBuilder
+    private func subtitleLine(recorder: String?, tail: String, time: String?, truncatesRecorder: Bool) -> some View {
+        HStack(spacing: 0) {
+            if let time {
+                Text("\(time)・").monospacedDigit().lineLimit(1).fixedSize()
+            }
+            if let recorder {
+                if truncatesRecorder {
+                    Text(recorder).lineLimit(1)
+                } else {
+                    Text(recorder).lineLimit(1).fixedSize()
+                }
+                Text("・\(tail)").lineLimit(1).fixedSize()
+            } else {
+                Text(tail).lineLimit(1)
+            }
+        }
     }
 
     /// 資產帳戶名稱;沒有帳戶名稱就不佔一行。

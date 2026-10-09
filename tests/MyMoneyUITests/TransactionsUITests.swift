@@ -550,7 +550,10 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["記帳"].tap()
 
-        let lunch = app.descendants(matching: .any)["餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元"]
+        // 記帳時間(#207)念在帳戶之後、歸屬之前:「…，帳戶 iOS 測試存款，中午12:30，家庭公帳，支出 120 元」。
+        let lunch = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "餐飲，午餐，帳戶 iOS 測試存款，", "，家庭公帳，支出 120 元")
+        ).firstMatch
         XCTAssertTrue(lunch.waitForExistence(timeout: 5), "午餐那一列沒有念成一句完整的話")
         XCTAssertTrue(
             app.staticTexts[Self.taipeiTodayHeader()].exists,
@@ -564,7 +567,9 @@ final class TransactionsUITests: XCTestCase {
         )
 
         // 沒有備註的列用分類名稱，不重複念兩次。薪資在本月 1 號，在清單最下面。
-        let salary = app.descendants(matching: .any)["薪資，帳戶 iOS 測試存款，家庭公帳，收入 45,000 元"]
+        let salary = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "薪資，帳戶 iOS 測試存款，", "，家庭公帳，收入 45,000 元")
+        ).firstMatch
         for _ in 0..<5 where !salary.exists { app.swipeUp() }
         XCTAssertTrue(salary.exists, "沒有備註的列沒有用分類名稱念成一句話")
     }
