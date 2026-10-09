@@ -5,6 +5,13 @@ import MyMoneyDomain
 ///
 /// 視角的篩選是後端的規則，這裡不模擬(ADR-0001:不在 client 端重算規則)。
 public actor InMemoryTransactionRepository: TransactionRepository {
+    /// UI 測試的骨架屏要停留夠久(#204 核對):查詢先等這麼久(每次查詢各自 sleep,不用 `Gate`)。
+    private var loadDelay: Duration?
+
+    public func setLoadDelay(_ delay: Duration?) {
+        loadDelay = delay
+    }
+
     public struct Query: Equatable, Sendable {
         public let from: CalendarDay?
         public let to: CalendarDay?
@@ -49,6 +56,7 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     public func transactions(
         from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
     ) async throws -> [Transaction] {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         queries.append(Query(from: from, to: to, scope: scope, accountID: accountID, limit: limit, offset: offset))
         if let gate = nextQueryGate {
             nextQueryGate = nil

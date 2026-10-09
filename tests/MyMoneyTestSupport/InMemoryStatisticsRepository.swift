@@ -5,6 +5,13 @@ import MyMoneyDomain
 ///
 /// 分類支出依視角各給一份;視角的篩選是後端的規則，這裡不模擬(ADR-0001)。
 public actor InMemoryStatisticsRepository: StatisticsRepository {
+    /// UI 測試的骨架屏要停留夠久(#204 核對):主要的讀取先等這麼久。每次查詢各自 sleep,不用 `Gate`(它的取消會放行所有等待者)。
+    private var loadDelay: Duration?
+
+    public func setLoadDelay(_ delay: Duration?) {
+        loadDelay = delay
+    }
+
     public struct CategoryQuery: Hashable, Sendable {
         public let month: CalendarMonth
         public let scope: ViewScope
@@ -125,6 +132,7 @@ public actor InMemoryStatisticsRepository: StatisticsRepository {
     }
 
     public func monthlySummaries(year: Int, scope: ViewScope) async throws -> [MonthlySummary] {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         monthlyQueries.append(MonthlyQuery(year: year, scope: scope))
         if let failure { throw failure }
         if let transactions { return await transactions.monthlySummaries(year: year) }

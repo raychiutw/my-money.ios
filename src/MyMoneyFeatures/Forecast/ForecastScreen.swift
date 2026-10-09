@@ -70,9 +70,12 @@ struct ForecastScreen: View {
         case (_, .none):
             // 資料回來之前不顯示「安全」或 $0,改顯示骨架屏(parity 刻意偏離第 7 項)。
             List {
-                SkeletonSection(count: 3, announces: true) { SkeletonSummaryRow() }
+                // 跟著實際內容(#204 核對):摘要是 風險、(起始餘額)、最低餘額、預定收支筆數;預定收支筆數用上次的;最下面是購買力試算。
+                let counts = model.skeletonCounts
+                SkeletonSection(count: counts.hasStartingBalance ? 4 : 3, announces: true) { SkeletonSummaryRow() }
                 SkeletonSection(title: ForecastModel.chartTitle, count: 1) { SkeletonChart() }
-                SkeletonSection(title: "預定收支", count: 3) { SkeletonItemRow() }
+                SkeletonSection(title: "預定收支", count: max(counts.events, 1)) { SkeletonItemRow() }
+                SkeletonSection(title: "購買力試算", count: 2) { SkeletonSummaryRow() }
             }
         }
     }

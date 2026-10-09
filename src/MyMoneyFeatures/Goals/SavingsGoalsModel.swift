@@ -23,14 +23,34 @@ public final class SavingsGoalsModel {
     @ObservationIgnored private var loadedVersion: Int?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let defaults: UserDefaults
+
+    /// 骨架屏兩區的筆數(#204 核對):有截止日、沒有截止日;第一次沒有記錄時各 1。
+    public struct SkeletonCounts: Equatable, Sendable {
+        public let dated: Int
+        public let undated: Int
+
+        public init(dated: Int, undated: Int) {
+            self.dated = dated
+            self.undated = undated
+        }
+    }
+
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.goals") }
+
+    public var skeletonCounts: SkeletonCounts {
+        SkeletonCounts(dated: skeletonMemory.count(for: "dated", default: 1), undated: skeletonMemory.count(for: "undated", default: 1))
+    }
 
     /// `locale` 決定日期的格式，預設跟著系統;`today` 決定截止日要不要寫年份。
     public init(
         repository: any SavingsGoalRepository,
         dataVersion: DataVersion,
+        defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.defaults = defaults
         self.repository = repository
         self.dataVersion = dataVersion
         self.locale = locale
@@ -58,6 +78,8 @@ public final class SavingsGoalsModel {
         do {
             goals = try await repository.goals()
             loadedVersion = version
+            skeletonMemory.record(count: datedGoals.count, for: "dated")
+            skeletonMemory.record(count: undatedGoals.count, for: "undated")
             phase = .loaded
         } catch {
             phase = .failed(error.localizedDescription)

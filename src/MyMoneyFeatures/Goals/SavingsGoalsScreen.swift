@@ -79,11 +79,13 @@ struct SavingsGoalsScreen: View {
                             .skeletonRow()
                     }
                 }
-                SkeletonSection(title: "儲蓄目標", count: 2) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SkeletonItemRow()
-                        ProgressView(value: 0.4)
-                    }
+                // 跟著實際內容(#204 核對):有截止日、沒有截止日兩區各自的筆數(0 筆的區不畫),標題帶筆數。
+                let counts = model.skeletonCounts
+                if counts.dated > 0 {
+                    SkeletonSection(title: "有截止日的目標(\(counts.dated))", count: counts.dated) { skeletonGoalRow }
+                }
+                if counts.undated > 0 {
+                    SkeletonSection(title: "沒有截止日的目標(\(counts.undated))", count: counts.undated) { skeletonGoalRow }
                 }
             }
         case .failed(let message):
@@ -125,6 +127,13 @@ struct SavingsGoalsScreen: View {
                 goalSection("沒有截止日的目標", goals: model.undatedGoals)
             }
             .refreshable { await model.load() }
+        }
+    }
+
+    private var skeletonGoalRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SkeletonItemRow()
+            ProgressView(value: 0.4)
         }
     }
 

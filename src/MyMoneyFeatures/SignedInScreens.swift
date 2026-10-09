@@ -58,15 +58,15 @@ public struct MainScreens {
         )
         transactions = TransactionsModel(
             repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
-            permissions: permissions
+            permissions: permissions, defaults: defaults
         )
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(
             repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion, permissions: permissions,
             defaults: defaults
         )
-        goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion)
-        statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion)
+        goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults)
+        statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion, defaults: defaults)
         forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion, defaults: defaults)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,

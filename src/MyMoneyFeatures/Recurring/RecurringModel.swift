@@ -36,6 +36,25 @@ public final class RecurringModel {
 
     private static let scopeKey = "recurring.scope"
 
+    /// 骨架屏各區塊的筆數(#204 核對):上次載入完成時的筆數;第一次沒有記錄時支出 3、收入 1。
+    public struct SkeletonCounts: Equatable, Sendable {
+        public let expenses: Int
+        public let incomes: Int
+
+        public init(expenses: Int, incomes: Int) {
+            self.expenses = expenses
+            self.incomes = incomes
+        }
+    }
+
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.recurring") }
+
+    public var skeletonCounts: SkeletonCounts {
+        SkeletonCounts(
+            expenses: skeletonMemory.count(for: "expenses", default: 3), incomes: skeletonMemory.count(for: "incomes", default: 1)
+        )
+    }
+
     public init(
         repository: any RecurringRepository,
         accounts: any AccountRepository,
@@ -78,6 +97,8 @@ public final class RecurringModel {
             self.amortization = loadedAmortization
             loadedVersion = version
             loadedScope = scope
+            skeletonMemory.record(count: expenses.count, for: "expenses")
+            skeletonMemory.record(count: incomes.count, for: "incomes")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。

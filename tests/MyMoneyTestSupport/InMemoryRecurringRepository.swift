@@ -3,6 +3,13 @@ import MyMoneyDomain
 
 /// 不連網路的週期收支，記下新增、編輯、刪除的內容。
 public actor InMemoryRecurringRepository: RecurringRepository {
+    /// UI 測試的骨架屏要停留夠久(#204 核對):主要的讀取先等這麼久。每次查詢各自 sleep,不用 `Gate`(它的取消會放行所有等待者)。
+    private var loadDelay: Duration?
+
+    public func setLoadDelay(_ delay: Duration?) {
+        loadDelay = delay
+    }
+
     private var stored: [RecurringItem]
     private let currentUser: UserID?
     private let gate: Gate?
@@ -77,6 +84,7 @@ public actor InMemoryRecurringRepository: RecurringRepository {
     }
 
     public func items(scope: ViewScope) async throws -> [RecurringItem] {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
         fetchCount += 1
         requestedItemScopes.append(scope)
         await gate?.pass()

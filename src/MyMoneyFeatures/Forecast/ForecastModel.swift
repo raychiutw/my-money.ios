@@ -54,6 +54,26 @@ public final class ForecastModel {
 
     private static let scopeKey = "forecast.scope"
 
+    /// 骨架屏的預定收支筆數與摘要有沒有「起始餘額」那一組(#204 核對);第一次沒有記錄時 3 筆、有起始餘額。
+    public struct SkeletonCounts: Equatable, Sendable {
+        public let events: Int
+        public let hasStartingBalance: Bool
+
+        public init(events: Int, hasStartingBalance: Bool) {
+            self.events = events
+            self.hasStartingBalance = hasStartingBalance
+        }
+    }
+
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.forecast") }
+
+    public var skeletonCounts: SkeletonCounts {
+        SkeletonCounts(
+            events: skeletonMemory.count(for: "events", default: 3, limit: 6),
+            hasStartingBalance: skeletonMemory.flag(for: "startingBalance") ?? true
+        )
+    }
+
     /// `locale` 決定日期的格式，預設跟著系統;`today` 決定日期要不要寫年份。
     public init(
         repository: any ForecastRepository,
@@ -130,6 +150,8 @@ public final class ForecastModel {
             forecast = loaded
             loadedVersion = version
             loadedScope = scope
+            skeletonMemory.record(count: loaded.events.count, for: "events")
+            skeletonMemory.record(flag: loaded.startingBalance != nil, for: "startingBalance")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
