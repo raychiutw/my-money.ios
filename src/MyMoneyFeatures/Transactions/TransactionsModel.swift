@@ -30,11 +30,7 @@ public struct TransactionDay: Identifiable, Sendable {
 @MainActor
 @Observable
 public final class TransactionsModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     /// 類型篩選(只在本機過濾)。
     public enum TypeFilter: Hashable, Sendable {
@@ -78,7 +74,7 @@ public final class TransactionsModel {
     @ObservationIgnored private let permissions: PermissionsModel?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
 
     /// 骨架屏每天的列數(#204 核對):上次載入完成時前三天各有幾筆(每天最多 4);第一次沒有記錄時兩天、3 與 2 筆。
     public var skeletonDayRows: [Int] {
@@ -305,19 +301,19 @@ public final class TransactionsModel {
             // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
             guard query == filter.query else { return }
             loaded = transactions
-            loadedVersion = version
+            freshness.markLoaded(version: version)
             defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
             guard query == filter.query else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(version: dataVersion.value) else { return }
         await load()
     }
 
@@ -342,20 +338,9 @@ public final class TransactionsModel {
         lockReason(for: transaction) == nil ? nil : "點兩下查看為什麼不能編輯"
     }
 
-    /// 交易記錄列的記帳人：只有不是自己記的才顯示(#72)。
-    public func recorderName(of transaction: Transaction) -> String? {
-        transaction.recorderName(besides: currentUser)
-    }
-
-    /// 交易列的次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;
-    /// 沒有記帳人名稱時只寫歸屬。
-    public func subtitle(of transaction: Transaction) -> TransactionSubtitle {
-        TransactionSubtitle(
-            recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
-            ownership: OwnershipName.title(isShared: transaction.isShared),
-            billing: transaction.billing.label,
-            time: transaction.recordedAt.map(RecordedTime.clockText(of:))
-        )
+    /// 一列收支明細要呈現的全部內容(#208 第 5 項):視角是目前登入的人。
+    public func content(of transaction: Transaction) -> TransactionRowContent {
+        TransactionRowContent(transaction, viewer: currentUser)
     }
 
     public func makeEditor(for transaction: Transaction) -> TransactionEditorModel? {
@@ -456,52 +441,6 @@ extension TransactionsModel {
             let to: CalendarDay
             let accountID: AccountID?
         }
-    }
-}
-
-/// 交易列的次要文字:記帳人與歸屬分開存放，畫面放不下時先截記帳人的名稱、歸屬保留(#145)。
-public struct TransactionSubtitle: Equatable, Sendable {
-    public let recorder: String?
-    public let ownership: String
-    /// 信用卡的帳單狀態標籤「已出帳」「延至下期」(上游 ADR 0020，#188);其他沒有。
-    public let billing: String?
-    /// 記帳時間(台灣時間 HH:mm,上游 718ace9、#207);沒有時間資料是 `nil`。放在最前面。
-    public let time: String?
-
-    public init(recorder: String?, ownership: String, billing: String? = nil, time: String? = nil) {
-        self.time = time
-        self.recorder = recorder
-        self.ownership = ownership
-        self.billing = billing
-    }
-
-    /// 歸屬加帳單狀態標籤,例如「家庭公帳・延至下期」:畫面放不下時這一段保留，先截記帳人的名稱。
-    public var tail: String {
-        [ownership, billing].compactMap { $0 }.joined(separator: "・")
-    }
-
-    /// 例如「14:05・小美・家庭公帳・延至下期」;沒有時間就沒有最前面那一段,沒有記帳人名稱時只有歸屬(與標籤)。
-    public var text: String {
-        [time, recorder, tail].compactMap { $0 }.joined(separator: "・")
-    }
-}
-
-extension BillingStatus {
-    /// 列上的標籤;未出帳不標。
-    var label: String? {
-        switch self {
-        case .unbilled: nil
-        case .billed: Terms.billed
-        case .deferred: Terms.deferredToNextStatement
-        }
-    }
-}
-
-extension Transaction {
-    /// 記帳人的名稱;`user` 自己記的是 `nil`。用 ID 判斷，家人可能同名。
-    func recorderName(besides user: UserID?) -> String? {
-        guard let user, recorderID == user else { return recorderName }
-        return nil
     }
 }
 

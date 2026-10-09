@@ -5,7 +5,7 @@ import Observation
 /// 信用卡扣款還款的 sheet(parity.md「帳戶」的信用卡扣款還款)。
 @MainActor
 @Observable
-public final class CardPaymentModel {
+public final class CardPaymentModel: Submitting {
     public enum Outcome: Equatable {
         case invalid
         /// 扣款帳戶的餘額小於繳款金額，要先確認。
@@ -31,9 +31,9 @@ public final class CardPaymentModel {
     /// 繳的是他人的個人信用卡(上游 ADR 0015、#140):只能從共同基金繳家庭代墊，歸屬固定公帳，金額上限是家庭代墊待繳額。
     public let isMaskedCard: Bool
 
-    public private(set) var errorMessage: String?
+    public package(set) var errorMessage: String?
     public private(set) var lowBalanceConfirmation: String?
-    public private(set) var isSaving = false
+    public package(set) var isSaving = false
 
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
@@ -105,18 +105,12 @@ public final class CardPaymentModel {
             lowBalanceConfirmation = "扣款帳戶「\(bank.name)」目前餘額是 \(bank.balance.formatted()),小於繳款金額 \(amount.formatted())。確定仍要繼續扣款嗎？"
             return .needsConfirmation
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "繳款失敗", {
             try await repository.payCreditCard(CardPayment(
                 bankAccountID: bankAccountID, creditCardID: card.id, amount: amount, date: date,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines), isShared: isShared
             ))
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "繳款失敗" : message
-            return .failed
-        }
+        }) != nil else { return .failed }
         dataVersion.bump()
         return .paid
     }

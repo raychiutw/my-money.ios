@@ -23,7 +23,7 @@ struct ReimbursementView: View {
                         placeholder: "請選擇家庭共同基金帳戶"
                     )
                     if let balance = model.availableBalance {
-                        AmountRow(title: "可用餘額", amount: balance)
+                        AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
                     // 可收款帳戶只有名稱和類型，不顯示其他成員個人私帳的餘額。
                     AccountPicker(
@@ -58,6 +58,7 @@ struct ReimbursementView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("reimbursement.error")
                     }
@@ -78,6 +79,7 @@ struct ReimbursementView: View {
             }
             .keyboardDismissal(clearing: $focusedField)
             .task { await model.load() }
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

@@ -16,7 +16,7 @@ struct OverviewHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            BigNumber(title: "淨可用餘額", amount: balance)
+            BigNumber(title: "淨可用餘額", amount: .stock(balance))
             if let compositionParts {
                 // 一行放得下就一行;放不下一段一行(現金、＋活存帳戶、−信用卡待繳)，不在「活存／帳戶」中間折斷。
                 ViewThatFits(in: .horizontal) {
@@ -134,7 +134,7 @@ struct ForecastTrendChart: View {
 struct OverviewHeroSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            BigNumber(title: "淨可用餘額", amount: Skeleton.amount)
+            BigNumber(title: "淨可用餘額", amount: .plain(Skeleton.amount))
             SkeletonChart(height: 120)
         }
         .padding(.horizontal, 8)

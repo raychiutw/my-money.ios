@@ -6,12 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class AccountsModel {
-    public enum Phase: Equatable {
-        /// 第一次載入，還沒有任何資料:畫面只顯示載入中，不顯示 `$0`。
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
 
@@ -52,18 +47,18 @@ public final class AccountsModel {
         }
     }
 
-    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.accounts.\(scope)") }
+    private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.accounts") }
 
     public var skeletonCounts: SkeletonCounts {
         let memory = skeletonMemory
         return SkeletonCounts(
-            cash: memory.count(for: "cash", default: 0), bank: memory.count(for: "bank", default: 1),
-            creditCard: memory.count(for: "card", default: 1)
+            cash: memory.count(for: "cash.\(scope)", default: 0), bank: memory.count(for: "bank.\(scope)", default: 1),
+            creditCard: memory.count(for: "card.\(scope)", default: 1)
         )
     }
 
-    /// 數字磚排法的記憶(#204),同總覽。
-    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "accounts.tileLayout") }
+    /// 骨架屏的形狀記憶(#204、#208):數字磚(`tiles`)的排法與各區塊張數(依範圍)。
+    public var skeletonShape: SkeletonShapeMemory { skeletonMemory }
 
     /// 公帳範圍:各成員待報銷的代墊款加總(web 也是這樣加，不是 iOS 重算業務規則);其他範圍、取不到、沒有家庭時是 `nil`。
     public private(set) var pendingAdvanceTotal: Money?
@@ -86,7 +81,7 @@ public final class AccountsModel {
 
     /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。
     public var showsPendingAdvanceBanner: Bool {
-        loadedScope == .household && (pendingAdvanceTotal ?? .zero) > .zero
+        freshness.scope == .household && (pendingAdvanceTotal ?? .zero) > .zero
     }
 
     /// 橫幅的一句話，例如「家庭公帳待報銷總額 $850」。
@@ -114,7 +109,7 @@ public final class AccountsModel {
     /// 公帳範圍裡的個人卡是「私卡代墊」(自己的或他人的)。看的是畫面上已載入的範圍:切換範圍重新載入期間，
     /// 畫面還是舊範圍的內容，念法與標籤要跟著內容走。
     func isPrivateCardAdvance(_ card: CreditCard) -> Bool {
-        (loadedScope ?? scope) == .household && !card.isJointFund
+        (freshness.scope ?? scope) == .household && !card.isJointFund
     }
 
     /// 卡片小字:公帳範圍的個人卡是「私卡代墊・N 日繳」,其他是「家庭公帳／個人私帳・N 日繳」。
@@ -168,8 +163,7 @@ public final class AccountsModel {
     }
 
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
-    @ObservationIgnored private var loadedVersion: Int?
-    @ObservationIgnored private var loadedScope: AccountScope?
+    @ObservationIgnored private var freshness = LoadFreshness<AccountScope>()
 
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
@@ -188,7 +182,7 @@ public final class AccountsModel {
 
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value || loadedScope != scope else { return }
+        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
         await load()
     }
 
@@ -200,7 +194,7 @@ public final class AccountsModel {
     /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
-            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
+            card: card, bankAccounts: bankAccounts, loadedVersion: freshness.version, scope: scope, repository: repository,
             dataVersion: dataVersion, permissions: permissions, today: today
         )
     }
@@ -264,18 +258,17 @@ public final class AccountsModel {
             creditCards = loadedAccounts.compactMap { if case .creditCard(let card) = $0 { card } else { nil } }
             self.summary = loadedSummary
             let memory = skeletonMemory
-            memory.record(count: cashWallets.count, for: "cash")
-            memory.record(count: bankAccounts.count, for: "bank")
-            memory.record(count: creditCards.count, for: "card")
+            memory.record(count: cashWallets.count, for: "cash.\(scope)")
+            memory.record(count: bankAccounts.count, for: "bank.\(scope)")
+            memory.record(count: creditCards.count, for: "card.\(scope)")
             pendingAdvanceTotal = loadedPendingAdvances
-            loadedVersion = version
-            loadedScope = scope
+            freshness.markLoaded(version: version, scope: scope)
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
             // 被取消的載入(換了範圍)不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 }

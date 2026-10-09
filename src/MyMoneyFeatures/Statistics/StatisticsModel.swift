@@ -63,11 +63,7 @@ public struct Settlement: Equatable, Sendable {
 @MainActor
 @Observable
 public final class StatisticsModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     /// 預設本月(台灣時間)。
     public var month: CalendarMonth
@@ -91,7 +87,7 @@ public final class StatisticsModel {
 
     @ObservationIgnored private let repository: any StatisticsRepository
     @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private var loadedVersion: Int?
+    @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -206,20 +202,20 @@ public final class StatisticsModel {
                 )
             }
             .filter { $0.budget != nil || $0.spent > .zero }
-            loadedVersion = version
+            freshness.markLoaded(version: version)
             skeletonMemory.record(count: categoryExpenses.count, for: "categories")
             skeletonMemory.record(count: budgetRows.count, for: "budgets")
             phase = .loaded
         } catch {
             // 被取消的載入不是載入失敗;下一次載入會更新畫面。
             guard !Task.isCancelled, month == self.month, scope == self.scope else { return }
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard loadedVersion != dataVersion.value else { return }
+        guard freshness.isStale(version: dataVersion.value) else { return }
         await load()
     }
 
@@ -241,14 +237,14 @@ public final class StatisticsModel {
 /// 設定預算額度的 sheet。
 @MainActor
 @Observable
-public final class BudgetEditorModel {
+public final class BudgetEditorModel: Submitting {
     /// 可以設定預算的是全部支出分類(16 種)。
     public static let categories = TransactionCategory.expenseCategories
 
     public var category: TransactionCategory
     public var amountText: String
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public let month: CalendarMonth
     /// 月份，例如「2026年9月」(DESIGN.md「日期」)。
@@ -283,15 +279,9 @@ public final class BudgetEditorModel {
             errorMessage = "請輸入有效預算金額"
             return false
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "預算設定失敗", {
             try await repository.setBudget(amount, for: category, month: month)
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "預算設定失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         return true
     }

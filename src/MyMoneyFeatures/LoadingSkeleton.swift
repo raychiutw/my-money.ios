@@ -95,7 +95,7 @@ struct SkeletonSection<Row: View>: View {
 /// 統計卡的佔位(`SummaryRow` 的版面)。
 struct SkeletonSummaryRow: View {
     var body: some View {
-        SummaryRow(title: "統計卡標題", amount: Skeleton.amount, detail: Skeleton.text)
+        SummaryRow(title: "統計卡標題", amount: .plain(Skeleton.amount), detail: Skeleton.text)
     }
 }
 

@@ -171,3 +171,21 @@ private struct StatusBarMask: View {
     }
 }
 #endif
+
+/// 表單裡錯誤訊息那一列的捲動目標(#208 之外的修正:記一筆沒選帳戶的錯誤在表單最上面,鍵盤開著、表單捲下去時看不到)。
+enum FormError {
+    static let id = "formError"
+}
+
+extension View {
+    /// 錯誤訊息出現時:收起鍵盤並捲到訊息那一列(它要有 `.id(FormError.id)`),使用者才看得到哪裡錯了。
+    func revealsError<Field: Hashable>(_ message: String?, clearing focus: FocusState<Field?>.Binding) -> some View {
+        ScrollViewReader { proxy in
+            onChange(of: message) { _, message in
+                guard message != nil else { return }
+                focus.wrappedValue = nil
+                withAnimation { proxy.scrollTo(FormError.id, anchor: .top) }
+            }
+        }
+    }
+}

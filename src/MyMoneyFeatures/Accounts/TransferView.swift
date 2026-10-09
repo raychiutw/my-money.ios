@@ -31,7 +31,7 @@ struct TransferView: View {
                         placeholder: "請選擇轉出帳戶"
                     )
                     if let balance = model.availableBalance {
-                        AmountRow(title: "可用餘額", amount: balance)
+                        AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
                     AccountPicker(
                         title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init),
@@ -58,6 +58,7 @@ struct TransferView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("transfer.error")
                     }
@@ -78,6 +79,7 @@ struct TransferView: View {
             }
             .keyboardDismissal(clearing: $focusedField)
             .task { await model.load() }
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

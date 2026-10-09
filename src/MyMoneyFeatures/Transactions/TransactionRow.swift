@@ -13,11 +13,7 @@ import SwiftUI
 /// **只有無障礙字級才改成上下堆疊**(#128):圖示加標題、記帳人・歸屬、資產帳戶各一行(靠左)，**金額在最下面一行、靠右**;
 /// 其他字級一律固定兩行，列高一致。金額一律單行。VoiceOver 整列念成一句完整的話。
 struct TransactionRow: View {
-    let transaction: MyMoneyDomain.Transaction
-    /// 次要文字;骨架屏之類沒有 model 時由交易本身推出。
-    var subtitle: TransactionSubtitle?
-    /// 記帳人;自己記的是 `nil`。只用來決定 VoiceOver 要不要念誰記的。
-    var recorder: String?
+    let content: TransactionRowContent
     /// 點得開(可以編輯)的列：標題最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
     var isOpenable = false
     /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133)的 VoiceOver 提示，例如「點兩下查看為什麼不能編輯」(#146);
@@ -64,24 +60,24 @@ struct TransactionRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenText)
+        .accessibilityLabel(content.spokenText)
         .accessibilityHint(lockHint ?? "")
     }
 
     private var icon: some View {
-        Image(systemName: transaction.category.symbolName)
+        Image(systemName: content.symbolName)
             .foregroundStyle(.tint)
     }
 
     private var titleText: some View {
-        Text(title)
+        Text(content.title)
             .lineLimit(isOpenable ? 2 : nil)
     }
 
     /// 「記帳人・歸屬」固定一行:名稱先被截，歸屬不被截;無障礙字級改成折行、整句顯示。
     @ViewBuilder
     private var subtitleText: some View {
-        let subtitle = resolvedSubtitle
+        let subtitle = content.subtitle
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 // 無障礙字級有的是縱向空間:整句折行顯示，不截斷。
@@ -123,7 +119,7 @@ struct TransactionRow: View {
     /// 資產帳戶名稱;沒有帳戶名稱就不佔一行。
     @ViewBuilder
     private var accountText: some View {
-        if let name = transaction.accountName {
+        if let name = content.accountName {
             Text(name)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -139,35 +135,9 @@ struct TransactionRow: View {
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
     private var amount: some View {
-        Text(transaction.signedAmountText)
+        AmountText(content.amount)
             .monospacedDigit()
-            .foregroundStyle(transaction.amountColor)
             .lineLimit(1)
             .fixedSize()
-    }
-
-    private var resolvedSubtitle: TransactionSubtitle {
-        subtitle ?? TransactionSubtitle(
-            recorder: transaction.recorderName, ownership: OwnershipName.title(isShared: transaction.isShared)
-        )
-    }
-
-    private var title: String { transaction.displayTitle }
-
-    private var account: String {
-        transaction.accountName ?? "預設帳戶"
-    }
-
-    /// 例如「餐飲，午餐，帳戶 iOS 測試存款，家庭公帳，支出 120 元」。沒有備註時不重複念分類。
-    private var spokenText: String {
-        var parts = [transaction.category.name]
-        if !transaction.note.isEmpty { parts.append(transaction.note) }
-        parts.append("帳戶 \(account)")
-        if let time = RecordedTime.spokenText(of: transaction.recordedAt) { parts.append(time) }
-        if let recorder { parts.append("記帳人 \(recorder)") }
-        parts.append(OwnershipName.title(isShared: transaction.isShared))
-        if let billing = transaction.billing.label { parts.append(billing) }
-        parts.append(transaction.spokenAmount)
-        return parts.joined(separator: "，")
     }
 }

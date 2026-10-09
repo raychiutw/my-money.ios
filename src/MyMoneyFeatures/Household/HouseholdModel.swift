@@ -6,11 +6,7 @@ import Observation
 @MainActor
 @Observable
 public final class HouseholdModel {
-    public enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
+    public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
     public private(set) var household: Household?
@@ -59,8 +55,8 @@ public final class HouseholdModel {
         return .joined(members: memory.count(for: "members", default: 2), hasMyAdvance: memory.flag(for: "myAdvance") ?? true)
     }
 
-    /// 數字磚排法的記憶(#204),同總覽。
-    public var tileLayoutMemory: TileLayoutMemory { TileLayoutMemory(defaults: defaults, key: "household.tileLayout") }
+    /// 骨架屏的形狀記憶(#204、#208):我的代墊三格磚(`tiles`)的排法、有沒有家庭、成員數。
+    public var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.household") }
 
     /// `locale` 決定日期的格式，預設跟著系統。
     public init(
@@ -164,7 +160,7 @@ public final class HouseholdModel {
             memory.record(flag: myAdvance != nil, for: "myAdvance")
             phase = .loaded
         } catch {
-            phase = .failed(error.localizedDescription)
+            phase = .failure(error)
         }
     }
 

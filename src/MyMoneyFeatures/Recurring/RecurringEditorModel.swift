@@ -5,7 +5,7 @@ import Observation
 /// 新增或編輯週期收支的 sheet(parity.md「週期收支」)。
 @MainActor
 @Observable
-public final class RecurringEditorModel {
+public final class RecurringEditorModel: Submitting {
     /// 關聯帳戶的選項(銀行存款帳戶與信用卡帳戶都可以)。
     public private(set) var accounts: [Account] = []
     public var type: TransactionType = .expense
@@ -30,8 +30,8 @@ public final class RecurringEditorModel {
     /// 歸屬:家庭公帳是 `true`。新增時預設隨視角(`sharedByDefault`)，編輯時是項目目前的歸屬。
     public var isShared: Bool
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public let title: String
 
@@ -120,19 +120,13 @@ public final class RecurringEditorModel {
             name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle,
             monthOfCycle: cycle.clampedMonth(monthOfCycle), accountID: accountID, isShared: isShared
         )
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "儲存失敗", {
             if let editingID {
                 try await repository.update(editingID, with: draft)
             } else {
                 try await repository.create(draft)
             }
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "儲存失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         return true
     }

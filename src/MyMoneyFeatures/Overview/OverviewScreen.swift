@@ -82,7 +82,7 @@ struct OverviewScreen: View {
     private var content: some View {
         switch model.phase {
         case .loading:
-            OverviewSkeleton(tileMemory: model.tileLayoutMemory, entryMemory: model.entryLayoutMemory)
+            OverviewSkeleton(shape: model.skeletonShape)
         case .failed(let message):
             Section {
                 ContentUnavailableView {
@@ -119,10 +119,10 @@ struct OverviewScreen: View {
             }
             .compactSectionSpacing()
             Section {
-                NumberTileRow(memory: model.tileLayoutMemory) {
+                NumberTileRow(memory: model.skeletonShape) {
                     ForEach(model.summaryTiles) { tile in
                         NumberTile(
-                            title: tile.title, amount: tile.amount, text: tile.text, style: tile.tone.color, spokenTitle: tile.spokenTitle,
+                            title: tile.title, amount: tile.presentation, spokenTitle: tile.spokenTitle,
                             details: tile.details, spokenDetails: tile.spokenDetails
                         )
                     }
@@ -193,7 +193,7 @@ struct OverviewScreen: View {
     /// 每格是一個按鈕,VoiceOver 念「名稱,關鍵數字」;失敗或還沒有的數字只是不顯示,不影響其他格。
     private var entriesSection: some View {
         Section {
-            OverviewEntryGrid(memory: model.entryLayoutMemory) {
+            OverviewEntryGrid(memory: model.skeletonShape) {
                 ForEach(model.entries) { entry in
                     Button { open(entry) } label: {
                         OverviewEntryCard(title: entry.title, symbolName: entry.symbolName, value: entry.value, isWarning: entry.isWarning)
@@ -253,8 +253,7 @@ struct OverviewScreen: View {
 
 /// 首次載入的骨架屏:跟載入後一樣的主視覺(大數字與走勢圖)、三格數字磚、功能入口格、接下來和帳戶卡片。
 private struct OverviewSkeleton: View {
-    let tileMemory: TileLayoutMemory
-    let entryMemory: TileLayoutMemory
+    let shape: SkeletonShapeMemory
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var width: Double?
 
@@ -267,11 +266,11 @@ private struct OverviewSkeleton: View {
             // 跟著實際版面(#201):用上一次載入完成時記下的並排或單欄;沒有記錄時佔位字跟真實內容一樣寬(5 個字的標籤、含負號的六位數金額),
             // 由同一套欄數規則自己算。
             NumberTileRow(
-                forcedSingleColumn: tileMemory.singleColumn(forWidth: width, sizeKey: String(describing: dynamicTypeSize))
+                forcedSingleColumn: shape.arrangement(forWidth: width, sizeKey: String(describing: dynamicTypeSize), for: "tiles")
             ) {
                 ForEach(0..<3, id: \.self) { index in
                     NumberTile(
-                        title: "可支配現金", amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted(),
+                        title: "可支配現金", amount: .plain(Skeleton.tileAmount),
                         details: ["組成明細", "組成明細"]
                     )
                     .skeletonCell("overview.skeleton.tile.\(index)")
@@ -284,7 +283,7 @@ private struct OverviewSkeleton: View {
         Section {
             // 沒有記錄時:無障礙字級入口一律單欄(DESIGN.md「功能入口格」),其餘由欄數規則算。
             OverviewEntryGrid(
-                forcedSingleColumn: entryMemory.singleColumn(forWidth: width, sizeKey: String(describing: dynamicTypeSize))
+                forcedSingleColumn: shape.arrangement(forWidth: width, sizeKey: String(describing: dynamicTypeSize), for: "entries")
                     ?? (dynamicTypeSize.isAccessibilitySize ? true : nil)
             ) {
                 // 格數跟真實入口同一個來源(#201;#196 之後只剩 3 格)。

@@ -42,7 +42,7 @@ public enum AmountFlow: Sendable {
 }
 
 /// 金額的顏色角色(#202):負數紅、正數綠、零一般文字色。
-public enum AmountTone: Sendable {
+public enum AmountTone: Hashable, Sendable {
     case negative
     case positive
     case neutral
@@ -79,4 +79,49 @@ extension Money {
     public func tone(of flow: AmountFlow) -> AmountTone {
         amount == 0 ? .neutral : (flow == .outflow ? .negative : .positive)
     }
+}
+
+/// 一個金額在畫面上的呈現(#208):文字、顏色角色與 VoiceOver 念法一次決定。
+///
+/// 數字磚、卡片、摘要列、金額列、大數字只收這個結果,不再各自配對「文字、顏色、警示」(#202 的規則集中在這裡):
+/// - `stock`:存量(餘額、可支配現金),原樣顯示,為負時紅色;
+/// - `outflow`/`inflow`:流量與負債(支出、待繳、收入),帶 −/+、紅或綠,零不帶號;
+/// - `net`:淨額,依自己的正負;
+/// - `plain`:原樣、一般色(骨架佔位、不需要警示的數字)。
+public struct AmountPresentation: Hashable, Sendable {
+    public let amount: Money
+    public let text: String
+    public let tone: AmountTone
+
+    /// VoiceOver 念的金額(不念符號:流量的方向由標籤與元件說明)。
+    public var spokenText: String { amount.spokenText }
+
+    private init(amount: Money, text: String, tone: AmountTone) {
+        self.amount = amount
+        self.text = text
+        self.tone = tone
+    }
+
+    public static func plain(_ amount: Money) -> AmountPresentation {
+        AmountPresentation(amount: amount, text: amount.formatted(), tone: .neutral)
+    }
+
+    public static func stock(_ amount: Money) -> AmountPresentation {
+        AmountPresentation(amount: amount, text: amount.formatted(), tone: amount < .zero ? .negative : .neutral)
+    }
+
+    public static func outflow(_ amount: Money) -> AmountPresentation {
+        AmountPresentation(amount: amount, text: amount.formatted(flow: .outflow), tone: amount.tone(of: .outflow))
+    }
+
+    public static func inflow(_ amount: Money) -> AmountPresentation {
+        AmountPresentation(amount: amount, text: amount.formatted(flow: .inflow), tone: amount.tone(of: .inflow))
+    }
+
+    public static func net(_ amount: Money) -> AmountPresentation {
+        AmountPresentation(amount: amount, text: amount.signedFormatted(), tone: amount.tone)
+    }
+
+    /// 顏色;一般色是 `nil`(沿用主要文字色)。
+    var color: Color? { tone.color }
 }

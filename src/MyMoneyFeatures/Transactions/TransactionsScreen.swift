@@ -125,7 +125,7 @@ struct TransactionsScreen: View {
                 }
                 // 跟著實際內容(#204 核對):每天幾筆用上次載入完成時前三天的筆數。
                 ForEach(Array(model.skeletonDayRows.enumerated()), id: \.offset) { _, rows in
-                    SkeletonSection(count: max(rows, 1)) { TransactionRow(transaction: Skeleton.transaction) }
+                    SkeletonSection(count: max(rows, 1)) { TransactionRow(content: TransactionRowContent(Skeleton.transaction, viewer: nil)) }
                 }
             case .failed(let message):
                 Section {
@@ -193,8 +193,7 @@ struct TransactionsScreen: View {
                 }
             } label: {
                 TransactionRow(
-                    transaction: transaction, subtitle: model.subtitle(of: transaction),
-                    recorder: model.recorderName(of: transaction), isOpenable: true
+                    content: model.content(of: transaction), isOpenable: true
                 )
             }
             .tint(.primary)
@@ -217,8 +216,7 @@ struct TransactionsScreen: View {
                 explained = transaction
             } label: {
                 TransactionRow(
-                    transaction: transaction, subtitle: model.subtitle(of: transaction),
-                    recorder: model.recorderName(of: transaction), lockHint: model.lockHint(for: transaction)
+                    content: model.content(of: transaction), lockHint: model.lockHint(for: transaction)
                 )
             }
             .tint(.primary)
@@ -264,7 +262,7 @@ private struct DayHeader: View {
 private struct TransactionsHeroSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            BigNumber(title: "淨收支", amount: Skeleton.amount)
+            BigNumber(title: "淨收支", amount: .plain(Skeleton.amount))
             SkeletonChart(height: 110)
         }
         .padding(.horizontal, 8)

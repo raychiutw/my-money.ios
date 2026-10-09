@@ -87,6 +87,7 @@ struct RecurringEditorView: View {
                 if let message = model.errorMessage {
                     Section {
                         Text(message)
+                            .id(FormError.id)
                             .foregroundStyle(.red)
                             .accessibilityIdentifier("recurringEditor.error")
                     }
@@ -110,6 +111,7 @@ struct RecurringEditorView: View {
             }
             .keyboardDismissal(clearing: $focusedField)
             .task { await model.prepare() }
+            .revealsError(model.errorMessage, clearing: $focusedField)
             .onChange(of: model.errorMessage) { _, message in
                 if let message {
                     AccessibilityNotification.Announcement(message).post()

@@ -14,10 +14,7 @@ struct HouseholdHero: View {
             } else if !model.shares.isEmpty {
                 // 不是剛好兩位成員有公帳代墊:沒有分攤建議，大數字是本月公帳代墊的合計。
                 let total = model.shares.reduce(Money.zero) { $0 + $1.total }
-                BigNumber(
-                    title: "本月公帳代墊", amount: total, text: total.formatted(flow: .outflow), warnsWhenNegative: false,
-                    style: total.tone(of: .outflow).color
-                )
+                BigNumber(title: "本月公帳代墊", amount: .outflow(total))
             }
             if !model.shares.isEmpty {
                 MemberShareChart(shares: model.shares, average: model.averageShare)
@@ -32,11 +29,11 @@ struct HouseholdHero: View {
     private func settlementView(_ settlement: Settlement) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let transfer = settlement.transfer {
-                BigNumber(title: "分攤建議", amount: transfer.amount, warnsWhenNegative: false)
+                BigNumber(title: "分攤建議", amount: .plain(transfer.amount))
                 Text("\(transfer.from) 轉給 \(transfer.to)")
                     .font(.headline)
             } else {
-                BigNumber(title: "分攤建議", amount: settlement.perPerson, warnsWhenNegative: false)
+                BigNumber(title: "分攤建議", amount: .plain(settlement.perPerson))
                 Text("兩人一樣多，不用轉帳")
                     .font(.headline)
             }
@@ -110,17 +107,13 @@ struct MemberShareChart: View {
 /// 我的累計代墊、已報銷、待報銷(後端的值)三格數字磚;待報銷有餘額時是紅色負數，已結清不帶號、一般色(#202)。
 struct MyAdvanceTiles: View {
     let advance: HouseholdAdvance
-    var memory: TileLayoutMemory?
+    var memory: SkeletonShapeMemory?
 
     var body: some View {
         NumberTileRow(memory: memory) {
-            NumberTile(title: "累計代墊", amount: advance.totalAdvanced, spokenTitle: "我的累計公帳墊付")
-            NumberTile(title: "已報銷", amount: advance.totalReimbursed, spokenTitle: "我的已獲撥款報銷")
-            NumberTile(
-                title: "待報銷", amount: advance.pendingReimbursement, text: advance.pendingReimbursement.formatted(flow: .outflow),
-                style: advance.pendingReimbursement.tone(of: .outflow).color,
-                spokenTitle: "我的待報銷"
-            )
+            NumberTile(title: "累計代墊", amount: .plain(advance.totalAdvanced), spokenTitle: "我的累計公帳墊付")
+            NumberTile(title: "已報銷", amount: .plain(advance.totalReimbursed), spokenTitle: "我的已獲撥款報銷")
+            NumberTile(title: "待報銷", amount: .outflow(advance.pendingReimbursement), spokenTitle: "我的待報銷")
         }
     }
 }

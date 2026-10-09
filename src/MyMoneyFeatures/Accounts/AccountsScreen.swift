@@ -179,7 +179,7 @@ struct AccountsScreen: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
-                        BigNumber(title: "淨可用餘額", amount: Skeleton.amount)
+                        BigNumber(title: "淨可用餘額", amount: .plain(Skeleton.amount))
                         SkeletonChart(height: 12)
                     }
                     .padding(.horizontal, 8)
@@ -189,9 +189,9 @@ struct AccountsScreen: View {
                 }
                 Section {
                     // 跟著實際版面(#204):磚用上次記下的並排或單欄,佔位字跟真實內容一樣寬;卡片張數用上次的張數。
-                    NumberTileRow(forcedSingleColumn: model.tileLayoutMemory.singleColumn(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize))) {
+                    NumberTileRow(forcedSingleColumn: model.skeletonShape.arrangement(forWidth: skeletonWidth, sizeKey: String(describing: dynamicTypeSize), for: "tiles")) {
                         ForEach([Terms.cash, Terms.bankAccount, "信用卡待繳"], id: \.self) { title in
-                            NumberTile(title: title, amount: Skeleton.tileAmount, text: Skeleton.tileAmount.formatted())
+                            NumberTile(title: title, amount: .plain(Skeleton.tileAmount))
                                 .skeletonCell("accounts.skeleton.tile.\(title)")
                         }
                     }
@@ -232,7 +232,7 @@ struct AccountsScreen: View {
     }
 
     private var skeletonCard: some View {
-        NumberCard(title: "帳戶名稱", symbol: "building.columns", symbolColor: .gray, amount: Skeleton.amount, caption: "佔位", spokenText: "")
+        NumberCard(title: "帳戶名稱", symbol: "building.columns", symbolColor: .gray, amount: .plain(Skeleton.amount), caption: "佔位", spokenText: "")
             .skeletonCell("accounts.skeleton.card")
             .skeletonRow()
     }
@@ -254,13 +254,10 @@ struct AccountsScreen: View {
             .clearListRow()
         }
         Section {
-            NumberTileRow(memory: model.tileLayoutMemory) {
-                NumberTile(title: Terms.cash, amount: model.cashTotal ?? .zero, spokenTitle: "\(Terms.cash)總額")
-                NumberTile(title: Terms.bankAccount, amount: model.bankBalanceTotal ?? .zero, spokenTitle: "\(Terms.bankAccount)餘額合計")
-                NumberTile(
-                    title: "信用卡待繳", amount: model.totalCardDue ?? .zero, text: (model.totalCardDue ?? .zero).formatted(flow: .outflow),
-                    style: (model.totalCardDue ?? .zero) > .zero ? .red : nil, spokenTitle: "信用卡待繳總額"
-                )
+            NumberTileRow(memory: model.skeletonShape) {
+                NumberTile(title: Terms.cash, amount: .plain(model.cashTotal ?? .zero), spokenTitle: "\(Terms.cash)總額")
+                NumberTile(title: Terms.bankAccount, amount: .plain(model.bankBalanceTotal ?? .zero), spokenTitle: "\(Terms.bankAccount)餘額合計")
+                NumberTile(title: "信用卡待繳", amount: .outflow(model.totalCardDue ?? .zero), spokenTitle: "信用卡待繳總額")
             }
             .clearListRow()
             // ATM 提款／轉帳:醒目的膠囊按鈕，在摘要下面(ADR-0004、#87、#119);現金錢包卡、銀行存款帳戶卡的滑動捷徑照舊。
@@ -331,8 +328,8 @@ struct AccountsScreen: View {
         warnsWhenNegative: Bool = false
     ) -> some View {
         NumberCard(
-            title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray, amount: balance,
-            isWarning: warnsWhenNegative && balance < .zero, caption: OwnershipName.title(isShared: isJointFund),
+            title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray,
+            amount: warnsWhenNegative ? .stock(balance) : .plain(balance), caption: OwnershipName.title(isShared: isJointFund),
             spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(OwnershipName.title(isShared: isJointFund))"
         )
     }
@@ -345,8 +342,8 @@ struct AccountsScreen: View {
             cardPath.append(card)
         } label: {
             NumberCard(
-                title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: card.totalDue,
-                text: card.totalDue.formatted(flow: .outflow), isWarning: card.isDue, caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
+                title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: .outflow(card.totalDue),
+                caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
             )
         }
         .buttonStyle(.plain)

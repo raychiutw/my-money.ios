@@ -858,6 +858,11 @@ final class TransactionsUITests: XCTestCase {
             element(in: app, labelContaining: "請選擇扣款或存入帳戶").waitForExistence(timeout: 3),
             "沒選帳戶就儲存，沒有顯示「請選擇扣款或存入帳戶」"
         )
+        // 錯誤訊息在表單最上面:鍵盤開著、表單捲下去時使用者看不到;出錯時要收起鍵盤並捲到訊息(看得到、點得到)。
+        let error = app.descendants(matching: .any)["quickEntry.error"]
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: error)
+        XCTAssertEqual(XCTWaiter().wait(for: [visible], timeout: 5), .completed, "錯誤訊息被捲到看不到的地方:\(error.frame)")
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "出錯後鍵盤沒有收起")
         XCTAssertTrue(app.buttons["quickEntry.save"].exists, "沒選帳戶儲存時，記一筆被關掉了")
 
         app.chooseQuickEntryAccount("iOS 測試存款")

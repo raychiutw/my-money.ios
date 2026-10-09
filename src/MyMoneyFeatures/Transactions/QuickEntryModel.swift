@@ -5,7 +5,7 @@ import Observation
 /// 「記一筆」sheet(parity.md「總覽」的記一筆)。每個 session 一份，讓下一筆沿用上一筆的選擇。
 @MainActor
 @Observable
-public final class QuickEntryModel {
+public final class QuickEntryModel: Submitting {
     public private(set) var accounts: [Account] = []
 
     public let title = "記一筆"
@@ -56,8 +56,8 @@ public final class QuickEntryModel {
         accounts.first { $0.id == accountID }?.kind == .creditCard
     }
 
-    public private(set) var errorMessage: String?
-    public private(set) var isSaving = false
+    public package(set) var errorMessage: String?
+    public package(set) var isSaving = false
 
     public var categories: [TransactionCategory] {
         type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories
@@ -152,9 +152,7 @@ public final class QuickEntryModel {
             errorMessage = "請輸入正確的金額"
             return false
         }
-        isSaving = true
-        defer { isSaving = false }
-        do {
+        guard await submitting(failure: "記帳失敗", {
             try await transactions.create(TransactionDraft(
                 accountID: accountID,
                 type: type,
@@ -165,11 +163,7 @@ public final class QuickEntryModel {
                 isShared: isShared,
                 defersToNextStatement: isCreditCardSelected && defersToNextStatement
             ))
-        } catch {
-            let message = error.localizedDescription
-            errorMessage = message.isEmpty ? "記帳失敗" : message
-            return false
-        }
+        }) != nil else { return false }
         dataVersion.bump()
         amountText = ""
         note = ""
