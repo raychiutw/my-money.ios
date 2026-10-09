@@ -189,3 +189,15 @@ extension View {
         }
     }
 }
+
+extension View {
+    /// 操作失敗的提示(#211 第 2 項):`message` 有值就跳出 alert,按「好」後呼叫 `dismiss` 清掉。
+    /// 列表上的刪除、出帳等變更失敗時,model 的 `alertMessage` 就是這裡的 `message`。
+    func errorAlert(_ title: String, message: String?, dismiss: @escaping () -> Void) -> some View {
+        alert(title, isPresented: Binding(get: { message != nil }, set: { if !$0 { dismiss() } })) {
+            Button("好") {}
+        } message: {
+            Text(message ?? "")
+        }
+    }
+}

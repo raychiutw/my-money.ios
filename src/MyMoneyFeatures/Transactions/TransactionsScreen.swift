@@ -51,7 +51,7 @@ struct TransactionsScreen: View {
                     AccountToolbarItem()
                 }
                 // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
-                .task(id: model.dataVersion.value) {
+                .task(id: model.reloadKey) {
                     await model.load()
                 }
                 .sheet(isPresented: $model.isEditingFilter) {
@@ -84,14 +84,7 @@ struct TransactionsScreen: View {
                 } message: { transaction in
                     Text("\(model.lockReason(for: transaction) ?? "")。")
                 }
-                .alert(
-                    "無法刪除",
-                    isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-                ) {
-                    Button("好") {}
-                } message: {
-                    Text(model.alertMessage ?? "")
-                }
+                .errorAlert("無法刪除", message: model.alertMessage) { model.alertMessage = nil }
         }
     }
 

@@ -41,7 +41,7 @@ struct CreditCardDetailScreen: View {
         }
         .refreshable { await model.load() }
         // 資料版本改變(這一頁或其他畫面新增、修改、刪除成功)就重新取得。
-        .task(id: model.dataVersion.value) {
+        .task(id: model.reloadKey) {
             await model.refreshIfStale()
         }
         // 這張卡已經不在這個帳戶檢視範圍(被刪除，或歸屬改了):回到上一頁。
@@ -54,14 +54,7 @@ struct CreditCardDetailScreen: View {
         .sheet(item: $editor) { editor in
             AccountEditorView(model: editor)
         }
-        .alert(
-            "無法完成",
-            isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-        ) {
-            Button("好") {}
-        } message: {
-            Text(model.alertMessage ?? "")
-        }
+        .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
         .alert(
             "完成",
             isPresented: Binding(get: { model.noticeMessage != nil }, set: { if !$0 { model.noticeMessage = nil } })

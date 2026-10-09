@@ -5,7 +5,7 @@ import Observation
 /// 帳戶頁(瀏覽)的 model(parity.md「帳戶」)。
 @MainActor
 @Observable
-public final class AccountsModel {
+public final class AccountsModel: Alerting {
     public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
@@ -146,12 +146,7 @@ public final class AccountsModel {
     /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
     public func rollOver(_ card: CreditCard) async {
         guard canOperate(card) else { return }
-        do {
-            noticeMessage = try await repository.rollOverStatement(card.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        if let notice = await commit(dataVersion, { try await repository.rollOverStatement(card.id) }) { noticeMessage = notice }
     }
 
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。
@@ -165,6 +160,9 @@ public final class AccountsModel {
     /// 上一次載入時的資料版本與檢視範圍;跟目前的不同時就要重抓。
     @ObservationIgnored private var freshness = LoadFreshness<AccountScope>()
 
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<AccountScope> { ReloadKey(scope: scope, version: dataVersion.value) }
+
     public func deleteConfirmation(for account: Account) -> String {
         "確定要刪除帳戶「\(account.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
     }
@@ -172,17 +170,12 @@ public final class AccountsModel {
     /// 刪除資產帳戶;成功後遞增資料版本(帳戶頁與其他畫面都會重抓)。
     public func delete(_ account: Account) async {
         guard canModify(account) else { return }
-        do {
-            try await repository.delete(account.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(account.id) }
     }
 
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 
@@ -243,8 +236,8 @@ public final class AccountsModel {
 
     /// 載入這個範圍的資產帳戶與資金指標。重新載入(下拉更新)時保留舊資料，不回到載入中。
     public func load() async {
-        let version = dataVersion.value
-        let scope = scope
+        let key = reloadKey
+        let scope = key.scope
         do {
             async let accounts = repository.accounts(scope: scope)
             async let summary = repository.balanceSummary(scope: scope)
@@ -262,7 +255,7 @@ public final class AccountsModel {
             memory.record(count: bankAccounts.count, for: "bank.\(scope)")
             memory.record(count: creditCards.count, for: "card.\(scope)")
             pendingAdvanceTotal = loadedPendingAdvances
-            freshness.markLoaded(version: version, scope: scope)
+            freshness.markLoaded(key)
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {

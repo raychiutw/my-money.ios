@@ -43,6 +43,9 @@ public final class ForecastModel {
     @ObservationIgnored private let repository: any ForecastRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
+
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
+    public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
@@ -136,14 +139,14 @@ public final class ForecastModel {
     }
 
     public func load() async {
-        let version = dataVersion.value
-        let scope = scope
+        let key = reloadKey
+        let scope = key.scope
         do {
             let loaded = try await repository.forecast(scope: scope)
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             forecast = loaded
-            freshness.markLoaded(version: version, scope: scope)
+            freshness.markLoaded(key)
             skeletonMemory.record(count: loaded.events.count, for: "events")
             skeletonMemory.record(flag: loaded.startingBalance != nil, for: "startingBalance")
             phase = .loaded
@@ -180,7 +183,7 @@ public final class ForecastModel {
 
     /// 資料版本或視角在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value, scope: scope) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 

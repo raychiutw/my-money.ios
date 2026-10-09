@@ -46,7 +46,7 @@ struct AccountsScreen: View {
                     AccountToolbarItem()
                 }
                 // 第一次出現時載入;之後檢視範圍或資料版本改變(任何畫面新增、修改、刪除成功)就重抓。
-                .task(id: QueryKey(scope: model.scope, version: model.dataVersion.value)) {
+                .task(id: model.reloadKey) {
                     await model.refreshIfStale()
                 }
                 // 詳細頁的 model 由這裡(路由)建立，跟帳戶頁同一個帳戶檢視範圍。
@@ -86,14 +86,7 @@ struct AccountsScreen: View {
                 } message: { card in
                     Text(model.rolloverConfirmation(for: card))
                 }
-                .alert(
-                    "無法完成",
-                    isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })
-                ) {
-                    Button("好") {}
-                } message: {
-                    Text(model.alertMessage ?? "")
-                }
+                .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
                 .alert(
                     "完成",
                     isPresented: Binding(get: { model.noticeMessage != nil }, set: { if !$0 { model.noticeMessage = nil } })
@@ -103,11 +96,6 @@ struct AccountsScreen: View {
                     Text(model.noticeMessage ?? "")
                 }
         }
-    }
-
-    private struct QueryKey: Equatable {
-        let scope: AccountScope
-        let version: Int
     }
 
     /// 編輯 sheet 需要 `Identifiable`。

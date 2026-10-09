@@ -5,7 +5,7 @@ import Observation
 /// 儲蓄目標頁的 model(parity.md「儲蓄目標」)。
 @MainActor
 @Observable
-public final class SavingsGoalsModel {
+public final class SavingsGoalsModel: Alerting {
     public typealias Phase = LoadPhase
 
     public private(set) var phase: Phase = .loading
@@ -17,6 +17,9 @@ public final class SavingsGoalsModel {
     @ObservationIgnored private let repository: any SavingsGoalRepository
     @ObservationIgnored public let dataVersion: DataVersion
     @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
+
+    /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:資料版本變了就要重載。
+    public var reloadKey: ReloadKey<Unscoped> { ReloadKey(version: dataVersion.value) }
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let defaults: UserDefaults
@@ -70,10 +73,10 @@ public final class SavingsGoalsModel {
 
     /// 載入儲蓄目標。重新載入時保留舊資料。
     public func load() async {
-        let version = dataVersion.value
+        let key = reloadKey
         do {
             goals = try await repository.goals()
-            freshness.markLoaded(version: version)
+            freshness.markLoaded(key)
             skeletonMemory.record(count: datedGoals.count, for: "dated")
             skeletonMemory.record(count: undatedGoals.count, for: "undated")
             phase = .loaded
@@ -84,7 +87,7 @@ public final class SavingsGoalsModel {
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
-        guard freshness.isStale(version: dataVersion.value) else { return }
+        guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 
@@ -94,12 +97,7 @@ public final class SavingsGoalsModel {
 
     /// 刪除;成功後遞增資料版本。
     public func delete(_ goal: SavingsGoal) async {
-        do {
-            try await repository.delete(goal.id)
-            dataVersion.bump()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
+        _ = await commit(dataVersion) { try await repository.delete(goal.id) }
     }
 
     public func makeEditor() -> SavingsGoalEditorModel {

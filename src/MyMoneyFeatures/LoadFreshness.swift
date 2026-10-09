@@ -14,34 +14,42 @@ public enum LoadPhase: Equatable {
 }
 
 /// 沒有檢視範圍的畫面用。
-public struct Unscoped: Equatable, Sendable {
+public struct Unscoped: Hashable, Sendable {
     public init() {}
 }
 
-/// 「資料版本或檢視範圍在上一次載入之後改變過，才重新載入」的判斷(#210 第 1 項)。
-/// 載入成功時呼叫 `markLoaded`;`refreshIfStale` 先問 `isStale` 再決定要不要載入。
-public struct LoadFreshness<Scope: Equatable> {
-    public private(set) var version: Int?
-    public private(set) var scope: Scope?
+/// 「什麼變了要重新載入」的鍵(#211 第 1 項):檢視範圍(統計頁還有月份)加資料版本。
+/// model 的 `reloadKey` 是唯一定義;畫面用它當 `.task(id:)`,`refreshIfStale` 也跟它比對。
+public struct ReloadKey<Scope: Hashable & Sendable>: Hashable, Sendable {
+    public let scope: Scope
+    public let version: Int
 
-    public init() {}
-
-    public func isStale(version current: Int, scope currentScope: Scope) -> Bool {
-        version != current || scope != currentScope
-    }
-
-    public mutating func markLoaded(version loaded: Int, scope loadedScope: Scope) {
-        version = loaded
-        scope = loadedScope
+    public init(scope: Scope, version: Int) {
+        self.scope = scope
+        self.version = version
     }
 }
 
-extension LoadFreshness where Scope == Unscoped {
-    public func isStale(version current: Int) -> Bool {
-        isStale(version: current, scope: Unscoped())
+extension ReloadKey where Scope == Unscoped {
+    public init(version: Int) {
+        self.init(scope: Unscoped(), version: version)
+    }
+}
+
+/// 上一次載入成功時的重載鍵;跟目前的鍵不同就是過期(#210 第 1 項)。
+public struct LoadFreshness<Scope: Hashable & Sendable> {
+    public private(set) var key: ReloadKey<Scope>?
+
+    public init() {}
+
+    public var version: Int? { key?.version }
+    public var scope: Scope? { key?.scope }
+
+    public func isStale(_ current: ReloadKey<Scope>) -> Bool {
+        key != current
     }
 
-    public mutating func markLoaded(version loaded: Int) {
-        markLoaded(version: loaded, scope: Unscoped())
+    public mutating func markLoaded(_ loaded: ReloadKey<Scope>) {
+        key = loaded
     }
 }
