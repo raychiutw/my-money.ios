@@ -189,10 +189,10 @@ struct CardPaymentTests {
 
     @Test("驗證：沒選扣款帳戶、金額無效、超過信用卡待繳總額", arguments: [
         (false, "3000", "請選擇扣款銀行帳戶"),
-        (true, "0", "請輸入大於 0 的繳款金額"),
-        (true, "abc", "請輸入大於 0 的繳款金額"),
-        (true, "1,000", "請輸入大於 0 的繳款金額"),
-        (true, "12.5", "請輸入大於 0 的繳款金額"),
+        (true, "0", "請輸入有效的繳款金額"),
+        (true, "abc", "請輸入有效的繳款金額"),
+        (true, "1,000", "請輸入有效的繳款金額"),
+        (true, "12.5", "請輸入有效的繳款金額"),
         (true, "19381", "繳款金額不可超過信用卡待繳總額 $19,380"),
     ])
     func validation(hasBank: Bool, amount: String, message: String) async {

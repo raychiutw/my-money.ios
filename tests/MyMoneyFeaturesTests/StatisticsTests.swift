@@ -351,7 +351,7 @@ struct BudgetEditorTests {
 
         #expect(!(await editor.save()))
 
-        #expect(editor.errorMessage == "請輸入有效預算金額")
+        #expect(editor.errorMessage == "請輸入有效的預算")
         #expect(await repository.setBudgets.isEmpty)
     }
 

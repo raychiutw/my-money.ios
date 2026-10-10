@@ -172,7 +172,7 @@ struct HouseholdTests {
 
         reimbursement.amountText = "0"
         #expect(await reimbursement.submit() == nil)
-        #expect(reimbursement.errorMessage == "請輸入大於 0 的金額")
+        #expect(reimbursement.errorMessage == "請輸入有效的報銷金額")
 
         reimbursement.amountText = "250"
         let message = await reimbursement.submit()

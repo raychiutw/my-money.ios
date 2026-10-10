@@ -113,7 +113,7 @@ public final class RecurringEditorModel: Submitting {
             return false
         }
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效金額"
+            errorMessage = "請輸入有效的每期金額"
             return false
         }
         let draft = RecurringDraft(

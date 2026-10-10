@@ -65,7 +65,7 @@ public final class SavingsGoalEditorModel: Submitting {
             return false
         }
         guard let target = Money(wholeNumber: targetAmountText), target > .zero else {
-            errorMessage = "請輸入有效目標金額"
+            errorMessage = "請輸入有效的目標金額"
             return false
         }
         // 跟 web 一樣：沒填或看不懂時當作 0;web 的欄位也不允許負數。

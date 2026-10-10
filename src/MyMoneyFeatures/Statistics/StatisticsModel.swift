@@ -291,7 +291,7 @@ public final class BudgetEditorModel: Submitting {
     public func save() async -> Bool {
         errorMessage = nil
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效預算金額"
+            errorMessage = "請輸入有效的預算"
             return false
         }
         guard await submitting(failure: "預算設定失敗", {

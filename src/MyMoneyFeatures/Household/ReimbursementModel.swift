@@ -80,7 +80,7 @@ public final class ReimbursementModel: Submitting {
             return nil
         }
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入大於 0 的金額"
+            errorMessage = "請輸入有效的報銷金額"
             return nil
         }
         guard let message = await submitting(failure: "撥款報銷失敗", {

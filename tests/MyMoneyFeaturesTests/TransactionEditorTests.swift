@@ -59,14 +59,14 @@ struct TransactionEditorTests {
         #expect(dataVersion.value == 1)
     }
 
-    @Test("金額無效時提示「請輸入有效金額」")
+    @Test("金額無效時提示「請輸入有效的金額」")
     func requiresValidAmount() async {
         let editor = await editor(for: headphones)
         editor.amountText = "0"
 
         #expect(!(await editor.save()))
 
-        #expect(editor.errorMessage == "請輸入有效金額")
+        #expect(editor.errorMessage == "請輸入有效的金額")
         #expect(dataVersion.value == 0)
     }
 

@@ -89,7 +89,7 @@ public final class CardPaymentModel: Submitting {
             return .invalid
         }
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入大於 0 的繳款金額"
+            errorMessage = "請輸入有效的繳款金額"
             return .invalid
         }
         if isMaskedCard {

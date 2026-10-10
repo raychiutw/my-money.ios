@@ -102,7 +102,7 @@ public final class TransactionEditorModel: Submitting {
             return false
         }
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效金額"
+            errorMessage = "請輸入有效的金額"
             return false
         }
         guard await submitting(failure: "操作失敗", {

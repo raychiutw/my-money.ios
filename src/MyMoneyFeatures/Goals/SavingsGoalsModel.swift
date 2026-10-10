@@ -167,7 +167,7 @@ public final class SavingsGoalDepositModel: Submitting {
     public func save() async -> Bool {
         errorMessage = nil
         guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效存款金額"
+            errorMessage = "請輸入有效的本次存入金額"
             return false
         }
         guard await submitting(failure: "存入失敗", {
