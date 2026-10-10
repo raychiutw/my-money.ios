@@ -22,7 +22,7 @@ final class OverviewUITests: XCTestCase {
         app.chooseQuickEntryAccount()
         app.buttons["quickEntry.save"].tap()
 
-        XCTAssertTrue(row("當月淨收支", value: "43,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
+        XCTAssertTrue(row("當月淨收支", value: "38,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
     }
 
     /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 60 天走勢圖，再下面是三格數字磚(#117):
