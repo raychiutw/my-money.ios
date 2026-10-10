@@ -121,8 +121,14 @@ public struct Reimbursement: Hashable, Sendable {
     /// 台灣時間的日期;一律送出，因為後端沒帶時用 UTC 的今天。
     public let date: CalendarDay
     public let note: String
+    /// 勾選要結清的代墊明細(上游 `d0424df`);空的時候後端依時間順序把最早的未結清代墊對齊到這筆報銷。
+    public let advanceIDs: [TransactionID]
 
-    public init(memberID: UserID, fromAccountID: AccountID, toAccountID: AccountID, amount: Money, date: CalendarDay, note: String) {
+    public init(
+        memberID: UserID, fromAccountID: AccountID, toAccountID: AccountID, amount: Money, date: CalendarDay, note: String,
+        advanceIDs: [TransactionID] = []
+    ) {
+        self.advanceIDs = advanceIDs
         self.memberID = memberID
         self.fromAccountID = fromAccountID
         self.toAccountID = toAccountID

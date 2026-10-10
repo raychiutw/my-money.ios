@@ -164,15 +164,19 @@ private struct ReimburseBody: Encodable {
     let amount: Decimal
     let date: String
     let note: String
+    /// 勾選的代墊明細;沒勾選時整個欄位不送(後端有容錯)。
+    let advanceIDs: [String]?
 
     enum CodingKeys: String, CodingKey {
         case amount, date, note
+        case advanceIDs = "advance_ids"
         case targetUserID = "target_user_id"
         case fromAccountID = "from_account_id"
         case toAccountID = "to_account_id"
     }
 
     init(_ reimbursement: Reimbursement) {
+        advanceIDs = reimbursement.advanceIDs.isEmpty ? nil : reimbursement.advanceIDs.map(\.rawValue)
         targetUserID = reimbursement.memberID.rawValue
         fromAccountID = reimbursement.fromAccountID.rawValue
         toAccountID = reimbursement.toAccountID.rawValue

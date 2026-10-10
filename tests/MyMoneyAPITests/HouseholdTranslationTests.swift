@@ -145,6 +145,36 @@ struct HouseholdTranslationTests {
         #expect(json["note"] as? String == "iOS 測試報銷")
     }
 
+    @Test("上游 d0424df:勾選指定的代墊明細——advance_ids 只帶被勾選的 ID;沒勾選時整個欄位不送")
+    func reimburseSendsAdvanceIDsOnlyWhenSelected() async throws {
+        try stub.reply(status: 200, fixture: "households-reimburse-itemized.json")
+        let reimbursement = Reimbursement(
+            memberID: me,
+            fromAccountID: AccountID("c70d655c-0238-4bd7-ba83-92e165437e87"),
+            toAccountID: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"),
+            amount: Money(120),
+            date: CalendarDay(year: 2026, month: 9, day: 29),
+            note: "代墊捷運",
+            advanceIDs: [TransactionID("438f6bf3-1f62-4592-97d4-0cba6c05b06e")]
+        )
+
+        let message = try await repository.reimburse(reimbursement)
+
+        #expect(message == "成功從共同基金撥款報銷 NT$ 120 給 iOS 測試帳號！")
+        let first = try #require(stub.requests.first)
+        let json = try body(first)
+        #expect(json["advance_ids"] as? [String] == ["438f6bf3-1f62-4592-97d4-0cba6c05b06e"])
+        #expect(json["amount"] as? Int == 120)
+
+        try stub.reply(status: 200, fixture: "households-reimburse.json")
+        _ = try await repository.reimburse(Reimbursement(
+            memberID: me, fromAccountID: AccountID("a"), toAccountID: AccountID("b"), amount: Money(100),
+            date: CalendarDay(year: 2026, month: 9, day: 28), note: ""
+        ))
+        let last = try #require(stub.requests.last)
+        #expect(try body(last).keys.contains("advance_ids") == false, "沒勾選時不送 advance_ids(後端依時間順序對齊)")
+    }
+
     @Test("撥款報銷的錯誤原樣傳遞")
     func reimburseRejected() async throws {
         try stub.reply(status: 400, fixture: "households-reimburse-not-joint.json")
