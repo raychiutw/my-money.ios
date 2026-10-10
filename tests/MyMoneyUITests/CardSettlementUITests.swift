@@ -101,7 +101,7 @@ final class CardSettlementUITests: XCTestCase {
         reveal(reconcile, in: app)
         reconcile.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "會重算上一個結帳日之後的消費，加上延至下期的消費").waitForExistence(timeout: 3),
+            element(in: app, labelContaining: "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費").waitForExistence(timeout: 3),
             "確認時沒有說明依結帳區間重算(上游 ADR 0020)"
         )
         app.buttons["校準"].firstMatch.tap()

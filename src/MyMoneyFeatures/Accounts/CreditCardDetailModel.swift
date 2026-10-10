@@ -133,8 +133,9 @@ public final class CreditCardDetailModel: Alerting {
     /// 後端在上游 `97f4789` 之前已改成只扣還款沖到未出帳款的部分(`unbilled_offset`),不再有「繳過已出帳待繳款就被算少」的問題,
     /// 所以不提醒(parity 刻意偏離第 39 項已刪除)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
     public var reconcileConfirmation: String {
-        // 上游 ADR 0020:依結帳區間重算(上一個結帳日之後，加上延至下期的)，不再扣還款沖掉的部分。
-        let scope = card.statementDay == nil ? "會重算所有還沒出帳的消費" : "會重算上一個結帳日之後的消費，加上延至下期的消費"
+        // 上游 ADR 0020、`38f0a88`:依結帳區間重算，不再扣還款沖掉的部分;過了結帳日、持卡人還沒手動按「出帳作業」的那一期仍然是未出帳，
+        // 所以不說「上一個結帳日之後」(那會漏掉這一期);iOS 不解碼 `last_rollover_at`，不寫出確切的區間。
+        let scope = card.statementDay == nil ? "會重算所有還沒出帳的消費" : "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費"
         return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？\(scope)，並扣掉這段期間的刷退。"
     }
 

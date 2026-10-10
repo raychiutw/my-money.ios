@@ -68,7 +68,7 @@ struct ReconcileUnbilledTests {
 
         #expect(detail(SampleAccounts.card, repository: repository).reconcileConfirmation
             == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一個結帳日之後的消費，加上延至下期的消費，並扣掉這段期間的刷退。")
+            + "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費，並扣掉這段期間的刷退。")
 
         let withoutStatementDay = CreditCard(
             id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
