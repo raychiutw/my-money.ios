@@ -15,14 +15,15 @@ public final class SavingsGoalsModel: Alerting {
     public var alertMessage: String?
 
     @ObservationIgnored private let repository: any SavingsGoalRepository
-    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
     @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:資料版本變了就要重載。
     public var reloadKey: ReloadKey<Unscoped> { ReloadKey(version: dataVersion.value) }
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let today: () -> CalendarDay
-    @ObservationIgnored private let defaults: UserDefaults
+    private var locale: Locale { context.locale }
+    private var today: () -> CalendarDay { context.today }
+    private var defaults: UserDefaults { context.defaults }
 
     /// 骨架屏兩區的筆數(#204 核對):有截止日、沒有截止日;第一次沒有記錄時各 1。
     public struct SkeletonCounts: Equatable, Sendable {
@@ -42,18 +43,23 @@ public final class SavingsGoalsModel: Alerting {
     }
 
     /// `locale` 決定日期的格式，預設跟著系統;`today` 決定截止日要不要寫年份。
-    public init(
+    public init(repository: any SavingsGoalRepository, context: SessionContext) {
+        self.repository = repository
+        self.context = context
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
         repository: any SavingsGoalRepository,
         dataVersion: DataVersion,
         defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.defaults = defaults
-        self.repository = repository
-        self.dataVersion = dataVersion
-        self.locale = locale
-        self.today = today
+        self.init(
+            repository: repository,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     /// 截止日，例如「2027年3月31日」,今年的省略年份(DESIGN.md「日期」);沒有截止日是 `nil`。

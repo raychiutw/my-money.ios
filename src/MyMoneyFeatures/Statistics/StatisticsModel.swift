@@ -88,7 +88,8 @@ public final class StatisticsModel {
     }
 
     @ObservationIgnored private let repository: any StatisticsRepository
-    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
     @ObservationIgnored private var freshness = LoadFreshness<Selection>()
 
     /// 統計頁載入的條件:月份與檢視範圍(再加資料版本就是重載鍵)。
@@ -101,8 +102,8 @@ public final class StatisticsModel {
     public var reloadKey: ReloadKey<Selection> {
         ReloadKey(scope: Selection(month: month, scope: scope), version: dataVersion.value)
     }
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let defaults: UserDefaults
+    private var locale: Locale { context.locale }
+    private var defaults: UserDefaults { context.defaults }
 
     /// 骨架屏的分類列數與預算列數(#204 核對);第一次沒有記錄時各 3。
     public struct SkeletonCounts: Equatable, Sendable {
@@ -126,20 +127,26 @@ public final class StatisticsModel {
     }
 
     /// `locale` 決定月份的格式，預設跟著系統。
-    public init(
+    public init(repository: any StatisticsRepository, context: SessionContext) {
+        self.repository = repository
+        self.context = context
+        currentMonth = CalendarMonth(context.today())
+        month = currentMonth
+        scope = ScopeMemory<ViewScope>(defaults: context.defaults, key: "statistics.scope").load()
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
         repository: any StatisticsRepository,
         dataVersion: DataVersion,
         defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
-        today: () -> CalendarDay = { CalendarDay.today() }
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.defaults = defaults
-        self.repository = repository
-        self.dataVersion = dataVersion
-        self.locale = locale
-        currentMonth = CalendarMonth(today())
-        month = currentMonth
-        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "statistics.scope").load()
+        self.init(
+            repository: repository,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     /// 建立時的本月(台灣時間);切換月份不變。月份選擇器的上限用它。

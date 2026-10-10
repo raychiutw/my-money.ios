@@ -44,6 +44,8 @@ public struct MainScreens {
         defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
+        // 共同建構脈絡(#227):資料版本、defaults、地區、今天;model 收它一個參數。
+        let context = SessionContext(dataVersion: dataVersion, defaults: defaults)
         // 編輯權限(上游 ADR 0013、#133):角色在登入時問一次，帳戶頁、交易頁、信用卡詳細頁共用;家庭頁載入後同步。
         let permissions = PermissionsModel(userID: currentUser, households: householdRepository)
         Task { await permissions.loadIfNeeded() }
@@ -65,9 +67,9 @@ public struct MainScreens {
             repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion, permissions: permissions,
             defaults: defaults
         )
-        goals = SavingsGoalsModel(repository: savingsGoalRepository, dataVersion: dataVersion, defaults: defaults)
-        statistics = StatisticsModel(repository: statisticsRepository, dataVersion: dataVersion, defaults: defaults)
-        forecast = ForecastModel(repository: forecastRepository, dataVersion: dataVersion, defaults: defaults)
+        goals = SavingsGoalsModel(repository: savingsGoalRepository, context: context)
+        statistics = StatisticsModel(repository: statisticsRepository, context: context)
+        forecast = ForecastModel(repository: forecastRepository, context: context)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
             currentUser: currentUser, permissions: permissions, dataVersion: dataVersion, defaults: defaults
