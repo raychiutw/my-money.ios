@@ -67,7 +67,9 @@ public final class StatisticsModel {
 
     /// 預設本月(台灣時間)。
     public var month: CalendarMonth
-    public var scope: ViewScope = .all
+    public var scope: ViewScope = .all {
+        didSet { scopeMemory.save(scope) }
+    }
 
     public private(set) var phase: Phase = .loading
     public private(set) var categoryExpenses: [CategoryExpense] = []
@@ -114,6 +116,7 @@ public final class StatisticsModel {
     }
 
     private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.statistics") }
+    private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "statistics.scope") }
 
     public var skeletonCounts: SkeletonCounts {
         SkeletonCounts(
@@ -136,6 +139,7 @@ public final class StatisticsModel {
         self.locale = locale
         currentMonth = CalendarMonth(today())
         month = currentMonth
+        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "statistics.scope").load()
     }
 
     /// 建立時的本月(台灣時間);切換月份不變。月份選擇器的上限用它。

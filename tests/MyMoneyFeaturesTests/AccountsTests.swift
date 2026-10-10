@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
@@ -19,7 +20,7 @@ struct AccountsTests {
 
     @Test("載入後依類型分成活存帳戶與信用卡帳戶兩區，順序跟後端一樣")
     func splitsAccountsByKind() async {
-        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         await model.load()
 
@@ -29,7 +30,7 @@ struct AccountsTests {
 
     @Test("摘要：淨可用餘額(主數字),以及活存帳戶餘額合計、信用卡待繳總額(已出帳待繳款加未出帳款)")
     func summaryNumbers() async {
-        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         await model.load()
 
@@ -40,7 +41,7 @@ struct AccountsTests {
 
     @Test("現金自成一區，摘要有現金總額;淨可用餘額照後端(含現金)")
     func cashWalletsAreTheirOwnSection() async {
-        let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         await model.load()
 
@@ -53,7 +54,7 @@ struct AccountsTests {
     @Test("帳戶檢視範圍預設全部;切到公帳時，帳戶和資金指標都照這個範圍重新取得(公帳範圍多一張有家庭代墊欠款的個人信用卡)")
     func scopeAppliesToAccountsAndSummary() async {
         let repository = InMemoryAccountRepository.sampleWithCash()
-        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion(), defaults: UserDefaults.isolated())
         #expect(model.scope == .all)
         await model.load()
 
@@ -69,7 +70,7 @@ struct AccountsTests {
     @Test("切換帳戶檢視範圍重新載入期間，維持已載入的內容，不回到骨架屏(web 的二度篩選過渡)", .timeLimit(.minutes(1)))
     func reloadKeepsLoadedContent() async {
         let gate = Gate()
-        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
         await gate.open()
         await model.load()
 
@@ -86,7 +87,7 @@ struct AccountsTests {
     @Test("換了檢視範圍之後，就算資料版本沒變也要重抓(畫面用範圍和資料版本當 task 的 key)")
     func changingScopeMakesDataStale() async {
         let repository = InMemoryAccountRepository.sample()
-        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion(), defaults: UserDefaults.isolated())
         await model.refreshIfStale()
         await model.refreshIfStale()
         #expect(await repository.requestedScopes == [.all])
@@ -100,7 +101,7 @@ struct AccountsTests {
     @Test("資料回來之前是載入中，不顯示任何金額", .timeLimit(.minutes(1)))
     func showsLoadingBeforeDataArrives() async {
         let gate = Gate()
-        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(gate: gate), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         let loading = Task { await model.load() }
         await gate.waitUntilReached()
@@ -118,7 +119,7 @@ struct AccountsTests {
     func showsFailure() async {
         let repository = InMemoryAccountRepository.sample()
         await repository.fail(with: .rejected("帳戶不存在"))
-        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         await model.load()
 
@@ -128,7 +129,7 @@ struct AccountsTests {
     @Test("重新載入(下拉更新)會拿到最新的資料")
     func reloadFetchesLatestData() async {
         let repository = InMemoryAccountRepository.sample()
-        let model = AccountsModel(repository: repository, dataVersion: DataVersion())
+        let model = AccountsModel(repository: repository, dataVersion: DataVersion(), defaults: UserDefaults.isolated())
         await model.load()
 
         await repository.replace(accounts: [], summary: .zero)
@@ -141,7 +142,7 @@ struct AccountsTests {
 
     @Test("沒有任何資產帳戶時，兩區都是空的")
     func emptyAccounts() async {
-        let model = AccountsModel(repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository(accounts: [], summary: .zero), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         await model.load()
 
@@ -153,7 +154,7 @@ struct AccountsTests {
     func deletingBumpsDataVersion() async {
         let repository = InMemoryAccountRepository.sample()
         let dataVersion = DataVersion()
-        let model = AccountsModel(repository: repository, dataVersion: dataVersion)
+        let model = AccountsModel(repository: repository, dataVersion: dataVersion, defaults: UserDefaults.isolated())
         await model.load()
 
         await model.delete(.creditCard(SampleAccounts.lowLimitCard))
@@ -167,7 +168,7 @@ struct AccountsTests {
     func deleteFailureShowsAlert() async {
         let repository = InMemoryAccountRepository.sample()
         let dataVersion = DataVersion()
-        let model = AccountsModel(repository: repository, dataVersion: dataVersion)
+        let model = AccountsModel(repository: repository, dataVersion: dataVersion, defaults: UserDefaults.isolated())
         await model.load()
         await repository.fail(with: .rejected("帳戶不存在"))
 
@@ -179,7 +180,7 @@ struct AccountsTests {
 
     @Test("刪除前的確認文字提醒收支明細會一併刪除")
     func deleteConfirmationMessage() {
-        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion())
+        let model = AccountsModel(repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), defaults: UserDefaults.isolated())
 
         #expect(model.deleteConfirmation(for: .bank(SampleAccounts.savings))
             == "確定要刪除帳戶「iOS 測試存款」嗎？這個帳戶的收支明細也會一併刪除！")
@@ -189,7 +190,7 @@ struct AccountsTests {
     func refreshesOnlyWhenDataVersionChanges() async {
         let repository = InMemoryAccountRepository.sample()
         let dataVersion = DataVersion()
-        let model = AccountsModel(repository: repository, dataVersion: dataVersion)
+        let model = AccountsModel(repository: repository, dataVersion: dataVersion, defaults: UserDefaults.isolated())
         await model.load()
         let fetchesAfterFirstLoad = await repository.fetchCount
 

@@ -17,7 +17,7 @@ struct PrivateCardAdvanceTests {
             summary: SampleAccounts.summary
         )
         let model = AccountsModel(
-            repository: repository, dataVersion: dataVersion, permissions: PermissionsModel(userID: me, role: role)
+            repository: repository, dataVersion: dataVersion, permissions: PermissionsModel(userID: me, role: role), defaults: UserDefaults.isolated()
         )
         model.scope = scope
         await model.load()

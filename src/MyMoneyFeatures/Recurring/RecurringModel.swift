@@ -14,7 +14,7 @@ public final class RecurringModel: Alerting {
 
     /// 視角(上游 ADR 0016):預設全部;選過的視角記在 UserDefaults，下次沿用。
     public var scope: ViewScope {
-        didSet { defaults.set(scope.rawValue, forKey: Self.scopeKey) }
+        didSet { scopeMemory.save(scope) }
     }
 
     /// 刪除失敗時顯示的訊息(alert)。
@@ -32,7 +32,7 @@ public final class RecurringModel: Alerting {
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
     public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
 
-    private static let scopeKey = "recurring.scope"
+    @ObservationIgnored private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "recurring.scope") }
 
     /// 骨架屏各區塊的筆數(#204 核對):上次載入完成時的筆數;第一次沒有記錄時支出 3、收入 1。
     public struct SkeletonCounts: Equatable, Sendable {
@@ -67,7 +67,7 @@ public final class RecurringModel: Alerting {
         self.permissions = permissions
         self.defaults = defaults
         self.today = today
-        scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
+        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "recurring.scope").load()
     }
 
     public var expenses: [RecurringItem] { items.filter { $0.type == .expense } }

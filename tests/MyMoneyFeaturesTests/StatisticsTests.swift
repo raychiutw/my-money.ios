@@ -16,7 +16,7 @@ struct StatisticsTests {
     ) async -> (StatisticsModel, InMemoryStatisticsRepository) {
         let repository = repository ?? InMemoryStatisticsRepository.sample(month: september)
         let model = StatisticsModel(
-            repository: repository, dataVersion: dataVersion, today: { CalendarDay(year: 2026, month: 9, day: 28) }
+            repository: repository, dataVersion: dataVersion, defaults: UserDefaults.isolated(), today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         model.scope = scope
         await model.load()
@@ -31,6 +31,7 @@ struct StatisticsTests {
     func currentMonthStaysWhileSwitching() {
         let model = StatisticsModel(
             repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            defaults: UserDefaults.isolated(),
             today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         model.month = model.month.previous.previous
@@ -43,6 +44,7 @@ struct StatisticsTests {
     func defaults() {
         let model = StatisticsModel(
             repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            defaults: UserDefaults.isolated(),
             today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
 
@@ -55,6 +57,7 @@ struct StatisticsTests {
     func monthAndYearTitles() async throws {
         let model = StatisticsModel(
             repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            defaults: UserDefaults.isolated(),
             locale: Locale(identifier: "zh_Hant_TW"), today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         await model.load()
@@ -73,6 +76,7 @@ struct StatisticsTests {
     func expenseHero() async {
         let model = StatisticsModel(
             repository: InMemoryStatisticsRepository.sample(month: september), dataVersion: DataVersion(),
+            defaults: UserDefaults.isolated(),
             locale: Locale(identifier: "zh_Hant_TW"), today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         await model.load()
@@ -88,7 +92,7 @@ struct StatisticsTests {
     func queries() async {
         let repository = InMemoryStatisticsRepository.sample(month: september)
         let model = StatisticsModel(
-            repository: repository, dataVersion: DataVersion(), today: { CalendarDay(year: 2026, month: 9, day: 28) }
+            repository: repository, dataVersion: DataVersion(), defaults: UserDefaults.isolated(), today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         model.month = CalendarMonth(year: 2025, month: 12)
         model.scope = .household
@@ -317,7 +321,7 @@ struct BudgetEditorTests {
         let repository = InMemoryStatisticsRepository.sample(month: september)
         let dataVersion = DataVersion()
         let model = StatisticsModel(
-            repository: repository, dataVersion: dataVersion, today: { CalendarDay(year: 2026, month: 9, day: 28) }
+            repository: repository, dataVersion: dataVersion, defaults: UserDefaults.isolated(), today: { CalendarDay(year: 2026, month: 9, day: 28) }
         )
         await model.load()
         return (model.makeBudgetEditor(for: category), repository, dataVersion)
