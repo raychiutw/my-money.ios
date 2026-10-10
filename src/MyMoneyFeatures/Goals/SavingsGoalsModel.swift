@@ -166,10 +166,7 @@ public final class SavingsGoalDepositModel: Submitting {
     /// 存入;成功時回傳 `true`(sheet 關閉)並遞增資料版本。已存金額以後端重抓的結果為準。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效的本次存入金額"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "本次存入金額") else { return false }
         guard await submitting(failure: "存入失敗", {
             try await repository.deposit(amount, into: goalID)
         }) != nil else { return false }

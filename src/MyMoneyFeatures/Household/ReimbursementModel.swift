@@ -79,10 +79,7 @@ public final class ReimbursementModel: Submitting {
             errorMessage = "請選擇收款個人帳戶"
             return nil
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效的報銷金額"
-            return nil
-        }
+        guard let amount = positiveAmount(amountText, label: "報銷金額") else { return nil }
         guard let message = await submitting(failure: "撥款報銷失敗", {
             try await households.reimburse(Reimbursement(
                 memberID: advance.memberID, fromAccountID: fromAccountID, toAccountID: toAccountID, amount: amount,

@@ -290,10 +290,7 @@ public final class BudgetEditorModel: Submitting {
     /// 儲存;成功時回傳 `true`(sheet 關閉)並遞增資料版本。接受任何正整數(parity 刻意偏離第 4 項)。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效的預算"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "預算") else { return false }
         guard await submitting(failure: "預算設定失敗", {
             try await repository.setBudget(amount, for: category, month: month)
         }) != nil else { return false }

@@ -104,10 +104,7 @@ public final class TransferModel: Submitting {
             errorMessage = "請選擇轉入帳戶"
             return nil
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效的金額"
-            return nil
-        }
+        guard let amount = positiveAmount(amountText, label: "金額") else { return nil }
         guard fromAccountID != toAccountID else {
             errorMessage = "轉出與轉入帳戶不能相同"
             return nil

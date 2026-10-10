@@ -190,9 +190,9 @@ public final class ForecastModel {
     /// 購買力試算;接受任何正整數(parity 刻意偏離第 4 項)。
     public func checkPurchase() async {
         purchaseError = nil
-        guard let amount = Money(wholeNumber: purchaseAmountText), amount > .zero else {
+        guard let amount = PositiveAmount.parse(purchaseAmountText) else {
             purchaseCheck = nil
-            purchaseError = "請輸入有效的購買金額"
+            purchaseError = PositiveAmount.invalidMessage(label: "購買金額")
             return
         }
         isChecking = true

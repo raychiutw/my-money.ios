@@ -101,10 +101,7 @@ public final class TransactionEditorModel: Submitting {
             errorMessage = "請先建立並選擇帳戶"
             return false
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效的金額"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "金額") else { return false }
         guard await submitting(failure: "操作失敗", {
             try await transactions.update(id, with: TransactionDraft(
                 accountID: accountID,
