@@ -73,11 +73,12 @@ public final class OverviewModel {
     @ObservationIgnored private let statisticsRepository: any StatisticsRepository
     @ObservationIgnored private let goalRepository: any SavingsGoalRepository
     @ObservationIgnored private let forecastRepository: (any ForecastRepository)?
-    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
     @ObservationIgnored private let permissions: PermissionsModel?
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored let today: () -> CalendarDay
-    @ObservationIgnored let locale: Locale
+    private var defaults: UserDefaults { context.defaults }
+    var today: () -> CalendarDay { context.today }
+    var locale: Locale { context.locale }
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
@@ -91,23 +92,37 @@ public final class OverviewModel {
         statistics: any StatisticsRepository,
         goals: any SavingsGoalRepository,
         forecast: (any ForecastRepository)? = nil,
-        dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
-        defaults: UserDefaults,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() },
-        locale: Locale = .autoupdatingCurrent
+        context: SessionContext
     ) {
         accountRepository = accounts
         transactionRepository = transactions
         statisticsRepository = statistics
         goalRepository = goals
         forecastRepository = forecast
-        self.dataVersion = dataVersion
+        self.context = context
         self.permissions = permissions
-        self.defaults = defaults
-        self.today = today
-        self.locale = locale
-        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "overview.scope").load()
+        scope = ScopeMemory<ViewScope>(defaults: context.defaults, key: "overview.scope").load()
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        accounts: any AccountRepository,
+        transactions: any TransactionRepository,
+        statistics: any StatisticsRepository,
+        goals: any SavingsGoalRepository,
+        forecast: (any ForecastRepository)? = nil,
+        dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
+        defaults: UserDefaults,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() },
+        locale: Locale = .autoupdatingCurrent
+    ) {
+        self.init(
+            accounts: accounts, transactions: transactions, statistics: statistics, goals: goals, forecast: forecast,
+            permissions: permissions,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     public var monthNet: Money { monthIncome - monthExpense }

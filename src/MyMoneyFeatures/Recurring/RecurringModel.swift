@@ -22,11 +22,12 @@ public final class RecurringModel: Alerting {
 
     @ObservationIgnored private let repository: any RecurringRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
-    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
     /// 編輯權限(登入的人與家庭角色);沒有時所有項目都當作能改，交給後端的 403 把關。
     @ObservationIgnored private let permissions: PermissionsModel?
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let today: () -> CalendarDay
+    private var defaults: UserDefaults { context.defaults }
+    private var today: () -> CalendarDay { context.today }
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
@@ -56,18 +57,29 @@ public final class RecurringModel: Alerting {
     public init(
         repository: any RecurringRepository,
         accounts: any AccountRepository,
+        permissions: PermissionsModel? = nil,
+        context: SessionContext
+    ) {
+        self.repository = repository
+        accountRepository = accounts
+        self.context = context
+        self.permissions = permissions
+        scope = ScopeMemory<ViewScope>(defaults: context.defaults, key: "recurring.scope").load()
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        repository: any RecurringRepository,
+        accounts: any AccountRepository,
         dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
         defaults: UserDefaults = .standard,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.repository = repository
-        accountRepository = accounts
-        self.dataVersion = dataVersion
-        self.permissions = permissions
-        self.defaults = defaults
-        self.today = today
-        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "recurring.scope").load()
+        self.init(
+            repository: repository, accounts: accounts, permissions: permissions,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, today: today)
+        )
     }
 
     public var expenses: [RecurringItem] { items.filter { $0.type == .expense } }

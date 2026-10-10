@@ -28,13 +28,14 @@ public final class AccountsModel: Alerting {
     public var noticeMessage: String?
 
     @ObservationIgnored private let repository: any AccountRepository
-    @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
+    private var today: () -> CalendarDay { context.today }
     /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
     @ObservationIgnored private let permissions: PermissionsModel?
     /// 公帳範圍的待報銷橫幅用(上游 ADR 0015、#141);沒有就不顯示橫幅。
     @ObservationIgnored private let households: (any HouseholdRepository)?
-    @ObservationIgnored private let defaults: UserDefaults
+    private var defaults: UserDefaults { context.defaults }
 
     /// 骨架屏各區塊的張數(#204):上次載入完成時的張數(依範圍),第一次沒有記錄時現金 0、活存帳戶 1、信用卡 1。
     public struct SkeletonCounts: Equatable, Sendable {
@@ -68,19 +69,30 @@ public final class AccountsModel: Alerting {
 
     public init(
         repository: any AccountRepository,
+        permissions: PermissionsModel? = nil,
+        households: (any HouseholdRepository)? = nil,
+        context: SessionContext
+    ) {
+        self.repository = repository
+        self.context = context
+        self.permissions = permissions
+        self.households = households
+        scope = ScopeMemory<AccountScope>(defaults: context.defaults, key: "accounts.scope").load()
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        repository: any AccountRepository,
         dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
         households: (any HouseholdRepository)? = nil,
         defaults: UserDefaults = .standard,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.defaults = defaults
-        self.repository = repository
-        self.dataVersion = dataVersion
-        self.permissions = permissions
-        self.households = households
-        self.today = today
-        scope = ScopeMemory<AccountScope>(defaults: defaults, key: "accounts.scope").load()
+        self.init(
+            repository: repository, permissions: permissions, households: households,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, today: today)
+        )
     }
 
     /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。
@@ -192,7 +204,7 @@ public final class AccountsModel: Alerting {
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
             card: card, bankAccounts: bankAccounts, loadedVersion: freshness.version, scope: scope, repository: repository,
-            dataVersion: dataVersion, permissions: permissions, today: today
+            permissions: permissions, context: context
         )
     }
 

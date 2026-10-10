@@ -41,14 +41,15 @@ public final class ForecastModel {
     public private(set) var settleError: String?
 
     @ObservationIgnored private let repository: any ForecastRepository
-    @ObservationIgnored public let dataVersion: DataVersion
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
     public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let today: () -> CalendarDay
+    private var defaults: UserDefaults { context.defaults }
+    private var locale: Locale { context.locale }
+    private var today: () -> CalendarDay { context.today }
 
     @ObservationIgnored private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "forecast.scope") }
 
@@ -73,19 +74,24 @@ public final class ForecastModel {
     }
 
     /// `locale` 決定日期的格式，預設跟著系統;`today` 決定日期要不要寫年份。
-    public init(
+    public init(repository: any ForecastRepository, context: SessionContext) {
+        self.repository = repository
+        self.context = context
+        scope = ScopeMemory<ViewScope>(defaults: context.defaults, key: "forecast.scope").load()
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
         repository: any ForecastRepository,
         dataVersion: DataVersion,
         defaults: UserDefaults = .standard,
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.repository = repository
-        self.dataVersion = dataVersion
-        self.defaults = defaults
-        self.locale = locale
-        self.today = today
-        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "forecast.scope").load()
+        self.init(
+            repository: repository,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.days` 天)。
