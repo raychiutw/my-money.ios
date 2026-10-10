@@ -46,14 +46,19 @@ public final class ReimbursementModel: Submitting {
     @ObservationIgnored private let households: any HouseholdRepository
     @ObservationIgnored private let accounts: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
+    @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let locale: Locale
 
     init(
         advance: HouseholdAdvance,
         households: any HouseholdRepository,
         accounts: any AccountRepository,
         dataVersion: DataVersion,
-        today: () -> CalendarDay
+        locale: Locale = .autoupdatingCurrent,
+        today: @escaping () -> CalendarDay
     ) {
+        self.today = today
+        self.locale = locale
         self.advance = advance
         self.households = households
         self.accounts = accounts
@@ -113,6 +118,12 @@ public final class ReimbursementModel: Submitting {
     }
 
     public func isSelected(_ id: TransactionID) -> Bool { selectedIDs.contains(id) }
+
+    /// 勾選清單裡一筆明細的「日期 時間」，跟家庭頁的代墊明細同一個格式，例如「9月27日 03:57」(台灣時間)。
+    public func itemDateText(_ item: AdvanceItem) -> String {
+        [item.date.text(today: today(), locale: locale), item.recordedAt.map(RecordedTime.clockText(of:))]
+            .compactMap { $0 }.joined(separator: " ")
+    }
 
     public func toggle(_ id: TransactionID) {
         if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }

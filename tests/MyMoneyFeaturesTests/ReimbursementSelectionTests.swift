@@ -161,6 +161,29 @@ struct ReimbursementSelectionTests {
         #expect(dataVersion.value == 1)
     }
 
+    @Test("明細的日期文字跟家庭頁的代墊明細同一個格式(不是今年的加年份，有記錄時間就接在後面)")
+    func itemDateText() async {
+        let dated = HouseholdAdvance(
+            memberID: me, memberName: "小明", totalAdvanced: Money(100), totalReimbursed: .zero, pendingReimbursement: Money(100),
+            advanceItems: [AdvanceItem(
+                id: TransactionID("t"), date: today, category: .dining, note: "t", amount: Money(100),
+                accountName: "iOS 測試皮夾", accountKind: .cash, recordedAt: Date(timeIntervalSince1970: 1_790_000_000)
+            )],
+            reimbursementItems: [], receivingAccounts: advance.receivingAccounts
+        )
+        let repository = InMemoryHouseholdRepository.sample(advances: [dated])
+        let household = HouseholdModel(
+            repository: repository, accounts: InMemoryAccountRepository.sample(), currentUser: me, dataVersion: dataVersion,
+            locale: Locale(identifier: "zh_Hant_TW"), today: { today }
+        )
+        await household.load()
+        let model = household.makeReimbursement(for: dated)
+        let item = dated.advanceItems[0]
+
+        #expect(model.itemDateText(item) == household.dateTimeText(item.date, item.recordedAt))
+        #expect(model.itemDateText(item).contains(":"), "有記錄時間就接在日期後面")
+    }
+
     @Test("沒有明細的待報銷(例如舊資料):維持手動輸入金額，不帶 advance_ids")
     func legacyManualAmount() async {
         let manual = HouseholdAdvance(

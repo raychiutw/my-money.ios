@@ -196,6 +196,53 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "備註欄按「完成」後，鍵盤沒有收起")
     }
 
+    /// 報銷沖帳逐筆勾選(上游 d0424df、#242):有待報銷明細時列出明細、預設全選、報銷金額跟著勾選連動;
+    /// 全部取消時不能送出。多個墊付帳戶的分組、「僅選此帳戶」與送出由 `ReimbursementSelectionTests` 驗證。
+    @MainActor
+    func testReimbursementItemSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession", "-uiTestingJoinedHousehold"]
+        app.launch()
+        signIn(app)
+
+        app.tabBars.buttons["家庭"].tap()
+        let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
+        _ = reimburse.waitForExistence(timeout: 5)
+        for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
+        XCTAssertTrue(reimburse.exists, "自己的代墊款沒有報銷入口")
+        reimburse.tap()
+
+        let item = app.switches["reimbursement.item.sample-advance"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "沒有列出待報銷的代墊明細")
+        XCTAssertEqual(item.value as? String, "1", "代墊明細預設沒有全選")
+        XCTAssertTrue(row("報銷金額", value: "250 元", in: app).exists, "報銷金額不是勾選明細的加總")
+        XCTAssertFalse(app.textFields["reimbursement.amount"].exists, "有明細時報銷金額還能手動輸入")
+
+        flip(item)
+        XCTAssertTrue(waitForValue("0", of: item), "取消勾選後開關沒有關掉:\(String(describing: item.value))")
+        XCTAssertTrue(row("報銷金額", value: "0 元", in: app).waitForExistence(timeout: 3), "取消勾選後報銷金額沒有跟著變")
+        XCTAssertTrue(element(in: app, labelContaining: "請至少勾選一筆要報銷的代墊明細").exists, "全部取消沒有說明為什麼不能送出")
+        XCTAssertFalse(app.buttons["reimbursement.submit"].isEnabled, "全部取消勾選還能送出")
+
+        flip(item)
+        XCTAssertTrue(waitForValue("1", of: item), "重新勾選後開關沒有打開:\(String(describing: item.value))")
+        XCTAssertTrue(row("報銷金額", value: "250 元", in: app).waitForExistence(timeout: 3))
+
+        // 帳戶選擇與送出(帶被勾選明細的 ID)由 testReimburseAnotherMembersAdvance 與 ReimbursementSelectionTests 驗證。
+    }
+
+    /// 開關在列的最右邊:點整列的中央會落在標籤上，改點開關本身所在的右側。
+    @MainActor
+    private func flip(_ toggle: XCUIElement) {
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+    }
+
+    @MainActor
+    private func waitForValue(_ expected: String, of element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expected)
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
+    }
+
     /// 一般列(`AmountRow`):VoiceOver 念標籤，值是金額。
     @MainActor
     private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
