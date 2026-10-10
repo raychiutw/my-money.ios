@@ -204,7 +204,7 @@ public final class AccountsModel: Alerting {
     public func makeCardDetail(for card: CreditCard) -> CreditCardDetailModel {
         CreditCardDetailModel(
             card: card, bankAccounts: bankAccounts, loadedVersion: freshness.version, scope: scope, repository: repository,
-            dataVersion: dataVersion, permissions: permissions, today: today
+            permissions: permissions, context: context
         )
     }
 

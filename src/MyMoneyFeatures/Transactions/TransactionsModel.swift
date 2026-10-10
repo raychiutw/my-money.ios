@@ -67,13 +67,14 @@ public final class TransactionsModel: Alerting {
 
     @ObservationIgnored private let repository: any TransactionRepository
     @ObservationIgnored private let accountRepository: (any AccountRepository)?
-    @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
+    private var today: () -> CalendarDay { context.today }
     @ObservationIgnored private let currentUser: UserID?
     /// 編輯與刪除的權限(上游 ADR 0013、#133);沒有就不擋，交給後端。
     @ObservationIgnored private let permissions: PermissionsModel?
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let defaults: UserDefaults
+    private var locale: Locale { context.locale }
+    private var defaults: UserDefaults { context.defaults }
     @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:資料版本變了就要重載。
@@ -89,6 +90,25 @@ public final class TransactionsModel: Alerting {
     public init(
         repository: any TransactionRepository,
         accounts: (any AccountRepository)? = nil,
+        currentUser: UserID? = nil,
+        permissions: PermissionsModel? = nil,
+        context: SessionContext
+    ) {
+        self.repository = repository
+        accountRepository = accounts
+        self.context = context
+        self.currentUser = currentUser
+        self.permissions = permissions
+        let now = context.today()
+        let thisMonth = Filter(from: now.firstOfMonth, to: now)
+        filter = thisMonth
+        filterDraft = thisMonth
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        repository: any TransactionRepository,
+        accounts: (any AccountRepository)? = nil,
         dataVersion: DataVersion,
         currentUser: UserID? = nil,
         permissions: PermissionsModel? = nil,
@@ -96,18 +116,10 @@ public final class TransactionsModel: Alerting {
         locale: Locale = .autoupdatingCurrent,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
-        self.defaults = defaults
-        self.repository = repository
-        accountRepository = accounts
-        self.dataVersion = dataVersion
-        self.currentUser = currentUser
-        self.permissions = permissions
-        self.locale = locale
-        self.today = today
-        let now = today()
-        let thisMonth = Filter(from: now.firstOfMonth, to: now)
-        filter = thisMonth
-        filterDraft = thisMonth
+        self.init(
+            repository: repository, accounts: accounts, currentUser: currentUser, permissions: permissions,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     /// 打開篩選 sheet:草稿從目前套用的篩選開始。

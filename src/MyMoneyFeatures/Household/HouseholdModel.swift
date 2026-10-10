@@ -37,10 +37,11 @@ public final class HouseholdModel {
     @ObservationIgnored private let currentUser: UserID?
     /// 載入家庭之後同步角色，帳戶頁、交易頁的編輯權限跟著改(上游 ADR 0013、#133)。
     @ObservationIgnored private let permissions: PermissionsModel?
-    @ObservationIgnored private let dataVersion: DataVersion
-    @ObservationIgnored private let today: () -> CalendarDay
-    @ObservationIgnored private let locale: Locale
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let context: SessionContext
+    private var dataVersion: DataVersion { context.dataVersion }
+    private var today: () -> CalendarDay { context.today }
+    private var locale: Locale { context.locale }
+    private var defaults: UserDefaults { context.defaults }
 
     /// 骨架屏的形狀(#204):上次載入時有沒有家庭、幾位成員;沒有記錄時畫成還沒加入(沒有家庭的人比較多)。
     public enum SkeletonShape: Equatable, Sendable {
@@ -65,20 +66,32 @@ public final class HouseholdModel {
         statistics: (any StatisticsRepository)? = nil,
         currentUser: UserID? = nil,
         permissions: PermissionsModel? = nil,
-        dataVersion: DataVersion,
-        defaults: UserDefaults = .standard,
-        locale: Locale = .autoupdatingCurrent,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+        context: SessionContext
     ) {
-        self.defaults = defaults
         self.repository = repository
         self.accounts = accounts
         self.statistics = statistics
         self.currentUser = currentUser
         self.permissions = permissions
-        self.dataVersion = dataVersion
-        self.locale = locale
-        self.today = today
+        self.context = context
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        repository: any HouseholdRepository,
+        accounts: any AccountRepository,
+        statistics: (any StatisticsRepository)? = nil,
+        currentUser: UserID? = nil,
+        permissions: PermissionsModel? = nil,
+        dataVersion: DataVersion,
+        defaults: UserDefaults = .standard,
+        locale: Locale = .autoupdatingCurrent,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
+        self.init(
+            repository: repository, accounts: accounts, statistics: statistics, currentUser: currentUser, permissions: permissions,
+            context: SessionContext(dataVersion: dataVersion, defaults: defaults, locale: locale, today: today)
+        )
     }
 
     /// 代墊與報銷明細的日期，例如「9月27日」,不是今年的加上年份。

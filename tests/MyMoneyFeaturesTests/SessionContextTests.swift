@@ -93,4 +93,43 @@ struct SessionContextTests {
         #expect(recurring.reloadKey.version == 1)
         #expect(accounts.reloadKey.version == 1)
     }
+
+    @Test("記帳、家庭、信用卡詳細頁:用脈絡建立(資料版本、今天、locale 來自脈絡;權限與登入的人另外傳)")
+    func transactionsHouseholdAndCardDetailTakeAContext() {
+        let version = DataVersion()
+        let context = SessionContext(
+            dataVersion: version, defaults: UserDefaults.isolated(), locale: Locale(identifier: "zh_Hant_TW"), today: { day }
+        )
+
+        let transactions = TransactionsModel(
+            repository: InMemoryTransactionRepository(transactions: []), accounts: InMemoryAccountRepository.sample(),
+            currentUser: InMemoryAuthRepository.Member.sample.user.id, context: context
+        )
+        let household = HouseholdModel(
+            repository: InMemoryHouseholdRepository.sample(), accounts: InMemoryAccountRepository.sample(),
+            currentUser: InMemoryAuthRepository.Member.sample.user.id, context: context
+        )
+        let detail = CreditCardDetailModel(
+            card: SampleAccounts.card, bankAccounts: [], loadedVersion: nil, scope: .all,
+            repository: InMemoryAccountRepository.sample(), context: context
+        )
+
+        #expect(transactions.dataVersion === version)
+        #expect(detail.dataVersion === version)
+        #expect(transactions.filter.to == day, "預設區間的迄日是脈絡的今天")
+
+        // 脈絡的今天設在 2024 年:同一年的日期不寫年份;如果「今天」是系統的(2026 年)就會寫成「2024年9月1日」。
+        let in2024 = SessionContext(
+            defaults: UserDefaults.isolated(), locale: Locale(identifier: "zh_Hant_TW"), today: { CalendarDay(year: 2024, month: 9, day: 28) }
+        )
+        let household2024 = HouseholdModel(
+            repository: InMemoryHouseholdRepository.sample(), accounts: InMemoryAccountRepository.sample(), context: in2024
+        )
+        #expect(household2024.dateText(CalendarDay(year: 2024, month: 9, day: 1)) == "9月1日", "日期格式來自脈絡的今天與 locale")
+        _ = household
+
+        version.bump()
+        #expect(transactions.reloadKey.version == 1)
+        #expect(detail.reloadKey.version == 1)
+    }
 }

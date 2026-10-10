@@ -57,8 +57,8 @@ public struct MainScreens {
             repository: accountRepository, permissions: permissions, households: householdRepository, context: context
         )
         transactions = TransactionsModel(
-            repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
-            permissions: permissions, defaults: defaults
+            repository: transactionRepository, accounts: accountRepository, currentUser: currentUser,
+            permissions: permissions, context: context
         )
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(
@@ -69,7 +69,7 @@ public struct MainScreens {
         forecast = ForecastModel(repository: forecastRepository, context: context)
         household = HouseholdModel(
             repository: householdRepository, accounts: accountRepository, statistics: statisticsRepository,
-            currentUser: currentUser, permissions: permissions, dataVersion: dataVersion, defaults: defaults
+            currentUser: currentUser, permissions: permissions, context: context
         )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
     }

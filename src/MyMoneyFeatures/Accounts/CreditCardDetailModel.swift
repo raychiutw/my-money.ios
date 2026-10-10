@@ -16,8 +16,9 @@ public final class CreditCardDetailModel: Alerting {
 
     @ObservationIgnored private let scope: AccountScope
     @ObservationIgnored private let repository: any AccountRepository
-    @ObservationIgnored public let dataVersion: DataVersion
-    @ObservationIgnored private let today: () -> CalendarDay
+    @ObservationIgnored private let context: SessionContext
+    public var dataVersion: DataVersion { context.dataVersion }
+    private var today: () -> CalendarDay { context.today }
     @ObservationIgnored private let permissions: PermissionsModel?
     /// 上一次取得時的資料版本;`nil` 是還沒取得過。
     @ObservationIgnored private var freshness = LoadFreshness<Unscoped>()
@@ -33,18 +34,33 @@ public final class CreditCardDetailModel: Alerting {
         loadedVersion: Int?,
         scope: AccountScope,
         repository: any AccountRepository,
-        dataVersion: DataVersion,
         permissions: PermissionsModel? = nil,
-        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+        context: SessionContext
     ) {
         self.card = card
         self.bankAccounts = bankAccounts
         self.scope = scope
         self.repository = repository
-        self.dataVersion = dataVersion
+        self.context = context
         self.permissions = permissions
-        self.today = today
         if let loadedVersion { freshness.markLoaded(ReloadKey(version: loadedVersion)) }
+    }
+
+    /// 個別參數的寫法(測試與預覽用),轉成 `SessionContext`。
+    public convenience init(
+        card: CreditCard,
+        bankAccounts: [BankAccount],
+        loadedVersion: Int?,
+        scope: AccountScope,
+        repository: any AccountRepository,
+        dataVersion: DataVersion,
+        permissions: PermissionsModel? = nil,
+        today: @escaping () -> CalendarDay = { CalendarDay.today() }
+    ) {
+        self.init(
+            card: card, bankAccounts: bankAccounts, loadedVersion: loadedVersion, scope: scope, repository: repository,
+            permissions: permissions, context: SessionContext(dataVersion: dataVersion, today: today)
+        )
     }
 
     /// toolbar 的「編輯」:家庭信用卡只有建立者或家庭管理員，個人信用卡只有持卡人(上游 ADR 0013、#133)。
