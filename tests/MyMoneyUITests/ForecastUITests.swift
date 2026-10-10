@@ -9,10 +9,7 @@ final class ForecastUITests: XCTestCase {
     /// 透支風險與最低餘額;購買力試算的三種評估結果。
     @MainActor
     func testRiskAndPurchaseCheck() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "現金流充裕安全").waitForExistence(timeout: 5), "沒有看到透支風險")
@@ -29,10 +26,7 @@ final class ForecastUITests: XCTestCase {
     /// 起始餘額(上游 5b2faa6、#195):預測頁多一組「起始餘額」,念出金額與現金、活存帳戶各是多少。
     @MainActor
     func testStartingBalanceShowsCashAndBankTotals() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("forecast")
         let start = app.descendants(matching: .any)["forecast.startingBalance"]
@@ -44,10 +38,7 @@ final class ForecastUITests: XCTestCase {
     /// 視角(上游 ADR 0016、#153):預測頁切到家庭公帳,最低餘額與預定收支換成公帳的;購買力試算跟著視角,切換時結論清掉。
     @MainActor
     func testScopeFilterChangesTheForecastAndClearsThePurchaseCheck() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
 
@@ -72,10 +63,7 @@ final class ForecastUITests: XCTestCase {
     /// 事件變淡並念出已繳;再點一次取消。
     @MainActor
     func testSettlingAnEventRecalculatesTheMinimumBalanceAndCanBeUndone() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.openHomeEntry("forecast")
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 53,440 元").waitForExistence(timeout: 5))
 
@@ -103,10 +91,7 @@ final class ForecastUITests: XCTestCase {
     /// 總覽的走勢線每個視角都有(以前只有「全部」)。
     @MainActor
     func testOverviewTrendIsShownInEveryScope() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let chart = element(in: app, labelContaining: "未來 60 天預測餘額")
         XCTAssertTrue(chart.waitForExistence(timeout: 5), "全部視角沒有走勢線")
@@ -165,7 +150,7 @@ final class ForecastUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"] + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         // 大字級時列表長，入口會在畫面下方:`openHomeEntry` 會捲到看得到再點。
         app.openHomeEntry("forecast")
         return app
@@ -176,16 +161,4 @@ final class ForecastUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

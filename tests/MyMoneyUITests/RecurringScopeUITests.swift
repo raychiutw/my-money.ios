@@ -147,15 +147,7 @@ final class RecurringScopeUITests: XCTestCase {
             + (memberRole ? ["-uiTestingMemberRole"] : [])
             + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
+        app.signInWithSampleAccount()
         app.openHomeEntry("recurring")
         return app
     }

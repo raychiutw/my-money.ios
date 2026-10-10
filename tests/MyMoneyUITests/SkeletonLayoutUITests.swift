@@ -22,10 +22,7 @@ final class SkeletonLayoutUITests: XCTestCase {
     /// `-uiTestingFamilyEntries` 走另一條帳戶 repository 的建構路徑，以前沒帶載入延遲，同時帶 `-uiTestingHoldOverview` 時 Hold 被默默忽略(#233)。
     @MainActor
     func testHoldOverviewStillHoldsWithFamilyEntries() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingHoldOverview", "-uiTestingFamilyEntries", "-resetSession"]
-        app.launch()
-        app.signInWithSampleAccount()
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingHoldOverview", "-uiTestingFamilyEntries"], signedIn: true)
         XCTAssertTrue(
             element(app, id: "overview.skeleton.tile.0").waitForExistence(timeout: 10),
             "同時帶家人資料與骨架停留旗標，總覽的骨架屏沒有停留(Hold 被忽略)"

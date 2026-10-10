@@ -9,10 +9,7 @@ final class RecurringUITests: XCTestCase {
     /// 統計卡與列表;新增一項後每月週期淨額跟著變;左滑刪除(先確認)。
     @MainActor
     func testSummaryAddAndDelete() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("recurring")
         XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
@@ -46,10 +43,7 @@ final class RecurringUITests: XCTestCase {
     /// 切回月繳月份欄位消失。
     @MainActor
     func testQuarterlyMonthChoiceShowsExactScheduleOnTheCard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.openHomeEntry("recurring")
 
         app.buttons["recurring.add"].tap()
@@ -84,10 +78,7 @@ final class RecurringUITests: XCTestCase {
     /// 切到週期收入、新增每期 1,000 的項目，每月週期淨額從 31,000 變成 32,000。
     @MainActor
     func testEditorTypeInNavigationBar() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("recurring")
         XCTAssertTrue(row("每月週期淨額", value: "31,000 元", in: app).waitForExistence(timeout: 5), "沒有看到摘要")
@@ -114,10 +105,7 @@ final class RecurringUITests: XCTestCase {
     /// 週期是內嵌選擇列(5 列，點一下就選);扣款日(1～31 號)推入清單頁，選了自動返回(ADR-0004、#91)。
     @MainActor
     func testCycleIsInlineAndDayIsAPushedList() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("recurring")
         app.buttons["recurring.add"].tap()
@@ -153,16 +141,4 @@ final class RecurringUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

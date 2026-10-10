@@ -73,6 +73,7 @@ tests/MyMoneyUITests/          # XCUITest
 
 - 單元測試和 integration 測試用 Swift Testing;少數 UI 流程用 XCTest/XCUITest。兩者分開 target。
 - `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫，用 `scripts/record-fixture.sh` 錄(token 會換成假值)。流程和清單見 `tests/MyMoneyAPITests/Fixtures/README.md`。網路用 `URLProtocol` stub(`HTTPStub`,每個測試一個 host,可以平行跑)。
+- **UI 測試一律用 `XCUIApplication.launchUITesting(flags:contentSize:resettingSession:signedIn:)` 啟動、`app.signInWithSampleAccount()` 登入**(`tests/MyMoneyUITests/SignInHelper.swift`),不在測試檔裡自己拼 `launchArguments` 或手寫登入:共用登入處理了大字級時登入鈕被鍵盤擋住(先上捲)、iPad 的 tab 不在 `tabBars`(多個候選)、不用 Return 以免彈出「要儲存密碼嗎」。`resettingSession: false` 的 relaunch 不會自動登入。例外有意保留自己的啟動:`BrandColorUITests`(不帶 `-uiTesting`,走正式路徑)、`LoginFlowUITests`/`RegisterFlowUITests`(測登入與註冊畫面本身)、`ScreenTourUITests`(截圖巡覽自己的環境變數)、`IPadLayoutUITests`/`KeyboardUITests`(控制方向與逐字級重啟)。
 - UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository(登入帳密是 `InMemoryAuthRepository.Member.sample`)。session 仍存在模擬器的 Keychain(UI 測試專用的 service),再加 `-resetSession` 會在啟動時清掉。唯一的例外是 `BrandColorUITests`:它不帶 `-uiTesting`,驗證 TestFlight 走的正式路徑，只停在登入頁(不連網路);模擬器裡有正式 session 時會 skip。
 - 畫面 model 測試要觀察「送出期間」的狀態時，用 `MyMoneyTestSupport` 的 `Gate` 讓 in-memory repository 停住，不用 `sleep`。
 - 測試名稱使用 `CONTEXT.md` 的詞彙。

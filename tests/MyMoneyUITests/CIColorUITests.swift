@@ -13,9 +13,7 @@ final class CIColorUITests: XCTestCase {
     @MainActor
     private func launch(_ appearance: XCUIDevice.Appearance, signedIn: Bool = true) -> XCUIApplication {
         XCUIDevice.shared.appearance = appearance
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
+        let app = XCUIApplication.launchUITesting()
         if signedIn { app.signInWithSampleAccount() }
         return app
     }

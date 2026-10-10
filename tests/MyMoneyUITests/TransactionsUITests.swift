@@ -13,7 +13,7 @@ final class TransactionsUITests: XCTestCase {
             let app = XCUIApplication()
             app.launchArguments = ["-uiTesting", "-resetSession"] + (size.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
             app.launch()
-            signIn(app)
+            app.signInWithSampleAccount()
             app.tabBars.buttons["記帳"].tap()
             // 範例的午餐記在台灣時間 12:30。
             let lunch = element(in: app, labelContaining: "午餐")
@@ -31,10 +31,7 @@ final class TransactionsUITests: XCTestCase {
     /// 列表顯示本月的收支明細;記一筆 250 元後出現在列表上。
     @MainActor
     func testListShowsThisMonthAndQuickEntryAddsTransaction() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["記帳"].tap()
         // 收支明細在大數字、比例條與長條圖下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
@@ -68,10 +65,7 @@ final class TransactionsUITests: XCTestCase {
     /// 在 sheet 裡改類型後按「完成」,清單、篩選按鈕的值和收支明細的筆數都更新;再改一次按「取消」,全部不變。
     @MainActor
     func testFilterSheetAppliesOnDoneAndCancelKeepsFilter() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         let period = Self.taipeiThisMonthPeriod()
@@ -134,7 +128,7 @@ final class TransactionsUITests: XCTestCase {
             "-UIPreferredContentSizeCategoryName", category,
         ]
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         app.tabBars.buttons["記帳"].tap()
 
         let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
@@ -158,7 +152,7 @@ final class TransactionsUITests: XCTestCase {
             app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
                 + (isAdmin ? [] : ["-uiTestingMemberRole"])
             app.launch()
-            signIn(app)
+            app.signInWithSampleAccount()
             app.tabBars.buttons["記帳"].tap()
 
             let role = isAdmin ? "家庭管理員" : "一般成員"
@@ -207,7 +201,7 @@ final class TransactionsUITests: XCTestCase {
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL",
         ]
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         app.tabBars.buttons["記帳"].tap()
 
         let lunch = element(in: app, labelContaining: "餐飲，午餐，帳戶")
@@ -296,10 +290,7 @@ final class TransactionsUITests: XCTestCase {
     /// 年月快速切換(#130):上一月、下一月、選任意年月，篩選按鈕的值跟著變;本月時下一月停用。
     @MainActor
     func testMonthSwitcherChangesTheFilterRange() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         let title = app.buttons["transactions.month.title"]
@@ -335,10 +326,7 @@ final class TransactionsUITests: XCTestCase {
     /// 信用卡消費的帳單狀態(上游 ADR 0020、#188):已出帳、延至下期寫在次要文字,VoiceOver 也念出來;其他消費沒有。
     @MainActor
     func testCardBillingStatusIsLabelled() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingCardBilling", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingCardBilling"], signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         // 清單是惰性的:一次只建立畫面附近的列，逐一捲到看得到再讀 VoiceOver 念法。
@@ -356,10 +344,7 @@ final class TransactionsUITests: XCTestCase {
     /// 信用卡專屬的「列入下期帳單」(上游 ADR 0020、#184):選了信用卡才出現，選別的帳戶就收起並重設。
     @MainActor
     func testDeferToNextStatementOnlyForCreditCards() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.buttons["overview.add"].tap()
         let toggle = app.switches["quickEntry.deferToNext"]
 
@@ -382,10 +367,7 @@ final class TransactionsUITests: XCTestCase {
     /// 依帳戶篩選(上游 ADR 0019、#183):篩選 sheet 選「iOS 測試存款」，按完成後列表只剩那個帳戶的收支明細，篩選按鈕顯示套用中。
     @MainActor
     func testFilterByAccountNarrowsTheList() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
         // 信用卡的消費是「耳機」;存款帳戶那筆還款的備註裡也有卡名，所以不用卡名找。
         let card = element(in: app, labelContaining: "耳機")
@@ -408,10 +390,7 @@ final class TransactionsUITests: XCTestCase {
     /// 篩選 sheet 的「重設為本月」是帶圖示的列，不是看起來像標籤的純文字(#165)。
     @MainActor
     func testFilterResetRowHasAnIcon() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.filter"].tap()
         let reset = app.buttons["transactionFilter.thisMonth"]
@@ -455,10 +434,7 @@ final class TransactionsUITests: XCTestCase {
     /// 以前帳戶與日期在最底下，每次都要捲到底才能選。帳戶仍然每次都是空的(上游 ADR 0011)。
     @MainActor
     func testFormFieldsStartWithAccountAndDateInQuickEntryAndEditor() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         // 記一筆
@@ -496,10 +472,7 @@ final class TransactionsUITests: XCTestCase {
     /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880 + 信用卡還款 5,000(上游 a09e923 起系統分類也算)。
     @MainActor
     func testHeroShowsNetIncomeExpenseRatioDailyChartAndDayNet() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         let net = row("淨收支", value: "39,000 元", in: app)
@@ -544,10 +517,7 @@ final class TransactionsUITests: XCTestCase {
     /// 自己記的不念記帳人;分組標頭是「9月28日週一」這種系統格式，不是「09/28」。
     @MainActor
     func testRowReadsAsOneSentenceAndDayHeaderUsesSystemFormat() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         // 記帳時間(#207)念在帳戶之後、歸屬之前:「…，帳戶 iOS 測試存款，中午12:30，家庭公帳，支出 120 元」。
@@ -578,10 +548,7 @@ final class TransactionsUITests: XCTestCase {
     /// 切到收入、歸屬選個人私帳，記一筆 250 元後，列表上是一筆個人私帳的收入。
     @MainActor
     func testQuickEntryTypeInNavigationBarAndOwnershipChoice() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
@@ -613,10 +580,7 @@ final class TransactionsUITests: XCTestCase {
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
@@ -669,10 +633,7 @@ final class TransactionsUITests: XCTestCase {
     /// 兩條路徑都要走：表單一打開金額欄就自動取得焦點(`.task`),直接輸入;把焦點移到備註後再點金額欄。
     @MainActor
     func testEditingAmountReplacesOriginalValue() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         let headphones = element(in: app, labelContaining: "支出 880 元")
@@ -702,10 +663,7 @@ final class TransactionsUITests: XCTestCase {
     /// 以前「完成」只清掉金額欄的焦點，備註欄沒有納入同一個 focus 狀態，按了沒反應。
     @MainActor
     func testDoneOnQuickEntryNoteDismissesKeyboard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
@@ -720,10 +678,7 @@ final class TransactionsUITests: XCTestCase {
     /// 記一筆：捲動表單會收起鍵盤(#61),表單仍然開著。
     @MainActor
     func testScrollingQuickEntryDismissesKeyboard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
@@ -785,10 +740,7 @@ final class TransactionsUITests: XCTestCase {
     /// 工具列只有篩選、記一筆、頭像三顆，沒有系統自動收成的「…」;匯出 CSV 是列表最底下的一列(ADR-0004、#86)。
     @MainActor
     func testToolbarHasThreeButtonsAndExportIsTheLastRow() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["記帳"].tap()
         XCTAssertTrue(app.buttons["transactions.filter"].waitForExistence(timeout: 5), "沒有篩選按鈕")
@@ -808,10 +760,7 @@ final class TransactionsUITests: XCTestCase {
     /// 記一筆的「帳戶」列只顯示名稱，點了推入清單頁;清單每列有名稱與類型，選了自動返回(ADR-0004、#88)。
     @MainActor
     func testAccountIsChosenOnAPushedListPage() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.add"].tap()
@@ -842,10 +791,7 @@ final class TransactionsUITests: XCTestCase {
     /// 記一筆沒選帳戶就儲存:被擋下並用紅字提示;選了帳戶儲存成功;再打開一次，帳戶又是空的(上游 ADR 0011、#109)。
     @MainActor
     func testQuickEntryRequiresAnAccountChoice() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
@@ -881,10 +827,7 @@ final class TransactionsUITests: XCTestCase {
     /// 分類攤開成格，點一下就選;切到收入換成收入的分類;選了「交通」記一筆，列表上是交通(ADR-0004、#89)。
     @MainActor
     func testCategoryIsChosenInAGridWithOneTap() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["記帳"].tap()
         app.buttons["transactions.add"].tap()
@@ -946,7 +889,7 @@ final class TransactionsUITests: XCTestCase {
             + (memberRole ? ["-uiTestingMemberRole"] : [])
             + (category.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         app.tabBars.buttons["記帳"].tap()
         return app
     }
@@ -959,16 +902,4 @@ final class TransactionsUITests: XCTestCase {
         return row
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

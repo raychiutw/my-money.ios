@@ -112,7 +112,7 @@ final class AmountAlignmentUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-resetSession", "-UIPreferredContentSizeCategoryName", ax5]
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         app.tabBars.buttons["家庭"].tap()
         let member = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "有待請款代墊")).firstMatch
         for _ in 0..<10 where !member.exists { app.swipeUp() }
@@ -172,20 +172,8 @@ final class AmountAlignmentUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession", "-UIPreferredContentSizeCategoryName", category]
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         return app
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

@@ -10,10 +10,7 @@ final class HouseholdUITests: XCTestCase {
     /// 我的累計代墊／已報銷／待報銷 → 邀請(複製後顯示「已複製」)→ 離開(先確認)→ 回到建立的畫面。
     @MainActor
     func testCreateInviteAndLeave() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
@@ -64,10 +61,7 @@ final class HouseholdUITests: XCTestCase {
     /// 撥款報銷只有自己的代墊款，小美的代墊卡片沒有入口(後端會回 403)。
     @MainActor
     func testMemberHasNoInviteAndOnlyOwnReimbursement() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingMemberRole"], signedIn: true)
 
         app.tabBars.buttons["家庭"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "我的角色：一般成員").waitForExistence(timeout: 5), "沒有顯示一般成員的角色")
@@ -90,10 +84,7 @@ final class HouseholdUITests: XCTestCase {
     /// (InMemoryHouseholdRepository.myPendingAdvance、meiPendingAdvance),從共同基金撥給小美的可收款帳戶。
     @MainActor
     func testReimburseAnotherMembersAdvance() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         // 先建立家庭共同基金(撥款帳戶)。
         app.tabBars.buttons["帳戶"].tap()
@@ -170,10 +161,7 @@ final class HouseholdUITests: XCTestCase {
     /// 範例帳號建立家庭後，自己就有待報銷(InMemoryHouseholdRepository.myPendingAdvance)。
     @MainActor
     func testDoneOnReimbursementNoteDismissesKeyboard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["家庭"].tap()
         let name = app.textFields["household.createName"]
@@ -200,10 +188,7 @@ final class HouseholdUITests: XCTestCase {
     /// 全部取消時不能送出。多個墊付帳戶的分組、「僅選此帳戶」與送出由 `ReimbursementSelectionTests` 驗證。
     @MainActor
     func testReimbursementItemSelection() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession", "-uiTestingJoinedHousehold"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
 
         app.tabBars.buttons["家庭"].tap()
         let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
@@ -254,16 +239,4 @@ final class HouseholdUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

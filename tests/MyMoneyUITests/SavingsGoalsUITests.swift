@@ -9,10 +9,7 @@ final class SavingsGoalsUITests: XCTestCase {
     /// 統計卡與已達成的目標;存入後已存金額合計更新;建立新目標後目標金額合計更新。
     @MainActor
     func testSummaryDepositAndCreate() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.openHomeEntry("goals")
         XCTAssertTrue(element(in: app, labelContaining: "已存金額合計 4,000 元").waitForExistence(timeout: 5), "沒有看到統計卡")
@@ -47,10 +44,7 @@ final class SavingsGoalsUITests: XCTestCase {
     /// 圖示選擇(#195):12 個圖示按鈕有 VoiceOver 名稱,預設選「目標」,點「旅行」後換成它。
     @MainActor
     func testIconPickerHasTwelveNamedChoices() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.openHomeEntry("goals")
         app.buttons["goals.add"].tap()
         XCTAssertTrue(app.textFields["goalEditor.name"].waitForExistence(timeout: 3))
@@ -76,16 +70,4 @@ final class SavingsGoalsUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

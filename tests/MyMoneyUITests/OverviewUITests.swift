@@ -9,10 +9,7 @@ final class OverviewUITests: XCTestCase {
     /// 從總覽記一筆 250 元 → 當月淨收支和「記帳」入口的本月筆數跟著更新;點「記帳」入口進入記帳 tab。
     @MainActor
     func testQuickEntryUpdatesMonthNet() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         // 範例：收入 45,000,支出 120 + 880 + 信用卡還款 5,000(上游 a09e923 起系統分類也算)。
         XCTAssertTrue(row("當月淨收支", value: "39,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
@@ -32,10 +29,7 @@ final class OverviewUITests: XCTestCase {
     /// 真實可支配現金、當月淨收支、信用卡待繳;沒有公式明細。
     @MainActor
     func testHeroShowsBigBalanceAndForecastChartAboveSummaryTiles() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let available = row("淨可用餘額", value: "21,500 元", in: app)
         XCTAssertTrue(available.waitForExistence(timeout: 5), "沒有淨可用餘額")
@@ -67,10 +61,7 @@ final class OverviewUITests: XCTestCase {
     /// 功能入口格(#178、#196):3 個入口都在,念成「名稱，關鍵數字」;點了切到對應的 tab 或 push 對應的畫面。
     @MainActor
     func testEntriesOpenTheirScreens() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let expected = [
             ("recurring", "週期收支，"), ("goals", "儲蓄目標，已存 4,000 元，整體達成率 2.5%"), ("forecast", "現金流預測，最低 53,440 元"),
@@ -100,10 +91,7 @@ final class OverviewUITests: XCTestCase {
     /// 預測入口的最低餘額由後端重算,進預測頁看到同一筆也是已繳(兩邊同步)。
     @MainActor
     func testUpcomingEventsCanBeSettledFromHome() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
         let settle = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "overview.settle.sample:rent")).firstMatch
@@ -150,10 +138,7 @@ final class OverviewUITests: XCTestCase {
     /// 超支的明細(已花、預算額度)不在總覽。
     @MainActor
     func testOverBudgetChipOpensStatistics() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let chip = app.buttons["overview.overBudget"]
         XCTAssertTrue(chip.waitForExistence(timeout: 5), "沒有超支提示")
@@ -167,10 +152,7 @@ final class OverviewUITests: XCTestCase {
     /// 點了切到記帳 tab、只剩該帳戶的收支明細，篩選按鈕顯示套用中的帳戶名稱。
     @MainActor
     func testAccountCardOpensTheLedgerForThatAccount() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let card = app.buttons["overview.card.sample-card"]
         _ = app.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10)
@@ -264,7 +246,7 @@ final class OverviewUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession", "-UIPreferredContentSizeCategoryName", category]
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         return app
     }
 
@@ -272,7 +254,7 @@ final class OverviewUITests: XCTestCase {
     @MainActor
     func testScopeFilterShowsSubtitleAndIsRemembered() throws {
         let app = launch(resettingSession: true)
-        signIn(app)
+        app.signInWithSampleAccount()
 
         let filter = app.buttons["overview.scope"]
         XCTAssertTrue(filter.waitForExistence(timeout: 5), "toolbar 沒有視角的篩選按鈕")
@@ -319,16 +301,4 @@ final class OverviewUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }
