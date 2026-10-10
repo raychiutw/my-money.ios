@@ -155,11 +155,17 @@ struct HouseholdTests {
         #expect(reimbursement.availableBalance == nil)
     }
 
-    @Test("撥款報銷：送出後回傳後端的訊息、資料版本遞增;金額不是正整數時不送出")
+    @Test("撥款報銷(沒有代墊明細的舊資料，手動輸入金額)：送出後回傳後端的訊息、資料版本遞增;金額不是正整數時不送出")
     func submitsReimbursement() async {
-        let repository = InMemoryHouseholdRepository.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance])
+        // 逐筆勾選的送出見 ReimbursementSelectionTests;這裡是沒有明細的待報銷，維持手動輸入金額。
+        let manualAdvance = HouseholdAdvance(
+            memberID: me, memberName: "小明", totalAdvanced: Money(250), totalReimbursed: .zero, pendingReimbursement: Money(250),
+            advanceItems: [], reimbursementItems: [],
+            receivingAccounts: InMemoryHouseholdRepository.myPendingAdvance.receivingAccounts
+        )
+        let repository = InMemoryHouseholdRepository.sample(advances: [manualAdvance])
         let model = await loaded(repository, accounts: accountsForReimbursement())
-        let reimbursement = model.makeReimbursement(for: InMemoryHouseholdRepository.myPendingAdvance)
+        let reimbursement = model.makeReimbursement(for: manualAdvance)
         await reimbursement.load()
 
         reimbursement.amountText = "250"
