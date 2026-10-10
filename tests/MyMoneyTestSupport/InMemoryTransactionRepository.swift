@@ -132,9 +132,9 @@ public actor InMemoryTransactionRepository: TransactionRepository {
         return Self.sampleCSV
     }
 
-    /// 每個月的收入與支出，不含「信用卡還款」,跟後端的收支趨勢一樣(給 UI 測試用的統計替身;不模擬視角)。
+    /// 每個月的收入與支出，不排除任何分類，跟後端的收支趨勢一樣(上游 a09e923;給 UI 測試用的統計替身;不模擬視角)。
     public func monthlySummaries(year: Int) -> [MonthlySummary] {
-        let byMonth = Dictionary(grouping: stored.filter { $0.date.year == year && !$0.isSystemRecord }) {
+        let byMonth = Dictionary(grouping: stored.filter { $0.date.year == year }) {
             CalendarMonth($0.date)
         }
         return byMonth.keys.sorted().map { month in

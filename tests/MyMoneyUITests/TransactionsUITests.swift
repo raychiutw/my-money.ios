@@ -493,7 +493,7 @@ final class TransactionsUITests: XCTestCase {
     }
 
     /// 數字優先的主視覺(#118):超大的淨收支，旁邊是收入與支出，下面是「支出佔收入」的比例條和每日支出長條圖;
-    /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880(信用卡還款不算)。
+    /// 日標頭右邊是當日淨額。範例:收入 45,000、支出 120 + 880 + 信用卡還款 5,000(上游 a09e923 起系統分類也算)。
     @MainActor
     func testHeroShowsNetIncomeExpenseRatioDailyChartAndDayNet() throws {
         let app = XCUIApplication()
@@ -502,12 +502,12 @@ final class TransactionsUITests: XCTestCase {
         signIn(app)
         app.tabBars.buttons["記帳"].tap()
 
-        let net = row("淨收支", value: "44,000 元", in: app)
+        let net = row("淨收支", value: "39,000 元", in: app)
         XCTAssertTrue(net.waitForExistence(timeout: 5), "沒有淨收支的大數字")
         XCTAssertGreaterThan(net.frame.height, 50, "淨收支不是大數字")
         XCTAssertTrue(row("收入", value: "45,000 元", in: app).exists, "沒有收入")
-        XCTAssertTrue(row("支出", value: "1,000 元", in: app).exists, "沒有支出")
-        let ratio = element(in: app, labelContaining: "支出佔收入百分之 2")
+        XCTAssertTrue(row("支出", value: "6,000 元", in: app).exists, "沒有支出")
+        let ratio = element(in: app, labelContaining: "支出佔收入百分之 13")
         XCTAssertTrue(ratio.exists, "沒有支出佔收入的比例條")
         XCTAssertLessThan(net.frame.minY, ratio.frame.minY, "比例條不在淨收支下面")
         // 預設區間是本月 1 號到今天:每月 1 號只有一天，一根長條不是圖，所以不顯示;2 號以後才有。
@@ -535,7 +535,7 @@ final class TransactionsUITests: XCTestCase {
         filter.tap()
         tapRevealing(app.buttons["僅支出"], in: app)
         app.navigationBars["篩選"].buttons["完成"].tap()
-        XCTAssertTrue(row("淨收支", value: "負 1,000 元", in: app).waitForExistence(timeout: 5), "只看支出後淨收支沒有更新")
+        XCTAssertTrue(row("淨收支", value: "負 6,000 元", in: app).waitForExistence(timeout: 5), "只看支出後淨收支沒有更新")
         XCTAssertFalse(element(in: app, labelContaining: "支出佔收入").exists, "收入是 0 時還有比例條")
         XCTAssertEqual(element(in: app, labelContaining: "本區間每日支出").exists, hasChart, "只看支出時長條圖的有無不對")
     }

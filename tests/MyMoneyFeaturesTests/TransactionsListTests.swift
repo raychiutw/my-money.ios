@@ -80,21 +80,23 @@ struct TransactionsListTests {
     }
 
     /// 信用卡扣款還款時錢只是從活存帳戶移到信用卡帳戶，算進總支出會跟刷卡重複(parity 刻意偏離第 26 項)。
-    @Test("摘要：筆數、總收入、總支出(不含信用卡還款)、淨收支")
+    @Test("摘要：筆數、總收入、總支出(含信用卡還款)、淨收支")
     func totalsExcludeCreditCardRepayment() async {
         let list = model(InMemoryTransactionRepository(transactions: SampleTransactions.make(today: today)))
 
         await list.load()
 
         #expect(list.count == 4)
+        // 範例裡的信用卡還款(5,000)是一筆支出，上游 a09e923 起算進總支出:1,000 + 5,000。
         #expect(list.totalIncome == Money(45000))
-        #expect(list.totalExpense == Money(1000))
-        #expect(list.net == Money(44000))
+        #expect(list.totalExpense == Money(6000))
+        #expect(list.net == Money(39000))
     }
 
-    /// 轉帳、ATM 提款和報銷都各產生一筆支出和一筆收入(或其中一邊),只是資金調度;算進合計會重複(web 仍然算進去，#43)。
-    @Test("摘要不含 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷),收入和支出都不算")
-    func totalsExcludeAllSystemCategories() async {
+    /// 上游 a09e923「收支正負號全量直觀加總」:畫面上看得到的每一筆列都算進總額，不隱藏任何分類(#238)，
+    /// 所以列表上的總收入、總支出加起來和看得到的列吻合。
+    @Test("摘要納入所有分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷),正項算收入、負項算支出")
+    func totalsIncludeEveryRecord() async {
         let systemRecords = [
             systemRecord("atm-out", .expense, .atmWithdrawal, Money(500)),
             systemRecord("atm-in", .income, .atmWithdrawal, Money(500)),
@@ -105,8 +107,9 @@ struct TransactionsListTests {
 
         await list.load()
 
-        #expect(list.totalIncome == Money(45000))
-        #expect(list.totalExpense == Money(1000))
+        // 收入 45,000 + ATM 500 + 報銷 300;支出 1,000 + 還款 5,000 + ATM 500 + 轉帳 2,000。
+        #expect(list.totalIncome == Money(45800))
+        #expect(list.totalExpense == Money(8500))
         #expect(systemRecords.allSatisfy { !list.canModify($0) })
     }
 

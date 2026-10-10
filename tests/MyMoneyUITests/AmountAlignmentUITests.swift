@@ -158,7 +158,7 @@ final class AmountAlignmentUITests: XCTestCase {
 
     @MainActor
     private func overviewTiles(in app: XCUIApplication) -> [XCUIElement] {
-        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
+        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "39,000 元"), ("信用卡待繳", "28,500 元")]
             .map { label, value in
                 app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value BEGINSWITH %@", label, value)).firstMatch
             }

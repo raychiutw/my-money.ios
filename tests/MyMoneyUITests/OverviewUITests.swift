@@ -14,8 +14,8 @@ final class OverviewUITests: XCTestCase {
         app.launch()
         signIn(app)
 
-        // 範例：收入 45,000,支出 120 + 880(信用卡還款不算)。
-        XCTAssertTrue(row("當月淨收支", value: "44,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
+        // 範例：收入 45,000,支出 120 + 880 + 信用卡還款 5,000(上游 a09e923 起系統分類也算)。
+        XCTAssertTrue(row("當月淨收支", value: "39,000 元", in: app).waitForExistence(timeout: 5), "沒有看到當月淨收支")
 
         app.buttons["overview.add"].tap()
         let amount = app.textFields["quickEntry.amount"]
@@ -47,7 +47,7 @@ final class OverviewUITests: XCTestCase {
         // 大數字比一般金額列大很多。
         XCTAssertGreaterThan(available.frame.height, 50, "淨可用餘額不是大數字")
         XCTAssertFalse(element(in: app, labelContaining: "淨可用餘額 21,500").exists, "淨可用餘額不該同時有一般摘要列")
-        for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")] {
+        for (label, value) in [("真實可支配現金", "21,500 元"), ("當月淨收支", "39,000 元"), ("信用卡待繳", "28,500 元")] {
             let summaryRow = row(label, value: value, in: app)
             XCTAssertTrue(summaryRow.exists, "摘要沒有「\(label) \(value)」這一磚")
             XCTAssertLessThan(chart.frame.maxY, summaryRow.frame.minY, "走勢圖不在「\(label)」上面")
@@ -60,8 +60,8 @@ final class OverviewUITests: XCTestCase {
         XCTAssertLessThan(composition.frame.maxY, chart.frame.minY, "組成一行不在走勢圖上面")
         let cardTile = row("信用卡待繳", value: "28,500 元", in: app)
         XCTAssertTrue((cardTile.value as? String ?? "").contains("2 張信用卡"), "信用卡待繳磚沒有張數:\(String(describing: cardTile.value))")
-        let netTile = row("當月淨收支", value: "44,000 元", in: app)
-        XCTAssertTrue((netTile.value as? String ?? "").contains("收入 45,000 元，支出 1,000 元"), "當月淨收支磚沒有收入與支出:\(String(describing: netTile.value))")
+        let netTile = row("當月淨收支", value: "39,000 元", in: app)
+        XCTAssertTrue((netTile.value as? String ?? "").contains("收入 45,000 元，支出 6,000 元"), "當月淨收支磚沒有收入與支出:\(String(describing: netTile.value))")
     }
 
     /// 功能入口格(#178、#196):3 個入口都在,念成「名稱，關鍵數字」;點了切到對應的 tab 或 push 對應的畫面。
@@ -208,7 +208,7 @@ final class OverviewUITests: XCTestCase {
     func testTilesAndAccountCardsAreSideBySideOnlyWhenTheyFit() throws {
         let app = launchAtContentSize("UICTContentSizeCategoryL")
 
-        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
+        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "39,000 元"), ("信用卡待繳", "28,500 元")]
             .map { row($0.0, value: $0.1, in: app) }
         XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
         XCTAssertEqual(Set(tiles.map { $0.frame.minY.rounded() }).count, 1, "預設字級三格數字磚沒有橫排:\(tiles.map(\.frame))")
@@ -236,7 +236,7 @@ final class OverviewUITests: XCTestCase {
     @MainActor
     private func assertTilesAreSingleColumn(at category: String, labelsStayOnOneLine: Bool) throws {
         let app = launchAtContentSize(category)
-        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "44,000 元"), ("信用卡待繳", "28,500 元")]
+        let tiles = [("真實可支配現金", "21,500 元"), ("當月淨收支", "39,000 元"), ("信用卡待繳", "28,500 元")]
             .map { row($0.0, value: $0.1, in: app) }
         XCTAssertTrue(tiles[0].waitForExistence(timeout: 5), "沒有看到數字磚")
         for _ in 0..<6 where !tiles.allSatisfy(\.exists) { app.swipeUp() }
@@ -308,7 +308,7 @@ final class OverviewUITests: XCTestCase {
         return app
     }
 
-    /// 摘要和超支警告的一般列：VoiceOver 念標籤，值是金額，例如標籤「當月淨收支」、值「44,000 元」。
+    /// 摘要和超支警告的一般列：VoiceOver 念標籤，值是金額，例如標籤「當月淨收支」、值「39,000 元」。
     @MainActor
     private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ AND value BEGINSWITH %@", label, value)).firstMatch

@@ -13,10 +13,10 @@ public struct TransactionDay: Identifiable, Sendable {
 
     public var id: CalendarDay { date }
 
-    /// 當日淨額(收入減支出，不含系統分類，#118)。
+    /// 當日淨額(收入減支出，系統分類也算，#118、#238)。
     public var net: Money { income - expense }
 
-    /// 當天有收入或支出才有淨額可以顯示;只有信用卡還款這類系統分類的那天沒有。
+    /// 當天有收入或支出才有淨額可以顯示(系統分類也算，所以只有完全沒有收支的天沒有)。
     public var hasNet: Bool { income > .zero || expense > .zero }
 
     /// 日標頭右邊的淨額，帶正負號，例如「+$45,000」「−$1,000」;零是「$0」。
@@ -269,7 +269,7 @@ public final class TransactionsModel: Alerting {
 
     public var count: Int { filtered.count }
     public var totalIncome: Money { Self.income(of: filtered) }
-    /// 總支出不含「信用卡還款」(parity 刻意偏離第 26 項)。
+    /// 總收入、總支出、每日小計全量加總(上游 a09e923「收支正負號全量直觀加總」，parity 第 26 項已與上游對齊，#238)。
     public var totalExpense: Money { Self.expense(of: filtered) }
     public var net: Money { totalIncome - totalExpense }
 
@@ -368,14 +368,14 @@ public final class TransactionsModel: Alerting {
         }
     }
 
-    /// 收入合計，不含系統分類(ATM 提款、轉帳、報銷的收入那一筆也只是資金調度)。
+    /// 收入合計:所有正項(`income`)，不隱藏任何分類——畫面上看得到的每一筆列都算進來，加總才對得上(上游 a09e923)。
     static func income(of transactions: [Transaction]) -> Money {
-        transactions.filter { $0.type == .income && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
+        transactions.filter { $0.type == .income }.reduce(.zero) { $0 + $1.amount }
     }
 
-    /// 支出合計，不含系統分類：信用卡扣款還款、轉帳、ATM 提款、報銷只是資金調度，算進來會跟刷卡或原本的消費重複。
+    /// 支出合計:所有負項(`expense`)，含信用卡還款、轉帳、ATM 提款、報銷(上游 a09e923)。
     static func expense(of transactions: [Transaction]) -> Money {
-        transactions.filter { $0.type == .expense && !$0.isSystemRecord }.reduce(.zero) { $0 + $1.amount }
+        transactions.filter { $0.type == .expense }.reduce(.zero) { $0 + $1.amount }
     }
 }
 
