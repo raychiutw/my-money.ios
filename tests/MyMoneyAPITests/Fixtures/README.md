@@ -228,3 +228,18 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 - `POST /households/join` 成功時，iOS 只看 `success`,不讀 `data`。
 - `DELETE /households/members/:userId` 成功時回 `{success, message}`,形狀跟 `households-leave.json` 一樣。
+
+### 對齊上游 `42149e7`(#236、#237)
+
+以下是 2026-10-10 對 `38f0a88`～`42149e7` 的後端錄的。**舊的 fixture 不重錄**:新欄位都是加欄位(`account_is_joint`、`account_type`、`reimbursement_id`),舊的回應是新回應的子集,解碼要能容忍;新行為用下面新增的 fixture 驗證。錄製時測試帳號暫時建立家庭「iOS 測試家庭」(錄完離開)、在共同基金記一筆公帳午餐 80、用個人現金墊付一筆公帳交通 120,再從共同基金勾選那筆墊付撥款報銷;錄完刪掉能刪的兩筆收支、離開家庭,帳戶餘額用帳戶更新還原到錄製前。**無法還原的**:報銷產生的兩筆「公帳代墊報銷」系統紀錄(後端禁止刪除,跟先前的報銷 fixture 一樣),所以測試帳號的收支比錄製前多 2 筆。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `households-advances-itemized.json` | `GET /households/advances`(先記兩筆個人墊付:全家晚餐 250、代墊捷運 120;已有舊的報銷 100) | 200 | `pending_reimburse` = 未結清明細加總 370(不是累計代墊 370 減已報銷 100) |
+| `households-reimburse-itemized.json` | `POST /households/reimburse`,`advance_ids` 只帶「代墊捷運」的 ID,金額 120,從「iOS 家庭共同基金」撥到「iOS 測試存款」 | 200 | 請求的 `advance_ids`;回應形狀跟既有的報銷一樣 |
+| `households-advances-after-itemized-reimburse.json` | 上面的報銷之後 `GET /households/advances` | 200 | 被勾選的代墊從 `advance_items` 移出;`total_reimbursed` 220、`pending_reimburse` 250(只剩全家晚餐) |
+| `transactions-list-shared-states.json` | `GET /transactions?scope=all&limit=200&offset=0`(同一個時點) | 200 | 公帳三態:共同基金直接扣款(`account_is_joint: 1`)、個人墊付待報銷(`account_is_joint: 0`、`reimbursement_id: null`)、個人墊付已撥款(`reimbursement_id` 有值);另有 `account_type` |
+| `stats-monthly-all-records.json` | `GET /transactions/summary/monthly?year=2026&scope=all` | 200 | 不再排除任何分類(ATM 提款、內部轉帳、公帳代墊報銷都算進收入與支出) |
+
+**沒錄到的**:`38f0a88` 的「結帳日當天保留未出帳」只在信用卡結帳日當天才看得到差異,錄製當天(2026-10-10)測試帳號的信用卡結帳日是 15 號,所以沒有新的帳戶 fixture;iOS 顯示後端回傳的信用卡數字,不受影響(#243 核對相關文字)。
+

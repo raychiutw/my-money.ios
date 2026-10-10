@@ -51,6 +51,18 @@ struct StatisticsTranslationTests {
         #expect(summaries == [MonthlySummary(month: september, income: Money(45000), expense: Money(1000))])
     }
 
+    @Test("上游 a09e923:每月統計不再排除任何分類(ATM 提款、內部轉帳、公帳代墊報銷都算)，iOS 顯示後端的值")
+    func monthlySummariesIncludeEveryRecord() async throws {
+        try stub.reply(status: 200, fixture: "stats-monthly-all-records.json")
+
+        let summaries = try await repository.monthlySummaries(year: 2026, scope: .all)
+
+        #expect(summaries == [
+            MonthlySummary(month: september, income: Money(1220), expense: Money(1670)),
+            MonthlySummary(month: CalendarMonth(year: 2026, month: 10), income: Money(500), expense: Money(500)),
+        ])
+    }
+
     @Test("公帳代墊款：每位家庭成員一筆")
     func householdShares() async throws {
         try stub.reply(status: 200, fixture: "stats-household-shares.json")

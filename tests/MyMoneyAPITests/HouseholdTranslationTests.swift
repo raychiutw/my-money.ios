@@ -32,6 +32,33 @@ struct HouseholdTranslationTests {
         #expect(legacy.flatMap { $0.advanceItems.map(\.recordedAt) }.allSatisfy { $0 == nil })
     }
 
+    @Test("上游 d0424df:待報銷總額是未結清明細的加總，不是累計代墊減已報銷;iOS 顯示後端的值，不重算")
+    func pendingIsTheSumOfUnsettledItems() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-itemized.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.totalAdvanced == Money(370))
+        #expect(mine.totalReimbursed == Money(100))
+        // 370 − 100 = 270 是舊算法;新算法是兩筆未結清明細 120 + 250。
+        #expect(mine.pendingReimbursement == Money(370))
+        #expect(mine.advanceItems.map(\.amount) == [Money(120), Money(250)])
+        #expect(mine.advanceItems.map(\.note) == ["代墊捷運", "全家晚餐"])
+    }
+
+    @Test("上游 d0424df:勾選報銷之後，被結清的代墊從待報銷明細移出")
+    func settledItemsLeaveThePendingList() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-after-itemized-reimburse.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.totalAdvanced == Money(370))
+        #expect(mine.totalReimbursed == Money(220))
+        #expect(mine.pendingReimbursement == Money(250))
+        #expect(mine.advanceItems.map(\.note) == ["全家晚餐"])
+        #expect(mine.reimbursementItems.map(\.amount).sorted() == [Money(100), Money(120)])
+    }
+
     @Test("代墊統計:GET /households/advances 解讀成每位成員的累計代墊、已報銷、待報銷與兩份明細")
     func advancesDecodeSummaryAndItems() async throws {
         try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
