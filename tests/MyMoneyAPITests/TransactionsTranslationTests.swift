@@ -69,6 +69,34 @@ struct TransactionsTranslationTests {
         #expect(!queryNames(stub.requests.last).contains("account_id"), "沒指定帳戶時不送 account_id")
     }
 
+    @Test("上游 d0424df:公帳分三態——共同帳戶直接扣款、個人墊付待報銷、個人墊付已撥款;私帳沒有狀態")
+    func listDecodesHouseholdPaymentStates() async throws {
+        try stub.reply(status: 200, fixture: "transactions-list-shared-states.json")
+
+        let transactions = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 200, offset: 0)
+        func payment(_ note: String) throws -> HouseholdPayment? {
+            try #require(transactions.first { $0.note == note }, "fixture 裡找不到「\(note)」").householdPayment
+        }
+
+        #expect(try payment("共同基金午餐") == .jointFund)
+        #expect(try payment("全家晚餐") == .advancePending)
+        #expect(try payment("代墊捷運") == .advanceReimbursed)
+        // 私帳(is_shared 0)沒有公帳狀態。
+        let privateRows = transactions.filter { !$0.isShared }
+        try #require(!privateRows.isEmpty)
+        #expect(privateRows.allSatisfy { $0.householdPayment == nil })
+    }
+
+    @Test("舊的回應沒有 account_is_joint:公帳的狀態未知(nil)，不誤判成待報銷")
+    func legacyResponsesHaveNoPaymentState() async throws {
+        try stub.reply(status: 200, fixture: "transactions-list.json")
+
+        let transactions = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 200, offset: 0)
+
+        try #require(transactions.contains { $0.isShared })
+        #expect(transactions.allSatisfy { $0.householdPayment == nil })
+    }
+
     @Test("解讀成收支明細:is_shared 0/1 是個人私帳與家庭公帳，帶上帳戶名稱與記帳人(名稱與 user_id)")
     func listDecodesTransactions() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")

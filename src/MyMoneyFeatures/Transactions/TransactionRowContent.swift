@@ -22,7 +22,7 @@ public struct TransactionRowContent: Equatable, Sendable {
         // 次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;沒有記帳人名稱時只寫歸屬。
         subtitle = TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
-            ownership: OwnershipName.title(isShared: transaction.isShared),
+            ownership: OwnershipName.title(isShared: transaction.isShared, payment: transaction.householdPayment),
             billing: transaction.billing.label,
             time: transaction.recordedAt.map(RecordedTime.clockText(of:))
         )

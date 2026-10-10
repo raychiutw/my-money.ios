@@ -32,6 +32,33 @@ struct HouseholdTranslationTests {
         #expect(legacy.flatMap { $0.advanceItems.map(\.recordedAt) }.allSatisfy { $0 == nil })
     }
 
+    @Test("上游 d0424df:待報銷總額是未結清明細的加總，不是累計代墊減已報銷;iOS 顯示後端的值，不重算")
+    func pendingIsTheSumOfUnsettledItems() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-itemized.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.totalAdvanced == Money(370))
+        #expect(mine.totalReimbursed == Money(100))
+        // 370 − 100 = 270 是舊算法;新算法是兩筆未結清明細 120 + 250。
+        #expect(mine.pendingReimbursement == Money(370))
+        #expect(mine.advanceItems.map(\.amount) == [Money(120), Money(250)])
+        #expect(mine.advanceItems.map(\.note) == ["代墊捷運", "全家晚餐"])
+    }
+
+    @Test("上游 d0424df:勾選報銷之後，被結清的代墊從待報銷明細移出")
+    func settledItemsLeaveThePendingList() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-after-itemized-reimburse.json")
+
+        let mine = try #require(try await repository.advances().first)
+
+        #expect(mine.totalAdvanced == Money(370))
+        #expect(mine.totalReimbursed == Money(220))
+        #expect(mine.pendingReimbursement == Money(250))
+        #expect(mine.advanceItems.map(\.note) == ["全家晚餐"])
+        #expect(mine.reimbursementItems.map(\.amount).sorted() == [Money(100), Money(120)])
+    }
+
     @Test("代墊統計:GET /households/advances 解讀成每位成員的累計代墊、已報銷、待報銷與兩份明細")
     func advancesDecodeSummaryAndItems() async throws {
         try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json")
@@ -116,6 +143,36 @@ struct HouseholdTranslationTests {
         #expect(json["amount"] as? Int == 100)
         #expect(json["date"] as? String == "2026-09-28")
         #expect(json["note"] as? String == "iOS 測試報銷")
+    }
+
+    @Test("上游 d0424df:勾選指定的代墊明細——advance_ids 只帶被勾選的 ID;沒勾選時整個欄位不送")
+    func reimburseSendsAdvanceIDsOnlyWhenSelected() async throws {
+        try stub.reply(status: 200, fixture: "households-reimburse-itemized.json")
+        let reimbursement = Reimbursement(
+            memberID: me,
+            fromAccountID: AccountID("c70d655c-0238-4bd7-ba83-92e165437e87"),
+            toAccountID: AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37"),
+            amount: Money(120),
+            date: CalendarDay(year: 2026, month: 9, day: 29),
+            note: "代墊捷運",
+            advanceIDs: [TransactionID("438f6bf3-1f62-4592-97d4-0cba6c05b06e")]
+        )
+
+        let message = try await repository.reimburse(reimbursement)
+
+        #expect(message == "成功從共同基金撥款報銷 NT$ 120 給 iOS 測試帳號！")
+        let first = try #require(stub.requests.first)
+        let json = try body(first)
+        #expect(json["advance_ids"] as? [String] == ["438f6bf3-1f62-4592-97d4-0cba6c05b06e"])
+        #expect(json["amount"] as? Int == 120)
+
+        try stub.reply(status: 200, fixture: "households-reimburse.json")
+        _ = try await repository.reimburse(Reimbursement(
+            memberID: me, fromAccountID: AccountID("a"), toAccountID: AccountID("b"), amount: Money(100),
+            date: CalendarDay(year: 2026, month: 9, day: 28), note: ""
+        ))
+        let last = try #require(stub.requests.last)
+        #expect(try body(last).keys.contains("advance_ids") == false, "沒勾選時不送 advance_ids(後端依時間順序對齊)")
     }
 
     @Test("撥款報銷的錯誤原樣傳遞")

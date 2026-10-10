@@ -73,13 +73,19 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
             guard advance.memberID == reimbursement.memberID else { return advance }
             name = advance.memberName
             let reimbursed = advance.totalReimbursed + reimbursement.amount
+            // 上游 d0424df:勾選的代墊明細被結清、立刻移出待報銷，待報銷總額是剩下明細的加總;沒有勾選時維持累計代墊減已報銷。
+            let selected = Set(reimbursement.advanceIDs)
+            let remainingItems = advance.advanceItems.filter { !selected.contains($0.id) }
+            let pending = selected.isEmpty
+                ? max(advance.totalAdvanced - reimbursed, .zero)
+                : remainingItems.reduce(Money.zero) { $0 + $1.amount }
             return HouseholdAdvance(
                 memberID: advance.memberID,
                 memberName: advance.memberName,
                 totalAdvanced: advance.totalAdvanced,
                 totalReimbursed: reimbursed,
-                pendingReimbursement: max(advance.totalAdvanced - reimbursed, .zero),
-                advanceItems: advance.advanceItems,
+                pendingReimbursement: pending,
+                advanceItems: remainingItems,
                 reimbursementItems: [ReimbursementItem(
                     id: TransactionID("in-memory-reimbursement-\(reimbursements.count)"), date: reimbursement.date,
                     amount: reimbursement.amount, note: reimbursement.note, accountName: "收款帳戶", recordedAt: Date()

@@ -110,7 +110,7 @@ struct TransferTests {
         model.toAccountID = SampleAccounts.wallet.id
         model.amountText = "0"
         #expect(await model.submit() == nil)
-        #expect(model.errorMessage == "請輸入大於 0 的金額")
+        #expect(model.errorMessage == "請輸入有效的金額")
         #expect(await repository.transfers.isEmpty)
     }
 

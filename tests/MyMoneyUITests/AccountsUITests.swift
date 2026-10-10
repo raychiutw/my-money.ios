@@ -12,10 +12,7 @@ final class AccountsUITests: XCTestCase {
     /// 信用卡待繳總額與繳款日;剩餘額度這些欄位在詳細頁(`CardSettlementUITests`)。
     @MainActor
     func testAccountsTabShowsSummaryAndBothSections() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["帳戶"].tap()
 
@@ -56,10 +53,7 @@ final class AccountsUITests: XCTestCase {
     /// 點按鈕再選，按鈕的 VoiceOver 值是目前的範圍。範例資料的資產帳戶都是私帳，切到公帳之後，活存帳戶區塊是空的。
     @MainActor
     func testJointFundScopeHidesPersonalAccounts() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
 
         let filter = app.buttons["accounts.scope"]
@@ -85,10 +79,7 @@ final class AccountsUITests: XCTestCase {
     /// 從現金區塊的空狀態新增現金(#43,web 的「目前此範圍無現金」):新增後出現在現金區塊。
     @MainActor
     func testAddCashWallet() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "目前此範圍無現金").waitForExistence(timeout: 5))
         // 跟 web 一樣是「建立」(W:Accounts.tsx@f32ff6c:473,#79)。
@@ -112,10 +103,7 @@ final class AccountsUITests: XCTestCase {
     /// 從現金切成信用卡之後，出現信用卡的未出帳款欄，餘額欄不見。
     @MainActor
     func testAccountKindIsAnInlineChoice() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -139,10 +127,7 @@ final class AccountsUITests: XCTestCase {
     /// 信用卡的結帳日、繳款日(未設定加 1～31 號)推入清單頁，選了自動返回(ADR-0004、#91)。
     @MainActor
     func testStatementDayIsAPushedList() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -167,10 +152,7 @@ final class AccountsUITests: XCTestCase {
     /// ATM 提款(#43):活存帳戶轉到現金，顯示後端的訊息，兩邊的餘額都更新。
     @MainActor
     func testATMWithdrawalMovesMoneyIntoWallet() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(row("活存帳戶餘額合計", value: "50,000 元", in: app).waitForExistence(timeout: 5))
         app.buttons["accounts.add"].tap()
@@ -212,10 +194,7 @@ final class AccountsUITests: XCTestCase {
     /// 活存帳戶列往右滑的「轉帳／提款」只帶入轉出，轉入是空的(上游 ADR 0011、#111)。
     @MainActor
     func testBankRowShortcutFillsOnlyTheFromAccount() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
 
         let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
@@ -235,10 +214,7 @@ final class AccountsUITests: XCTestCase {
     /// 轉帳：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
     @MainActor
     func testDoneOnTransferNoteDismissesKeyboard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
 
         app.buttons["accounts.transfer"].tap()
@@ -253,10 +229,7 @@ final class AccountsUITests: XCTestCase {
     /// 從「+」新增活存帳戶後出現在列表上;往左滑刪除、確認後消失。
     @MainActor
     func testAddThenDeleteBankAccount() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -301,7 +274,7 @@ final class AccountsUITests: XCTestCase {
             app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingFamilyEntries", "-resetSession"]
                 + (isAdmin ? [] : ["-uiTestingMemberRole"])
             app.launch()
-            signIn(app)
+            app.signInWithSampleAccount()
             app.tabBars.buttons["帳戶"].tap()
             XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -336,10 +309,7 @@ final class AccountsUITests: XCTestCase {
     /// 全部範圍看不到。點進詳細頁:卡費只有家庭代墊，個人帳單與個人消費「隱私遮蔽」，沒有信用額度，也沒有編輯。
     @MainActor
     func testHouseholdScopeShowsMaskedPrivateCardAdvance() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries"], signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -378,10 +348,7 @@ final class AccountsUITests: XCTestCase {
     /// 還款表單歸屬固定公帳、沒有私帳可選、金額帶入家庭代墊待繳額;繳清之後這張卡就不在公帳範圍了(後端只回有家庭代墊欠款的私卡)。
     @MainActor
     func testNonHolderPaysSharedDebtOfAnothersPrivateCard() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingMemberRole", "-uiTestingFamilyEntries"], signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
         let filter = app.buttons["accounts.scope"]
@@ -439,7 +406,7 @@ final class AccountsUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-uiTestingJoinedHousehold", "-resetSession"]
             + (contentSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
         app.launch()
-        signIn(app)
+        app.signInWithSampleAccount()
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
         XCTAssertFalse(element(in: app, labelContaining: "家庭公帳待報銷總額").exists, "全部範圍不該有待報銷橫幅")
@@ -467,10 +434,7 @@ final class AccountsUITests: XCTestCase {
     /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
     @MainActor
     func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(app.buttons["accounts.scope"].waitForExistence(timeout: 5), "沒有檢視範圍按鈕")
@@ -502,16 +466,4 @@ final class AccountsUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

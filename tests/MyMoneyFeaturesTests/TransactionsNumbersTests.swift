@@ -21,7 +21,7 @@ struct TransactionsNumbersTests {
 
     // MARK: 日標頭的當日淨額
 
-    @Test("日標頭顯示當日淨額:收入減支出，帶正負號;信用卡還款等系統分類不算")
+    @Test("日標頭顯示當日淨額:收入減支出，帶正負號;信用卡還款等系統分類也算(上游 a09e923)")
     func dayNet() async throws {
         let list = await loaded()
         try #require(list.days.count == 3)
@@ -32,20 +32,22 @@ struct TransactionsNumbersTests {
         // 9/1:薪資 45,000。
         #expect(list.days[2].net == Money(45000))
         #expect(list.days[2].netText == "+$45,000")
-        // 9/10:只有一筆信用卡還款(系統分類)，沒有淨額可以顯示。
-        #expect(!list.days[1].hasNet)
+        // 9/10:只有一筆信用卡還款 5,000，算進當日支出。
+        #expect(list.days[1].hasNet)
+        #expect(list.days[1].net == Money(-5000))
+        #expect(list.days[1].netText == "−$5,000")
     }
 
     // MARK: 比例條
 
-    @Test("支出佔收入的比例:總支出除以總收入(都不含系統分類);收入是 0 時沒有比例條")
+    @Test("支出佔收入的比例:總支出除以總收入(都含系統分類);收入是 0 時沒有比例條")
     func expenseRatio() async throws {
         let list = await loaded()
 
-        // 支出 1,000 / 收入 45,000。
+        // 支出 1,000 + 還款 5,000 = 6,000 / 收入 45,000。
         let ratio = try #require(list.expenseRatio)
-        #expect(abs(ratio - 1000.0 / 45000.0) < 0.0001)
-        #expect(list.expenseRatioSummary == "支出佔收入百分之 2")
+        #expect(abs(ratio - 6000.0 / 45000.0) < 0.0001)
+        #expect(list.expenseRatioSummary == "支出佔收入百分之 13")
 
         // 只看支出:收入是 0，沒有比例條。
         list.editFilter()

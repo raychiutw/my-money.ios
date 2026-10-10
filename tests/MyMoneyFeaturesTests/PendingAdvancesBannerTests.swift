@@ -14,7 +14,7 @@ struct PendingAdvancesBannerTests {
         scope: AccountScope, households: InMemoryHouseholdRepository
     ) async -> AccountsModel {
         let model = AccountsModel(
-            repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), households: households
+            repository: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), households: households, defaults: UserDefaults.isolated()
         )
         model.scope = scope
         await model.load()

@@ -88,10 +88,7 @@ public final class CardPaymentModel: Submitting {
             errorMessage = "請選擇扣款銀行帳戶"
             return .invalid
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入大於 0 的繳款金額"
-            return .invalid
-        }
+        guard let amount = positiveAmount(amountText, label: "繳款金額") else { return .invalid }
         if isMaskedCard {
             if card.sharedDebt > .zero, card.sharedDebt < amount {
                 errorMessage = "繳款金額不可超過家庭代墊公帳待繳額 \(card.sharedDebt.formatted())"

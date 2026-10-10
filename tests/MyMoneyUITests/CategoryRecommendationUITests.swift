@@ -9,10 +9,7 @@ final class CategoryRecommendationUITests: XCTestCase {
 
     @MainActor
     func testNotePreselectsCategoryAndManualChoiceLocksIt() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
         app.buttons["transactions.add"].tap()
@@ -62,16 +59,4 @@ final class CategoryRecommendationUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

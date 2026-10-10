@@ -151,7 +151,7 @@ struct RecurringEditorTests {
 
         #expect(!(await editor.save()))
 
-        #expect(editor.errorMessage == "請輸入有效金額")
+        #expect(editor.errorMessage == "請輸入有效的每期金額")
     }
 
     @Test("新增成功後資料版本遞增;可以不指定關聯帳戶")

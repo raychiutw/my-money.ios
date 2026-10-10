@@ -119,7 +119,9 @@ public final class HouseholdModel {
     public var canInvite: Bool { household?.myRole == .admin }
 
     public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {
-        ReimbursementModel(advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, today: today)
+        ReimbursementModel(
+            advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, locale: locale, today: today
+        )
     }
 
     /// 名稱必填;還沒填好時停用按鈕(parity 刻意偏離第 23 項)。

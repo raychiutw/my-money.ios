@@ -19,6 +19,16 @@ final class SkeletonLayoutUITests: XCTestCase {
         return app
     }
 
+    /// `-uiTestingFamilyEntries` 走另一條帳戶 repository 的建構路徑，以前沒帶載入延遲，同時帶 `-uiTestingHoldOverview` 時 Hold 被默默忽略(#233)。
+    @MainActor
+    func testHoldOverviewStillHoldsWithFamilyEntries() {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingHoldOverview", "-uiTestingFamilyEntries"], signedIn: true)
+        XCTAssertTrue(
+            element(app, id: "overview.skeleton.tile.0").waitForExistence(timeout: 10),
+            "同時帶家人資料與骨架停留旗標，總覽的骨架屏沒有停留(Hold 被忽略)"
+        )
+    }
+
     /// 同一排(minY 相差不到 2pt)的元素有幾個:就是欄數。
     @MainActor
     private func columns(_ elements: [XCUIElement]) -> Int {

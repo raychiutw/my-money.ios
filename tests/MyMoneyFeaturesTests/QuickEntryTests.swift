@@ -93,7 +93,7 @@ struct QuickEntryTests {
         #expect(entry.category == TransactionCategory("娛樂"), "返回表單之後分類的鎖定被重設了")
     }
 
-    @Test("金額不是正數時提示「請輸入正確的金額」", arguments: ["", "0", "abc", "-5", "1,000", "12.5"])
+    @Test("金額不是正數時提示「請輸入有效的金額」", arguments: ["", "0", "abc", "-5", "1,000", "12.5"])
     func requiresPositiveAmount(amount: String) async {
         let entry = await model()
         entry.accountID = SampleAccounts.savings.id
@@ -101,7 +101,7 @@ struct QuickEntryTests {
 
         #expect(!(await entry.save()))
 
-        #expect(entry.errorMessage == "請輸入正確的金額")
+        #expect(entry.errorMessage == "請輸入有效的金額")
         #expect(await transactions.createdDrafts.isEmpty)
     }
 

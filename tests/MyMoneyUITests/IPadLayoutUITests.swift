@@ -21,9 +21,7 @@ final class IPadLayoutUITests: XCTestCase {
     func testLoginContentIsLimitedInPortraitAndLandscape() throws {
         for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
             XCUIDevice.shared.orientation = orientation
-            let app = XCUIApplication()
-            app.launchArguments = ["-uiTesting", "-resetSession"]
-            app.launch()
+            let app = XCUIApplication.launchUITesting()
             let submit = app.buttons["login.submit"]
             XCTAssertTrue(submit.waitForExistence(timeout: 10), "沒有登入頁")
             assertLimited(submit, in: app, "登入鈕(\(orientation.rawValue))")
@@ -46,10 +44,7 @@ final class IPadLayoutUITests: XCTestCase {
     @MainActor
     private func assertTabs(orientation: UIDeviceOrientation) throws {
         XCUIDevice.shared.orientation = orientation
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        app.signInWithSampleAccount()
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         // 失敗時看得到實際畫面與視窗大小。
         let screenshot = XCTAttachment(screenshot: app.screenshot())

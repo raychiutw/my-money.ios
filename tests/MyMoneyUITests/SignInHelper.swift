@@ -24,3 +24,21 @@ extension XCUIApplication {
         XCTAssertTrue(candidates.contains(where: \.exists), "登入後沒有進入 tab 外殼")
     }
 }
+
+extension XCUIApplication {
+    /// 以 UI 測試的 in-memory 依賴啟動 app(#221):`-uiTesting` 一律帶;預設重設 session(`-resetSession`);
+    /// `flags` 是 `-uiTestingJoinedHousehold` 這類情境旗標;`contentSize` 是系統字級類別;`signedIn` 時接著登入範例帳號。
+    ///
+    /// 不重設 session 時**不會**自動登入(relaunch 的測試依賴前一次啟動寫進 Keychain 的 session)。
+    @MainActor
+    static func launchUITesting(
+        flags: [String] = [], contentSize: String? = nil, resettingSession: Bool = true, signedIn: Bool = false
+    ) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"] + flags + (resettingSession ? ["-resetSession"] : [])
+            + (contentSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
+        app.launch()
+        if signedIn { app.signInWithSampleAccount() }
+        return app
+    }
+}

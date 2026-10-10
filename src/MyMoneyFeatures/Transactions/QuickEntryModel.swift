@@ -148,10 +148,7 @@ public final class QuickEntryModel: Submitting {
             errorMessage = "請選擇扣款或存入帳戶"
             return false
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入正確的金額"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "金額") else { return false }
         guard await submitting(failure: "記帳失敗", {
             try await transactions.create(TransactionDraft(
                 accountID: accountID,

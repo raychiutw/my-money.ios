@@ -24,7 +24,7 @@ public final class ForecastModel {
     /// 視角(上游 ADR 0016):預設全部;選過的視角記在 UserDefaults。換視角時購買力試算的結果清掉。
     public var scope: ViewScope {
         didSet {
-            defaults.set(scope.rawValue, forKey: Self.scopeKey)
+            scopeMemory.save(scope)
             purchaseCheck = nil
             purchaseError = nil
         }
@@ -50,7 +50,7 @@ public final class ForecastModel {
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let today: () -> CalendarDay
 
-    private static let scopeKey = "forecast.scope"
+    @ObservationIgnored private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "forecast.scope") }
 
     /// 骨架屏的預定收支筆數與摘要有沒有「起始餘額」那一組(#204 核對);第一次沒有記錄時 3 筆、有起始餘額。
     public struct SkeletonCounts: Equatable, Sendable {
@@ -85,7 +85,7 @@ public final class ForecastModel {
         self.defaults = defaults
         self.locale = locale
         self.today = today
-        scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
+        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "forecast.scope").load()
     }
 
     /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.days` 天)。
@@ -190,9 +190,9 @@ public final class ForecastModel {
     /// 購買力試算;接受任何正整數(parity 刻意偏離第 4 項)。
     public func checkPurchase() async {
         purchaseError = nil
-        guard let amount = Money(wholeNumber: purchaseAmountText), amount > .zero else {
+        guard let amount = PositiveAmount.parse(purchaseAmountText) else {
             purchaseCheck = nil
-            purchaseError = "請輸入有效的購買金額"
+            purchaseError = PositiveAmount.invalidMessage(label: "購買金額")
             return
         }
         isChecking = true

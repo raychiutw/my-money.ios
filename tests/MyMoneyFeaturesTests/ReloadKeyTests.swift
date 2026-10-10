@@ -42,7 +42,7 @@ struct ReloadKeyTests {
     func statisticsKey() {
         let dataVersion = DataVersion()
         let model = StatisticsModel(
-            repository: InMemoryStatisticsRepository.sample(month: CalendarMonth(today)), dataVersion: dataVersion, today: { today }
+            repository: InMemoryStatisticsRepository.sample(month: CalendarMonth(today)), dataVersion: dataVersion, defaults: UserDefaults.isolated(), today: { today }
         )
         let first = model.reloadKey
         model.month = CalendarMonth(year: 2026, month: 8)

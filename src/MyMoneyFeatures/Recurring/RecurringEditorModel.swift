@@ -112,10 +112,7 @@ public final class RecurringEditorModel: Submitting {
             errorMessage = "請填寫項目名稱"
             return false
         }
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效金額"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "每期金額") else { return false }
         let draft = RecurringDraft(
             name: trimmedName, type: type, amount: amount, cycle: cycle, dayOfCycle: dayOfCycle,
             monthOfCycle: cycle.clampedMonth(monthOfCycle), accountID: accountID, isShared: isShared

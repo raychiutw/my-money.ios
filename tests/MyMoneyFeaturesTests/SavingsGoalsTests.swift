@@ -160,7 +160,7 @@ struct SavingsGoalDepositTests {
 
         #expect(!(await deposit.save()))
 
-        #expect(deposit.errorMessage == "請輸入有效存款金額")
+        #expect(deposit.errorMessage == "請輸入有效的本次存入金額")
         #expect(await repository.deposits.isEmpty)
     }
 

@@ -12,7 +12,9 @@ public final class AccountsModel: Alerting {
 
     /// 帳戶檢視範圍(web 的「檢視範圍」):全部、家庭公帳、個人私帳。
     /// 畫面在範圍改變時重新載入(`.task(id:)`)。
-    public var scope: AccountScope = .all
+    public var scope: AccountScope = .all {
+        didSet { scopeMemory.save(scope) }
+    }
 
     public private(set) var cashWallets: [CashWallet] = []
     public private(set) var bankAccounts: [BankAccount] = []
@@ -48,6 +50,7 @@ public final class AccountsModel: Alerting {
     }
 
     private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.accounts") }
+    private var scopeMemory: ScopeMemory<AccountScope> { ScopeMemory(defaults: defaults, key: "accounts.scope") }
 
     public var skeletonCounts: SkeletonCounts {
         let memory = skeletonMemory
@@ -77,6 +80,7 @@ public final class AccountsModel: Alerting {
         self.permissions = permissions
         self.households = households
         self.today = today
+        scope = ScopeMemory<AccountScope>(defaults: defaults, key: "accounts.scope").load()
     }
 
     /// 畫面上是公帳範圍的內容、而且有成員待報銷代墊款(大於 0)才顯示橫幅。

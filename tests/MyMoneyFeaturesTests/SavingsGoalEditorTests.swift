@@ -51,7 +51,7 @@ struct SavingsGoalEditorTests {
 
         #expect(!(await editor.save()))
 
-        #expect(editor.errorMessage == "請輸入有效目標金額")
+        #expect(editor.errorMessage == "請輸入有效的目標金額")
     }
 
     @Test("建立：每月預留沒填時是 0;打開截止日時送出選的日期")

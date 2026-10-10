@@ -10,7 +10,7 @@ public final class OverviewModel {
 
     /// 預設全部;選過的視角記在 UserDefaults。
     public var scope: ViewScope {
-        didSet { defaults.set(scope.rawValue, forKey: Self.scopeKey) }
+        didSet { scopeMemory.save(scope) }
     }
 
     public private(set) var phase: Phase = .loading
@@ -83,7 +83,7 @@ public final class OverviewModel {
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
     public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
 
-    private static let scopeKey = "overview.scope"
+    @ObservationIgnored private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "overview.scope") }
 
     public init(
         accounts: any AccountRepository,
@@ -107,7 +107,7 @@ public final class OverviewModel {
         self.defaults = defaults
         self.today = today
         self.locale = locale
-        scope = defaults.string(forKey: Self.scopeKey).flatMap(ViewScope.init(rawValue:)) ?? .all
+        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "overview.scope").load()
     }
 
     public var monthNet: Money { monthIncome - monthExpense }

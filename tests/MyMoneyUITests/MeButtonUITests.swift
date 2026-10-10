@@ -11,10 +11,7 @@ final class MeButtonUITests: XCTestCase {
     /// 依序切到每個 tab:主頁面右上角都有頭像按鈕，點了打開同一個「我的」，關閉後回到原本的 tab。
     @MainActor
     func testEveryTabRootOpensAndClosesTheSameSheet() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         for tab in ["總覽", "記帳", "帳戶", "家庭", "統計"] {
             app.tabBars.buttons[tab].tap()
@@ -34,10 +31,7 @@ final class MeButtonUITests: XCTestCase {
     /// 總覽原本的標題是問候「早安，小明」,其他是「交易」「帳戶」「家庭」「統計」。
     @MainActor
     func testTabRootsHaveNoTitleOrSubtitle() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         for tab in ["總覽", "記帳", "帳戶", "家庭", "統計"] {
             app.tabBars.buttons[tab].tap()
@@ -55,26 +49,11 @@ final class MeButtonUITests: XCTestCase {
     /// (工具列按鈕會把裡面的字併進按鈕的 label,UI 測試查不到單獨的文字)。
     @MainActor
     func testAvatarIsLabelledForVoiceOver() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
 
         let me = app.buttons["toolbar.me"]
         XCTAssertTrue(me.waitForExistence(timeout: 5), "總覽沒有頭像按鈕")
         XCTAssertEqual(me.label, "我的，小明", "頭像按鈕的 VoiceOver 標籤不對")
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

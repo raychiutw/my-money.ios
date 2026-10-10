@@ -24,6 +24,10 @@ public enum Terms {
     public static let monthlyAverage = "換算每月平均"
     /// 待報銷總額(上游舊稱:待報銷代墊總額)。
     public static let pendingReimbursementTotal = "待報銷總額"
+    /// 公帳的狀態:個人墊付、還沒撥款報銷(上游 `d0424df` 的「公帳 · 待報銷」)。
+    public static let pendingReimbursement = "待報銷"
+    /// 公帳的狀態:個人墊付、已由共同基金撥款報銷(「公帳 · 已撥款」)。
+    public static let reimbursedPayout = "已撥款"
     /// 報銷沖帳(上游舊稱:從共同基金一鍵報銷)。
     public static let reimburse = "報銷沖帳"
 }

@@ -47,10 +47,7 @@ final class AccountColorUITests: XCTestCase {
     /// 「薰衣草」在最右邊，沒有自動捲動就在畫面外;「玫瑰紅」在中間，捲到它時兩端都還有色塊沒露出來。
     @MainActor
     func testEditingAccountScrollsToSelectedColor() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "活存帳戶餘額合計").waitForExistence(timeout: 5))
 
@@ -101,10 +98,7 @@ final class AccountColorUITests: XCTestCase {
 
     @MainActor
     private func launchAndOpenNewBankAccount() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        signIn(app)
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 5), "帳戶頁沒有「+」")
         app.buttons["accounts.add"].tap()
@@ -186,16 +180,4 @@ final class AccountColorUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

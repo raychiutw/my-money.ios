@@ -13,7 +13,7 @@ final class AppearanceUITests: XCTestCase {
     @MainActor
     func testAppearanceChoiceSurvivesRelaunch() throws {
         let app = launch(resettingSession: true)
-        signIn(app)
+        app.signInWithSampleAccount()
         openAppearance(in: app)
         XCTAssertEqual(selectedOption(in: app), "跟隨系統", "外觀的預設值不是跟隨系統")
         for option in ["跟隨系統", "淺色", "深色"] {
@@ -56,16 +56,4 @@ final class AppearanceUITests: XCTestCase {
         return app
     }
 
-    @MainActor
-    private func signIn(_ app: XCUIApplication) {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
-    }
 }

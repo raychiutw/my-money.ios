@@ -67,7 +67,9 @@ public final class StatisticsModel {
 
     /// 預設本月(台灣時間)。
     public var month: CalendarMonth
-    public var scope: ViewScope = .all
+    public var scope: ViewScope = .all {
+        didSet { scopeMemory.save(scope) }
+    }
 
     public private(set) var phase: Phase = .loading
     public private(set) var categoryExpenses: [CategoryExpense] = []
@@ -114,6 +116,7 @@ public final class StatisticsModel {
     }
 
     private var skeletonMemory: SkeletonShapeMemory { SkeletonShapeMemory(defaults: defaults, prefix: "skeleton.statistics") }
+    private var scopeMemory: ScopeMemory<ViewScope> { ScopeMemory(defaults: defaults, key: "statistics.scope") }
 
     public var skeletonCounts: SkeletonCounts {
         SkeletonCounts(
@@ -136,6 +139,7 @@ public final class StatisticsModel {
         self.locale = locale
         currentMonth = CalendarMonth(today())
         month = currentMonth
+        scope = ScopeMemory<ViewScope>(defaults: defaults, key: "statistics.scope").load()
     }
 
     /// 建立時的本月(台灣時間);切換月份不變。月份選擇器的上限用它。
@@ -286,10 +290,7 @@ public final class BudgetEditorModel: Submitting {
     /// 儲存;成功時回傳 `true`(sheet 關閉)並遞增資料版本。接受任何正整數(parity 刻意偏離第 4 項)。
     public func save() async -> Bool {
         errorMessage = nil
-        guard let amount = Money(wholeNumber: amountText), amount > .zero else {
-            errorMessage = "請輸入有效預算金額"
-            return false
-        }
+        guard let amount = positiveAmount(amountText, label: "預算") else { return false }
         guard await submitting(failure: "預算設定失敗", {
             try await repository.setBudget(amount, for: category, month: month)
         }) != nil else { return false }

@@ -60,7 +60,7 @@ tests/MyMoneyUITests/          # XCUITest
 
 - **不在 client 端重算業務規則**。淨可用餘額、預測、購買力試算、超支判斷都用後端回傳的值。後端的錯我們也照舊顯示，只有 `docs/parity.md` 列出的偏離例外。
 - **wire format 只在 `MyMoneyAPI` 裡處理**,不設全域 `keyDecodingStrategy`。資料表欄位是 snake_case,計算型 endpoint(`/accounts/balance`、`/forecast`)是 camelCase,而且 camelCase 物件裡還包著 snake_case;資料庫旗標是 0/1(`is_shared`),計算出來的旗標是 true/false(`over`、`willOverdraft`)。回應 envelope 是 `{success, data}` 或 `{success:false, error}`,部分 DELETE 只回 `{success, message}`,沒有 `data`。
-- **「信用卡還款」是系統分類**:信用卡扣款還款(`POST /accounts/pay-credit-card`)產生的收支明細，活存帳戶一筆支出、信用卡一筆收入。後端禁止編輯和刪除(回 400),統計也都排除它;iOS 的列表不顯示編輯和刪除，記帳頁本機算的總收入和總支出也都排除它。
+- **「信用卡還款」是系統分類**:信用卡扣款還款(`POST /accounts/pay-credit-card`)產生的收支明細，活存帳戶一筆支出、信用卡一筆收入。後端禁止編輯和刪除(回 400);iOS 的列表不顯示編輯和刪除。**總額規則(上游 `a09e923`)**:`/transactions/summary/monthly` 與記帳頁本機算的總收入、總支出、每日淨額一律全量加總，系統分類也算;只有統計分類圓餅圖不含它。
 - **`balance` 一詞兩義**:活存帳戶的 `balance` 是「餘額」,信用卡的 `balance` 是「已出帳待繳款」。翻譯層要把它拆成兩個不同的 domain 概念。
 - **金額用 `Decimal`**。顯示新台幣時設 0 位小數，並加上 `.rounded(rule: .toNearestOrAwayFromZero)`,才會跟 web 的 `Intl` 一樣(2.5 → `$3`)。
 - **日期**:「今天」和「本月」一律用台灣時間算。呼叫 API 時明確帶上月份，不依賴後端用 UTC 算的預設值。wire 上的日期維持 `YYYY-MM-DD` 字串。
@@ -73,6 +73,7 @@ tests/MyMoneyUITests/          # XCUITest
 
 - 單元測試和 integration 測試用 Swift Testing;少數 UI 流程用 XCTest/XCUITest。兩者分開 target。
 - `MyMoneyAPITests` 的 fixture 是用測試帳號從 prod 錄下來的**真實回應**(`tests/MyMoneyAPITests/Fixtures/`),不照程式碼手寫，用 `scripts/record-fixture.sh` 錄(token 會換成假值)。流程和清單見 `tests/MyMoneyAPITests/Fixtures/README.md`。網路用 `URLProtocol` stub(`HTTPStub`,每個測試一個 host,可以平行跑)。
+- **UI 測試一律用 `XCUIApplication.launchUITesting(flags:contentSize:resettingSession:signedIn:)` 啟動、`app.signInWithSampleAccount()` 登入**(`tests/MyMoneyUITests/SignInHelper.swift`),不在測試檔裡自己拼 `launchArguments` 或手寫登入:共用登入處理了大字級時登入鈕被鍵盤擋住(先上捲)、iPad 的 tab 不在 `tabBars`(多個候選)、不用 Return 以免彈出「要儲存密碼嗎」。`resettingSession: false` 的 relaunch 不會自動登入。例外有意保留自己的啟動:`BrandColorUITests`(不帶 `-uiTesting`,走正式路徑)、`LoginFlowUITests`/`RegisterFlowUITests`(測登入與註冊畫面本身)、`ScreenTourUITests`(截圖巡覽自己的環境變數)、`IPadLayoutUITests`/`KeyboardUITests`(控制方向與逐字級重啟)。
 - UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository(登入帳密是 `InMemoryAuthRepository.Member.sample`)。session 仍存在模擬器的 Keychain(UI 測試專用的 service),再加 `-resetSession` 會在啟動時清掉。唯一的例外是 `BrandColorUITests`:它不帶 `-uiTesting`,驗證 TestFlight 走的正式路徑，只停在登入頁(不連網路);模擬器裡有正式 session 時會 skip。
 - 畫面 model 測試要觀察「送出期間」的狀態時，用 `MyMoneyTestSupport` 的 `Gate` 讓 in-memory repository 停住，不用 `sleep`。
 - 測試名稱使用 `CONTEXT.md` 的詞彙。

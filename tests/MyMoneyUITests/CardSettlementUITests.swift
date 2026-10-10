@@ -101,7 +101,7 @@ final class CardSettlementUITests: XCTestCase {
         reveal(reconcile, in: app)
         reconcile.tap()
         XCTAssertTrue(
-            element(in: app, labelContaining: "會重算上一個結帳日之後的消費，加上延至下期的消費").waitForExistence(timeout: 3),
+            element(in: app, labelContaining: "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費").waitForExistence(timeout: 3),
             "確認時沒有說明依結帳區間重算(上游 ADR 0020)"
         )
         app.buttons["校準"].firstMatch.tap()
@@ -153,18 +153,7 @@ final class CardSettlementUITests: XCTestCase {
     /// 登入 in-memory 的範例帳號，切到帳戶 tab。
     @MainActor
     private func launchSignedIn() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
+        let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         return app
     }

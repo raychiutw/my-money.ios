@@ -65,6 +65,17 @@ public enum ViewScope: String, CaseIterable, Hashable, Sendable {
     case personal
 }
 
+/// 家庭公帳的支付來源與報銷狀態(上游 `d0424df`):公帳不一定是共同基金付的，個人先墊付的要等共同基金撥款報銷。
+/// 私帳沒有這個狀態;後端沒有給(舊的回應)時也是 `nil`，不誤判。
+public enum HouseholdPayment: Hashable, Sendable {
+    /// 家庭共同帳戶直接扣款(不是代墊)。
+    case jointFund
+    /// 個人私帳、私卡或現金墊付，還沒由共同基金撥款報銷。
+    case advancePending
+    /// 個人墊付，已由共同基金撥款報銷。
+    case advanceReimbursed
+}
+
 /// 信用卡消費的帳單狀態(上游 ADR 0020):後端的 `is_billed` 與 `defer_to_next_statement` 收成一個明確的型別。
 /// 非信用卡的收支明細與舊的回應都是 `.unbilled`(畫面不標示)。
 public enum BillingStatus: Hashable, Sendable {
@@ -113,6 +124,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 記錄時間(後端 `created_at`,上游 718ace9、#207):建立當下由後端自動記下;沒有或看不懂時是 `nil`。顯示成台灣時間的 HH:mm。
     public let recordedAt: Date?
 
+    /// 家庭公帳的支付來源與報銷狀態(上游 `d0424df`);私帳或後端沒有給時是 `nil`。
+    public let householdPayment: HouseholdPayment?
+
     public init(
         id: TransactionID,
         accountID: AccountID,
@@ -126,9 +140,11 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         recorderName: String?,
         recorderID: UserID? = nil,
         billing: BillingStatus = .unbilled,
-        recordedAt: Date? = nil
+        recordedAt: Date? = nil,
+        householdPayment: HouseholdPayment? = nil
     ) {
         self.recordedAt = recordedAt
+        self.householdPayment = householdPayment
         self.id = id
         self.accountID = accountID
         self.accountName = accountName

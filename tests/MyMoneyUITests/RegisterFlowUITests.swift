@@ -52,9 +52,7 @@ final class RegisterFlowUITests: XCTestCase {
 
     @MainActor
     private func launchResettingSession() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        app.launch()
+        let app = XCUIApplication.launchUITesting()
         return app
     }
 

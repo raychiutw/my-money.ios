@@ -68,7 +68,7 @@ struct ReconcileUnbilledTests {
 
         #expect(detail(SampleAccounts.card, repository: repository).reconcileConfirmation
             == "確定要依據「iOS 測試信用卡」的當期消費明細，自動校準未出帳款嗎？"
-            + "會重算上一個結帳日之後的消費，加上延至下期的消費，並扣掉這段期間的刷退。")
+            + "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費，並扣掉這段期間的刷退。")
 
         let withoutStatementDay = CreditCard(
             id: AccountID("no-statement-day"), name: "沒有結帳日的卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
@@ -189,10 +189,10 @@ struct CardPaymentTests {
 
     @Test("驗證：沒選扣款帳戶、金額無效、超過信用卡待繳總額", arguments: [
         (false, "3000", "請選擇扣款銀行帳戶"),
-        (true, "0", "請輸入大於 0 的繳款金額"),
-        (true, "abc", "請輸入大於 0 的繳款金額"),
-        (true, "1,000", "請輸入大於 0 的繳款金額"),
-        (true, "12.5", "請輸入大於 0 的繳款金額"),
+        (true, "0", "請輸入有效的繳款金額"),
+        (true, "abc", "請輸入有效的繳款金額"),
+        (true, "1,000", "請輸入有效的繳款金額"),
+        (true, "12.5", "請輸入有效的繳款金額"),
         (true, "19381", "繳款金額不可超過信用卡待繳總額 $19,380"),
     ])
     func validation(hasBank: Bool, amount: String, message: String) async {

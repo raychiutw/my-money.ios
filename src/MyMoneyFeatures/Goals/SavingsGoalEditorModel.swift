@@ -64,10 +64,7 @@ public final class SavingsGoalEditorModel: Submitting {
             errorMessage = "請輸入目標名稱"
             return false
         }
-        guard let target = Money(wholeNumber: targetAmountText), target > .zero else {
-            errorMessage = "請輸入有效目標金額"
-            return false
-        }
+        guard let target = positiveAmount(targetAmountText, label: "目標金額") else { return false }
         // 跟 web 一樣：沒填或看不懂時當作 0;web 的欄位也不允許負數。
         let reserve = Money(wholeNumber: monthlyReserveText) ?? .zero
         let draft = SavingsGoalDraft(
