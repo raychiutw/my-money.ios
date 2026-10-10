@@ -58,7 +58,10 @@ struct MyMoneyApp: App {
             // 每次查詢先等 30 秒(不用 Gate:切 tab 取消一個等待者會放行所有等待者,別的畫面就提早載入完成)。
             let hold = Duration.seconds(30)
             let accounts = includesFamily
-                ? InMemoryAccountRepository(accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)], summary: SampleAccounts.summary)
+                ? InMemoryAccountRepository(
+                    accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
+                    summary: SampleAccounts.summary, loadDelay: holdsAccounts ? hold : nil
+                )
                 : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
