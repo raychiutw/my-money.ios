@@ -51,12 +51,10 @@ public struct MainScreens {
         Task { await permissions.loadIfNeeded() }
         overview = OverviewModel(
             accounts: accountRepository, transactions: transactionRepository, statistics: statisticsRepository,
-            goals: savingsGoalRepository, forecast: forecastRepository, dataVersion: dataVersion, permissions: permissions,
-            defaults: defaults
+            goals: savingsGoalRepository, forecast: forecastRepository, permissions: permissions, context: context
         )
         accounts = AccountsModel(
-            repository: accountRepository, dataVersion: dataVersion, permissions: permissions, households: householdRepository,
-            defaults: defaults
+            repository: accountRepository, permissions: permissions, households: householdRepository, context: context
         )
         transactions = TransactionsModel(
             repository: transactionRepository, accounts: accountRepository, dataVersion: dataVersion, currentUser: currentUser,
@@ -64,8 +62,7 @@ public struct MainScreens {
         )
         quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
         recurring = RecurringModel(
-            repository: recurringRepository, accounts: accountRepository, dataVersion: dataVersion, permissions: permissions,
-            defaults: defaults
+            repository: recurringRepository, accounts: accountRepository, permissions: permissions, context: context
         )
         goals = SavingsGoalsModel(repository: savingsGoalRepository, context: context)
         statistics = StatisticsModel(repository: statisticsRepository, context: context)

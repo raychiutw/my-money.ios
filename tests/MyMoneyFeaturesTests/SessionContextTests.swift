@@ -61,4 +61,36 @@ struct SessionContextTests {
         #expect(forecast.reloadKey.version == 1)
         #expect(goals.reloadKey.version == 1)
     }
+
+    @Test("總覽、週期收支、帳戶:用脈絡建立(資料版本、今天、locale、defaults 都來自脈絡;權限另外傳)")
+    func overviewRecurringAndAccountsTakeAContext() {
+        let version = DataVersion()
+        let defaults = UserDefaults.isolated()
+        defaults.set("household", forKey: "overview.scope")
+        defaults.set("personal", forKey: "recurring.scope")
+        defaults.set("household", forKey: "accounts.scope")
+        let context = SessionContext(dataVersion: version, defaults: defaults, locale: Locale(identifier: "zh_Hant_TW"), today: { day })
+
+        let overview = OverviewModel(
+            accounts: InMemoryAccountRepository.sample(), transactions: InMemoryTransactionRepository(transactions: []),
+            statistics: InMemoryStatisticsRepository.sample(month: CalendarMonth(day)), goals: InMemorySavingsGoalRepository.sample(),
+            context: context
+        )
+        let recurring = RecurringModel(
+            repository: InMemoryRecurringRepository.sample(), accounts: InMemoryAccountRepository.sample(), context: context
+        )
+        let accounts = AccountsModel(repository: InMemoryAccountRepository.sample(), context: context)
+
+        #expect(overview.dataVersion === version)
+        #expect(recurring.dataVersion === version)
+        #expect(accounts.dataVersion === version)
+        #expect(overview.scope == .household)
+        #expect(recurring.scope == .personal)
+        #expect(accounts.scope == .household)
+
+        version.bump()
+        #expect(overview.reloadKey.version == 1)
+        #expect(recurring.reloadKey.version == 1)
+        #expect(accounts.reloadKey.version == 1)
+    }
 }
