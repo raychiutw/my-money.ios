@@ -15,12 +15,12 @@ struct TransactionRowContentTests {
     private func tx(
         note: String = "午餐", type: TransactionType = .expense, category: TransactionCategory = .dining, amount: Int = 120,
         shared: Bool = true, accountName: String? = SampleAccounts.savings.name, recorder: String? = nil, recorderID: UserID? = nil,
-        billing: BillingStatus = .unbilled, recordedAt: Date? = nil
+        billing: BillingStatus = .unbilled, recordedAt: Date? = nil, payment: HouseholdPayment? = nil
     ) -> MyMoneyDomain.Transaction {
         MyMoneyDomain.Transaction(
             id: TransactionID("row"), accountID: SampleAccounts.savings.id, accountName: accountName, type: type, category: category,
             amount: Money(Decimal(amount)), note: note, date: today, isShared: shared, recorderName: recorder, recorderID: recorderID,
-            billing: billing, recordedAt: recordedAt
+            billing: billing, recordedAt: recordedAt, householdPayment: payment
         )
     }
 
@@ -83,5 +83,28 @@ struct TransactionRowContentTests {
         #expect(TransactionRowContent(tx(recorder: "小美", recorderID: UserID("mei")), viewer: me.id).spokenRecorder == "小美")
         #expect(TransactionRowContent(tx(recorder: me.name, recorderID: UserID("another")), viewer: me.id).spokenRecorder == me.name)
         #expect(TransactionRowContent(tx(recorder: "小美", recorderID: UserID("mei")), viewer: nil).spokenRecorder == "小美")
+    }
+
+    @Test("公帳三態(上游 d0424df):次要文字的歸屬那一段與 VoiceOver 都念出狀態")
+    func householdPaymentStates() {
+        let direct = TransactionRowContent(tx(payment: .jointFund), viewer: nil)
+        #expect(direct.subtitle.ownership == "家庭公帳")
+        #expect(direct.spokenText.contains("，家庭公帳，"))
+
+        let pending = TransactionRowContent(tx(payment: .advancePending), viewer: nil)
+        #expect(pending.subtitle.ownership == "家庭公帳・待報銷")
+        #expect(pending.spokenText.contains("，家庭公帳・待報銷，"))
+
+        let reimbursed = TransactionRowContent(tx(payment: .advanceReimbursed), viewer: nil)
+        #expect(reimbursed.subtitle.ownership == "家庭公帳・已撥款")
+        #expect(reimbursed.spokenText.contains("，家庭公帳・已撥款，"))
+    }
+
+    @Test("私帳不受影響;公帳狀態未知時維持「家庭公帳」;與帳單狀態接在後面")
+    func privateAndUnknownAndBilling() {
+        #expect(TransactionRowContent(tx(shared: false, payment: nil), viewer: nil).subtitle.ownership == "個人私帳")
+        #expect(TransactionRowContent(tx(shared: true, payment: nil), viewer: nil).subtitle.ownership == "家庭公帳")
+        let card = TransactionRowContent(tx(billing: .deferred, payment: .advancePending), viewer: nil)
+        #expect(card.subtitle.tail == "家庭公帳・待報銷・延至下期")
     }
 }

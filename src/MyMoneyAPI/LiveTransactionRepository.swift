@@ -65,10 +65,15 @@ private struct TransactionDTO: Decodable {
     let defersToNextStatement: Int?
     /// 後端自動記下的建立時間(UTC,`YYYY-MM-DD HH:mm:ss`,#207)。
     let createdAt: String?
+    /// 上游 `d0424df` 起的欄位:扣款帳戶是不是家庭共同帳戶(0/1)與報銷關聯;舊的回應沒有。
+    let accountIsJoint: Int?
+    let reimbursementID: String?
 
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
         case createdAt = "created_at"
+        case accountIsJoint = "account_is_joint"
+        case reimbursementID = "reimbursement_id"
         case accountID = "account_id"
         case accountName = "account_name"
         case isShared = "is_shared"
@@ -76,6 +81,13 @@ private struct TransactionDTO: Decodable {
         case userID = "user_id"
         case isBilled = "is_billed"
         case defersToNextStatement = "defer_to_next_statement"
+    }
+
+    /// 公帳的三態:共同帳戶直接扣款，否則看有沒有報銷關聯(web 的判斷順序);私帳與舊的回應(沒有 `account_is_joint`)沒有狀態。
+    private var householdPayment: HouseholdPayment? {
+        guard isShared == 1, let accountIsJoint else { return nil }
+        if accountIsJoint == 1 { return .jointFund }
+        return (reimbursementID ?? "").isEmpty ? .advancePending : .advanceReimbursed
     }
 
     func transaction() throws -> Transaction {
@@ -95,7 +107,8 @@ private struct TransactionDTO: Decodable {
             recorderName: userName,
             recorderID: userID.map(UserID.init),
             billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0),
-            recordedAt: RecordedTime.date(fromBackend: createdAt)
+            recordedAt: RecordedTime.date(fromBackend: createdAt),
+            householdPayment: householdPayment
         )
     }
 }
