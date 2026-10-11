@@ -208,6 +208,15 @@
 |---|---|---|---|
 | 兩個帳戶選擇列、金額、日期、備註（有標籤）在 form sheet 裡一致 | ✅ | Sheets | — |
 
+### `household-member-detail`
+
+#246 新增的頁面:家庭頁成員列點進代墊詳細頁(iPhone 的審查見 `2026-10-04-apple-hig-page-by-page-review.md`)。
+
+| 議題 | 結論 | 依據 | 處理 |
+|---|---|---|---|
+| 成員列點進詳細頁、欄位一列一個、操作在 Section「操作」，跟信用卡詳細頁同一種版型(結構檢查，沒有用 iPad 截圖) | ✅ | Lists and tables | — |
+| iPad 橫向、split view 下詳細頁的實際版面還沒用截圖巡覽實測 | ⚠️ | Layout | 下次巡覽補拍 |
+
 ### `household-leave-confirm`
 
 | 議題 | 結論 | 依據 | 處理 |

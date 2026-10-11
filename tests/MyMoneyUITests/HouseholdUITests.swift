@@ -73,11 +73,13 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertFalse(app.buttons["household.invite"].exists, "一般成員不該看到邀請入口")
         XCTAssertTrue(element(in: app, labelContaining: "小美,有待請款代墊").exists, "沒有看到小美的代墊卡片")
         XCTAssertTrue(element(in: app, labelContaining: "家庭管理員").exists, "小美的身分不是家庭管理員")
-        XCTAssertFalse(app.buttons["household.reimburse.sample-mei"].exists, "一般成員不該能替小美的代墊款撥款")
-
-        let reimburseMine = app.buttons["household.reimburse.in-memory-member-1"]
-        for _ in 0..<8 where !reimburseMine.exists { app.swipeDown() }
-        XCTAssertTrue(reimburseMine.exists, "自己的代墊款沒有報銷入口")
+        // 成員列點進詳細頁(#246):小美的詳細頁沒有「報銷沖帳」，自己的有。
+        let reimburseMei = app.openMemberDetail("sample-mei")
+        XCTAssertTrue(app.navigationBars["小美"].waitForExistence(timeout: 5), "沒有推入小美的代墊詳細頁")
+        XCTAssertFalse(reimburseMei.exists, "一般成員不該能替小美的代墊款撥款")
+        app.navigationBars["小美"].buttons.firstMatch.tap()
+        let reimburseMine = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(reimburseMine.waitForExistence(timeout: 5), "自己的代墊款沒有報銷入口")
     }
 
     /// 替其他家庭成員撥款報銷(#47):範例帳號建立家庭後，小明和小美都有待報銷
@@ -116,11 +118,8 @@ final class HouseholdUITests: XCTestCase {
         let mine = element(in: app, labelContaining: "小明,有待請款代墊")
         for _ in 0..<8 where !mine.exists { app.swipeUp() }
         XCTAssertTrue(mine.exists, "沒有顯示我的代墊款")
-        let reimburseMine = app.buttons["household.reimburse.in-memory-member-1"]
-        for _ in 0..<8 where !reimburseMine.exists { app.swipeUp() }
-        XCTAssertTrue(reimburseMine.exists, "自己的代墊款沒有報銷入口")
-        let reimburseMei = app.buttons["household.reimburse.sample-mei"]
-        for _ in 0..<5 where !reimburseMei.isHittable { app.swipeUp() }
+        let reimburseMei = app.openMemberDetail("sample-mei")
+        XCTAssertTrue(reimburseMei.waitForExistence(timeout: 5), "小美的代墊詳細頁沒有報銷入口")
         reimburseMei.tap()
         let submit = app.buttons["reimbursement.submit"]
         XCTAssertTrue(submit.waitForExistence(timeout: 3), "沒有打開撥款報銷")
@@ -170,11 +169,9 @@ final class HouseholdUITests: XCTestCase {
         name.typeText("我們家")
         app.buttons["household.create"].tap()
 
-        // 報銷入口在大數字、長條圖與數字磚下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
-        _ = reimburse.waitForExistence(timeout: 5)
-        for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
-        XCTAssertTrue(reimburse.exists, "自己的代墊款沒有報銷入口")
+        // 成員列在大數字、長條圖與數字磚下面;點進自己的代墊詳細頁，「報銷沖帳」在「操作」裡(#246)。
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "自己的代墊詳細頁沒有報銷入口")
         reimburse.tap()
         let note = app.textFields["reimbursement.note"]
         XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開撥款報銷")
@@ -191,10 +188,8 @@ final class HouseholdUITests: XCTestCase {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
 
         app.tabBars.buttons["家庭"].tap()
-        let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
-        _ = reimburse.waitForExistence(timeout: 5)
-        for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
-        XCTAssertTrue(reimburse.exists, "自己的代墊款沒有報銷入口")
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "自己的代墊詳細頁沒有報銷入口")
         reimburse.tap()
 
         let item = app.switches["reimbursement.item.sample-advance"]

@@ -121,7 +121,9 @@ final class AmountAlignmentUITests: XCTestCase {
         let image = member.screenshot().image
         let bands = try PixelAnalysis.inkBands(of: image, skippingLeadingCluster: false)
         let amount = try XCTUnwrap(bands.last)
-        try assertRightEdge(amount, in: image, "成員的待報銷金額沒有在最下面一行靠右", maxGap: 40)
+        // 成員列現在是導覽列(#246):右邊有系統的 disclosure indicator，金額靠右是相對於內容區，
+        // 所以右邊的空隙是「內距加 chevron 那一欄」(AX5 實測約 71pt)，不再是單純的內距。
+        try assertRightEdge(amount, in: image, "成員的待報銷金額沒有在最下面一行靠右", maxGap: 100)
         XCTAssertGreaterThan(amount.minX, Int(image.size.width * image.scale) / 3, "待報銷金額貼在左邊:\(amount)")
     }
 

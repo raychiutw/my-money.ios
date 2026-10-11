@@ -224,7 +224,7 @@
 | 議題 | 結論 | 依據 | 處理 |
 |---|---|---|---|
 | 「誰轉給誰」那行字被長條圖標註壓住 | ❌ | Typography | 已修正 |
-| 「查看代墊明細」「從共同基金報銷」是圖示加文字的列 | ⚠️ | 與 `bot` 同類；有圖示可辨識為動作 | 維持 |
+| 成員列的「查看代墊明細」「從共同基金報銷」是卡片內就地展開的圖示加文字列 | ❌ | Lists and tables（列只放標題、細節放詳細頁） | #246 已改成成員列點進詳細頁(見 `household-member-detail`) |
 | 「離開家庭」是紅字列，點了有確認 | ✅ | Alerts | — |
 | 報銷表單（見 `reimbursement`）的備註欄沒有標籤 | ❌ | Text fields | 已修正 |
 | 長條圖有 accessibility label，每根念「成員，公帳代墊 N 元」 | ✅ | Charts | — |
@@ -238,6 +238,19 @@
 | 撥款公帳、收款帳戶兩列是「名稱＋說明＋chevron」，大字級折行、不截斷 | ✅ | Lists and tables | — |
 | AX5：撥款日期的日期選擇器同 `quick-entry`，比卡片寬、被切掉 | ❌ | Typography | #161 |
 | AX5：備註欄的長內容被截成「家庭基金撥…」 | ❌ | Typography | #170 |
+
+### `household-member-detail`
+
+2026-10-11 使用者真機回報家庭頁成員卡片的展開列與動作列「不是 Apple app 常用的方式」，依本文件「決策 A」改成點進詳細頁(#246)。
+
+| 議題 | 結論 | 依據 | 處理 |
+|---|---|---|---|
+| 成員列是 `NavigationLink`，右側有系統的 disclosure indicator，點進該成員的詳細頁 | ✅ | Lists and tables（drill into → disclosure indicator） | — |
+| 詳細頁每個欄位一列：「代墊統計」三列、「待報銷代墊明細」「共同基金撥款沖帳紀錄」各一個 Section | ✅ | Lists and tables | — |
+| 「報銷沖帳」是 Section「操作」裡的一列，跟信用卡詳細頁的「繳款」「出帳作業」同一種表現 | ✅ | Lists and tables、Designing for iOS（次要細節與動作一兩下找得到） | — |
+| 一般成員只有自己的詳細頁有「操作」 | ✅ | 權限規則（上游 ADR 0013） | — |
+| 報銷成功的後端訊息顯示在詳細頁，按「好」回到家庭頁 | ✅ | Alerts | — |
+| 詳細頁的版面（AX5、深淺色）還沒用截圖巡覽實測，只確認了列表與按鈕的結構 | ⚠️ | Typography | 下次巡覽補拍 |
 
 ### `household-leave-confirm`
 

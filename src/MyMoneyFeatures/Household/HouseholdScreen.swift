@@ -9,15 +9,22 @@ struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
     @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
-    @State private var reimbursement: ReimbursementModel?
     @State private var skeletonWidth: Double?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private enum Field: Hashable { case createName, joinCode }
     @FocusState private var focusedField: Field?
 
+    /// 點成員列推入成員的代墊詳細頁(#246)。
+    private struct MemberRoute: Hashable {
+        let memberID: UserID
+    }
+
     var body: some View {
         NavigationStack {
             screen
+                .navigationDestination(for: MemberRoute.self) { route in
+                    MemberAdvanceScreen(model: model, memberID: route.memberID)
+                }
         }
     }
 
@@ -46,20 +53,6 @@ struct HouseholdScreen: View {
                 Text(model.removeConfirmation(for: member))
             }
             .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
-            .alert(
-                "完成",
-                isPresented: Binding(get: { model.noticeMessage != nil }, set: { if !$0 { model.noticeMessage = nil } })
-            ) {
-                Button("好") {}
-            } message: {
-                Text(model.noticeMessage ?? "")
-            }
-            .sheet(item: $reimbursement) { reimbursement in
-                ReimbursementView(model: reimbursement) { message in
-                    model.noticeMessage = message
-                    Task { await model.load() }
-                }
-            }
     }
 
     @ViewBuilder
@@ -236,14 +229,14 @@ struct HouseholdScreen: View {
 }
 
 extension HouseholdScreen {
-    /// 成員(#121):每位成員一列，只有名字、身分和數字(待報銷);代墊明細就地展開(可以同時展開多位)，
-    /// 有待報銷的才有「從共同基金報銷」入口(家庭管理員任何人都有，一般成員只有自己)。家庭管理員往左滑可以移除一般成員。
+    /// 成員(#121、#246):每位成員一列，只有名字、身分和數字(待報銷);有代墊統計的成員點進去是代墊詳細頁
+    /// (代墊統計、待報銷明細、報銷沖帳紀錄、報銷沖帳)。家庭管理員往左滑可以移除一般成員。
     private var membersSection: some View {
         Section("成員") {
             let members = model.household?.members ?? []
             ForEach(members) { member in
-                let advance = model.advances.first { $0.memberID == member.userID }
-                MemberRow(name: member.name, roleTitle: member.role.title, advance: advance)
+                let advance = model.advance(of: member.userID)
+                memberRow(name: member.name, roleTitle: member.role.title, advance: advance, id: member.userID)
                     .swipeActions {
                         if model.canRemove(member) {
                             DestructiveSwipeButton("移除", systemImage: "person.badge.minus") { pendingRemoval = member }
@@ -256,100 +249,27 @@ extension HouseholdScreen {
                             }
                         }
                     }
-                if let advance {
-                    advanceControls(advance)
-                }
             }
             // 代墊統計裡有、名冊裡沒有的人(例如剛離開家庭的成員):照樣列出，沒有身分。
             ForEach(model.advances.filter { advance in !members.contains { $0.userID == advance.memberID } }) { advance in
-                MemberRow(name: advance.memberName, roleTitle: nil, advance: advance)
-                advanceControls(advance)
+                memberRow(name: advance.memberName, roleTitle: nil, advance: advance, id: advance.memberID)
             }
         }
     }
 
-    /// 這位成員的代墊明細(就地展開)與撥款報銷入口。
     @ViewBuilder
-    private func advanceControls(_ advance: HouseholdAdvance) -> some View {
-        Button(
-            model.isShowingDetails(of: advance.memberID)
-                ? "收起明細" : "查看代墊明細(\(advance.advanceItems.count + advance.reimbursementItems.count) 筆)",
-            systemImage: model.isShowingDetails(of: advance.memberID) ? "chevron.up" : "chevron.down"
-        ) {
-            model.toggleDetails(of: advance.memberID)
-        }
-        .accessibilityIdentifier("household.advanceDetails")
-        if model.isShowingDetails(of: advance.memberID) {
-            AdvanceDetails(advance: advance, dateText: model.dateTimeText)
-        }
-        if model.canReimburse(advance) {
-            Button(Terms.reimburse, systemImage: "arrow.uturn.left.circle") {
-                reimbursement = model.makeReimbursement(for: advance)
+    private func memberRow(name: String, roleTitle: String?, advance: HouseholdAdvance?, id: UserID) -> some View {
+        if advance != nil {
+            NavigationLink(value: MemberRoute(memberID: id)) {
+                MemberRow(name: name, roleTitle: roleTitle, advance: advance)
             }
-            .accessibilityLabel("\(Terms.reimburse)給\(advance.memberName)")
-            .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
+            .accessibilityIdentifier("household.member.\(id.rawValue)")
+            .accessibilityHint("查看代墊明細")
+        } else {
+            MemberRow(name: name, roleTitle: roleTitle, advance: advance)
         }
     }
 }
-
-/// 就地展開的兩份明細：個人代墊消費明細、共同基金撥款沖帳紀錄。
-private struct AdvanceDetails: View {
-    let advance: HouseholdAdvance
-    /// 明細的「日期 時間」(畫面 model 依系統格式產生,時間是台灣時間 HH:mm,#207)。
-    let dateText: (CalendarDay, Date?) -> String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("個人代墊消費明細(\(advance.advanceItems.count) 筆)")
-                .font(.subheadline.bold())
-            if advance.advanceItems.isEmpty {
-                Text("尚未有任何個人代墊公帳消費紀錄。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(advance.advanceItems) { item in
-                detailRow(
-                    date: item.date, time: item.recordedAt,
-                    title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
-                    account: item.accountName, amount: item.amount, isIncome: false
-                )
-            }
-            Text("共同基金撥款沖帳紀錄(\(advance.reimbursementItems.count) 筆)")
-                .font(.subheadline.bold())
-                .padding(.top, 4)
-            if advance.reimbursementItems.isEmpty {
-                Text("尚未有自共同基金撥款報銷之歷史沖帳紀錄。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(advance.reimbursementItems) { item in
-                detailRow(
-                    date: item.date, time: item.recordedAt, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
-                    account: item.accountName, amount: item.amount, isIncome: true
-                )
-            }
-        }
-    }
-
-    /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
-    private func detailRow(date: CalendarDay, time: Date?, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text("\(dateText(date, time)) · \(account)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            AmountText(isIncome ? .inflow(amount) : .outflow(amount))
-                .monospacedDigit()
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(dateText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)")
-    }
-}
-
-extension ReimbursementModel: Identifiable {}
 
 /// 成員的一列(#121):名稱開頭字、名字、身分(家庭管理員或一般成員)與待報銷的數字(已結清時是「已結清」加勾勾);
 /// 家庭公帳代墊的累計與已報銷在我的數字磚(自己)與代墊明細(每個人)。

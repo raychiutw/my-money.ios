@@ -21,6 +21,20 @@ extension XCUIApplication {
     }
 }
 
+extension XCUIApplication {
+    /// 家庭頁:點成員列進該成員的代墊詳細頁(#246),回傳詳細頁「操作」裡的「報銷沖帳」鈕(沒有入口時 `exists` 是 false)。
+    @MainActor
+    @discardableResult
+    func openMemberDetail(_ memberID: String) -> XCUIElement {
+        let row = descendants(matching: .any)["household.member.\(memberID)"]
+        _ = row.waitForExistence(timeout: 5)
+        for _ in 0..<8 where !(row.exists && row.isHittable) { swipeUp() }
+        XCTAssertTrue(row.exists, "家庭頁找不到成員「\(memberID)」的列")
+        row.tap()
+        return buttons["household.reimburse.\(memberID)"]
+    }
+}
+
 extension XCUIElement {
     /// 這個元素顯示的所有文字:label、value 與子孫的靜態文字。
     /// 選擇列的值有時在 value、有時在子元素，只查 label 會漏掉。

@@ -48,6 +48,8 @@ struct ReimbursementView: View {
                     .monospacedDigit()
             }
         }
+        // 開關打開是 CI 填色(ADR-0009:CI 色一律以明確色票套用，不靠全域強調色——深色模式是白色，看不出開關狀態，#246)。
+        .tint(Color.ciFill)
         .accessibilityIdentifier("reimbursement.item.\(item.id.rawValue)")
     }
 
