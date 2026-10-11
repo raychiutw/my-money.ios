@@ -119,6 +119,14 @@ public final class HouseholdModel {
         !advance.isSettled && (household?.myRole == .admin || advance.memberID == currentUser)
     }
 
+    /// 這位成員是不是登入的自己:「離開家庭」放在自己的成員詳細頁(#248,Apple 家人共享把「停止使用」放在自己的成員頁)。
+    public func isCurrentUser(_ memberID: UserID) -> Bool { memberID == currentUser }
+
+    /// 成員詳細頁的標題:代墊統計有名字用統計的，否則(自己還沒有代墊紀錄)用名冊的。
+    public func memberName(of memberID: UserID) -> String {
+        advance(of: memberID)?.memberName ?? household?.members.first { $0.userID == memberID }?.name ?? ""
+    }
+
     /// 只有家庭管理員可以產生邀請碼(上游 ADR 0013,#47);一般成員呼叫會得到 403。
     public var canInvite: Bool { household?.myRole == .admin }
 

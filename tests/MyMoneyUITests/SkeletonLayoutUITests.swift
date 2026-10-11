@@ -192,7 +192,7 @@ final class AccountsHouseholdSkeletonUITests: XCTestCase {
         let first = launch(reset: true, extra: ["-uiTestingJoinedHousehold", "-uiTestingHoldHousehold"])
         first.signInWithSampleAccount()
         first.tabBars.buttons["家庭"].tap()
-        XCTAssertTrue(first.buttons["household.leave"].waitForExistence(timeout: 45) || first.staticTexts["我們家"].waitForExistence(timeout: 5), "第一次沒有載入完成")
+        XCTAssertTrue(first.descendants(matching: .any)["household.member.in-memory-member-1"].waitForExistence(timeout: 45) || first.staticTexts["我們家"].waitForExistence(timeout: 5), "第一次沒有載入完成")
         first.terminate()
 
         let second = launch(reset: false, extra: ["-uiTestingJoinedHousehold", "-uiTestingHoldHousehold"])

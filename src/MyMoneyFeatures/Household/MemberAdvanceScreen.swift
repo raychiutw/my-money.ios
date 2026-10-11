@@ -11,17 +11,21 @@ struct MemberAdvanceScreen: View {
     @Bindable var model: HouseholdModel
     let memberID: UserID
     @State private var reimbursement: ReimbursementModel?
+    @State private var isLeaveConfirming = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Group {
             if let advance = model.advance(of: memberID) {
                 details(advance)
+            } else if model.isCurrentUser(memberID) {
+                // 自己還沒有代墊紀錄:仍要有「離開家庭」。
+                List { leaveSection }
             } else {
                 ContentUnavailableView("沒有代墊紀錄", systemImage: "tray")
             }
         }
-        .navigationTitle(model.advance(of: memberID)?.memberName ?? "")
+        .navigationTitle(model.memberName(of: memberID))
         .inlineNavigationTitle()
         .toolbar {
             // 家庭管理員任何人都有，一般成員只有自己的;已結清的不能報銷。
@@ -34,6 +38,10 @@ struct MemberAdvanceScreen: View {
                     .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
                 }
             }
+        }
+        // 離開家庭之後家庭沒了，這一頁跟著退回根頁(根頁會換成建立／加入的畫面)。
+        .onChange(of: model.household == nil) { _, isGone in
+            if isGone { dismiss() }
         }
         // 後端的訊息(報銷成功):訊息掛在這一頁，sheet 關掉之後才不會被頁面轉場吃掉;按「好」回到家庭頁。
         .alert(
@@ -89,12 +97,27 @@ struct MemberAdvanceScreen: View {
                 }
             }
 
+            if model.isCurrentUser(memberID) { leaveSection }
         }
         .sheet(item: $reimbursement) { reimbursement in
             ReimbursementView(model: reimbursement) { message in
                 model.noticeMessage = message
                 Task { await model.load() }
             }
+        }
+    }
+
+    /// 離開家庭(#248):破壞性動作放在自己的成員頁最下面並先確認，確認訊息掛在按鈕上(#169)，泡泡的箭頭才指著它。
+    private var leaveSection: some View {
+        Section {
+            Button("離開家庭", role: .destructive) { isLeaveConfirming = true }
+                .accessibilityIdentifier("household.leave")
+                .confirmationDialog("離開家庭", isPresented: $isLeaveConfirming, titleVisibility: .visible) {
+                    Button("離開", role: .destructive) { Task { await model.leave() } }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text(model.leaveConfirmation)
+                }
         }
     }
 

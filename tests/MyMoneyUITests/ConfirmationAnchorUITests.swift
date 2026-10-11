@@ -33,8 +33,10 @@ final class ConfirmationAnchorUITests: XCTestCase {
         app.tabBars.buttons["家庭"].tap()
         XCTAssertTrue(app.staticTexts["我們家"].waitForExistence(timeout: 15), "沒有看到已加入的家庭頁")
 
+        // 「離開家庭」在自己的成員詳細頁(#248)。
+        app.openMemberDetail("in-memory-member-1")
         let leave = app.buttons["household.leave"]
-        XCTAssertTrue(ScrollSupport.revealFully(leave, in: app), "家庭頁沒有「離開家庭」")
+        XCTAssertTrue(ScrollSupport.revealFully(leave, in: app), "自己的成員詳細頁沒有「離開家庭」")
         let triggerMidY = leave.frame.midY
         leave.tap()
 
