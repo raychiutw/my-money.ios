@@ -123,19 +123,46 @@ struct MemberAdvanceScreen: View {
 
     /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
     private func detailRow(date: CalendarDay, time: Date?, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text("\(model.dateTimeText(date, time)) · \(account)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            AmountText(isIncome ? .inflow(amount) : .outflow(amount))
-                .monospacedDigit()
-        }
+        MemberDetailRow(
+            title: title, units: ["\(model.dateTimeText(date, time))", account],
+            amount: isIncome ? .inflow(amount) : .outflow(amount)
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(model.dateTimeText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)")
+    }
+}
+
+/// 成員詳細頁的項目列:標題、次要文字(日期時間・帳戶，每段不拆開)，金額在右邊跟標題同一行;
+/// 無障礙字級改上下堆疊、金額最後一行靠右。結構只跟字級走、不跟資料長短走(#248)。
+private struct MemberDetailRow: View {
+    let title: String
+    let units: [String]
+    let amount: AmountPresentation
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                texts
+                AmountText(amount).monospacedDigit().lineLimit(1).fixedSize()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                texts
+                Spacer(minLength: 0)
+                AmountText(amount).monospacedDigit().lineLimit(1).fixedSize()
+            }
+        }
+    }
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            WrappingUnits(units: units)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

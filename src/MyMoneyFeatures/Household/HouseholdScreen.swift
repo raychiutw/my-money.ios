@@ -268,23 +268,28 @@ private struct MemberRow: View {
 
     /// 圓形頭像跟著字級放大，大字級時開頭字才放得進去。
     @ScaledMetric(relativeTo: .headline) private var avatarSize: CGFloat = 40
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                avatar
-                names
-                Spacer(minLength: 8)
-                pending
-            }
-            VStack(alignment: .leading, spacing: 6) {
+        // 結構只跟字級走、不跟名字長短走(#248):無障礙字級上下堆疊，其他字級一律名字在左、待報銷在右。
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 12) {
+                        avatar
+                        names
+                    }
+                    // 堆疊時待報銷金額在最下面一行、靠右(#149)。
+                    pending
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
                 HStack(spacing: 12) {
                     avatar
                     names
+                    Spacer(minLength: 8)
+                    pending
                 }
-                // 堆疊時待報銷金額在最下面一行、靠右(#149)。
-                pending
-                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .accessibilityElement(children: .ignore)

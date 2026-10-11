@@ -5,14 +5,13 @@ import SwiftUI
 ///
 /// - 前緣：分類圖示。
 /// - 標題：備註，沒有備註時用分類名稱;點得開的列最多兩行。
-/// - 次要文字(固定一行):「記帳人・歸屬」,例如「小美・家庭公帳」;信用卡消費後面多一個帳單狀態「已出帳」「延至下期」(#188);
-///   放不下先截記帳人的名稱，歸屬與標籤保留。
-/// - trailing:帶正負號的金額，下面一行是資產帳戶名稱(次要文字、靠右、單行、太長從結尾截斷)。
+/// - 次要文字:「記帳時間・記帳人・歸屬」(信用卡消費後面多帳單狀態)，每個語意單位不拆開，放不下整個換到下一行。
+/// - 資產帳戶名稱:文字欄的最後一行(次要文字，太長折行、不截斷)。
+/// - trailing:帶正負號的金額，跟標題同一行、單行不被擠掉。
 ///
-/// 不再有金額旁邊的小圖示(家庭公帳、家人記的、鎖定):語意都寫成文字，點不開的列怎麼說明見 #146。
-/// **放不下兩欄就上下堆疊**(#128、#246):無障礙字級一定堆疊;其他字級用 `ViewThatFits` 依實際寬度決定——左欄(標題與次要文字)
-/// 至少要有 `minLeading` 寬才用兩欄，不然堆疊:圖示加標題、記帳人・歸屬、資產帳戶各一行(靠左)，**金額在最下面一行、靠右**。
-/// 次要文字放不下一行時折成兩行(記帳人一行、歸屬與狀態一行)，不能比可用寬度寬。金額一律單行。VoiceOver 整列念成一句完整的話。
+/// **結構只跟字級走、不跟資料長短走**(#248,HIG Lists and tables:資訊階層與間距一致、盡量少截斷、大字級改上下堆疊、列可以變高):
+/// 無障礙字級上下堆疊——圖示加文字欄、**金額在最下面一行、靠右**;其他字級一律兩欄，同一個畫面裡每一列的金額、帳戶位置都一樣。
+/// 不再有金額旁邊的小圖示(家庭公帳、家人記的、鎖定):語意都寫成文字，點不開的列怎麼說明見 #146。VoiceOver 整列念成一句完整的話。
 struct TransactionRow: View {
     let content: TransactionRowContent
     /// 點得開(可以編輯)的列：標題最多兩行，從結尾截斷。點不開的列不截斷，才看得到全文。
@@ -22,10 +21,6 @@ struct TransactionRow: View {
     var lockHint: String?
 
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-    /// 資產帳戶名稱的最大寬度，跟著字級放大;更長的從結尾截斷，金額不被擠掉。
-    @ScaledMetric(relativeTo: .subheadline) private var accountMaxWidth: CGFloat = 120
-    /// 兩欄版型裡左欄(標題與次要文字)至少要有的寬度;騰不出來就改成上下堆疊(#246)。
-    @ScaledMetric(relativeTo: .body) private var minLeading: CGFloat = 112
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.exposesRowPartsToAccessibility) private var exposesParts
 
@@ -34,11 +29,7 @@ struct TransactionRow: View {
             if dynamicTypeSize.isAccessibilitySize {
                 stackedLayout
             } else {
-                // 兩欄放得下就兩欄(左欄至少 `minLeading`);放不下改成上下堆疊，不能比螢幕寬(#246)。
-                ViewThatFits(in: .horizontal) {
-                    twoColumnLayout
-                    stackedLayout
-                }
+                twoColumnLayout
             }
         }
         .accessibilityElement(children: exposesParts ? .contain : .ignore)
@@ -46,16 +37,12 @@ struct TransactionRow: View {
         .accessibilityHint(lockHint ?? "")
     }
 
-    /// 上下堆疊：圖示、標題、記帳人・歸屬、資產帳戶由上往下，金額最後一行、靠右。
+    /// 無障礙字級:圖示、標題、記帳人・歸屬、資產帳戶由上往下，金額最後一行、靠右。
     private var stackedLayout: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 icon
-                VStack(alignment: .leading, spacing: 2) {
-                    titleText
-                    subtitleText(stacked: true)
-                    accountText(stacked: true)
-                }
+                texts
             }
             amount
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -63,21 +50,23 @@ struct TransactionRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// 其他字級:圖示、文字欄(標題、記帳人・歸屬、資產帳戶)、金額在右邊跟標題同一行。結構不看資料長短(#248):
+    /// 文字欄拿剩下的寬度，太長就在欄內折行，金額單行不被擠掉。
     private var twoColumnLayout: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             icon
                 .frame(width: iconWidth)
-            // 標題與次要文字拿剩下的寬度(至少 `minLeading`,理想寬度也是它，`ViewThatFits` 才不會被長標題的單行寬度擋掉);
-            // 金額與資產帳戶靠右，金額不被擠掉。
-            VStack(alignment: .leading, spacing: 2) {
-                titleText
-                subtitleText(stacked: false)
-            }
-            .frame(minWidth: minLeading, idealWidth: minLeading, maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .trailing, spacing: 2) {
-                amount
-                accountText(stacked: false)
-            }
+            texts
+            Spacer(minLength: 0)
+            amount
+        }
+    }
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            titleText
+            subtitleText
+            accountText
         }
     }
 
@@ -93,66 +82,25 @@ struct TransactionRow: View {
             .accessibilityIdentifier("row.title")
     }
 
-    /// 「記帳人・歸屬」固定一行:名稱先被截，歸屬不被截;無障礙字級改成折行、整句顯示。
-    @ViewBuilder
-    private func subtitleText(stacked: Bool) -> some View {
+    /// 「(時間・)記帳人・歸屬」:每個語意單位(時間、記帳人、歸屬與狀態)是一個不拆開的 `Text`，放不下整段換到下一行，
+    /// 不在單位中間折行(中文在任何兩個字之間都能折)。
+    private var subtitleText: some View {
         let subtitle = content.subtitle
-        Group {
-            if dynamicTypeSize.isAccessibilitySize || stacked {
-                // 堆疊(無障礙字級或兩欄放不下)有的是縱向空間:整句折行顯示，不截斷。
-                Text(subtitle.text)
-            } else {
-                // 記帳時間(#207)是最次要的資訊:整行放得下才顯示;放不下就省略時間,不能擠掉記帳人與歸屬。
-                // 一行都放不下時折成兩行(記帳人一行、歸屬與狀態一行)，歸屬與狀態不被截、也不能比可用寬度寬(#246)。
-                ViewThatFits(in: .horizontal) {
-                    if let time = subtitle.time {
-                        subtitleLine(recorder: subtitle.recorder, tail: subtitle.tail, time: time)
-                    }
-                    subtitleLine(recorder: subtitle.recorder, tail: subtitle.tail, time: nil)
-                    VStack(alignment: .leading, spacing: 0) {
-                        if let recorder = subtitle.recorder { Text(recorder).lineLimit(1) }
-                        Text(subtitle.tail)
-                    }
-                }
-            }
-        }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .accessibilityIdentifier("row.subtitle")
+        let units = [subtitle.time, subtitle.recorder, subtitle.tail].compactMap { $0 }
+        return WrappingUnits(units: units)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("row.subtitle")
     }
 
-    /// 「(時間・)記帳人・歸屬」一行(整行放得下才會被選中)。
+    /// 資產帳戶名稱;沒有帳戶名稱就不佔一行。在文字欄最後一行，太長折行、不截斷。
     @ViewBuilder
-    private func subtitleLine(recorder: String?, tail: String, time: String?) -> some View {
-        HStack(spacing: 0) {
-            if let time {
-                Text("\(time)・").monospacedDigit().lineLimit(1).fixedSize()
-            }
-            if let recorder {
-                Text(recorder).lineLimit(1).fixedSize()
-                Text("・\(tail)").lineLimit(1).fixedSize()
-            } else {
-                Text(tail).lineLimit(1).fixedSize()
-            }
-        }
-    }
-
-    /// 資產帳戶名稱;沒有帳戶名稱就不佔一行。
-    @ViewBuilder
-    private func accountText(stacked: Bool) -> some View {
+    private var accountText: some View {
         if let name = content.accountName {
-            let wraps = dynamicTypeSize.isAccessibilitySize
             Text(name)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                // 無障礙字級有的是縱向空間:折行顯示、不截斷(HIG 盡量少截斷);其他字級單行、太長從結尾截斷。
-                .lineLimit(wraps ? nil : 1)
-                .truncationMode(.tail)
                 .accessibilityIdentifier("row.account")
-                .frame(
-                    maxWidth: stacked ? .infinity : accountMaxWidth,
-                    alignment: stacked ? .leading : .trailing
-                )
         }
     }
 
@@ -163,6 +111,55 @@ struct TransactionRow: View {
             .lineLimit(1)
             .fixedSize()
             .accessibilityIdentifier("row.amount")
+    }
+}
+
+/// 一串不可拆開的文字單位，用「・」接起來:一行放得下就同一行，放不下整個單位換下一行(最後一個單位後面不放「・」)。
+struct WrappingUnits: View {
+    let units: [String]
+
+    var body: some View {
+        FlowLayout(lineSpacing: 0) {
+            ForEach(Array(units.enumerated()), id: \.offset) { index, unit in
+                Text(index < units.count - 1 ? "\(unit)・" : unit)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// 由左到右排，放不下換行;單一子視圖比一行寬時，只給它一行的寬度(它自己在內部折行)。
+struct FlowLayout: Layout {
+    var lineSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(width: bounds.width, subviews: subviews)
+        for (subview, frame) in zip(subviews, result.frames) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), proposal: ProposedViewSize(frame.size))
+        }
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, maxWidth: CGFloat = 0
+        for subview in subviews {
+            var size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            size.width = min(size.width, width)
+            if x > 0, x + size.width > width + 0.5 {
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
+            x += size.width
+            lineHeight = max(lineHeight, size.height)
+            maxWidth = max(maxWidth, x)
+        }
+        return (CGSize(width: maxWidth, height: y + lineHeight), frames)
     }
 }
 

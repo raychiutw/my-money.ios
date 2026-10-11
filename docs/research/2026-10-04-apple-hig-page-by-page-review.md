@@ -225,7 +225,7 @@
 |---|---|---|---|
 | 「誰轉給誰」那行字被長條圖標註壓住 | ❌ | Typography | 已修正 |
 | 成員列的「查看代墊明細」「從共同基金報銷」是卡片內就地展開的圖示加文字列 | ❌ | Lists and tables（列只放標題、細節放詳細頁） | #246 已改成成員列點進詳細頁(見 `household-member-detail`) |
-| 「離開家庭」是紅字列，點了有確認 | ✅ | Alerts | — |
+| 「離開家庭」是家庭頁最底下的紅字列，點了有確認 | ❌ | Toolbars；Alerts | #248 已移到自己的成員詳細頁(確認維持);「邀請家庭成員」移到 toolbar |
 | 報銷表單（見 `reimbursement`）的備註欄沒有標籤 | ❌ | Text fields | 已修正 |
 | 長條圖有 accessibility label，每根念「成員，公帳代墊 N 元」 | ✅ | Charts | — |
 
