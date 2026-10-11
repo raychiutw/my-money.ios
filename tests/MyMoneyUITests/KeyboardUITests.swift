@@ -56,7 +56,8 @@ final class KeyboardUITests: XCTestCase {
         self.selectTab("家庭", in: app)
         // 小美的待報銷沒有代墊明細，仍是手動輸入金額;自己的有明細，金額由勾選連動(沒有輸入框，#242)。
         let reimburse = app.openMemberDetail("sample-mei")
-        XCTAssertTrue(ScrollSupport.revealFully(reimburse, in: app))
+        // 報銷沖帳在 toolbar(#248)，不用捲。
+        XCTAssertTrue(reimburse.waitForExistence(timeout: 5) && reimburse.isHittable)
         reimburse.tap()
         try self.assertClear(app.textFields["reimbursement.amount"], app: app)
         try self.assertClear(app.descendants(matching: .any)["reimbursement.note"], app: app)
