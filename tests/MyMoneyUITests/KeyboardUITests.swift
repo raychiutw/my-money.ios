@@ -55,7 +55,7 @@ final class KeyboardUITests: XCTestCase {
     @MainActor func testReimbursementFields() throws { try forEachSize(extra: ["-uiTestingJoinedHousehold"]) { app in
         self.selectTab("家庭", in: app)
         // 小美的待報銷沒有代墊明細，仍是手動輸入金額;自己的有明細，金額由勾選連動(沒有輸入框，#242)。
-        let reimburse = app.buttons["household.reimburse.sample-mei"]
+        let reimburse = app.openMemberDetail("sample-mei")
         XCTAssertTrue(ScrollSupport.revealFully(reimburse, in: app))
         reimburse.tap()
         try self.assertClear(app.textFields["reimbursement.amount"], app: app)

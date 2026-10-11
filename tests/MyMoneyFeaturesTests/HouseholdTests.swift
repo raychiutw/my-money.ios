@@ -41,17 +41,21 @@ struct HouseholdTests {
         #expect(without.advances.isEmpty)
     }
 
-    @Test("代墊明細就地展開，可以同時展開多位成員")
-    func detailsExpandIndependently() async {
-        let model = await loaded(.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance]))
+    @Test("成員詳細頁依成員 ID 取代墊統計:名冊與統計都有的取得到，沒有紀錄的是 nil;報銷之後重新載入會更新(#246)")
+    func advanceOfMember() async {
+        let repository = InMemoryHouseholdRepository.sample(advances: [InMemoryHouseholdRepository.myPendingAdvance, meiAdvance])
+        let model = await loaded(repository)
 
-        model.toggleDetails(of: me)
-        model.toggleDetails(of: UserID("sample-mei"))
-        #expect(model.isShowingDetails(of: me) && model.isShowingDetails(of: UserID("sample-mei")))
+        #expect(model.advance(of: me)?.memberName == "小明")
+        #expect(model.advance(of: UserID("sample-mei"))?.pendingReimbursement == Money(600))
+        #expect(model.advance(of: UserID("nobody")) == nil)
 
-        model.toggleDetails(of: me)
-        #expect(!model.isShowingDetails(of: me))
-        #expect(model.isShowingDetails(of: UserID("sample-mei")))
+        _ = try? await repository.reimburse(Reimbursement(
+            memberID: UserID("sample-mei"), fromAccountID: AccountID("fund"), toAccountID: AccountID("bank"), amount: Money(600),
+            date: today, note: ""
+        ))
+        await model.load()
+        #expect(model.advance(of: UserID("sample-mei"))?.isSettled == true, "詳細頁看到的是重新載入後的統計")
     }
 
     @Test("家庭管理員可以替任何有待報銷的成員撥款報銷;已結清的不能(web 的 b1382f4、上游 ADR 0013)")

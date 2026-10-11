@@ -151,12 +151,12 @@ final class AccessibilityFormsUITests: XCTestCase {
         waitForSheet(app, "信用卡扣款還款")
     }
 
-    /// 家庭頁 → 第一位成員的「報銷沖帳」。
+    /// 家庭頁 → 自己的成員詳細頁 → 「報銷沖帳」(#246)。
     @MainActor
     private func openReimbursement(in app: XCUIApplication) throws {
         app.tabBars.buttons["家庭"].tap()
-        let reimburse = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "household.reimburse.")).firstMatch
-        XCTAssertTrue(ScrollSupport.revealFully(reimburse, in: app), "家庭頁沒有「報銷沖帳」")
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(ScrollSupport.revealFully(reimburse, in: app), "成員詳細頁沒有「報銷沖帳」")
         reimburse.tap()
         waitForSheet(app, "報銷")
     }

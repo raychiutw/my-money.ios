@@ -28,8 +28,6 @@ public final class HouseholdModel {
     /// 各成員本月的公帳代墊(`GET /statistics/household-shares`，#121):長條圖與分攤建議的資料。
     /// 取不到(沒有統計資料來源或取得失敗)時是空的，家庭頁其餘區塊照常顯示。
     public private(set) var shares: [HouseholdShare] = []
-    /// 就地展開明細的成員;可以同時展開多位。
-    private var expandedMemberIDs: Set<UserID> = []
 
     @ObservationIgnored private let repository: any HouseholdRepository
     @ObservationIgnored private let accounts: any AccountRepository
@@ -109,16 +107,9 @@ public final class HouseholdModel {
         invitation.expiresAt.dateTimeText(today: today(), locale: locale)
     }
 
-    public func isShowingDetails(of memberID: UserID) -> Bool {
-        expandedMemberIDs.contains(memberID)
-    }
-
-    public func toggleDetails(of memberID: UserID) {
-        if expandedMemberIDs.contains(memberID) {
-            expandedMemberIDs.remove(memberID)
-        } else {
-            expandedMemberIDs.insert(memberID)
-        }
+    /// 這位成員的代墊統計(成員詳細頁用，#246);後端沒有這位成員的紀錄時是 `nil`。
+    public func advance(of memberID: UserID) -> HouseholdAdvance? {
+        advances.first { $0.memberID == memberID }
     }
 
     /// 有待報銷才能從共同基金撥款報銷(web 的 `b1382f4`:收款帳戶改用代墊統計附的可收款帳戶);

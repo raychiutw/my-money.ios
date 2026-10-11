@@ -39,9 +39,8 @@ final class FieldLabelUITests: XCTestCase {
     func testReimbursementNoteHasVisibleLabel() {
         let app = launchSignedIn(extraArguments: ["-uiTestingJoinedHousehold"])
         app.tabBars.buttons["家庭"].tap()
-        let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
-        for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
-        XCTAssertTrue(reimburse.exists, "自己的代墊款沒有報銷入口")
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "自己的代墊詳細頁沒有報銷入口")
         reimburse.tap()
         assertNoteLabel(in: app, field: "reimbursement.note", form: "報銷")
     }

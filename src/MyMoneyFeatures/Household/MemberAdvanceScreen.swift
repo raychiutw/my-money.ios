@@ -1,0 +1,115 @@
+import MyMoneyDomain
+import SwiftUI
+
+/// 一位成員的代墊詳細頁(#246):成員列點進來。依 Apple 的慣例(Lists and tables:列只放標題、細節放詳細頁，可點的列用 disclosure indicator),
+/// 沿用信用卡詳細頁的版型:每個欄位一列，Section「代墊統計」「待報銷代墊明細」「共同基金撥款沖帳紀錄」,主要動作「報銷沖帳」在 Section「操作」。
+///
+/// 資料來自 `HouseholdModel`(報銷之後重新載入就會更新);報銷成功時在這一頁顯示後端的訊息，按「好」之後回到家庭頁。
+struct MemberAdvanceScreen: View {
+    @Bindable var model: HouseholdModel
+    let memberID: UserID
+    @State private var reimbursement: ReimbursementModel?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Group {
+            if let advance = model.advance(of: memberID) {
+                details(advance)
+            } else {
+                ContentUnavailableView("沒有代墊紀錄", systemImage: "tray")
+            }
+        }
+        .navigationTitle(model.advance(of: memberID)?.memberName ?? "")
+        .inlineNavigationTitle()
+        // 後端的訊息(報銷成功):訊息掛在這一頁，sheet 關掉之後才不會被頁面轉場吃掉;按「好」回到家庭頁。
+        .alert(
+            "完成",
+            isPresented: Binding(
+                get: { model.noticeMessage != nil },
+                set: { if !$0 { model.noticeMessage = nil; dismiss() } }
+            )
+        ) {
+            Button("好") {}
+        } message: {
+            Text(model.noticeMessage ?? "")
+        }
+    }
+
+    private func details(_ advance: HouseholdAdvance) -> some View {
+        List {
+            Section("代墊統計") {
+                AmountRow(title: "累計代墊", amount: .plain(advance.totalAdvanced))
+                AmountRow(title: "已報銷", amount: .plain(advance.totalReimbursed))
+                AmountRow(
+                    title: "待報銷",
+                    amount: advance.pendingReimbursement > .zero ? .outflow(advance.pendingReimbursement) : .plain(advance.pendingReimbursement)
+                )
+            }
+
+            Section("待報銷代墊明細(\(advance.advanceItems.count) 筆)") {
+                if advance.advanceItems.isEmpty {
+                    Text("尚未有任何個人代墊公帳消費紀錄。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(advance.advanceItems) { item in
+                    detailRow(
+                        date: item.date, time: item.recordedAt,
+                        title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
+                        account: item.accountName, amount: item.amount, isIncome: false
+                    )
+                }
+            }
+
+            Section("共同基金撥款沖帳紀錄(\(advance.reimbursementItems.count) 筆)") {
+                if advance.reimbursementItems.isEmpty {
+                    Text("尚未有自共同基金撥款報銷之歷史沖帳紀錄。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(advance.reimbursementItems) { item in
+                    detailRow(
+                        date: item.date, time: item.recordedAt, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
+                        account: item.accountName, amount: item.amount, isIncome: true
+                    )
+                }
+            }
+
+            // 主要動作在詳細頁(家庭管理員任何人都有，一般成員只有自己的);跟信用卡詳細頁的「操作」Section 同一種表現。
+            if model.canReimburse(advance) {
+                Section("操作") {
+                    Button(Terms.reimburse, systemImage: "arrow.uturn.left.circle") {
+                        reimbursement = model.makeReimbursement(for: advance)
+                    }
+                    .accessibilityLabel("\(Terms.reimburse)給\(advance.memberName)")
+                    .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
+                }
+            }
+        }
+        .sheet(item: $reimbursement) { reimbursement in
+            ReimbursementView(model: reimbursement) { message in
+                model.noticeMessage = message
+                Task { await model.load() }
+            }
+        }
+    }
+
+    /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
+    private func detailRow(date: CalendarDay, time: Date?, title: String, account: String, amount: Money, isIncome: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text("\(model.dateTimeText(date, time)) · \(account)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            AmountText(isIncome ? .inflow(amount) : .outflow(amount))
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(model.dateTimeText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)")
+    }
+}
+
+extension ReimbursementModel: Identifiable {}

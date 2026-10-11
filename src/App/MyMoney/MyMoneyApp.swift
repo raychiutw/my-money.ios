@@ -25,6 +25,8 @@ struct MyMoneyApp: App {
     private let copiedFeedbackOverride: Duration?
     /// UI 測試要量骨架屏的版面(#201):骨架不對 VoiceOver 隱藏。一般使用者永遠是 `false`。
     private let exposesSkeleton: Bool
+    /// UI 測試要量收支明細列裡每個部分的位置(#246)。一般使用者永遠是 `false`。
+    private let exposesRowParts: Bool
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     init() {
@@ -64,8 +66,10 @@ struct MyMoneyApp: App {
                 )
                 : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
+            // `-uiTestingLongRows`:列版面最長的內容組合(公帳三態、長帳戶名稱、長記帳人、長標題的系統紀錄,#246)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
-                includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling")
+                includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling"),
+                includeLongRows: arguments.contains("-uiTestingLongRows")
             ))
             let recurring = InMemoryRecurringRepository.sample(includesFamilyEntries: includesFamily)
             let goals = InMemorySavingsGoalRepository.sample()
@@ -109,6 +113,8 @@ struct MyMoneyApp: App {
             suggestsStrongPasswords = false
             copiedFeedbackOverride = .seconds(30)
             exposesSkeleton = true
+            // `-uiTestingRowParts`:收支明細列不合成一個元素，圖示、標題、次要文字、金額、帳戶各自可查詢(量版面用,#246)。
+            exposesRowParts = arguments.contains("-uiTestingRowParts")
             return
         }
         #endif
@@ -140,6 +146,7 @@ struct MyMoneyApp: App {
         suggestsStrongPasswords = true
         copiedFeedbackOverride = nil
         exposesSkeleton = false
+        exposesRowParts = false
     }
 
     var body: some Scene {
@@ -150,6 +157,7 @@ struct MyMoneyApp: App {
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .environment(\.exposesSkeletonToAccessibility, exposesSkeleton)
+                .environment(\.exposesRowPartsToAccessibility, exposesRowParts)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in
                     if let copiedFeedbackOverride { duration = copiedFeedbackOverride }
                 }

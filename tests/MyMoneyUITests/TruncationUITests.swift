@@ -98,6 +98,35 @@ final class TruncationUITests: XCTestCase {
         line.contains("…") || line.contains("...") || line.contains(/\d{1,2}月\d{1,2}(?![\d日])/)
     }
 
+    // MARK: 記帳頁的列:最長的內容組合在任何字級都不比螢幕寬(#246)
+
+    /// 公帳三態、帳單狀態、長帳戶名稱、長記帳人、沒有備註的長標題系統紀錄(`-uiTestingLongRows`);
+    /// `-uiTestingRowParts` 讓列的圖示、標題、次要文字、金額、帳戶各自可查詢，逐一確認都落在螢幕裡、金額沒有被裁掉。
+    @MainActor
+    func testTransactionRowPartsStayInsideTheScreenAtEverySize() throws {
+        for (size, name) in [(nil, "預設字級"), ("UICTContentSizeCategoryXXL", "XXL"), (Self.ax5, "AX5")] as [(String?, String)] {
+            let app = XCUIApplication.launchUITesting(
+                flags: ["-uiTestingLongRows", "-uiTestingRowParts"], contentSize: size, signedIn: true
+            )
+            app.tabBars.buttons["記帳"].tap()
+            let window = app.windows.firstMatch.frame
+            var checked = 0
+            for pass in 0..<4 {
+                let parts = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "row.")).allElementsBoundByIndex
+                for part in parts where part.exists && !part.frame.isEmpty {
+                    // 捲出畫面上下的列不在這次檢查內;左右一律要在螢幕裡。
+                    guard part.frame.maxY > window.minY, part.frame.minY < window.maxY else { continue }
+                    checked += 1
+                    XCTAssertGreaterThanOrEqual(part.frame.minX, window.minX - 1, "\(name):「\(part.identifier)」左邊被裁掉:\(part.frame)")
+                    XCTAssertLessThanOrEqual(part.frame.maxX, window.maxX + 1, "\(name):「\(part.identifier)」右邊被裁掉:\(part.frame)")
+                }
+                if pass < 3 { app.swipeUp() }
+            }
+            XCTAssertGreaterThan(checked, 8, "\(name):沒有量到足夠的列內元素(\(checked)),測試資料或掛鉤沒有生效")
+            app.terminate()
+        }
+    }
+
     @MainActor
     private func launchSignedIn(contentSize: String?) -> XCUIApplication {
         let app = XCUIApplication()

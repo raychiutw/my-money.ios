@@ -155,13 +155,22 @@ public actor InMemoryTransactionRepository: TransactionRepository {
 /// 畫面 model 測試與 UI 測試共用的收支明細。日期相對於「今天」,UI 測試在任何一天跑都落在本月。
 public enum SampleTransactions {
     /// 以台灣時間的今天產生(給 `-uiTesting` 的 composition root 用)。
-    public static func makeForToday(includeFamilyEntries: Bool = false, includeCardBilling: Bool = false) -> [Transaction] {
-        make(today: CalendarDay.today(), includeFamilyEntries: includeFamilyEntries, includeCardBilling: includeCardBilling)
+    public static func makeForToday(
+        includeFamilyEntries: Bool = false, includeCardBilling: Bool = false, includeLongRows: Bool = false
+    ) -> [Transaction] {
+        make(
+            today: CalendarDay.today(), includeFamilyEntries: includeFamilyEntries, includeCardBilling: includeCardBilling,
+            includeLongRows: includeLongRows
+        )
     }
 
     /// `includeFamilyEntries`:多兩筆「家庭公帳、家人(小美)記的」交易，一筆名稱短、一筆備註很長(交易列版型的 UI 測試，#128)。
     /// `includeCardBilling`:信用卡多兩筆消費，一筆「已出帳」、一筆「延至下期」(收支明細列的帳單狀態標籤，#188)。
-    public static func make(today: CalendarDay, includeFamilyEntries: Bool = false, includeCardBilling: Bool = false) -> [Transaction] {
+    /// `includeLongRows`:列版面最長的內容組合(公帳三態、帳單狀態、長帳戶名稱、長記帳人、沒有備註的系統紀錄長標題),
+    /// 驗證收支明細列在任何字級都不會比螢幕寬(#246)。
+    public static func make(
+        today: CalendarDay, includeFamilyEntries: Bool = false, includeCardBilling: Bool = false, includeLongRows: Bool = false
+    ) -> [Transaction] {
         let first = today.firstOfMonth
         let tenth = min(today, CalendarDay(year: today.year, month: today.month, day: 10))
         let family: [Transaction] = includeFamilyEntries
@@ -176,13 +185,39 @@ public enum SampleTransactions {
                 cardTransaction("card-deferred", "延遲請款的機票", 5200, today, .deferred),
             ]
             : []
-        return family + cardBilling + [
+        let longRows: [Transaction] = includeLongRows ? Self.longRows(today) : []
+        return longRows + family + cardBilling + [
             transaction("sample-income", .income, .salary, 45000, "", first, shared: true, account: SampleAccounts.savings),
             transaction("sample-repayment", .expense, .creditCardRepayment, 5000, "繳納【iOS 測試信用卡】卡費", tenth,
                         shared: true, account: SampleAccounts.savings),
             transaction("sample-lunch", .expense, .dining, 120, "午餐", today, shared: true, account: SampleAccounts.savings),
             transaction("sample-headphones", .expense, TransactionCategory("購物"), 880, "耳機", today, shared: false,
                         accountName: SampleAccounts.card.name, accountID: SampleAccounts.card.id),
+        ]
+    }
+
+    private static func longRows(_ day: CalendarDay) -> [Transaction] {
+        func row(
+            _ id: String, _ note: String, _ category: TransactionCategory, _ amount: Int, account: String,
+            payment: HouseholdPayment, recorder: String?, billing: BillingStatus = .unbilled, hour: Int
+        ) -> Transaction {
+            Transaction(
+                id: TransactionID(id), accountID: SampleAccounts.savings.id, accountName: account, type: .expense, category: category,
+                amount: Money(Decimal(amount)), note: note, date: day, isShared: true, recorderName: recorder, recorderID: nil,
+                billing: billing, recordedAt: clock(day, hour, 5), householdPayment: payment
+            )
+        }
+        return [
+            row("long-pending", "早餐-美而美", .dining, 270, account: "洋蔥現金", payment: .advancePending, recorder: "洋蔥", hour: 18),
+            row(
+                "long-card", "午餐-八方雲集", .dining, 1320, account: "玉山信用卡 (玉山 U Bear 數位生活聯名卡)",
+                payment: .advancePending, recorder: "洋蔥爸爸的備用帳號", billing: .deferred, hour: 17
+            ),
+            row("long-reimbursed", "晚餐", .dining, 211, account: "玉山 U Bear", payment: .advanceReimbursed, recorder: "Ray", hour: 16),
+            row(
+                "long-system", "家庭共同基金撥款報銷 洋蔥代墊公帳 (撥款至 洋蔥街口帳戶)", .advanceReimbursement, 5440,
+                account: "洋蔥玉山-共同基金", payment: .jointFund, recorder: nil, hour: 15
+            ),
         ]
     }
 
