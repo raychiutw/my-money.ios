@@ -36,18 +36,21 @@ final class HouseholdUITests: XCTestCase {
             XCTAssertGreaterThan(tile.frame.minY, settlement.frame.maxY - 1, "「\(label)」不在分攤建議下面")
         }
 
-        // 邀請與離開降到最下面，List 還沒捲到的列不在 UI 階層裡，先捲下去。
-        let invite = app.buttons["household.invite"]
-        for _ in 0..<8 where !(invite.exists && invite.isHittable) { app.swipeUp() }
+        // 邀請是家庭頁 toolbar 的按鈕(#248:Apple 家人共享的新增成員也在主畫面的按鈕)，不再降到最下面。
+        let invite = app.navigationBars.buttons["household.invite"]
+        XCTAssertTrue(invite.waitForExistence(timeout: 5), "家庭管理員的 toolbar 沒有邀請按鈕")
         invite.tap()
         XCTAssertTrue(app.staticTexts["household.invitationCode"].waitForExistence(timeout: 3), "沒有顯示邀請碼")
         app.buttons["household.copy"].tap()
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        // 「離開家庭」在「邀請家庭成員」下面，同樣在最下面。
+        // 「離開家庭」在自己的成員詳細頁(#248:Apple 家人共享把「停止使用」放在自己的成員頁)，不在家庭頁最底下。
+        XCTAssertFalse(app.buttons["household.leave"].exists, "家庭頁不該再有「離開家庭」")
+        app.openMemberDetail("in-memory-member-1")
         let leave = app.buttons["household.leave"]
-        for _ in 0..<5 where !(leave.exists && leave.isHittable) { app.swipeUp() }
+        for _ in 0..<8 where !(leave.exists && leave.isHittable) { app.swipeUp() }
+        XCTAssertTrue(leave.isHittable, "自己的成員詳細頁沒有「離開家庭」")
         leave.tap()
         XCTAssertTrue(
             app.staticTexts["確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。"].waitForExistence(timeout: 3),
@@ -66,11 +69,9 @@ final class HouseholdUITests: XCTestCase {
         app.tabBars.buttons["家庭"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "我的角色：一般成員").waitForExistence(timeout: 5), "沒有顯示一般成員的角色")
 
-        // 捲到最底:離開在、邀請不在;小美的區塊(家庭管理員)看得到，但沒有報銷入口。
-        let leave = app.buttons["household.leave"]
-        for _ in 0..<8 where !(leave.exists && leave.isHittable) { app.swipeUp() }
-        XCTAssertTrue(leave.isHittable, "沒有捲到最底")
+        // 邀請不在(只有家庭管理員);小美的區塊(家庭管理員)看得到，但沒有報銷入口。
         XCTAssertFalse(app.buttons["household.invite"].exists, "一般成員不該看到邀請入口")
+        XCTAssertFalse(app.buttons["household.leave"].exists, "家庭頁不該再有「離開家庭」(#248)")
         XCTAssertTrue(element(in: app, labelContaining: "小美,有待請款代墊").exists, "沒有看到小美的代墊卡片")
         XCTAssertTrue(element(in: app, labelContaining: "家庭管理員").exists, "小美的身分不是家庭管理員")
         // 成員列點進詳細頁(#246):小美的詳細頁沒有「報銷沖帳」，自己的有。
@@ -221,6 +222,23 @@ final class HouseholdUITests: XCTestCase {
     private func waitForValue(_ expected: String, of element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
         let predicate = NSPredicate(format: "value == %@", expected)
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
+    }
+
+    /// 「報銷沖帳」是成員詳細頁 toolbar 的主要動作(HIG:對目前畫面的操作放 toolbar、primary action 在 trailing),
+    /// 不在頁面最底下要捲過整串明細才找得到(#248)。
+    @MainActor
+    func testReimburseActionIsInTheToolbarOfTheMemberDetail() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有推入自己的代墊詳細頁")
+        XCTAssertTrue(
+            app.navigationBars["小明"].buttons["household.reimburse.in-memory-member-1"].waitForExistence(timeout: 3),
+            "「報銷沖帳」不在 navigation bar 裡"
+        )
+        XCTAssertTrue(reimburse.isHittable, "沒有捲動就點得到「報銷沖帳」")
+        XCTAssertFalse(app.staticTexts["操作"].exists, "詳細頁不該再有 Section「操作」")
     }
 
     /// 一般列(`AmountRow`):VoiceOver 念標籤，值是金額。

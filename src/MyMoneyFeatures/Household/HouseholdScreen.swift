@@ -2,12 +2,11 @@ import MyMoneyDomain
 import SwiftUI
 
 /// 「家庭」tab:建立或用邀請碼加入;已加入時數字優先(#121):分攤建議大數字、各成員代墊長條圖與平均線、
-/// 我的累計代墊／已報銷／待報銷、成員(名字、身分與數字)，邀請與離開降到最下面(parity.md「家庭」、ADR-0004)。
+/// 我的累計代墊／已報銷／待報銷、成員(名字、身分與數字)，邀請在 toolbar、離開在自己的成員詳細頁(parity.md「家庭」、ADR-0004)。
 ///
-/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 只有頭像按鈕。
+/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 有邀請(管理員)與頭像按鈕。
 struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
-    @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
     @State private var skeletonWidth: Double?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -33,6 +32,16 @@ struct HouseholdScreen: View {
             .skeletonTransition(value: model.phase)
             .tabRootNavigation("家庭")
             .toolbar {
+                // 邀請是對這個家庭的操作，放 toolbar(#248):只有家庭管理員(上游 ADR 0013，#132);離開家庭在自己的成員詳細頁。
+                if model.household != nil, model.canInvite {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("邀請家庭成員", systemImage: "person.badge.plus") {
+                            Task { await model.invite() }
+                        }
+                        .disabled(model.isInviting)
+                        .accessibilityIdentifier("household.invite")
+                    }
+                }
                 AccountToolbarItem()
             }
             .task { await model.load() }
@@ -200,30 +209,6 @@ struct HouseholdScreen: View {
             }
 
             membersSection
-
-            // 邀請與離開是次要動作，降到最下面;邀請只有家庭管理員看得到(上游 ADR 0013，#132)。
-            Section {
-                if model.canInvite {
-                    Button("邀請家庭成員", systemImage: "person.badge.plus") {
-                        Task { await model.invite() }
-                    }
-                    .disabled(model.isInviting)
-                    .accessibilityIdentifier("household.invite")
-                }
-                Button("離開家庭", role: .destructive) {
-                    isLeaveConfirming = true
-                }
-                .accessibilityIdentifier("household.leave")
-                // 確認訊息掛在觸發它的按鈕上(#169)，泡泡的箭頭才指著「離開家庭」。
-                .confirmationDialog("離開家庭", isPresented: $isLeaveConfirming, titleVisibility: .visible) {
-                    Button("離開", role: .destructive) {
-                        Task { await model.leave() }
-                    }
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text(model.leaveConfirmation)
-                }
-            }
         }
     }
 }
@@ -259,12 +244,12 @@ extension HouseholdScreen {
 
     @ViewBuilder
     private func memberRow(name: String, roleTitle: String?, advance: HouseholdAdvance?, id: UserID) -> some View {
-        if advance != nil {
+        if advance != nil || model.isCurrentUser(id) {
             NavigationLink(value: MemberRoute(memberID: id)) {
                 MemberRow(name: name, roleTitle: roleTitle, advance: advance)
             }
             .accessibilityIdentifier("household.member.\(id.rawValue)")
-            .accessibilityHint("查看代墊明細")
+            .accessibilityHint("查看成員詳細")
         } else {
             MemberRow(name: name, roleTitle: roleTitle, advance: advance)
         }
@@ -283,23 +268,28 @@ private struct MemberRow: View {
 
     /// 圓形頭像跟著字級放大，大字級時開頭字才放得進去。
     @ScaledMetric(relativeTo: .headline) private var avatarSize: CGFloat = 40
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                avatar
-                names
-                Spacer(minLength: 8)
-                pending
-            }
-            VStack(alignment: .leading, spacing: 6) {
+        // 結構只跟字級走、不跟名字長短走(#248):無障礙字級上下堆疊，其他字級一律名字在左、待報銷在右。
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 12) {
+                        avatar
+                        names
+                    }
+                    // 堆疊時待報銷金額在最下面一行、靠右(#149)。
+                    pending
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
                 HStack(spacing: 12) {
                     avatar
                     names
+                    Spacer(minLength: 8)
+                    pending
                 }
-                // 堆疊時待報銷金額在最下面一行、靠右(#149)。
-                pending
-                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .accessibilityElement(children: .ignore)

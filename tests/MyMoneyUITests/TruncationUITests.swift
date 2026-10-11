@@ -127,6 +127,50 @@ final class TruncationUITests: XCTestCase {
         }
     }
 
+    /// 列的結構只跟字級走、不跟資料長短走(#248):同一個字級下，每一列的金額、資產帳戶位置規則一致。
+    /// 非無障礙字級:金額在右邊、跟標題同一行(不在標題下面)，資產帳戶在左欄、跟標題同一個左緣。
+    /// 無障礙字級:金額在最下面(在標題與帳戶下面)、靠右。
+    @MainActor
+    func testTransactionRowStructureDoesNotDependOnDataLength() throws {
+        for (size, name, stacked) in [(nil, "預設字級", false), ("UICTContentSizeCategoryXXL", "XXL", false), (Self.ax5, "AX5", true)] as [(String?, String, Bool)] {
+            let app = XCUIApplication.launchUITesting(
+                flags: ["-uiTestingLongRows", "-uiTestingRowParts"], contentSize: size, signedIn: true
+            )
+            app.tabBars.buttons["記帳"].tap()
+            let window = app.windows.firstMatch.frame
+            var rows = 0
+            for pass in 0..<4 {
+                let amounts = app.descendants(matching: .any).matching(identifier: "row.amount").allElementsBoundByIndex
+                for amount in amounts where amount.exists && amount.frame.minY > window.minY + 120 && amount.frame.maxY < window.maxY - 90 {
+                    // 同一列的其他部分:取垂直上最近、標題在金額上方或同一行的那一組。
+                    let titles = app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
+                        .filter { $0.exists && $0.frame.minY <= amount.frame.maxY && amount.frame.minY - $0.frame.minY < 400 }
+                    guard let title = titles.max(by: { $0.frame.minY < $1.frame.minY }) else { continue }
+                    rows += 1
+                    if stacked {
+                        XCTAssertGreaterThanOrEqual(amount.frame.minY, title.frame.maxY - 1, "\(name):金額應該在標題下面:標題 \(title.frame)、金額 \(amount.frame)")
+                    } else {
+                        XCTAssertLessThan(amount.frame.minY, title.frame.maxY, "\(name):金額應該跟標題同一行:標題 \(title.frame)、金額 \(amount.frame)")
+                        XCTAssertGreaterThanOrEqual(amount.frame.minX, title.frame.maxX - 1, "\(name):金額應該在標題右邊:標題 \(title.frame)、金額 \(amount.frame)")
+                    }
+                    XCTAssertGreaterThan(amount.frame.maxX, window.maxX - 60, "\(name):金額沒有靠右:\(amount.frame)")
+                }
+                let accounts = app.descendants(matching: .any).matching(identifier: "row.account").allElementsBoundByIndex
+                for account in accounts where account.exists && !account.frame.isEmpty {
+                    if stacked { continue }
+                    let titles = app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
+                        .filter { $0.exists && $0.frame.minY <= account.frame.minY && account.frame.minY - $0.frame.minY < 200 }
+                    guard let title = titles.max(by: { $0.frame.minY < $1.frame.minY }) else { continue }
+                    XCTAssertEqual(account.frame.minX, title.frame.minX, accuracy: 1, "\(name):資產帳戶應該在左欄、跟標題同一個左緣:標題 \(title.frame)、帳戶 \(account.frame)")
+                }
+                if pass < 3 { app.swipeUp() }
+            }
+            // AX5 一列很高，四屏只量得到幾列。
+            XCTAssertGreaterThan(rows, stacked ? 1 : 6, "\(name):沒有量到足夠的列(\(rows))")
+            app.terminate()
+        }
+    }
+
     @MainActor
     private func launchSignedIn(contentSize: String?) -> XCUIApplication {
         let app = XCUIApplication()

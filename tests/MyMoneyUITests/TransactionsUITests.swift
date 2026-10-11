@@ -241,22 +241,26 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(repaymentText.contains("系統紀錄") && repaymentText.contains("家庭公帳"), "系統紀錄的列不對:\(repaymentText)")
     }
 
-    /// 列的右邊是金額加資產帳戶(#145):兩行的右緣對齊，金額旁邊沒有舊的小圖示(分類圖示之外，第一行只有標題與金額兩群)。
-    /// 預設、XXL、XXXL 都一樣是兩行。
+    /// 非無障礙字級的列結構(#145、#248):第一行是標題與靠右的金額(金額旁邊沒有舊的小圖示)，
+    /// 記帳人・歸屬與資產帳戶在左欄、由上往下，都靠左。預設、XXL、XXXL 都一樣，不看資料長短。
     @MainActor
-    func testRowAmountAndAccountShareTheRightEdgeWithoutOldMarkers() throws {
+    func testRowAmountIsOnTheTitleLineAndAccountInTheLeftColumn() throws {
         for category in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXL", "UICTContentSizeCategoryXXXL"] {
             let app = launchFamily(memberRole: false, category: category)
             for label in ["餐飲，晚餐-水煎包，帳戶", "餐飲，午餐，帳戶"] {
                 let row = try fullyVisibleRow(label, in: app)
                 let image = row.screenshot().image
                 let scale = Int(image.scale)
+                let rowWidth = Int(image.size.width) * scale
                 let bands = try PixelAnalysis.inkBands(of: image, skippingLeadingCluster: true)
-                XCTAssertEqual(bands.count, 2, "\(category) \(label):不是兩行(標題加次要文字):\(bands)")
-                guard bands.count == 2 else { continue }
-                XCTAssertEqual(bands[0].maxX, bands[1].maxX, accuracy: 3 * scale, "\(category) \(label):金額與資產帳戶右緣沒有對齊:\(bands)")
+                XCTAssertGreaterThanOrEqual(bands.count, 3, "\(category) \(label):應該是標題加金額、記帳人・歸屬、資產帳戶由上往下:\(bands)")
+                guard bands.count >= 3 else { continue }
                 XCTAssertEqual(bands[0].clusters(minGap: 8 * scale), 2, "\(category) \(label):第一行(圖示之後)應該只有標題與金額，金額旁邊有多的圖示:\(bands)")
-                XCTAssertEqual(bands[1].clusters(minGap: 14 * scale), 2, "\(category) \(label):第二行應該是「記帳人・歸屬」加資產帳戶:\(bands)")
+                XCTAssertGreaterThan(rowWidth - bands[0].maxX, 5 * scale, "\(category) \(label):金額貼到列的右邊緣:\(bands)")
+                XCTAssertLessThan(rowWidth - bands[0].maxX, 32 * scale, "\(category) \(label):金額沒有靠右:\(bands)")
+                for band in bands.dropFirst() {
+                    XCTAssertLessThan(band.maxX, rowWidth - 40 * scale, "\(category) \(label):次要文字或資產帳戶跑到金額那一欄:\(bands)")
+                }
             }
             app.terminate()
         }

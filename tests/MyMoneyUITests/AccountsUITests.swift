@@ -422,7 +422,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(open.frame.minY, banner.frame.maxY - 1, "按鈕沒有在橫幅文字下面")
 
         open.tap()
-        XCTAssertTrue(app.buttons["household.leave"].waitForExistence(timeout: 5) || element(in: app, labelContaining: "我的角色").waitForExistence(timeout: 5), "「前往家庭」沒有切到家庭 tab")
+        XCTAssertTrue(app.descendants(matching: .any)["household.member.in-memory-member-1"].waitForExistence(timeout: 5) || element(in: app, labelContaining: "我的角色").waitForExistence(timeout: 5), "「前往家庭」沒有切到家庭 tab")
 
         // 切回帳戶頁、再切到全部:橫幅不在。
         app.tabBars.buttons["帳戶"].tap()
