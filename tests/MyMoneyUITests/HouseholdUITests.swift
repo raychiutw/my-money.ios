@@ -223,6 +223,23 @@ final class HouseholdUITests: XCTestCase {
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
+    /// 「報銷沖帳」是成員詳細頁 toolbar 的主要動作(HIG:對目前畫面的操作放 toolbar、primary action 在 trailing),
+    /// 不在頁面最底下要捲過整串明細才找得到(#248)。
+    @MainActor
+    func testReimburseActionIsInTheToolbarOfTheMemberDetail() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+
+        let reimburse = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有推入自己的代墊詳細頁")
+        XCTAssertTrue(
+            app.navigationBars["小明"].buttons["household.reimburse.in-memory-member-1"].waitForExistence(timeout: 3),
+            "「報銷沖帳」不在 navigation bar 裡"
+        )
+        XCTAssertTrue(reimburse.isHittable, "沒有捲動就點得到「報銷沖帳」")
+        XCTAssertFalse(app.staticTexts["操作"].exists, "詳細頁不該再有 Section「操作」")
+    }
+
     /// 一般列(`AmountRow`):VoiceOver 念標籤，值是金額。
     @MainActor
     private func row(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {

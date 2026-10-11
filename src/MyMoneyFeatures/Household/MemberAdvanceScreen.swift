@@ -2,7 +2,9 @@ import MyMoneyDomain
 import SwiftUI
 
 /// 一位成員的代墊詳細頁(#246):成員列點進來。依 Apple 的慣例(Lists and tables:列只放標題、細節放詳細頁，可點的列用 disclosure indicator),
-/// 沿用信用卡詳細頁的版型:每個欄位一列，Section「代墊統計」「待報銷代墊明細」「共同基金撥款沖帳紀錄」,主要動作「報銷沖帳」在 Section「操作」。
+/// 沿用信用卡詳細頁的版型:每個欄位一列，Section「代墊統計」「待報銷代墊明細」「共同基金撥款沖帳紀錄」;
+/// 主要動作「報銷沖帳」在 toolbar 的 trailing(#248,HIG Toolbars:對目前畫面的操作放 toolbar、只指定一個 primary action 並放在 trailing;
+/// 難用符號表達的動作可以用文字,跟信用卡詳細頁的「編輯」同一慣例)，不在頁面最底下要捲過整串明細才找得到。
 ///
 /// 資料來自 `HouseholdModel`(報銷之後重新載入就會更新);報銷成功時在這一頁顯示後端的訊息，按「好」之後回到家庭頁。
 struct MemberAdvanceScreen: View {
@@ -21,6 +23,18 @@ struct MemberAdvanceScreen: View {
         }
         .navigationTitle(model.advance(of: memberID)?.memberName ?? "")
         .inlineNavigationTitle()
+        .toolbar {
+            // 家庭管理員任何人都有，一般成員只有自己的;已結清的不能報銷。
+            if let advance = model.advance(of: memberID), model.canReimburse(advance) {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(Terms.reimburse) {
+                        reimbursement = model.makeReimbursement(for: advance)
+                    }
+                    .accessibilityLabel("\(Terms.reimburse)給\(advance.memberName)")
+                    .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
+                }
+            }
+        }
         // 後端的訊息(報銷成功):訊息掛在這一頁，sheet 關掉之後才不會被頁面轉場吃掉;按「好」回到家庭頁。
         .alert(
             "完成",
@@ -75,16 +89,6 @@ struct MemberAdvanceScreen: View {
                 }
             }
 
-            // 主要動作在詳細頁(家庭管理員任何人都有，一般成員只有自己的);跟信用卡詳細頁的「操作」Section 同一種表現。
-            if model.canReimburse(advance) {
-                Section("操作") {
-                    Button(Terms.reimburse, systemImage: "arrow.uturn.left.circle") {
-                        reimbursement = model.makeReimbursement(for: advance)
-                    }
-                    .accessibilityLabel("\(Terms.reimburse)給\(advance.memberName)")
-                    .accessibilityIdentifier("household.reimburse.\(advance.memberID.rawValue)")
-                }
-            }
         }
         .sheet(item: $reimbursement) { reimbursement in
             ReimbursementView(model: reimbursement) { message in
