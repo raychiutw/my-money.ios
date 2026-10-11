@@ -80,6 +80,8 @@ public final class OverviewModel {
     var today: () -> CalendarDay { context.today }
     var locale: Locale { context.locale }
     @ObservationIgnored private var freshness = LoadFreshness<ViewScope>()
+    /// 目前的預算是哪一個月載入的(月份跨過去時要重抓)。
+    @ObservationIgnored private var budgetsMonth: CalendarMonth?
 
     /// 畫面的 `.task(id:)` 與 `refreshIfStale()` 共用的重載鍵:檢視範圍或資料版本變了就要重載。
     public var reloadKey: ReloadKey<ViewScope> { ReloadKey(scope: scope, version: dataVersion.value) }
@@ -203,10 +205,13 @@ public final class OverviewModel {
             async let summary = accountRepository.balanceSummary(scope: scope.accountScope)
             async let accounts = accountRepository.accounts(scope: scope.accountScope)
             async let summaries = statisticsRepository.monthlySummaries(year: month.year, scope: scope)
-            async let budgets = statisticsRepository.budgets(month: month)
+            // 預算與儲蓄目標不隨視角變動(上游 2adbc5d、ADR 0023「按需請求」):同一份資料版本、同一個月只換視角時沿用，不重抓。
+            let keepsScopeInvariant = phase == .loaded && freshness.version == key.version && budgetsMonth == month
+            async let budgets = keepsScopeInvariant ? nil : try await statisticsRepository.budgets(month: month)
             // 以下是額外的資料來源(走勢圖、功能入口的關鍵數字):失敗不能讓整個總覽失敗，所以不 throw，失敗就是那一項沒有值。
             async let forecast = Self.fetchForecast(forecastRepository, scope: scope)
-            async let goals = try? goalRepository.goals()
+            let previousGoals = goals
+            async let goals = keepsScopeInvariant && previousGoals != nil ? previousGoals : try? await goalRepository.goals()
             let (loadedSummary, loadedAccounts, loadedSummaries, loadedBudgets) = try await (summary, accounts, summaries, budgets)
             let (loadedForecast, loadedGoals) = await (forecast, goals)
             // 被取消(換了視角)或已經過期的結果不套用。
@@ -218,7 +223,10 @@ public final class OverviewModel {
             let thisMonth = loadedSummaries.first { $0.month == month }
             monthIncome = thisMonth?.income ?? .zero
             monthExpense = thisMonth?.expense ?? .zero
-            overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
+            if let loadedBudgets {
+                overBudgets = loadedBudgets.filter(\.isOver).map(OverBudget.init)
+                budgetsMonth = month
+            }
             self.goals = loadedGoals
             self.forecast = loadedForecast
             freshness.markLoaded(key)

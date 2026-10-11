@@ -71,4 +71,27 @@ final class CIColorUITests: XCTestCase {
             app.terminate()
         }
     }
+
+    /// 報銷沖帳的代墊明細開關(#242、#246):預設全開，軌道是 CI 色，不是全域強調色(深色模式是白色)。
+    @MainActor
+    func testReimbursementItemSwitchIsCIColor() throws {
+        for (appearance, name) in Self.appearances {
+            XCUIDevice.shared.appearance = appearance
+            let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
+            app.tabBars.buttons["家庭"].tap()
+            let reimburse = app.buttons["household.reimburse.in-memory-member-1"]
+            _ = reimburse.waitForExistence(timeout: 5)
+            for _ in 0..<8 where !(reimburse.exists && reimburse.isHittable) { app.swipeUp() }
+            reimburse.tap()
+
+            let item = app.switches["reimbursement.item.sample-advance"]
+            XCTAssertTrue(item.waitForExistence(timeout: 5), "\(name):沒有代墊明細開關")
+            XCTAssertEqual(item.value as? String, "1", "\(name):代墊明細預設沒有全選")
+            let track = try PixelAnalysis.statistics(
+                of: item.screenshot().image, region: CGRect(x: 0.82, y: 0.2, width: 0.16, height: 0.6)
+            )
+            XCTAssertGreaterThan(track.ciFraction, 0.25, "\(name):打開的代墊明細開關不是 CI 色(CI 色占 \(track.ciFraction))")
+            app.terminate()
+        }
+    }
 }

@@ -104,4 +104,9 @@ public actor InMemorySavingsGoalRepository: SavingsGoalRepository {
     public func fail(with error: RepositoryError) {
         failure = error
     }
+
+    /// 之後的請求恢復正常。
+    public func clearFailure() {
+        failure = nil
+    }
 }
