@@ -20,6 +20,11 @@ public struct LiveAuthRepository: AuthRepository {
         )
         return dto.session
     }
+
+    /// 後端只回 `{success, message}`,沒有 `data`。
+    public func deleteAccount() async throws {
+        try await client.send("DELETE", "/auth/account")
+    }
 }
 
 private struct RegisterBody: Encodable {

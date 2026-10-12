@@ -27,6 +27,19 @@ final class MeButtonUITests: XCTestCase {
         }
     }
 
+    /// 刪除帳號(#250):「我的」最下面的紅字列，先確認(說明無法復原)，確認後回到登入頁。取消則留在原地。
+    @MainActor
+    func testDeleteAccountAsksForConfirmationThenReturnsToLogin() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openMe()
+        let delete = app.buttons["me.deleteAccount"]
+        XCTAssertTrue(ScrollSupport.revealFully(delete, in: app, inSheet: true), "「我的」沒有「刪除帳號」")
+        delete.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "無法復原")).firstMatch.waitForExistence(timeout: 5), "沒有先確認就刪除")
+        app.buttons["刪除"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 10) || app.textFields["login.email"].waitForExistence(timeout: 10), "刪除後沒有回到登入頁")
+    }
+
     /// 五個 tab 的首頁沒有標題與副標題(#108):導覽列裡不再有大標題，tab bar 已經說明目前在哪個 tab。
     /// 總覽原本的標題是問候「早安，小明」,其他是「交易」「帳戶」「家庭」「統計」。
     @MainActor

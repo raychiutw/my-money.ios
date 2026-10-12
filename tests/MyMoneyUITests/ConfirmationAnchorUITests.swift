@@ -33,21 +33,25 @@ final class ConfirmationAnchorUITests: XCTestCase {
         app.tabBars.buttons["家庭"].tap()
         XCTAssertTrue(app.staticTexts["我們家"].waitForExistence(timeout: 15), "沒有看到已加入的家庭頁")
 
-        // 「離開家庭」在自己的成員詳細頁(#248)。
-        app.openMemberDetail("in-memory-member-1")
-        let leave = app.buttons["household.leave"]
-        XCTAssertTrue(ScrollSupport.revealFully(leave, in: app), "自己的成員詳細頁沒有「離開家庭」")
-        let triggerMidY = leave.frame.midY
+        // 「離開家庭」在家庭頁 toolbar 的右上方(#250)。
+        let leave = app.navigationBars.buttons["household.leave"]
+        XCTAssertTrue(leave.waitForExistence(timeout: 5) && leave.isHittable, "家庭頁 toolbar 沒有「離開家庭」")
+        let triggerFrame = leave.frame
+        let triggerMidY = triggerFrame.midY
         leave.tap()
 
         let confirm = app.buttons["離開"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "沒有跳出確認訊息")
-        let distance = abs(confirm.frame.midY - triggerMidY)
-        let limit = app.windows.firstMatch.frame.height * 0.45
-        XCTAssertLessThanOrEqual(
-            distance, limit,
-            "確認訊息離觸發它的按鈕太遠(\(Int(distance))pt，上限 \(Int(limit))pt):按鈕 \(leave.frame)、確認鈕 \(confirm.frame)"
-        )
+        // 預設與 XXL:泡泡在 toolbar 的離開鈕旁邊。無障礙字級系統改成畫面下方的 action sheet(#250)，
+        // 離按鈕很遠是正常的，只要求確認鈕按得到。
+        if !(contentSize?.contains("Accessibility") ?? false) {
+            let distance = abs(confirm.frame.midY - triggerMidY)
+            let limit = app.windows.firstMatch.frame.height * 0.45
+            XCTAssertLessThanOrEqual(
+                distance, limit,
+                "確認訊息離觸發它的按鈕太遠(\(Int(distance))pt，上限 \(Int(limit))pt):按鈕 \(triggerFrame)、確認鈕 \(confirm.frame)"
+            )
+        }
         XCTAssertTrue(confirm.isHittable, "確認鈕被擠出畫面:\(confirm.frame)")
         // 泡泡式的確認訊息沒有「取消」鈕(點外面就關掉),所以不檢查它。
     }

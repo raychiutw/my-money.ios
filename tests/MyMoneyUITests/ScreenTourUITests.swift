@@ -87,9 +87,8 @@ final class ScreenTourUITests: XCTestCase {
         tour.present(reimburseMine, capturing: "reimbursement")
         app.navigationBars.buttons.firstMatch.tap()
         // 離開家庭先跳確認，拍確認訊息再按「離開」。大字級時「離開家庭」在清單最下面，先捲到它。
-        // 「離開家庭」在自己的成員詳細頁(#248)。
-        app.openMemberDetail("in-memory-member-1")
-        tour.tapRevealing(app.buttons["household.leave"])
+        // 「離開家庭」在家庭頁 toolbar 的右上方(#250)。
+        tour.tap(app.navigationBars.buttons["household.leave"])
         tour.captureOnce("household-leave-confirm")
         tour.tap(app.buttons["離開"].firstMatch)
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開家庭後沒有回到建立的畫面")

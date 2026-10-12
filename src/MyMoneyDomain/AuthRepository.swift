@@ -5,4 +5,7 @@ public protocol AuthRepository: Sendable {
 
     /// 建立新帳號，成功時直接回傳登入後的 session。
     func register(name: String, email: String, password: String) async throws -> Session
+
+    /// 刪除目前登入的帳號與其所有個人資料(`DELETE /auth/account`);無法復原。
+    func deleteAccount() async throws
 }

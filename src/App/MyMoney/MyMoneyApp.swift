@@ -13,6 +13,7 @@ struct MyMoneyApp: App {
     private let session: AppSession
     private let login: LoginModel
     private let register: RegisterModel
+    private let accountDeletion: AccountDeletionModel
     private let signedIn: SignedInScreens
     /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
@@ -51,6 +52,7 @@ struct MyMoneyApp: App {
             let auth = InMemoryAuthRepository(members: [.sample])
             login = LoginModel(auth: auth, session: session)
             register = RegisterModel(auth: auth, session: session)
+            accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
             // `-uiTestingHoldOverview`:帳戶查詢停 30 秒才放行(登入要打字,啟動後十幾秒才進到總覽),總覽的骨架屏停留夠久,UI 測試才量得到(#201)。
@@ -125,6 +127,7 @@ struct MyMoneyApp: App {
         let auth = LiveAuthRepository(client: client)
         login = LoginModel(auth: auth, session: session)
         register = RegisterModel(auth: auth, session: session)
+        accountDeletion = AccountDeletionModel(auth: auth, session: session)
         let accounts = LiveAccountRepository(client: client)
         let transactions = LiveTransactionRepository(client: client)
         let recurring = LiveRecurringRepository(client: client)
@@ -154,6 +157,7 @@ struct MyMoneyApp: App {
             RootView(login: login, register: register, signedIn: signedIn)
                 .environment(session)
                 .environment(appearance)
+                .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .environment(\.exposesSkeletonToAccessibility, exposesSkeleton)

@@ -17,14 +17,22 @@ public actor InMemoryAuthRepository: AuthRepository {
 
     private var members: [Member]
     private let gate: Gate?
+    private let deletionError: RepositoryError?
 
     /// 透過 `register` 建立的帳號的 email,依註冊順序。
     public private(set) var registeredEmails: [String] = []
 
     /// - Parameter gate: 給了就在回應前停住，直到測試放行。
-    public init(members: [Member], gate: Gate? = nil) {
+    /// - Parameter deletionError: 給了就讓 `deleteAccount` 失敗(後端拒絕)。
+    public init(members: [Member], gate: Gate? = nil, deletionError: RepositoryError? = nil) {
         self.members = members
         self.gate = gate
+        self.deletionError = deletionError
+    }
+
+    public func deleteAccount() async throws {
+        await gate?.pass()
+        if let deletionError { throw deletionError }
     }
 
     public func login(email: String, password: String) async throws -> Session {

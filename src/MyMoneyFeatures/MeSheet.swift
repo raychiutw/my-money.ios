@@ -7,6 +7,8 @@ struct MeSheet: View {
     let screens: MainScreens
     @Environment(AppSession.self) private var session
     @Environment(AppearanceSetting.self) private var appearanceSetting
+    @Environment(AccountDeletionModel.self) private var deletion
+    @State private var isDeleteConfirming = false
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
 
@@ -21,6 +23,7 @@ struct MeSheet: View {
             }
             .navigationTitle("我的")
             .inlineNavigationTitle()
+            .errorAlert("無法刪除帳號", message: deletion.errorMessage) { deletion.clearError() }
             .toolbar {
                 // 不放 `.confirmationAction`:iOS 26 會把它畫成 accent 填滿的主要動作鈕(ADR-0008)。
                 ToolbarItem(placement: .primaryAction) {
@@ -75,6 +78,23 @@ struct MeSheet: View {
                 session.signOut()
             }
             .accessibilityIdentifier("me.signOut")
+        }
+
+        // 刪除帳號(#250,偏離 parity):破壞性、無法復原，放最下面並先確認;確認訊息掛在這顆按鈕上(#169)。
+        Section {
+            Button("刪除帳號", role: .destructive) {
+                isDeleteConfirming = true
+            }
+            .disabled(deletion.isDeleting)
+            .accessibilityIdentifier("me.deleteAccount")
+            .confirmationDialog("刪除帳號", isPresented: $isDeleteConfirming, titleVisibility: .visible) {
+                Button("刪除", role: .destructive) {
+                    Task { await deletion.delete() }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text(deletion.confirmation)
+            }
         } footer: {
             Text(appVersion.text)
                 .frame(maxWidth: .infinity)
