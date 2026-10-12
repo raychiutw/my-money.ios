@@ -321,6 +321,9 @@ struct HouseholdTests {
     func roleTitles() {
         #expect(HouseholdRole.admin.title == "家庭管理員")
         #expect(HouseholdRole.member.title == "一般成員")
+        // 成員列在「家庭」頁裡，不再重複「家庭」兩個字，也不會在字中間折行(#250)。
+        #expect(HouseholdRole.admin.memberRowTitle == "管理員")
+        #expect(HouseholdRole.member.memberRowTitle == "一般成員")
     }
 
     @Test("只有家庭管理員看得到「移除」,而且只出現在一般成員上")

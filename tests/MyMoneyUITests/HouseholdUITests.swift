@@ -45,12 +45,10 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.buttons["已複製"].waitForExistence(timeout: 2), "複製後沒有顯示「已複製」")
         app.buttons["完成"].tap()
 
-        // 「離開家庭」在自己的成員詳細頁(#248:Apple 家人共享把「停止使用」放在自己的成員頁)，不在家庭頁最底下。
-        XCTAssertFalse(app.buttons["household.leave"].exists, "家庭頁不該再有「離開家庭」")
-        app.openMemberDetail("in-memory-member-1")
-        let leave = app.buttons["household.leave"]
-        for _ in 0..<8 where !(leave.exists && leave.isHittable) { app.swipeUp() }
-        XCTAssertTrue(leave.isHittable, "自己的成員詳細頁沒有「離開家庭」")
+        // 「離開家庭」在家庭頁 toolbar 的右上方(#250):不在最底下、不在成員詳細頁。
+        let leave = app.navigationBars.buttons["household.leave"]
+        XCTAssertTrue(leave.waitForExistence(timeout: 5), "家庭頁 toolbar 沒有「離開家庭」")
+        XCTAssertLessThan(leave.frame.midY, 120, "「離開家庭」不在畫面上方的 toolbar:\(leave.frame)")
         leave.tap()
         XCTAssertTrue(
             app.staticTexts["確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。"].waitForExistence(timeout: 3),
@@ -71,7 +69,7 @@ final class HouseholdUITests: XCTestCase {
 
         // 邀請不在(只有家庭管理員);小美的區塊(家庭管理員)看得到，但沒有報銷入口。
         XCTAssertFalse(app.buttons["household.invite"].exists, "一般成員不該看到邀請入口")
-        XCTAssertFalse(app.buttons["household.leave"].exists, "家庭頁不該再有「離開家庭」(#248)")
+        XCTAssertTrue(app.navigationBars.buttons["household.leave"].exists, "一般成員也能離開家庭:toolbar 要有「離開家庭」(#250)")
         XCTAssertTrue(element(in: app, labelContaining: "小美,有待請款代墊").exists, "沒有看到小美的代墊卡片")
         XCTAssertTrue(element(in: app, labelContaining: "家庭管理員").exists, "小美的身分不是家庭管理員")
         // 成員列點進詳細頁(#246):小美的詳細頁沒有「報銷沖帳」，自己的有。

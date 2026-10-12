@@ -2,11 +2,12 @@ import MyMoneyDomain
 import SwiftUI
 
 /// 「家庭」tab:建立或用邀請碼加入;已加入時數字優先(#121):分攤建議大數字、各成員代墊長條圖與平均線、
-/// 我的累計代墊／已報銷／待報銷、成員(名字、身分與數字)，邀請在 toolbar、離開在自己的成員詳細頁(parity.md「家庭」、ADR-0004)。
+/// 我的累計代墊／已報銷／待報銷、成員(名字、身分與數字)，邀請與離開在 toolbar(parity.md「家庭」、ADR-0004)。
 ///
-/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 有邀請(管理員)與頭像按鈕。
+/// 永遠顯示這個 tab(HIG:不要隱藏 tab);toolbar 有邀請(管理員)、離開與頭像按鈕。
 struct HouseholdScreen: View {
     @Bindable var model: HouseholdModel
+    @State private var isLeaveConfirming = false
     @State private var pendingRemoval: HouseholdMember?
     @State private var skeletonWidth: Double?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -32,7 +33,7 @@ struct HouseholdScreen: View {
             .skeletonTransition(value: model.phase)
             .tabRootNavigation("家庭")
             .toolbar {
-                // 邀請是對這個家庭的操作，放 toolbar(#248):只有家庭管理員(上游 ADR 0013，#132);離開家庭在自己的成員詳細頁。
+                // 邀請是對這個家庭的操作，放 toolbar(#248):只有家庭管理員(上游 ADR 0013，#132)。
                 if model.household != nil, model.canInvite {
                     ToolbarItem(placement: .primaryAction) {
                         Button("邀請家庭成員", systemImage: "person.badge.plus") {
@@ -40,6 +41,24 @@ struct HouseholdScreen: View {
                         }
                         .disabled(model.isInviting)
                         .accessibilityIdentifier("household.invite")
+                    }
+                }
+                // 離開家庭是對這個家庭的破壞性操作，放右上方(#250);確認訊息掛在這顆按鈕上，泡泡的箭頭才指著它(#169)。
+                // 無法用文字說清楚的圖示動作:VoiceOver 念「離開家庭」。toolbar 最多 3 顆(邀請、離開、頭像)。
+                if model.household != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("離開家庭", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                            isLeaveConfirming = true
+                        }
+                        .accessibilityIdentifier("household.leave")
+                        .confirmationDialog("離開家庭", isPresented: $isLeaveConfirming, titleVisibility: .visible) {
+                            Button("離開", role: .destructive) {
+                                Task { await model.leave() }
+                            }
+                            Button("取消", role: .cancel) {}
+                        } message: {
+                            Text(model.leaveConfirmation)
+                        }
                     }
                 }
                 AccountToolbarItem()
@@ -221,7 +240,7 @@ extension HouseholdScreen {
             let members = model.household?.members ?? []
             ForEach(members) { member in
                 let advance = model.advance(of: member.userID)
-                memberRow(name: member.name, roleTitle: member.role.title, advance: advance, id: member.userID)
+                memberRow(name: member.name, role: member.role, advance: advance, id: member.userID)
                     .swipeActions {
                         if model.canRemove(member) {
                             DestructiveSwipeButton("移除", systemImage: "person.badge.minus") { pendingRemoval = member }
@@ -237,21 +256,21 @@ extension HouseholdScreen {
             }
             // 代墊統計裡有、名冊裡沒有的人(例如剛離開家庭的成員):照樣列出，沒有身分。
             ForEach(model.advances.filter { advance in !members.contains { $0.userID == advance.memberID } }) { advance in
-                memberRow(name: advance.memberName, roleTitle: nil, advance: advance, id: advance.memberID)
+                memberRow(name: advance.memberName, role: nil, advance: advance, id: advance.memberID)
             }
         }
     }
 
     @ViewBuilder
-    private func memberRow(name: String, roleTitle: String?, advance: HouseholdAdvance?, id: UserID) -> some View {
-        if advance != nil || model.isCurrentUser(id) {
+    private func memberRow(name: String, role: HouseholdRole?, advance: HouseholdAdvance?, id: UserID) -> some View {
+        if advance != nil {
             NavigationLink(value: MemberRoute(memberID: id)) {
-                MemberRow(name: name, roleTitle: roleTitle, advance: advance)
+                MemberRow(name: name, role: role, advance: advance)
             }
             .accessibilityIdentifier("household.member.\(id.rawValue)")
-            .accessibilityHint("查看成員詳細")
+            .accessibilityHint("查看代墊明細")
         } else {
-            MemberRow(name: name, roleTitle: roleTitle, advance: advance)
+            MemberRow(name: name, role: role, advance: advance)
         }
     }
 }
@@ -261,8 +280,8 @@ extension HouseholdScreen {
 /// 放不下時(大字級)改成上下堆疊，金額單行。VoiceOver 念一句完整的話，跟以前的代墊摘要列一樣，最後多身分。
 private struct MemberRow: View {
     let name: String
-    /// 身分(家庭管理員或一般成員);不在名冊裡的人是 `nil`。
-    let roleTitle: String?
+    /// 身分(家庭管理員或一般成員);不在名冊裡的人是 `nil`。畫面上寫短名稱，VoiceOver 念完整的。
+    let role: HouseholdRole?
     /// 這位成員的代墊統計;後端沒有這位成員的紀錄時是 `nil`。
     let advance: HouseholdAdvance?
 
@@ -307,8 +326,8 @@ private struct MemberRow: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name)
                 .font(.headline)
-            if let roleTitle {
-                Text(roleTitle)
+            if let role {
+                Text(role.memberRowTitle)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -339,10 +358,10 @@ private struct MemberRow: View {
 
     /// 例如「小明,有待請款代墊,累計公帳墊付 250 元,已獲撥款報銷 0 元,待報銷 250 元,家庭管理員」;已結清是「已全數結清」。
     private var spokenText: String {
-        guard let advance else { return [name, roleTitle].compactMap { $0 }.joined(separator: ",") }
+        guard let advance else { return [name, role?.title].compactMap { $0 }.joined(separator: ",") }
         return ["\(advance.memberName)", advance.isSettled ? "已全數結清" : "有待請款代墊",
                 "累計公帳墊付 \(advance.totalAdvanced.spokenText)", "已獲撥款報銷 \(advance.totalReimbursed.spokenText)",
-                "待報銷 \(advance.pendingReimbursement.spokenText)", roleTitle]
+                "待報銷 \(advance.pendingReimbursement.spokenText)", role?.title]
             .compactMap { $0 }.joined(separator: ",")
     }
 }

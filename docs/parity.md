@@ -357,7 +357,7 @@
 7. LINE webhook 沒有驗證簽章(`LINE_CHANNEL_SECRET` 沒有使用),Telegram webhook 也沒有 secret。
 8. 儲蓄目標存入超過目標金額時，會被靜默截斷。
 9. 密碼只做一輪加鹽 SHA-256;`JWT_SECRET` 沒設定時會 fallback 成 `'dev-secret-key'`。
-10. `DELETE /auth/account` 沒有任何 web UI 使用，所以 iOS 依 parity 也不做(見「不做」)。**建立家庭群組的人刪除帳號時，因為 `households.created_by` 是 `ON DELETE CASCADE`,整個家庭群組和其他成員的成員關係都會一起被刪除**。
+10. `DELETE /auth/account` 沒有任何 web UI 使用。**#250 起 iOS 刻意偏離 parity 加上「刪除帳號」**(使用者決定;「我的」最下面，先確認)。已向上游回報建立者刪除帳號的風險:onion523/my-money#121。**建立家庭群組的人刪除帳號時，因為 `households.created_by` 是 `ON DELETE CASCADE`,整個家庭群組和其他成員的成員關係都會一起被刪除**。
 11. `POST /accounts/pay-credit-card` 沒有檢查 `bank_account_id` 是不是銀行存款帳戶，所以 API 允許從另一張信用卡「扣款」。web 只列出銀行存款帳戶,iOS 也只列銀行存款帳戶。
 12. 欠款公私拆解只用這張卡最近 50 筆支出，從最新的一筆往回分配，是一種估算;如果繳過一部分卡費，拆解出來的結果不一定準確。
 13. 結帳日出帳作業從 `82d9124` 起不檢查結帳日，有未出帳款就能做，所以下一期的刷卡也可能被一起轉入已出帳待繳款(已回報 onion523/my-money#2)。`da82a11` 起後端會記錄出帳作業的時間(`last_rollover_at`,B:handlers/accounts.ts@f32ff6c:265),但只用在信用卡未出帳自動校準的起點;有未出帳款就能做的條件沒變(B:handlers/accounts.ts@f32ff6c:262)。iOS 跟 web 用一樣的條件。
@@ -376,4 +376,4 @@
 
 web 沒有的功能，iOS 也不做:
 - 改密碼、編輯個人資料、從儲蓄目標提款、Face ID 鎖定、Widget、通知、離線模式、Sign in with Apple。
-- **刪除帳號**:後端從 `79edd20` 起有 `DELETE /auth/account`,但 web 沒有 UI。只走 TestFlight 時不需要;要上 App Store 時，必須由使用者決定是否偏離 parity 加上這個功能(ADR-0001)。
+- ~~**刪除帳號**~~:#250 起做了(刻意偏離 parity，見後端相容性第 10 項)。
