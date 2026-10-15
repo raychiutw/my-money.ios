@@ -324,21 +324,110 @@ struct AccountsTranslationTests {
         }
     }
 
-    @Test("結帳日出帳作業：回傳後端的訊息;沒有未出帳款時原樣傳遞錯誤")
+    private func body(of request: URLRequest) throws -> [String: Any] {
+        let data = try #require(request.httpBody)
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    @Test("出帳預覽:GET /accounts/:id/rollover-preview,翻成結帳區間、全部明細與基準值;延期集合是後端標的 is_initially_deferred")
+    func statementPreview() async throws {
+        // 「iOS 暫存卡」(結帳日 15 號):本期午餐 1200、刷退 300、延期的 800、上期延入 500(上游 `79af1e9`、`10b7b03`,錄完刪除)。
+        try stub.reply(status: 200, fixture: "accounts-rollover-preview.json")
+
+        let preview = try await repository.statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+
+        #expect(stub.requests.last?.httpMethod == "GET")
+        #expect(stub.requests.last?.url?.path() == "/accounts/65c410e0-a1a0-4aed-a20b-0c87859d6944/rollover-preview")
+        #expect(preview.statementDate == CalendarDay(year: 2026, month: 10, day: 15))
+        #expect(preview.previousStatementDate == CalendarDay(year: 2026, month: 9, day: 15))
+        #expect(preview.items.map(\.note) == ["本期延期", "本期刷退", "本期午餐", "上期延入"], "順序照後端(日期由新到舊)")
+        #expect(preview.items.map(\.kind) == [.expense, .refund, .expense, .expense])
+        #expect(preview.items.map(\.isPriorDeferred) == [false, false, false, true])
+        #expect(preview.initiallyDeferredIDs == [TransactionID("eff71089-893c-45fc-8f7d-95899a023567")])
+        #expect(preview.baseNetBilled == Money(400))
+        #expect(preview.totalRepay == .zero)
+        #expect(preview.baseNetUnbilled == Money(150))
+        #expect(!preview.hasRolledCycle)
+        #expect(preview.priorDeferredCount == 1)
+    }
+
+    @Test("出帳預覽的試算跟後端算的一樣:維持開窗時的延期，出帳淨額 1400、出帳後待繳 1800、剩餘未出帳 950")
+    func outlookMatchesTheBackend() async throws {
+        try stub.reply(status: 200, fixture: "accounts-rollover-preview.json")
+        let preview = try await repository.statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+
+        let outlook = preview.outlook(deferring: preview.initiallyDeferredIDs)
+
+        // 後端回應的 netRolledAmount、projectedBalance、projectedUnbilled、sharedDebt、personalDebt。
+        #expect(outlook.net == Money(1400))
+        #expect(outlook.projectedBilled == Money(1800))
+        #expect(outlook.projectedUnbilled == Money(950))
+        #expect(outlook.sharedDebt == .zero)
+        #expect(outlook.personalDebt == Money(1400))
+    }
+
+    @Test("出帳預覽:這一期已經出帳過(hasRolledCycle),再開時維持上次選的延期")
+    func statementPreviewOfARolledCycle() async throws {
+        try stub.reply(status: 200, fixture: "accounts-rollover-preview-rolled.json")
+
+        let preview = try await repository.statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+
+        #expect(preview.hasRolledCycle)
+        #expect(preview.items.map(\.note) == ["本期延期", "本期刷退", "本期午餐"])
+        #expect(preview.initiallyDeferredIDs == [TransactionID("eff71089-893c-45fc-8f7d-95899a023567")])
+        #expect(preview.outlook(deferring: preview.initiallyDeferredIDs).projectedBilled == Money(1800))
+    }
+
+    @Test("出帳預覽:這一期沒有任何明細時是空清單")
+    func statementPreviewWithoutItems() async throws {
+        try stub.reply(status: 200, fixture: "accounts-rollover-preview-empty.json")
+
+        let preview = try await repository.statementPreview(AccountID("a1d2f913-9872-4868-88de-0e523ca46a3c"))
+
+        #expect(preview.items.isEmpty)
+        #expect(preview.statementDate == CalendarDay(year: 2026, month: 10, day: 1))
+    }
+
+    @Test("出帳預覽:沒設結帳日的卡，後端的區間日期是空字串，翻成沒有區間;未出帳的消費照常列出")
+    func statementPreviewWithoutStatementDay() async throws {
+        try stub.reply(status: 200, fixture: "accounts-rollover-preview-no-statement-day.json")
+
+        let preview = try await repository.statementPreview(AccountID("2c875d19-36a4-413c-8c29-5bec61706ff9"))
+
+        #expect(preview.statementDate == nil)
+        #expect(preview.previousStatementDate == nil)
+        #expect(preview.items.map(\.note) == ["沒結帳日"])
+    }
+
+    @Test("出帳預覽:信用卡不存在時原樣傳遞後端的錯誤")
+    func statementPreviewForwardsErrors() async throws {
+        try stub.reply(status: 404, fixture: "accounts-rollover-statement-missing.json")
+
+        await #expect(throws: RepositoryError.rejected("信用卡不存在")) {
+            try await repository.statementPreview(AccountID("nonexistent-card"))
+        }
+    }
+
+    @Test("結帳日出帳作業:body 帶 deferredTxIds(要延至下期的明細，排序固定);回傳後端的訊息;本期沒有刷卡記錄時原樣傳遞錯誤")
     func rollOverStatement() async throws {
-        // 出帳作業有未出帳款才能做，所以用「iOS 測試小額卡」(未出帳 5000)錄的;訊息是後端 `97f4789` 的原文，iOS 原樣傳遞，不依文字判斷。
-        let card = AccountID("a1d2f913-9872-4868-88de-0e523ca46a3c")
+        let card = AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944")
 
         try stub.reply(status: 200, fixture: "accounts-rollover-statement.json")
-        let message = try await repository.rollOverStatement(card)
-        #expect(message == "帳單出帳作業完成！已轉入已出帳待繳款。")
-        #expect(stub.requests.last?.httpMethod == "POST")
-        #expect(stub.requests.last?.url?.path() == "/accounts/a1d2f913-9872-4868-88de-0e523ca46a3c/rollover-statement")
+        let message = try await repository.rollOverStatement(
+            card, deferring: [TransactionID("eff71089-893c-45fc-8f7d-95899a023567"), TransactionID("aaa")]
+        )
+        // 後端的原文(上游 `79af1e9`),iOS 原樣傳遞，不依文字判斷。
+        #expect(message == "帳單出帳作業完成！本期結算 2 筆消費 (扣除刷退 NT$ 300)，淨額 NT$ 1,400 已轉入已出帳待繳款。（另有 1 筆消費已延至下期）")
+        let request = try #require(stub.requests.last)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path() == "/accounts/65c410e0-a1a0-4aed-a20b-0c87859d6944/rollover-statement")
+        #expect(try body(of: request)["deferredTxIds"] as? [String] == ["aaa", "eff71089-893c-45fc-8f7d-95899a023567"])
 
         try stub.reply(status: 400, fixture: "accounts-rollover-statement-none.json")
-        await #expect(throws: RepositoryError.rejected("目前無未出帳金額需出帳")) {
-            try await repository.rollOverStatement(card)
+        await #expect(throws: RepositoryError.rejected("目前結帳週期內無任何刷卡記錄")) {
+            try await repository.rollOverStatement(card, deferring: [])
         }
+        #expect(try body(of: try #require(stub.requests.last))["deferredTxIds"] as? [String] == [], "都不延期時送空陣列")
     }
 
     @Test("校準未出帳:POST /accounts/:id/reconcile 沒有 body,回傳後端的訊息;不是信用卡時傳遞後端的錯誤")

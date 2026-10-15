@@ -61,41 +61,33 @@ struct CreditCardDetailTests {
         #expect(detail(card(billed: 0, unbilled: 0, shared: 0, personal: 0)).paymentPresets.isEmpty)
     }
 
-    @Test("有未出帳款才顯示「出帳作業」,不看結帳日(web 在 82d9124 拿掉了結帳日的條件)")
-    func showsRolloverOnlyWithUnbilled() {
+    @Test("有結帳日、或有已出帳或未出帳的款項才顯示「出帳作業」(上游 ADR 0024:預覽可以重複檢視)")
+    func showsRolloverWithStatementDayOrDebt() {
         #expect(detail(SampleAccounts.card).showsRollover)
         #expect(detail(card(billed: 0, unbilled: 1, shared: 0, personal: 1)).showsRollover)
-        #expect(!detail(card(billed: 5000, unbilled: 0, shared: 0, personal: 5000)).showsRollover)
+        #expect(detail(card(billed: 5000, unbilled: 0, shared: 0, personal: 5000)).showsRollover)
+        #expect(detail(card(billed: 0, unbilled: 0, shared: 0, personal: 0)).showsRollover, "有結帳日，沒有款項也能檢視這一期")
+
+        let bare = CreditCard(
+            id: AccountID("bare"), name: "卡", colorHex: "#FFD4A0", billedDebt: .zero, unbilledDebt: .zero,
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+        #expect(!detail(bare).showsRollover)
     }
 
-    @Test("出帳作業的確認說明轉入本期已出帳待繳款(#56);確認後做出帳作業，顯示後端的訊息，資料版本遞增")
+    @Test("出帳作業的預覽 sheet:確認後送出，資料版本遞增;載入的是這張卡的預覽")
     func rollOver() async {
         let repository = InMemoryAccountRepository.sample()
         let model = detail(SampleAccounts.lowLimitCard, repository: repository)
 
-        #expect(
-            model.rolloverConfirmation
-                == "確定要依據「iOS 測試小額卡」的每月結帳日(1 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
-        )
-        await model.rollOver()
+        let rollover = model.makeStatementRollover()
+        await rollover.load()
+        #expect(rollover.items.count == 2)
+        let message = await rollover.submit()
 
         #expect(await repository.rolledOverIDs == [SampleAccounts.lowLimitCard.id])
-        // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
-        #expect(model.noticeMessage == "帳單出帳作業完成！已轉入已出帳待繳款。")
+        #expect(message?.hasPrefix("帳單出帳作業完成！") == true)
         #expect(dataVersion.value == 1)
-    }
-
-    @Test("出帳作業失敗時顯示後端的錯誤，資料版本不變")
-    func rollOverFailure() async {
-        let repository = InMemoryAccountRepository.sample()
-        await repository.fail(with: .rejected("目前無未出帳金額需出帳作業"))
-        let model = detail(SampleAccounts.lowLimitCard, repository: repository)
-
-        await model.rollOver()
-
-        #expect(model.alertMessage == "目前無未出帳金額需出帳作業")
-        #expect(model.noticeMessage == nil)
-        #expect(dataVersion.value == 0)
     }
 
     @Test("從「繳款」選單繳家庭代墊：扣款帳戶是這個範圍的活存帳戶;成功後資料版本遞增，詳細頁重新取得這張卡和扣款帳戶")
@@ -117,17 +109,19 @@ struct CreditCardDetailTests {
         #expect(await repository.requestedScopes == [.personal])
     }
 
-    @Test("出帳作業之後重新取得：未出帳款轉入已出帳待繳款，不再顯示出帳作業")
+    @Test("出帳作業之後重新取得：未出帳款轉入已出帳待繳款;有結帳日，出帳過還能再打開預覽檢視")
     func refreshesAfterRollover() async {
         let repository = InMemoryAccountRepository.sample()
         let model = detail(SampleAccounts.lowLimitCard, repository: repository)
 
-        await model.rollOver()
+        let rollover = model.makeStatementRollover()
+        await rollover.load()
+        _ = await rollover.submit()
         await model.refreshIfStale()
 
         #expect(model.card.billedDebt == Money(13000))
         #expect(model.card.unbilledDebt == .zero)
-        #expect(!model.showsRollover)
+        #expect(model.showsRollover)
     }
 
     /// 例如在總覽記了一筆信用卡支出，帳戶頁還沒重新載入完就點進信用卡(code review)。

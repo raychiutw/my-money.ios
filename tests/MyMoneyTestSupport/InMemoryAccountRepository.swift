@@ -6,6 +6,8 @@ public actor InMemoryAccountRepository: AccountRepository {
     private var storedAccounts: [Account]
     private var summary: BalanceSummary
     private var failure: RepositoryError?
+    /// 出帳預覽，依信用卡;沒有指定的卡回沒有任何明細的預覽。
+    private var statementPreviews: [AccountID: StatementPreview]
     private let gate: Gate?
     /// UI 測試的骨架屏要停留夠久(#204):每次查詢先等這麼久。不用 `Gate`——任何一個等待者被取消(切 tab)
     /// 都會放行所有等待者,別的畫面的載入就提早回來了。
@@ -23,9 +25,13 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// `accounts()` 被呼叫的次數，用來確認有沒有重抓。
     public private(set) var fetchCount = 0
 
-    public init(accounts: [Account], summary: BalanceSummary, gate: Gate? = nil, loadDelay: Duration? = nil) {
+    public init(
+        accounts: [Account], summary: BalanceSummary, statementPreviews: [AccountID: StatementPreview] = [:],
+        gate: Gate? = nil, loadDelay: Duration? = nil
+    ) {
         storedAccounts = accounts
         self.summary = summary
+        self.statementPreviews = statementPreviews
         self.gate = gate
         self.loadDelay = loadDelay
     }
@@ -144,19 +150,57 @@ public actor InMemoryAccountRepository: AccountRepository {
         }
     }
 
-    /// 跟後端一樣把未出帳款移到已出帳待繳款;沒有未出帳款時拒絕。
-    public func rollOverStatement(_ id: AccountID) async throws -> String {
+    /// 每次出帳作業送出的延期明細，依順序(跟 `rolledOverIDs` 一一對應)。
+    public private(set) var rolledOverDeferrals: [Set<TransactionID>] = []
+
+    /// 出帳預覽被查詢的次數。
+    public private(set) var previewFetchCount = 0
+
+    public func statementPreview(_ id: AccountID) async throws -> StatementPreview {
+        await gate?.pass()
+        try checkCancellationIfGated()
+        previewFetchCount += 1
         if let failure { throw failure }
-        guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }), card.unbilledDebt > .zero else {
-            // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:262):後端的訊息還沒改用正名，照抄。
-            throw RepositoryError.rejected("目前無未出帳金額需出帳作業")
+        guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
+            throw RepositoryError.rejected("信用卡不存在")
         }
+        return statementPreviews[id] ?? StatementPreview(
+            statementDate: nil, previousStatementDate: nil, items: [],
+            baseNetBilled: card.billedDebt, totalRepay: .zero, baseNetUnbilled: card.unbilledDebt
+        )
+    }
+
+    /// 跟後端(上游 ADR 0024)一樣:這一期沒有任何明細、也沒有要延期的就拒絕;否則已出帳待繳款與未出帳款依預覽的試算重算(冪等)，
+    /// 再開預覽時延期的明細維持這次選的。
+    public func rollOverStatement(_ id: AccountID, deferring: Set<TransactionID>) async throws -> String {
+        await gate?.pass()
+        if let failure { throw failure }
+        guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
+            throw RepositoryError.rejected("信用卡不存在")
+        }
+        guard let preview = statementPreviews[id], !preview.items.isEmpty || !deferring.isEmpty else {
+            throw RepositoryError.rejected("目前結帳週期內無任何刷卡記錄")
+        }
+        let outlook = preview.outlook(deferring: deferring)
         rolledOverIDs.append(id)
+        rolledOverDeferrals.append(deferring)
         storedAccounts = storedAccounts.map {
-            $0.id == id ? .creditCard(Self.card(card, billed: card.totalDue, unbilled: .zero)) : $0
+            $0.id == id ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled)) : $0
         }
-        // 後端 `f32ff6c` 的原文(B:handlers/accounts.ts@f32ff6c:274),疊字已回報 onion523/my-money#27。
-        return "帳單出帳作業完成！已轉入已出帳待繳款。"
+        statementPreviews[id] = StatementPreview(
+            statementDate: preview.statementDate, previousStatementDate: preview.previousStatementDate,
+            items: preview.items.map {
+                StatementItem(
+                    id: $0.id, kind: $0.kind, amount: $0.amount, date: $0.date, category: $0.category, note: $0.note,
+                    isShared: $0.isShared, isPriorDeferred: false, isInitiallyDeferred: deferring.contains($0.id)
+                )
+            },
+            baseNetBilled: preview.baseNetBilled, totalRepay: preview.totalRepay, baseNetUnbilled: preview.baseNetUnbilled,
+            hasRolledCycle: true, priorDeferredCount: 0
+        )
+        let deferred = outlook.deferredCount > 0 ? "（另有 \(outlook.deferredCount) 筆消費已延至下期）" : ""
+        // 後端 `79af1e9` 訊息的簡化版(沒有刷退時不帶扣除刷退的段落)。
+        return "帳單出帳作業完成！本期結算 \(outlook.expenseCount) 筆消費，淨額 NT$ \(outlook.net.backendText) 已轉入已出帳待繳款。\(deferred)"
     }
 
     /// 校準過未出帳的信用卡，依順序。
@@ -263,13 +307,17 @@ extension Money {
 extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個活存帳戶、兩張信用卡帳戶。
     public static func sample(gate: Gate? = nil, loadDelay: Duration? = nil) -> InMemoryAccountRepository {
-        InMemoryAccountRepository(accounts: SampleAccounts.all, summary: SampleAccounts.summary, gate: gate, loadDelay: loadDelay)
+        InMemoryAccountRepository(
+            accounts: SampleAccounts.all, summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
+            gate: gate, loadDelay: loadDelay
+        )
     }
 
     /// 同上，再加一個現金「iOS 測試皮夾」1,500(對應 `accounts-list-with-cash.json`)。
     public static func sampleWithCash(gate: Gate? = nil) -> InMemoryAccountRepository {
         InMemoryAccountRepository(
-            accounts: [.cash(SampleAccounts.wallet)] + SampleAccounts.all, summary: SampleAccounts.summaryWithCash, gate: gate
+            accounts: [.cash(SampleAccounts.wallet)] + SampleAccounts.all, summary: SampleAccounts.summaryWithCash,
+            statementPreviews: SampleAccounts.statementPreviews, gate: gate
         )
     }
 }
@@ -325,6 +373,44 @@ public enum SampleAccounts {
     )
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
+
+    private static func item(
+        _ id: String, _ kind: StatementItem.Kind, _ amount: Int, _ day: (Int, Int), _ category: String, _ note: String,
+        priorDeferred: Bool = false, initiallyDeferred: Bool = false
+    ) -> StatementItem {
+        StatementItem(
+            id: TransactionID(id), kind: kind, amount: Money(Decimal(amount)),
+            date: CalendarDay(year: 2026, month: day.0, day: day.1), category: TransactionCategory(category), note: note,
+            isShared: false, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
+        )
+    }
+
+    /// 「iOS 測試信用卡」(結帳日 15 號)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500。
+    /// 基準值讓合計對得上卡上的數字:已出帳 12,000、未出帳 3,500(1,300 + 1,200 − 300 + 800 + 500)。
+    public static let cardPreview = StatementPreview(
+        statementDate: CalendarDay(year: 2026, month: 10, day: 15), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 15),
+        items: [
+            item("sample-stmt-deferred", .expense, 800, (10, 12), "購物", "本期延期", initiallyDeferred: true),
+            item("sample-stmt-refund", .refund, 300, (10, 11), "購物", "本期刷退"),
+            item("sample-stmt-lunch", .expense, 1200, (10, 10), "餐飲", "本期午餐"),
+            item("sample-stmt-prior", .expense, 500, (9, 10), "購物", "上期延入", priorDeferred: true),
+        ],
+        baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(1300), hasRolledCycle: false, priorDeferredCount: 1
+    )
+
+    /// 「iOS 測試小額卡」(結帳日 1 號):兩筆消費，沒有延期、沒有上期延入。已出帳 8,000、未出帳 5,000。
+    public static let lowLimitCardPreview = StatementPreview(
+        statementDate: CalendarDay(year: 2026, month: 10, day: 1), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 1),
+        items: [
+            item("sample-low-fuel", .expense, 3000, (9, 30), "交通", "加油"),
+            item("sample-low-dinner", .expense, 2000, (9, 28), "餐飲", "晚餐"),
+        ],
+        baseNetBilled: Money(8000), totalRepay: .zero, baseNetUnbilled: .zero
+    )
+
+    public static let statementPreviews: [AccountID: StatementPreview] = [
+        card.id: cardPreview, lowLimitCard.id: lowLimitCardPreview,
+    ]
 
     /// 家人(小美)的個人信用卡，替家庭代墊了 1,200:公帳範圍才看得到，經過脫敏(上游 ADR 0015)——
     /// 沒有額度、已出帳 0、未出帳款等於家庭代墊待繳額、個人消費 0。

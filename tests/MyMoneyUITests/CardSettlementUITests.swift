@@ -26,7 +26,8 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars.buttons["cardDetail.edit"].exists, "詳細頁的 toolbar 沒有「編輯」")
     }
 
-    /// 結帳日出帳作業：從詳細頁的「出帳作業」,先確認，完成後顯示後端的訊息;未出帳款轉入已出帳待繳款，「出帳作業」不再顯示。
+    /// 結帳日出帳作業(上游 ADR 0024):詳細頁的「出帳作業」打開預覽 sheet,確認後顯示後端的訊息;未出帳款轉入已出帳待繳款，
+    /// 有結帳日的卡出帳過之後「出帳作業」仍在(可以再檢視這一期)。
     /// 信用卡扣款還款：詳細頁的「繳款」選單選「繳家庭代墊」打開(帶入 3,000),已出帳待繳款從 12,000 變成 9,000。
     @MainActor
     func testRolloverAndPayment() throws {
@@ -36,22 +37,18 @@ final class CardSettlementUITests: XCTestCase {
         let rollover = app.buttons["cardDetail.rollover"]
         reveal(rollover, in: app)
         rollover.tap()
+        XCTAssertTrue(app.buttons["statementRollover.submit"].waitForExistence(timeout: 3), "沒有打開出帳作業預覽")
+        XCTAssertTrue(element(in: app, labelContaining: "加油").waitForExistence(timeout: 3), "預覽沒有列出這一期的明細")
+        app.buttons["statementRollover.submit"].tap()
+        // 後端訊息的簡化版(in-memory),照原樣顯示。
         XCTAssertTrue(
-            element(in: app, labelContaining: "確定要依據「iOS 測試小額卡」的每月結帳日(1 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？")
-                .waitForExistence(timeout: 3),
-            "沒有先確認就做出帳作業"
-        )
-        // 確認對話框的「出帳作業」,不是詳細頁上的那一顆。
-        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "出帳作業", "cardDetail.rollover"))
-            .firstMatch.tap()
-        // 後端的原文(`97f4789` 起是「帳單出帳作業完成！已轉入已出帳待繳款。」),照原樣顯示。
-        XCTAssertTrue(
-            element(in: app, labelContaining: "帳單出帳作業完成！已轉入已出帳待繳款。").waitForExistence(timeout: 5),
+            element(in: app, labelContaining: "帳單出帳作業完成！本期結算 2 筆消費").waitForExistence(timeout: 5),
             "沒有顯示出帳作業的結果"
         )
         app.buttons["好"].tap()
         XCTAssertTrue(field("未出帳款", value: "$0", in: app).waitForExistence(timeout: 5), "出帳作業後詳細頁的未出帳款沒有更新")
-        XCTAssertTrue(rollover.waitForNonExistence(timeout: 3), "沒有未出帳款了還顯示「出帳作業」")
+        reveal(rollover, in: app)
+        XCTAssertTrue(rollover.exists, "有結帳日的卡出帳過之後，「出帳作業」應該還在(可以再檢視這一期)")
 
         app.navigationBars.buttons["BackButton"].firstMatch.tap()
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
@@ -89,6 +86,58 @@ final class CardSettlementUITests: XCTestCase {
         let billed = field("已出帳待繳款", value: "$9,000", in: app)
         for _ in 0..<5 where !billed.exists { app.swipeDown() }
         XCTAssertTrue(billed.waitForExistence(timeout: 5), "還款後詳細頁的已出帳待繳款沒有更新")
+    }
+
+    /// 出帳預覽的延期試算(上游 ADR 0024):開窗時已延期的 800 不算進本期;再把午餐 1,200 延至下期，摘要就地重算(不呼叫後端);
+    /// 關閉不送出、卡上的數字不變;重開後確認，後端依延期的明細重算已出帳待繳款與未出帳款。
+    @MainActor
+    func testRolloverPreviewDeferralRecomputesLocally() throws {
+        let app = launchSignedIn()
+        openCard("sample-card", named: "iOS 測試信用卡", in: app)
+        let rollover = app.buttons["cardDetail.rollover"]
+        reveal(rollover, in: app)
+        rollover.tap()
+
+        XCTAssertTrue(row("出帳淨額", value: "1,400 元", in: app).waitForExistence(timeout: 5), "開窗時的出帳淨額不對")
+        XCTAssertTrue(row("出帳後已出帳待繳款", value: "13,400 元", in: app).exists)
+        XCTAssertTrue(row("出帳後未出帳款", value: "2,100 元", in: app).exists)
+        XCTAssertTrue(element(in: app, labelContaining: "含 1 筆上期延入款，已預設納入本期").exists, "沒有提示上期延入款")
+
+        let lunch = app.switches["statementRollover.item.sample-stmt-lunch"]
+        XCTAssertTrue(lunch.exists, "預覽沒有午餐那一筆")
+        XCTAssertEqual(lunch.value as? String, "0", "午餐開窗時不該延期")
+        XCTAssertEqual(app.switches["statementRollover.item.sample-stmt-deferred"].value as? String, "1", "已延期的那筆開關沒有打開")
+        flip(lunch)
+        XCTAssertTrue(row("出帳淨額", value: "200 元", in: app).waitForExistence(timeout: 3), "延期午餐後出帳淨額沒有重算")
+        XCTAssertTrue(row("出帳後已出帳待繳款", value: "12,200 元", in: app).exists)
+        XCTAssertTrue(row("出帳後未出帳款", value: "3,300 元", in: app).exists)
+
+        // 關閉:沒有送出，卡上的數字不變。
+        app.buttons["關閉"].tap()
+        XCTAssertTrue(app.buttons["statementRollover.submit"].waitForNonExistence(timeout: 3))
+        XCTAssertTrue(field("已出帳待繳款", value: "$12,000", in: app).exists, "關閉預覽後卡上的已出帳待繳款變了")
+        XCTAssertTrue(field("未出帳款", value: "$3,500", in: app).exists, "關閉預覽後卡上的未出帳款變了")
+
+        // 重開:延期不保留，回到開窗時的狀態;再延午餐、確認。
+        reveal(rollover, in: app)
+        rollover.tap()
+        XCTAssertTrue(row("出帳淨額", value: "1,400 元", in: app).waitForExistence(timeout: 5), "重開預覽沒有回到開窗時的狀態")
+        flip(app.switches["statementRollover.item.sample-stmt-lunch"])
+        app.buttons["statementRollover.submit"].tap()
+        XCTAssertTrue(
+            element(in: app, labelContaining: "帳單出帳作業完成！本期結算 1 筆消費，淨額 NT$ 200 已轉入已出帳待繳款。（另有 2 筆消費已延至下期）")
+                .waitForExistence(timeout: 5),
+            "沒有顯示出帳作業的結果"
+        )
+        app.buttons["好"].tap()
+        XCTAssertTrue(field("未出帳款", value: "$3,300", in: app).waitForExistence(timeout: 5), "出帳後的未出帳款不對")
+        XCTAssertTrue(field("已出帳待繳款", value: "$12,200", in: app).exists, "出帳後的已出帳待繳款不對")
+    }
+
+    /// 開關在列的最右邊:點整列的中央會落在標籤上，改點開關本身所在的右側。
+    @MainActor
+    private func flip(_ toggle: XCUIElement) {
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
     }
 
     /// 校準未出帳(#48):從詳細頁，先確認(說明重算的期間、會扣掉刷退和還款實際沖到未出帳款的部分),完成後顯示後端的訊息。

@@ -27,6 +27,24 @@ struct MalformedResponseTranslationTests {
         stub.reply(status: 200, json: Data(text.utf8))
     }
 
+    // MARK: 出帳預覽(上游 ADR 0024)
+
+    @Test("出帳預覽:明細的類型不是消費或刷退時整份看不懂，不默默少一筆(基準值是後端把它算進去的，少一筆試算就錯了)")
+    func statementItemType() async throws {
+        try reply("accounts-rollover-preview.json", replacing: "\"type\":\"income\"", with: "\"type\":\"fee\"")
+        await #expect(throws: RepositoryError.unreadableResponse) {
+            try await LiveAccountRepository(client: client).statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+        }
+    }
+
+    @Test("出帳預覽:明細的日期格式錯")
+    func statementItemDate() async throws {
+        try reply("accounts-rollover-preview.json", replacing: "\"date\":\"2026-10-12\"", with: "\"date\":\"10/12\"")
+        await #expect(throws: RepositoryError.unreadableResponse) {
+            try await LiveAccountRepository(client: client).statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+        }
+    }
+
     // MARK: 日期、月份、時間(#231)
 
     @Test("收支明細的日期格式錯")

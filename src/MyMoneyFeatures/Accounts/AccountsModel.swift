@@ -143,7 +143,7 @@ public final class AccountsModel: Alerting {
         permissions?.current.canOperate(card) ?? true
     }
 
-    /// 有未出帳款就能做結帳日出帳作業(長按選單)。
+    /// 能操作這張卡、而且有結帳日或有款項就能打開出帳作業(長按選單)。
     public func showsRollover(_ card: CreditCard) -> Bool {
         canOperate(card) && card.canRollOver
     }
@@ -154,15 +154,9 @@ public final class AccountsModel: Alerting {
         return canOperate(card) ? card.paymentPresets : []
     }
 
-    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」,跟詳細頁的一樣。
-    public func rolloverConfirmation(for card: CreditCard) -> String {
-        card.rolloverConfirmation
-    }
-
-    /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本。
-    public func rollOver(_ card: CreditCard) async {
-        guard canOperate(card) else { return }
-        if let notice = await commit(dataVersion, { try await repository.rollOverStatement(card.id) }) { noticeMessage = notice }
+    /// 出帳作業的預覽 sheet(上游 ADR 0024),跟詳細頁的一樣。
+    public func makeStatementRollover(for card: CreditCard, locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
+        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, locale: locale, today: today)
     }
 
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。

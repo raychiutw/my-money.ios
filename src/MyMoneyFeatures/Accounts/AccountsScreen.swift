@@ -14,7 +14,7 @@ struct AccountsScreen: View {
     @State private var skeletonWidth: Double?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingDeletion: Account?
-    @State private var pendingRollover: CreditCard?
+    @State private var rollover: StatementRolloverModel?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
     /// 點信用卡卡片 push 信用卡詳細頁。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
@@ -74,17 +74,8 @@ struct AccountsScreen: View {
                 .sheet(item: $payment) { payment in
                     CardPaymentView(model: payment)
                 }
-                .alert(
-                    "結帳日出帳作業",
-                    isPresented: Binding(get: { pendingRollover != nil }, set: { if !$0 { pendingRollover = nil } }),
-                    presenting: pendingRollover
-                ) { card in
-                    Button("出帳作業") {
-                        Task { await model.rollOver(card) }
-                    }
-                    Button("取消", role: .cancel) {}
-                } message: { card in
-                    Text(model.rolloverConfirmation(for: card))
+                .sheet(item: $rollover) { rollover in
+                    StatementRolloverView(model: rollover) { message in model.noticeMessage = message }
                 }
                 .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
                 .alert(
@@ -353,7 +344,7 @@ struct AccountsScreen: View {
                         }
                     }
                     if model.showsRollover(card) {
-                        Button("出帳作業", systemImage: "calendar.badge.clock") { pendingRollover = card }
+                        Button("出帳作業", systemImage: "calendar.badge.clock") { rollover = model.makeStatementRollover(for: card) }
                     }
                 }
             }

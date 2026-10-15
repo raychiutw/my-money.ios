@@ -18,33 +18,34 @@ struct StatementRolloverTests {
         return (model, repository)
     }
 
-    @Test("有未出帳款就能做出帳作業，不看結帳日(web 在 82d9124 拿掉了結帳日的條件);沒有未出帳款時不能做")
-    func showsRolloverWheneverUnbilled() async {
+    @Test("有結帳日、或有已出帳或未出帳的款項就能打開出帳作業(預覽可以重複檢視，出帳過一次按鈕也不會消失;上游 ADR 0024);都沒有時不能")
+    func showsRolloverWithStatementDayOrDebt() async {
         let (model, _) = await loaded(today: 1)
         #expect(model.creditCards.map(model.showsRollover) == [true, true])
 
-        let settled = CreditCard(
-            id: AccountID("settled"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(5000), unbilledDebt: .zero,
-            creditLimit: nil, statementDay: 15, paymentDueDay: 5
-        )
-        #expect(!model.showsRollover(settled))
+        func card(billed: Int, unbilled: Int, statementDay: Int?) -> CreditCard {
+            CreditCard(
+                id: AccountID("c"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(Decimal(billed)),
+                unbilledDebt: Money(Decimal(unbilled)), creditLimit: nil, statementDay: statementDay, paymentDueDay: 5
+            )
+        }
+        #expect(model.showsRollover(card(billed: 5000, unbilled: 0, statementDay: 15)), "已出帳、未出帳都是 0，有結帳日也能再檢視")
+        #expect(model.showsRollover(card(billed: 5000, unbilled: 0, statementDay: nil)))
+        #expect(!model.showsRollover(card(billed: 0, unbilled: 0, statementDay: nil)))
     }
 
-    @Test("確認說明轉入本期已出帳待繳款;確認後做出帳作業，顯示後端的訊息，資料版本遞增")
-    func rollOver() async throws {
+    @Test("長按選單的出帳作業:打開預覽 sheet,確認後送出延期的明細，資料版本遞增")
+    func rollOverFromTheAccountsList() async throws {
         let (model, repository) = await loaded(today: 28)
         let card = try #require(model.creditCards.first)
 
-        // 依結帳區間淨額出帳(上游 ADR 0020):不再寫金額——實際轉入多少由後端依結帳日、刷退與延至下期決定。
-        #expect(
-            model.rolloverConfirmation(for: card)
-                == "確定要依據「iOS 測試信用卡」的每月結帳日(15 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
-        )
-        await model.rollOver(card)
+        let rollover = model.makeStatementRollover(for: card)
+        await rollover.load()
+        #expect(rollover.deferredCount == 1, "開窗時已延至下期的那一筆")
+        let message = await rollover.submit()
 
         #expect(await repository.rolledOverIDs == [card.id])
-        // 後端的原文(疊字已回報 onion523/my-money#27),照原樣顯示。
-        #expect(model.noticeMessage == "帳單出帳作業完成！已轉入已出帳待繳款。")
+        #expect(message?.hasPrefix("帳單出帳作業完成！") == true)
         #expect(dataVersion.value == 1)
     }
 }
