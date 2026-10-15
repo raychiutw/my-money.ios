@@ -64,6 +64,18 @@ struct TransferTests {
         #expect(model.toAccountID == nil)
     }
 
+    @Test("選了轉出與轉入之後再載入一次(從帳戶清單頁返回時 .task 會重跑):選擇不會被洗回空值")
+    func reloadKeepsTheSelection() async {
+        let model = await loaded()
+        model.fromAccountID = SampleAccounts.savings.id
+        model.toAccountID = SampleAccounts.wallet.id
+
+        await model.load()
+
+        #expect(model.fromAccountID == SampleAccounts.savings.id, "轉出被重設了")
+        #expect(model.toAccountID == SampleAccounts.wallet.id, "轉入被重設了")
+    }
+
     @Test("轉入的選項不含已選的轉出帳戶")
     func toCandidatesExcludeFrom() async {
         let model = await loaded(from: SampleAccounts.savings.id)

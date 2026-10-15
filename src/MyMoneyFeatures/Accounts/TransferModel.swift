@@ -23,6 +23,7 @@ public final class TransferModel: Submitting {
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let preferredFrom: AccountID?
     @ObservationIgnored private let preferredTo: AccountID?
+    @ObservationIgnored private var didApplyPreferred = false
 
     /// `preferredFrom` / `preferredTo`:從某個帳戶的按鈕打開時預先選好的帳戶(現金錢包的「ATM 提款」是轉入，
     /// 銀行存款帳戶的「轉帳／提款」是轉出)。
@@ -70,6 +71,9 @@ public final class TransferModel: Submitting {
             errorMessage = error.localizedDescription
             return
         }
+        // 只有打開的那一次帶入預設:從帳戶清單頁返回時 `.task` 會再跑，不能把使用者剛選的帳戶洗掉。
+        guard !didApplyPreferred else { return }
+        didApplyPreferred = true
         fromAccountID = preferredFrom
         toAccountID = preferredTo
         if fromAccountID != nil, toAccountID == fromAccountID {

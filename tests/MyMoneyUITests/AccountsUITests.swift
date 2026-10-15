@@ -191,6 +191,21 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(bank.exists, "活存帳戶的餘額沒有減少")
     }
 
+    /// 在清單頁選了轉出帳戶、返回之後，選擇要保留(返回時畫面重新出現不能把選擇洗回「請選擇」)。
+    @MainActor
+    func testTransferKeepsTheFromAccountAfterReturningFromTheList() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.tabBars.buttons["帳戶"].tap()
+        app.buttons["accounts.transfer"].tap()
+        XCTAssertTrue(app.textFields["transfer.amount"].waitForExistence(timeout: 3), "沒有打開轉帳")
+
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試存款")).firstMatch.tap()
+
+        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).waitForExistence(timeout: 3), "返回之後轉出帳戶被洗掉了")
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.exists, "轉出帳戶又回到佔位文字")
+    }
+
     /// 活存帳戶列往右滑的「轉帳／提款」只帶入轉出，轉入是空的(上游 ADR 0011、#111)。
     @MainActor
     func testBankRowShortcutFillsOnlyTheFromAccount() throws {
