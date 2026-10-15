@@ -25,8 +25,12 @@ public protocol AccountRepository: Sendable {
     /// 信用卡扣款還款。
     func payCreditCard(_ payment: CardPayment) async throws
 
-    /// 結帳日出帳作業：把未出帳款一次轉入已出帳待繳款，後端並記錄這次出帳作業的時間點(`da82a11` 起)。回傳後端的訊息。
-    func rollOverStatement(_ id: AccountID) async throws -> String
+    /// 結帳日出帳預覽(上游 ADR 0024):這一期結帳區間的全部消費與刷退，加上試算要用的基準值。唯讀。
+    func statementPreview(_ id: AccountID) async throws -> StatementPreview
+
+    /// 結帳日出帳作業:這一期的消費與刷退出帳，`deferring` 裡的明細延至下期;後端依明細重算已出帳待繳款與未出帳款(冪等)，
+    /// 並記錄這次出帳作業的時間點。回傳後端的訊息。
+    func rollOverStatement(_ id: AccountID, deferring: Set<TransactionID>) async throws -> String
 
     /// 信用卡未出帳自動校準(後端 `b5cbe09`,`da82a11` 改了算法):把未出帳款覆寫成上一次結帳日出帳作業之後的消費合計，
     /// 扣掉同一段期間的刷退和還款。回傳後端的訊息。

@@ -11,7 +11,7 @@ struct CreditCardDetailScreen: View {
     @State private var model: CreditCardDetailModel
     @State private var payment: CardPaymentModel?
     @State private var editor: AccountEditorModel?
-    @State private var isConfirmingRollover = false
+    @State private var rollover: StatementRolloverModel?
     @State private var isConfirmingReconcile = false
     @Environment(\.dismiss) private var dismiss
 
@@ -53,6 +53,9 @@ struct CreditCardDetailScreen: View {
         }
         .sheet(item: $editor) { editor in
             AccountEditorView(model: editor)
+        }
+        .sheet(item: $rollover) { rollover in
+            StatementRolloverView(model: rollover) { message in model.noticeMessage = message }
         }
         .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
         .alert(
@@ -117,17 +120,8 @@ struct CreditCardDetailScreen: View {
                 .accessibilityIdentifier("cardDetail.pay")
             }
             if model.showsRollover {
-                Button("出帳作業", systemImage: "calendar.badge.clock") { isConfirmingRollover = true }
+                Button("出帳作業", systemImage: "calendar.badge.clock") { rollover = model.makeStatementRollover() }
                     .accessibilityIdentifier("cardDetail.rollover")
-                    // 確認訊息掛在觸發它的按鈕上(#169)。
-                    .confirmationDialog("結帳日出帳作業", isPresented: $isConfirmingRollover, titleVisibility: .visible) {
-                        Button("出帳作業") {
-                            Task { await model.rollOver() }
-                        }
-                        Button("取消", role: .cancel) {}
-                    } message: {
-                        Text(model.rolloverConfirmation)
-                    }
             }
             if model.canOperate {
                 Button(model.isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath") {

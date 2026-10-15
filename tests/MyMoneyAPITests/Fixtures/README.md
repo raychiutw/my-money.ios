@@ -61,8 +61,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-pay-credit-card.json` | `POST /accounts/pay-credit-card`,從家庭共同基金繳「iOS 測試信用卡」的家庭公帳部分 3000 | 200 | 先沖已出帳待繳款(12000 → 9000),未出帳款不變;產生一筆「信用卡還款」收支明細 |
 | `accounts-pay-credit-card-over.json` | 同上，金額 9999999 | 400 | 「繳款金額不可超過當前待繳總額 NT$ 16,380」原樣傳遞 |
 | `accounts-pay-credit-card-missing.json` | 同上，沒有 `bank_account_id` | 400 | 「請填寫扣款帳戶、信用卡及正確繳費金額」原樣傳遞 |
-| `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,「iOS 測試小額卡」(未出帳 5000)。2026-10-01 重錄，後端 `97f4789` | 200 | 未出帳 5000 移到已出帳待繳款(8000 → 13000);訊息在 `data.message`,是「帳單出帳作業完成！已轉入已出帳待繳款。」,原樣傳遞 |
-| `accounts-rollover-statement-none.json` | 再做一次出帳作業。2026-10-01 重錄，後端 `97f4789` | 400 | 「目前無未出帳金額需出帳」原樣傳遞 |
+| `accounts-rollover-statement.json` | `POST /accounts/:id/rollover-statement`,暫存卡「iOS 暫存卡」,body `{"deferredTxIds":[<延期的那筆 800>]}`。2026-10-16 重錄，後端 `10b7b03`(見下面「對齊上游 `10b7b03`」) | 200 | 回應多了 `rolledAmount`、`deferredCount` 等;訊息在 `data.message`,是「帳單出帳作業完成！本期結算 2 筆消費 …」,原樣傳遞 |
+| `accounts-rollover-statement-none.json` | 對本期沒有任何刷卡記錄的「iOS 測試信用卡」做出帳作業。2026-10-16 重錄，後端 `10b7b03` | 400 | 「目前結帳週期內無任何刷卡記錄」原樣傳遞 |
 | `transactions-recent.json` | `GET /transactions?scope=all&limit=6&offset=0`,不帶 `from` / `to`(總覽的最近 6 筆) | 200 | 不限日期，由新到舊 |
 | `transactions-list.json` | `GET /transactions?from=2026-09-01&to=2026-09-30&scope=all&limit=200&offset=0` | 200 | `is_shared` 0/1、`account_name`、`user_name`;日期由新到舊 |
 | `transactions-account-filter.json` | `GET /transactions?scope=all&limit=200&offset=0&from=2026-01-01&to=2026-12-31&account_id=<iOS 測試存款>`(上游 ADR 0019) | 200 | 只回這個帳戶的 2 筆(`account_id` 都是存款帳戶) |
@@ -243,3 +243,16 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 **沒錄到的**:`38f0a88` 的「結帳日當天保留未出帳」只在信用卡結帳日當天才看得到差異,錄製當天(2026-10-10)測試帳號的信用卡結帳日是 15 號,所以沒有新的帳戶 fixture;iOS 顯示後端回傳的信用卡數字,不受影響(#243 核對相關文字)。
 
+### 對齊上游 `10b7b03`(上游 ADR 0024)
+
+2026-10-16 對 `2a1a238`～`10b7b03` 的後端錄的。**錄製方式**:出帳作業現在會依底層明細冪等重算卡上的餘額,而測試帳號既有兩張卡的 `balance` 是建立時給的種子值(不是從明細算出來的),直接出帳會把它覆寫掉。所以用暫存卡「iOS 暫存卡」(結帳日 15 號)錄:先記六筆(本期午餐 1,200、本期刷退 300、本期延期 800、上期延入 500、上期已出帳 400、下期消費 150),錄完刪除暫存卡(連同明細),測試帳號回到原狀。沒設結帳日的卡另建一張暫存卡錄,同樣刪除。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `accounts-rollover-preview.json` | `GET /accounts/:id/rollover-preview`,暫存卡,還沒出過帳 | 200 | 頂層 camelCase、明細 snake_case;`is_initially_deferred`(只有「本期延期」是 true,「上期延入」是 false)、`is_prior_deferred`;基準值 `baseNetBilled` 400、`baseNetUnbilled` 150;`StatementPreview.outlook` 維持開窗延期時等於後端的 `netRolledAmount` 1400、`projectedBalance` 1800、`projectedUnbilled` 950 |
+| `accounts-rollover-preview-rolled.json` | 出帳之後再 `GET .../rollover-preview` | 200 | `hasRolledCycle: true`;延期的那筆仍是 `is_initially_deferred: true`;上期延入款已出帳,不在明細裡 |
+| `accounts-rollover-preview-empty.json` | `GET .../rollover-preview`,「iOS 測試小額卡」本期沒有明細 | 200 | `transactions: []`,翻成空清單 |
+| `accounts-rollover-preview-no-statement-day.json` | `GET .../rollover-preview`,沒設結帳日的暫存卡 | 200 | `statementDate`、`prevStatementDate` 是**空字串**,翻成沒有區間;未出帳的消費照常列出 |
+| `accounts-rollover-statement-missing.json` | `POST /accounts/nonexistent-card/rollover-statement` | 404 | 「信用卡不存在」原樣傳遞(預覽的 404 同樣訊息) |
+
+`POST .../rollover-statement` 的 body 是 `{"deferredTxIds": [...]}`(都不延期送空陣列);舊的不帶 body 也能用(後端把它當空陣列),iOS 一律帶。

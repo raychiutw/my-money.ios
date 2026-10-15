@@ -120,7 +120,7 @@ public final class CreditCardDetailModel: Alerting {
         canOperate || !paymentPresets.isEmpty
     }
 
-    /// 有未出帳款、而且能操作這張卡才顯示「出帳作業」。
+    /// 能操作這張卡、而且有結帳日或有款項才顯示「出帳作業」。
     public var showsRollover: Bool {
         canOperate && card.canRollOver
     }
@@ -131,15 +131,9 @@ public final class CreditCardDetailModel: Alerting {
     /// 操作成功時顯示的訊息(後端回傳的原文)。
     public var noticeMessage: String?
 
-    /// 例如「確定要將「卡名」的未出帳款 $3,500 轉入本期已出帳待繳款嗎？」(#56)。
-    public var rolloverConfirmation: String {
-        card.rolloverConfirmation
-    }
-
-    /// 結帳日出帳作業;成功後顯示後端的訊息，並遞增資料版本(詳細頁、帳戶頁和總覽都重新取得)。
-    public func rollOver() async {
-        guard canOperate else { return }
-        if let notice = await commit(dataVersion, { try await repository.rollOverStatement(card.id) }) { noticeMessage = notice }
+    /// 出帳作業的預覽 sheet(上游 ADR 0024):載入這一期的明細、逐筆決定延至下期，確認後才送出。
+    public func makeStatementRollover() -> StatementRolloverModel {
+        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, today: today)
     }
 
     /// 正在校準未出帳;送出期間停用「校準未出帳」。
@@ -207,18 +201,9 @@ public final class CreditCardDetailModel: Alerting {
 }
 
 extension CreditCard {
-    /// 有未出帳款就能做結帳日出帳作業，不看結帳日(web 在 `82d9124` 拿掉了結帳日的條件)。
+    /// 有結帳日、或有任何已出帳或未出帳的款項，就能打開出帳作業(預覽可以重複檢視，出帳過一次按鈕也不會消失;上游 ADR 0024)。
     var canRollOver: Bool {
-        unbilledDebt > .zero
-    }
-
-    /// 出帳作業的確認。web 把「出帳作業」當動詞,iOS 說成「轉入本期已出帳待繳款」(parity 刻意偏離第 41 項)。
-    /// 依結帳區間淨額出帳(上游 ADR 0020):實際轉入多少由後端依結帳日、刷退與延至下期決定，所以不寫金額。
-    var rolloverConfirmation: String {
-        if let statementDay {
-            return "確定要依據「\(name)」的每月結帳日(\(statementDay) 號)，將本期結帳區間內的消費(扣掉刷退，不含延至下期的)轉入本期已出帳待繳款嗎？"
-        }
-        return "確定要將「\(name)」所有未延期的未出帳消費轉入本期已出帳待繳款嗎？"
+        statementDay != nil || unbilledDebt > .zero || billedDebt > .zero
     }
 
     /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。

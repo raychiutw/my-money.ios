@@ -1,1 +1,1 @@
-{"success":true,"data":{"id":"a1d2f913-9872-4868-88de-0e523ca46a3c","balance":13000,"unbilled":0,"message":"帳單出帳作業完成！已轉入已出帳待繳款。"}}
+{"success":true,"data":{"id":"65c410e0-a1a0-4aed-a20b-0c87859d6944","balance":1800,"unbilled":950,"rolledAmount":1400,"totalExpense":1700,"totalRefund":300,"txCount":2,"refundCount":1,"deferredCount":1,"statementDate":"2026-10-15","prevStatementDate":"2026-09-15","message":"帳單出帳作業完成！本期結算 2 筆消費 (扣除刷退 NT$ 300)，淨額 NT$ 1,400 已轉入已出帳待繳款。（另有 1 筆消費已延至下期）"}}

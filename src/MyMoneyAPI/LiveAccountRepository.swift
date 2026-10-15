@@ -41,8 +41,16 @@ public struct LiveAccountRepository: AccountRepository {
         try await client.send("POST", "/accounts/pay-credit-card", body: PaymentBody(payment))
     }
 
-    public func rollOverStatement(_ id: AccountID) async throws -> String {
-        let dto: MessageDTO = try await client.send("POST", "/accounts/\(id.rawValue)/rollover-statement")
+    public func statementPreview(_ id: AccountID) async throws -> StatementPreview {
+        let dto: StatementPreviewDTO = try await client.get("/accounts/\(id.rawValue)/rollover-preview")
+        return try dto.preview()
+    }
+
+    /// 回應還有 `balance`、`unbilled`、`rolledAmount` 等，畫面會重新載入帳戶，只取訊息。
+    public func rollOverStatement(_ id: AccountID, deferring: Set<TransactionID>) async throws -> String {
+        let dto: MessageDTO = try await client.send(
+            "POST", "/accounts/\(id.rawValue)/rollover-statement", body: RolloverBody(deferring: deferring)
+        )
         return dto.message
     }
 
