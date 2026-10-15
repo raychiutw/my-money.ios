@@ -59,7 +59,7 @@ public final class StatementRolloverModel: Submitting, Identifiable {
     /// 依目前選的延期試算的結果;還沒載入時是 `nil`。
     public var outlook: StatementOutlook? { preview?.outlook(deferring: deferredIDs) }
 
-    public var deferredCount: Int { items.filter { deferredIDs.contains($0.id) }.count }
+    public var deferredCount: Int { outlook?.deferredCount ?? 0 }
 
     /// 載入完了，但這一期沒有任何刷卡記錄:沒有東西可以出帳(後端會拒絕)。
     public var isEmptyCycle: Bool { preview != nil && items.isEmpty }

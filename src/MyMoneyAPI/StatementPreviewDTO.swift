@@ -13,58 +13,48 @@ struct StatementPreviewDTO: Decodable {
         let category: String
         let note: String?
         let date: String
-        let deferToNextStatement: Int
-        let isBilled: Int?
-        let isPriorDeferred: Bool?
-        let isInitiallyDeferred: Bool?
+        let isPriorDeferred: Bool
+        let isInitiallyDeferred: Bool
 
         enum CodingKeys: String, CodingKey {
             case id, amount, type, category, note, date
             case isShared = "is_shared"
-            case deferToNextStatement = "defer_to_next_statement"
-            case isBilled = "is_billed"
             case isPriorDeferred = "is_prior_deferred"
             case isInitiallyDeferred = "is_initially_deferred"
         }
     }
 
     /// 沒設結帳日的卡是空字串。
-    let statementDate: String?
-    let prevStatementDate: String?
+    let statementDate: String
+    let prevStatementDate: String
     let baseNetBilled: Decimal
-    let totalRepay: Decimal?
+    let totalRepay: Decimal
     let baseNetUnbilled: Decimal
-    let hasRolledCycle: Bool?
-    let priorDeferredCount: Int?
-    let transactions: [ItemDTO]?
+    let hasRolledCycle: Bool
+    let priorDeferredCount: Int
+    let transactions: [ItemDTO]
 
+    /// 旗標與基準值都必填:prod 已部署(`10b7b03`),少了就是看不懂的回應。不照 web 在舊後端上自己推旗標的備援
+    /// (那是 client 端重算業務規則，parity 第 78 項)。看不懂的明細類型也整份失敗，不默默少一筆:基準值是後端把它算進去的。
     func preview() throws -> StatementPreview {
-        let statement = statementDate.flatMap(CalendarDay.init(iso:))
-        let previous = prevStatementDate.flatMap(CalendarDay.init(iso:))
-        let rolled = hasRolledCycle ?? false
-        let items: [StatementItem] = try (transactions ?? []).compactMap { dto in
+        let items: [StatementItem] = try transactions.map { dto in
             guard let date = CalendarDay(iso: dto.date) else { throw RepositoryError.unreadableResponse }
-            // 後端只回信用卡的消費(expense)與刷退(income);看不懂的類型略過那一筆。
             let kind: StatementItem.Kind
             switch dto.type {
             case "expense": kind = .expense
             case "income": kind = .refund
-            default: return nil
+            default: throw RepositoryError.unreadableResponse
             }
-            // 旗標是後端 `10b7b03` 才加的;舊的回應沒有時照 web 的備援算法自己推:交易日在上一個結帳日(含)之前、還沒出帳的是上期延入，
-            // 首次結算(還沒出過帳)預設納入本期，其餘看是不是標了延至下期。
-            let priorDeferred = dto.isPriorDeferred ?? (previous.map { date <= $0 } == true && (dto.isBilled ?? 0) == 0)
-            let initiallyDeferred = dto.isInitiallyDeferred ?? ((priorDeferred && !rolled) ? false : dto.deferToNextStatement == 1)
             return StatementItem(
                 id: TransactionID(dto.id), kind: kind, amount: Money(dto.amount), date: date,
                 category: TransactionCategory(dto.category), note: dto.note ?? "", isShared: dto.isShared == 1,
-                isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
+                isPriorDeferred: dto.isPriorDeferred, isInitiallyDeferred: dto.isInitiallyDeferred
             )
         }
         return StatementPreview(
-            statementDate: statement, previousStatementDate: previous, items: items,
-            baseNetBilled: Money(baseNetBilled), totalRepay: Money(totalRepay ?? 0), baseNetUnbilled: Money(baseNetUnbilled),
-            hasRolledCycle: rolled, priorDeferredCount: priorDeferredCount ?? 0
+            statementDate: CalendarDay(iso: statementDate), previousStatementDate: CalendarDay(iso: prevStatementDate), items: items,
+            baseNetBilled: Money(baseNetBilled), totalRepay: Money(totalRepay), baseNetUnbilled: Money(baseNetUnbilled),
+            hasRolledCycle: hasRolledCycle, priorDeferredCount: priorDeferredCount
         )
     }
 }

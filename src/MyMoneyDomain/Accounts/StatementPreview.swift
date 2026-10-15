@@ -47,16 +47,15 @@ public struct StatementPreview: Hashable, Sendable {
         let refund = refunds.reduce(Money.zero) { $0 + $1.amount }
         let net = max(expense - refund, .zero)
         let shared = expenses.filter(\.isShared).reduce(Money.zero) { $0 + $1.amount }
-        let deferredNet = items.filter { deferring.contains($0.id) }.reduce(Money.zero) {
-            $1.kind == .expense ? $0 + $1.amount : $0 - $1.amount
-        }
+        let deferred = items.filter { deferring.contains($0.id) }
+        let deferredNet = deferred.reduce(Money.zero) { $1.kind == .expense ? $0 + $1.amount : $0 - $1.amount }
         return StatementOutlook(
             expense: expense, expenseCount: expenses.count, refund: refund, refundCount: refunds.count, net: net,
             sharedDebt: shared, personalDebt: max(net - shared, .zero),
             // 出帳後待繳款用「消費減刷退」(可以是負的)，不是出帳淨額,跟 web 一樣。
             projectedBilled: max(baseNetBilled + (expense - refund) - totalRepay, .zero),
             projectedUnbilled: max(baseNetUnbilled + deferredNet, .zero),
-            deferredCount: items.filter { deferring.contains($0.id) }.count
+            deferredCount: deferred.count
         )
     }
 }

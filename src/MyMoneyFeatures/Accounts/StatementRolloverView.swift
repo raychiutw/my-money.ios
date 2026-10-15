@@ -43,9 +43,11 @@ struct StatementRolloverView: View {
                 }
             }
             .navigationTitle("出帳作業")
+            .interactiveDismissDisabled(model.isSaving)
             .inlineNavigationTitle()
             .toolbar {
-                SheetCloseButton { dismiss() }
+                // 送出中不能關閉:關掉之後看不到結果，也看不到失敗的訊息。
+                SheetCloseButton { if !model.isSaving { dismiss() } }
                 SheetConfirmButton("確認", isDisabled: !model.canConfirm, identifier: "statementRollover.submit") {
                     Task {
                         if let message = await model.submit() {
