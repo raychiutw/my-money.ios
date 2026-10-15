@@ -155,8 +155,8 @@ public final class AccountsModel: Alerting {
     }
 
     /// 出帳作業的預覽 sheet(上游 ADR 0024),跟詳細頁的一樣。
-    public func makeStatementRollover(for card: CreditCard) -> StatementRolloverModel {
-        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, today: today)
+    public func makeStatementRollover(for card: CreditCard, locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
+        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, locale: locale, today: today)
     }
 
     /// 信用卡扣款還款的 sheet(從信用卡精簡列的長按選單打開):扣款帳戶只列出銀行存款帳戶。

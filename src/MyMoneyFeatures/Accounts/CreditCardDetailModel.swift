@@ -132,8 +132,8 @@ public final class CreditCardDetailModel: Alerting {
     public var noticeMessage: String?
 
     /// 出帳作業的預覽 sheet(上游 ADR 0024):載入這一期的明細、逐筆決定延至下期，確認後才送出。
-    public func makeStatementRollover() -> StatementRolloverModel {
-        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, today: today)
+    public func makeStatementRollover(locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
+        StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, locale: locale, today: today)
     }
 
     /// 正在校準未出帳;送出期間停用「校準未出帳」。

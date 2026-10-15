@@ -19,7 +19,7 @@ struct StatementRolloverModelTests {
         CreditCardDetailModel(
             card: card, bankAccounts: [SampleAccounts.savings], loadedVersion: dataVersion.value, scope: .all,
             repository: repository, dataVersion: dataVersion, today: { today }
-        ).makeStatementRollover()
+        ).makeStatementRollover(locale: Locale(identifier: "zh_Hant_TW"))
     }
 
     @Test("打開時載入預覽:延期的集合是開窗時已延至下期的明細;上期延入款預設納入本期(不在延期裡)")
