@@ -290,6 +290,11 @@ public actor InMemoryAccountRepository: AccountRepository {
         failure = error
     }
 
+    /// 之後的請求恢復正常(模擬網路回來)。
+    public func recover() {
+        failure = nil
+    }
+
     /// 換成新的資料(模擬家人在別的裝置上改了資料)。
     public func replace(accounts: [Account], summary: BalanceSummary) {
         storedAccounts = accounts

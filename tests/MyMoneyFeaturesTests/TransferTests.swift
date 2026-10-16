@@ -76,6 +76,27 @@ struct TransferTests {
         #expect(model.toAccountID == SampleAccounts.wallet.id, "轉入被重設了")
     }
 
+    @Test("第一次載入失敗:顯示錯誤、沒有預設帶入;重新載入成功後清掉錯誤，這時才帶入預設(從帳戶捷徑進來的那一側)")
+    func loadFailureThenRetry() async {
+        let repository = InMemoryAccountRepository.sampleWithCash()
+        await repository.fail(with: .rejected("網路不通"))
+        let model = TransferModel(
+            repository: repository, dataVersion: dataVersion, today: { today }, preferredFrom: SampleAccounts.savings.id
+        )
+
+        await model.load()
+        #expect(model.errorMessage == "網路不通")
+        #expect(model.candidates.isEmpty)
+        #expect(model.fromAccountID == nil, "沒載入成功就不該帶入預設")
+
+        await repository.recover()
+        await model.load()
+
+        #expect(model.errorMessage == nil, "重新載入成功後舊的錯誤訊息還在")
+        #expect(model.candidates.count == 2)
+        #expect(model.fromAccountID == SampleAccounts.savings.id)
+    }
+
     @Test("轉入的選項不含已選的轉出帳戶")
     func toCandidatesExcludeFrom() async {
         let model = await loaded(from: SampleAccounts.savings.id)
