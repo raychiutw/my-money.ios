@@ -71,6 +71,7 @@ public final class TransferModel: Submitting {
             errorMessage = error.localizedDescription
             return
         }
+        errorMessage = nil
         // 只有打開的那一次帶入預設:從帳戶清單頁返回時 `.task` 會再跑，不能把使用者剛選的帳戶洗掉。
         guard !didApplyPreferred else { return }
         didApplyPreferred = true
