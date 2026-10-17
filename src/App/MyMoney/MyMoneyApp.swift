@@ -63,13 +63,19 @@ struct MyMoneyApp: App {
             let holdsHousehold = arguments.contains("-uiTestingHoldHousehold")
             // 每次查詢先等 30 秒(不用 Gate:切 tab 取消一個等待者會放行所有等待者,別的畫面就提早載入完成)。
             let hold = Duration.seconds(30)
+            // `-uiTestingCardNoStatementDay`:多一張沒設結帳日的信用卡(出帳作業要先請使用者設定結帳日)。
+            let extraCards = SampleAccounts.extraAccounts(noStatementDayCard: arguments.contains("-uiTestingCardNoStatementDay"))
             let accounts = includesFamily
                 ? InMemoryAccountRepository(
-                    accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
-                    summary: SampleAccounts.summary, loadDelay: holdsAccounts ? hold : nil,
+                    accounts: SampleAccounts.all + extraCards + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
+                    summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
+                    loadDelay: holdsAccounts ? hold : nil, loadDelayStartsAfter: holdAfter ?? 0
+                )
+                : InMemoryAccountRepository(
+                    accounts: SampleAccounts.all + extraCards, summary: SampleAccounts.summary,
+                    statementPreviews: SampleAccounts.statementPreviews, loadDelay: holdsAccounts ? hold : nil,
                     loadDelayStartsAfter: holdAfter ?? 0
                 )
-                : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil, loadDelayStartsAfter: holdAfter ?? 0)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             // `-uiTestingLongRows`:列版面最長的內容組合(公帳三態、長帳戶名稱、長記帳人、長標題的系統紀錄,#246)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(

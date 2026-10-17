@@ -131,6 +131,9 @@ public final class CreditCardDetailModel: Alerting {
     /// 操作成功時顯示的訊息(後端回傳的原文)。
     public var noticeMessage: String?
 
+    /// 這張卡沒設結帳日:按「出帳作業」不開預覽，改請使用者先設定(上游 ADR 0030)。
+    public var rolloverNeedsStatementDay: Bool { card.statementDay == nil }
+
     /// 出帳作業的預覽 sheet(上游 ADR 0024):載入這一期的明細、逐筆決定延至下期，確認後才送出。
     public func makeStatementRollover(locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
         StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, locale: locale, today: today)

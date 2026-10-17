@@ -163,6 +163,9 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 出帳預覽被查詢的次數。
     public private(set) var previewFetchCount = 0
 
+    /// 後端(上游 ADR 0030)對沒設結帳日的卡一律回 400。
+    private static let missingStatementDay = RepositoryError.rejected("此信用卡尚未設定每月結帳日，請先至帳戶設定填寫結帳日方可進行出帳作業")
+
     public func statementPreview(_ id: AccountID) async throws -> StatementPreview {
         await gate?.pass()
         try checkCancellationIfGated()
@@ -171,8 +174,9 @@ public actor InMemoryAccountRepository: AccountRepository {
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
             throw RepositoryError.rejected("信用卡不存在")
         }
+        guard card.statementDay != nil else { throw Self.missingStatementDay }
         return statementPreviews[id] ?? StatementPreview(
-            statementDate: nil, previousStatementDate: nil, items: [],
+            startDate: CalendarDay(year: 2026, month: 9, day: 16), endDate: CalendarDay(year: 2026, month: 10, day: 15), items: [],
             baseNetBilled: card.billedDebt, totalRepay: .zero, baseNetUnbilled: card.unbilledDebt
         )
     }
@@ -185,6 +189,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
             throw RepositoryError.rejected("信用卡不存在")
         }
+        guard card.statementDay != nil else { throw Self.missingStatementDay }
         guard let preview = statementPreviews[id], !preview.items.isEmpty || !deferring.isEmpty else {
             throw RepositoryError.rejected("目前結帳週期內無任何刷卡記錄")
         }
@@ -195,15 +200,16 @@ public actor InMemoryAccountRepository: AccountRepository {
             $0.id == id ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled)) : $0
         }
         statementPreviews[id] = StatementPreview(
-            statementDate: preview.statementDate, previousStatementDate: preview.previousStatementDate,
+            startDate: preview.startDate, endDate: preview.endDate, isStatementPending: preview.isStatementPending,
             items: preview.items.map {
                 StatementItem(
                     id: $0.id, kind: $0.kind, amount: $0.amount, date: $0.date, category: $0.category, note: $0.note,
-                    isShared: $0.isShared, isPriorDeferred: false, isInitiallyDeferred: deferring.contains($0.id)
+                    isShared: $0.isShared, householdSettlement: $0.householdSettlement,
+                    isPriorDeferred: $0.isPriorDeferred, isInitiallyDeferred: deferring.contains($0.id)
                 )
             },
             baseNetBilled: preview.baseNetBilled, totalRepay: preview.totalRepay, baseNetUnbilled: preview.baseNetUnbilled,
-            hasRolledCycle: true, priorDeferredCount: 0
+            baseUnbilledCount: preview.baseUnbilledCount, hasRolledCycle: true, priorDeferredCount: 0
         )
         let deferred = outlook.deferredCount > 0 ? "（另有 \(outlook.deferredCount) 筆消費已延至下期）" : ""
         // 後端 `79af1e9` 訊息的簡化版(沒有刷退時不帶扣除刷退的段落)。
@@ -388,33 +394,48 @@ public enum SampleAccounts {
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
 
+    /// UI 測試的啟動旗標帶進來的額外帳戶(App 不直接依賴 Domain,所以由這裡組好)。
+    public static func extraAccounts(noStatementDayCard: Bool) -> [Account] {
+        noStatementDayCard ? [.creditCard(Self.noStatementDayCard)] : []
+    }
+
+    /// 沒設結帳日的信用卡(`-uiTestingCardNoStatementDay`):有款項所以看得到「出帳作業」，但後端不接受(上游 ADR 0030)。
+    public static let noStatementDayCard = CreditCard(
+        id: AccountID("sample-no-statement-day-card"), name: "iOS 無結帳日卡", colorHex: "#A8D8EA", billedDebt: Money(100),
+        unbilledDebt: .zero, creditLimit: nil, statementDay: nil, paymentDueDay: nil, ownerID: me
+    )
+
     private static func item(
         _ id: String, _ kind: StatementItem.Kind, _ amount: Int, _ day: (Int, Int), _ category: String, _ note: String,
-        priorDeferred: Bool = false, initiallyDeferred: Bool = false
+        shared: HouseholdSettlement? = nil, priorDeferred: Bool = false, initiallyDeferred: Bool = false
     ) -> StatementItem {
         StatementItem(
             id: TransactionID(id), kind: kind, amount: Money(Decimal(amount)),
             date: CalendarDay(year: 2026, month: day.0, day: day.1), category: TransactionCategory(category), note: note,
-            isShared: false, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
+            isShared: shared != nil, householdSettlement: shared, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
         )
     }
 
-    /// 「iOS 測試信用卡」(結帳日 15 號)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500。
-    /// 基準值讓合計對得上卡上的數字:已出帳 12,000、未出帳 3,500(1,300 + 1,200 − 300 + 800 + 500)。
+    /// 「iOS 測試信用卡」(結帳日 15 號,結算 9/16～10/15)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500,
+    /// 加兩筆公帳:家庭晚餐 600(待報銷)、家庭交通 400(家庭已報銷)。基準值讓合計對得上卡上的數字:已出帳 12,000、
+    /// 未出帳 3,500(300 + 1,200 − 300 + 800 + 500 + 600 + 400)。開窗時:出帳淨額 2,400、公帳 600、私帳 1,800。
     public static let cardPreview = StatementPreview(
-        statementDate: CalendarDay(year: 2026, month: 10, day: 15), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 15),
+        startDate: CalendarDay(year: 2026, month: 9, day: 16), endDate: CalendarDay(year: 2026, month: 10, day: 15),
         items: [
             item("sample-stmt-deferred", .expense, 800, (10, 12), "購物", "本期延期", initiallyDeferred: true),
             item("sample-stmt-refund", .refund, 300, (10, 11), "購物", "本期刷退"),
             item("sample-stmt-lunch", .expense, 1200, (10, 10), "餐飲", "本期午餐"),
+            item("sample-stmt-family-dinner", .expense, 600, (10, 9), "餐飲", "家庭晚餐", shared: .pending),
+            item("sample-stmt-family-traffic", .expense, 400, (10, 8), "交通", "家庭交通", shared: .reimbursed),
             item("sample-stmt-prior", .expense, 500, (9, 10), "購物", "上期延入", priorDeferred: true),
         ],
-        baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(1300), hasRolledCycle: false, priorDeferredCount: 1
+        baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(300), baseUnbilledCount: 1,
+        hasRolledCycle: false, priorDeferredCount: 1
     )
 
     /// 「iOS 測試小額卡」(結帳日 1 號):兩筆消費，沒有延期、沒有上期延入。已出帳 8,000、未出帳 5,000。
     public static let lowLimitCardPreview = StatementPreview(
-        statementDate: CalendarDay(year: 2026, month: 10, day: 1), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 1),
+        startDate: CalendarDay(year: 2026, month: 9, day: 2), endDate: CalendarDay(year: 2026, month: 10, day: 1),
         items: [
             item("sample-low-fuel", .expense, 3000, (9, 30), "交通", "加油"),
             item("sample-low-dinner", .expense, 2000, (9, 28), "餐飲", "晚餐"),

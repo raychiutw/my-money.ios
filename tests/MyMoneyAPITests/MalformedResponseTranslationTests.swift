@@ -33,15 +33,28 @@ struct MalformedResponseTranslationTests {
     func statementItemType() async throws {
         try reply("accounts-rollover-preview.json", replacing: "\"type\":\"income\"", with: "\"type\":\"fee\"")
         await #expect(throws: RepositoryError.unreadableResponse) {
-            try await LiveAccountRepository(client: client).statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+            try await LiveAccountRepository(client: client).statementPreview(AccountID("27638439-d433-460f-b179-acdb8b513f93"))
+        }
+    }
+
+    @Test("出帳預覽:區間起日格式錯、狀態看不懂都整份看不懂")
+    func statementCycle() async throws {
+        let card = AccountID("27638439-d433-460f-b179-acdb8b513f93")
+        try reply("accounts-rollover-preview.json", replacing: "\"startDate\":\"2026-08-26\"", with: "\"startDate\":\"8/26\"")
+        await #expect(throws: RepositoryError.unreadableResponse) {
+            try await LiveAccountRepository(client: client).statementPreview(card)
+        }
+        try reply("accounts-rollover-preview.json", replacing: "\"statusLabel\":\"before_statement\"", with: "\"statusLabel\":\"someday\"")
+        await #expect(throws: RepositoryError.unreadableResponse) {
+            try await LiveAccountRepository(client: client).statementPreview(card)
         }
     }
 
     @Test("出帳預覽:明細的日期格式錯")
     func statementItemDate() async throws {
-        try reply("accounts-rollover-preview.json", replacing: "\"date\":\"2026-10-12\"", with: "\"date\":\"10/12\"")
+        try reply("accounts-rollover-preview.json", replacing: "\"date\":\"2026-09-20\"", with: "\"date\":\"10/12\"")
         await #expect(throws: RepositoryError.unreadableResponse) {
-            try await LiveAccountRepository(client: client).statementPreview(AccountID("65c410e0-a1a0-4aed-a20b-0c87859d6944"))
+            try await LiveAccountRepository(client: client).statementPreview(AccountID("27638439-d433-460f-b179-acdb8b513f93"))
         }
     }
 

@@ -154,6 +154,9 @@ public final class AccountsModel: Alerting {
         return canOperate(card) ? card.paymentPresets : []
     }
 
+    /// 這張卡沒設結帳日:長按選單的「出帳作業」不開預覽，改請使用者先設定(上游 ADR 0030)。
+    public func rolloverNeedsStatementDay(for card: CreditCard) -> Bool { card.statementDay == nil }
+
     /// 出帳作業的預覽 sheet(上游 ADR 0024),跟詳細頁的一樣。
     public func makeStatementRollover(for card: CreditCard, locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
         StatementRolloverModel(card: card, repository: repository, dataVersion: dataVersion, locale: locale, today: today)

@@ -256,3 +256,38 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-rollover-statement-missing.json` | `POST /accounts/nonexistent-card/rollover-statement` | 404 | 「信用卡不存在」原樣傳遞(預覽的 404 同樣訊息) |
 
 `POST .../rollover-statement` 的 body 是 `{"deferredTxIds": [...]}`(都不延期送空陣列);舊的不帶 body 也能用(後端把它當空陣列),iOS 一律帶。
+
+### 對齊上游 `fe90634`(#257、#258、#259)
+
+2026-10-17 對 `a4c0f4b`～`fe90634`(ADR 0025～0030)的後端錄的。**一次家庭情境涵蓋三張票**:測試帳號暫時建立家庭「iOS 測試家庭」,建三張暫存卡(「iOS 暫存卡25」結帳日 25 號、「iOS 暫存卡15」結帳日 15 號、「iOS 暫存卡無結帳日」),錄的當天是 2026-10-17(25 號的結帳日還沒到、15 號的已過)。卡 25 記:家庭晚餐 600(公帳)、家庭交通 400(公帳)、個人購物 300、公帳刷退 100、上期延入 250(8/20,標延期)、結帳日之後的消費 150(9/30)。錄製順序:預覽 → 帳戶清單 → 家庭代墊統計 → 報銷家庭晚餐(從「iOS 家庭共同基金」撥 600 給「iOS 測試存款」)→ 標記家庭交通為已額外處理 → 解除報銷(兩種)→ 卡 25 出帳(延期上期延入款)→ 再錄預覽與帳戶清單 → 共同基金繳家庭代墊 500。錄完刪三張暫存卡、離開家庭,「iOS 測試存款」「iOS 家庭共同基金」的餘額用帳戶更新還原到 94,300 與 6,900,其餘帳戶逐項核對與錄製前相同。**無法還原的**:報銷與繳款產生的「公帳代墊報銷」「信用卡還款」系統紀錄(後端禁止刪除),測試帳號的收支比錄製前多幾筆,跟先前的報銷 fixture 一樣。
+
+**後端行為備忘**(照實錄,不是 iOS 要修的):出帳之後再開預覽,上期延入款(`上期延入` 那筆)仍是 `is_initially_deferred: false`、`is_prior_deferred: true`(ADR 0030 §2:上期延入一律預設列入);預覽的 GET 會補寫 `billed_statement_date`(不是純讀取);出帳回應的 `unbilled` 與之後帳戶清單的 `unbilled` 不一致(前者含延期的上期延入款 250,後者 150),iOS 以重新載入的帳戶清單為準。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `accounts-rollover-preview.json`(取代 0024 的錄製) | `GET /accounts/:id/rollover-preview`,卡 25,還沒出過帳 | 200 | `startDate`/`endDate`(8/26～9/25,結帳日未到結算上一期)、`statusLabel: before_statement`、`baseUnbilledCount`、明細的 `reimbursement_id`;試算在開窗時等於後端的 `netRolledAmount` 1450、`sharedDebt` 900、`personalDebt` 550 |
+| `accounts-rollover-preview-after-statement.json` | 同上,卡 15 | 200 | 結帳日已過(9/16～10/15)、`after_statement`;延期的 500 開窗就是延期 |
+| `accounts-rollover-preview-rolled.json` | 卡 25 出帳(延期上期延入款)之後 | 200 | `hasRolledCycle: true`、區間不變;上期延入款仍預設納入 |
+| `accounts-rollover-preview-reimbursed.json` | 報銷家庭晚餐之後 | 200 | 該筆 `reimbursement_id` 是撥款流水 ID;`sharedDebt` 300、`personalDebt` 1150 |
+| `accounts-rollover-preview-external-settled.json` | 標記家庭交通為已額外處理之後 | 200 | `reimbursement_id: "EXTERNAL_SETTLED"`;`sharedDebt` 0 |
+| `accounts-rollover-preview-empty.json` | 「iOS 測試小額卡」本期沒有明細 | 200 | `transactions: []` |
+| `accounts-rollover-preview-no-statement-day.json` | 沒設結帳日的暫存卡(取代先前 200 的錄製) | **400** | 「此信用卡尚未設定每月結帳日…」原樣傳遞 |
+| `accounts-rollover-statement.json` | `POST .../rollover-statement`,卡 25,body 延期上期延入款 | 200 | 回應多了 `startDate`、`endDate`、`displayText`、`statusLabel`;訊息原樣傳遞 |
+| `accounts-rollover-statement-none.json` | 對本期沒有刷卡記錄的「iOS 測試信用卡」出帳 | 400 | 「目前結帳週期內無任何刷卡記錄」 |
+| `accounts-rollover-statement-no-statement-day.json` | 對沒設結帳日的卡出帳 | 400 | 同預覽的訊息 |
+| `accounts-list-debt-matrix.json` | `GET /accounts?scope=all`,卡 25 出帳之後 | 200 | 信用卡多四個欄位 `billed_shared_debt`(900)、`billed_personal_debt`(300)、`unbilled_shared_debt`(0)、`unbilled_personal_debt`(150) |
+| `accounts-list-debt-matrix-after-shared-payment.json` | 共同基金繳家庭代墊 500 之後 | 200 | 先沖已出帳公帳:`billed_shared_debt` 900 → 400 |
+| `accounts-pay-credit-card-shared-from-fund.json` | `POST /accounts/pay-credit-card`,共同基金繳卡 25 公帳 500 | 200 | 回應多 `bank_balance`、`card_balance`、`card_unbilled` |
+| `households-advances-refund-and-surplus.json` | `GET /households/advances`(報銷前) | 200 | 公帳刷退(`type: "income"`)以負項進待報銷;`total_reimbursed` 220 但 `linked_reimbursed` 0 → `unlinked_reimbursed` 220(溢撥預收);刷卡代墊帶 `is_billed`、`defer_to_next_statement` |
+| `households-advances-with-settled-items.json` | 報銷家庭晚餐之後 | 200 | `settled_items` 多一筆(`reimbursement_id` 是撥款流水);`linked_reimbursed` 600、待報銷 550 |
+| `households-advances-external-settled.json` | 標記家庭交通為已額外處理之後 | 200 | `settled_items` 有 `reimbursement_id: "EXTERNAL_SETTLED"`;待報銷 150;`linked_reimbursed` 仍 600(不計入已額外處理) |
+| `households-advances-after-unlink.json` | 兩筆都解除報銷之後 | 200 | 都回到待報銷;`linked_reimbursed` 0、`unlinked_reimbursed` 820 |
+| `households-advances-mark-settled.json` | `POST /households/advances/mark-settled`,勾選家庭交通 | 200 | `{message, count}`(注意:沒有 `success: true` 以外的 `data` 包裝以外欄位,見測試) |
+| `households-advances-mark-settled-empty.json` | `advance_ids: []` | 400 | 「請至少勾選一筆…」 |
+| `households-advances-mark-settled-no-household.json` | 沒有家庭時 | 400 | 「尚未建立或加入家庭群組」 |
+| `households-advance-unlink.json` | `POST /households/advances/:id/unlink`,已額外處理的家庭交通 | 200 | 只回 `{success, message}`,沒有 `data` |
+| `households-advance-unlink-not-settled.json` | 再解除一次 | 400 | 「該筆收支尚未報銷或非已結清項目」 |
+| `households-advance-unlink-missing.json` | 不存在的 ID | 404 | 「找不到該筆收支明細」 |
+| `households-advance-unlink-no-household.json` | 沒有家庭時 | 400 | 「尚未建立或加入家庭群組」 |
+
+**舊 fixture 不重錄**:`accounts-list*.json` 等沒有新欄位的回應,解碼要能容忍(視為 0)。他人私卡脫敏的四欄位回應需要第二個帳號,測試帳號錄不到,另外**手寫**一份(見 #258 的測試說明)。

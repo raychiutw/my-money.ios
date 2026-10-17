@@ -75,6 +75,18 @@ struct CreditCardDetailTests {
         #expect(!detail(bare).showsRollover)
     }
 
+    @Test("沒設結帳日的卡按「出帳作業」要先請使用者設定結帳日(上游 ADR 0030:後端對沒結帳日的卡回 400)，不開預覽")
+    func rolloverNeedsStatementDay() {
+        let bare = CreditCard(
+            id: AccountID("bare"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(500), unbilledDebt: .zero,
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+        #expect(detail(bare).showsRollover, "有款項就顯示按鈕")
+        #expect(detail(bare).rolloverNeedsStatementDay)
+        #expect(!detail(SampleAccounts.card).rolloverNeedsStatementDay)
+        #expect(StatementRolloverModel.missingStatementDayMessage == "請先設定每月結帳日，才能做出帳作業")
+    }
+
     @Test("出帳作業的預覽 sheet:確認後送出，資料版本遞增;載入的是這張卡的預覽")
     func rollOver() async {
         let repository = InMemoryAccountRepository.sample()
