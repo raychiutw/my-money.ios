@@ -260,6 +260,8 @@ struct NumberCard: View {
     var caption: String?
     /// VoiceOver 念的整句。
     let spokenText: String
+    /// 金額下面的補充小字(例如活存帳戶的待扣卡費);警示的用紅色。沒有就不多出一行。
+    var notes: [CardNote] = []
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -286,6 +288,13 @@ struct NumberCard: View {
                     amountText
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+            }
+            ForEach(notes, id: \.text) { note in
+                Text(note.text)
+                    .font(.footnote)
+                    .foregroundStyle(note.isWarning ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
+                    // 小字不截斷:大字級折行。
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -322,4 +331,10 @@ struct NumberCardGrid<Content: View>: View {
     var body: some View {
         AdaptiveColumns(maxColumns: 2, spacing: 12) { _ in content() }
     }
+}
+
+/// 帳戶卡片金額下面的一行補充小字(`NumberCard.notes`)。
+struct CardNote: Hashable {
+    let text: String
+    var isWarning = false
 }

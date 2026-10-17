@@ -113,6 +113,11 @@ public final class AccountsModel: Alerting {
         return advances.reduce(Money.zero) { $0 + max($1.pendingReimbursement, .zero) }
     }
 
+    /// 這個活存帳戶的待扣卡費預覽(上游 `3d09060`);沒有卡綁在它身上時是 `nil`。只算目前帳戶範圍載入的卡,脫敏的他人私卡不計入。
+    public func debitPreview(for bank: BankAccount) -> BankDebitPreview? {
+        BankDebitPreview.make(for: bank, cards: creditCards.filter { !isMasked($0) })
+    }
+
     /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
     public func canModify(_ account: Account) -> Bool {
         permissions?.current.canModify(account) ?? true

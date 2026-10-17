@@ -215,6 +215,33 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).waitForExistence(timeout: 3), "帶入之後沒有顯示可用餘額")
     }
 
+    /// 活存帳戶的待扣卡費預覽(上游 `3d09060`):卡綁定「iOS 測試存款」(餘額 50,000),帳戶頁那一列多出待扣卡費與扣後餘額
+    /// (已出帳 12,000、含未出帳 15,500、扣已出帳後 38,000);把卡改成「不綁定」之後回到帳戶頁，那兩行消失。
+    @MainActor
+    func testBankRowShowsBoundCardsDebitPreview() throws {
+        let app = launchSignedIn(flags: ["-uiTestingCardBoundBank"])
+
+        let preview = element(in: app, labelContaining: "待扣卡費 1 張，已出帳 12,000 元，含未出帳 15,500 元，扣已出帳後餘額 38,000 元")
+        for _ in 0..<6 where !preview.exists { app.swipeUp() }
+        XCTAssertTrue(preview.exists, "活存帳戶那一列沒有待扣卡費預覽")
+        XCTAssertFalse(element(in: app, labelContaining: "存款不足").exists, "餘額夠扣,不該有不足的警示")
+        for _ in 0..<6 { app.swipeDown() }
+
+        openCard("sample-card", named: "iOS 測試信用卡", in: app)
+        app.navigationBars.buttons["cardDetail.edit"].tap()
+        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "預設扣款帳戶")).firstMatch
+        for _ in 0..<6 where !picker.exists { app.swipeUp() }
+        picker.tap()
+        app.buttons["不綁定"].tap()
+        for _ in 0..<6 where !app.buttons["accountEditor.save"].isHittable { app.swipeDown() }
+        app.buttons["accountEditor.save"].tap()
+        XCTAssertTrue(app.buttons["accountEditor.save"].waitForNonExistence(timeout: 5))
+
+        app.navigationBars.buttons["BackButton"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["accounts.card.sample-card"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(in: app, labelContaining: "待扣卡費").exists, "改成不綁定之後活存帳戶那一列還有待扣卡費")
+    }
+
     /// 沒設結帳日的卡(上游 ADR 0030:後端回 400):按「出帳作業」不開預覽，說明要先設定結帳日，並可前往編輯。
     @MainActor
     func testRolloverWithoutStatementDayAsksToSetIt() throws {
