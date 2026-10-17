@@ -8,17 +8,32 @@ public struct HouseholdAdvance: Hashable, Sendable, Identifiable {
     public let memberName: String
     public let totalAdvanced: Money
     public let totalReimbursed: Money
-    /// 待報銷 = 累計代墊 − 已報銷，最小是 0。
+    /// 待報銷:待報銷明細的淨額加總(上游 ADR 0027;支出減公帳退款)。**可以是負的**:退款比待報銷的支出多，叫「公帳待抵扣」。
     public let pendingReimbursement: Money
     public let advanceItems: [AdvanceItem]
     public let reimbursementItems: [ReimbursementItem]
+    /// 已結清明細:已報銷(對得到是哪一次撥款)或已額外處理的代墊。
+    public let settledItems: [SettledAdvanceItem]
+    /// 累計撥款裡有對應到明細的部分(共同基金撥款結清的明細加總;已額外處理的不算)。
+    public let linkedReimbursed: Money
+    /// 累計撥款裡沒對應到任何明細的部分:家庭基金溢撥／預收款，不會吞掉之後新增的代墊。
+    public let unlinkedReimbursed: Money
     /// 撥款報銷時可以收款的帳戶(後端 `b1382f4`):這位成員個人私帳的銀行存款帳戶和現金錢包。
     public let receivingAccounts: [ReceivingAccount]
 
     public var id: UserID { memberID }
 
-    /// 待報銷是 0:「已全數結清」。
+    /// 待報銷不大於 0:不能再撥款報銷。
     public var isSettled: Bool { pendingReimbursement <= .zero }
+
+    /// 待報銷是負的:公帳退款比待報銷的支出多,留待之後的代墊自動沖抵(上游 ADR 0029),這時不能撥款報銷。
+    public var isOffsetPending: Bool { pendingReimbursement < .zero }
+
+    /// 結清這筆已結清明細的那一次撥款(報銷明細裡的那一筆);已額外處理的、或對不到時是 `nil`。
+    public func reimbursementItem(settling settled: SettledAdvanceItem) -> ReimbursementItem? {
+        guard case .reimbursed(let id) = settled.settlement else { return nil }
+        return reimbursementItems.first { $0.id == id }
+    }
 
     public init(
         memberID: UserID,
@@ -28,8 +43,14 @@ public struct HouseholdAdvance: Hashable, Sendable, Identifiable {
         pendingReimbursement: Money,
         advanceItems: [AdvanceItem],
         reimbursementItems: [ReimbursementItem],
-        receivingAccounts: [ReceivingAccount] = []
+        receivingAccounts: [ReceivingAccount] = [],
+        settledItems: [SettledAdvanceItem] = [],
+        linkedReimbursed: Money = .zero,
+        unlinkedReimbursed: Money = .zero
     ) {
+        self.settledItems = settledItems
+        self.linkedReimbursed = linkedReimbursed
+        self.unlinkedReimbursed = unlinkedReimbursed
         self.memberID = memberID
         self.memberName = memberName
         self.totalAdvanced = totalAdvanced
@@ -57,7 +78,33 @@ public struct ReceivingAccount: Hashable, Sendable, Identifiable {
     }
 }
 
-/// 代墊明細的一筆：成員用個人帳戶付的家庭公帳支出。
+/// 代墊明細的方向:成員用個人帳戶付的公帳支出,或個人帳戶收到的公帳退款／刷退(上游 ADR 0027:退款以負項抵扣待報銷總額)。
+public enum AdvanceKind: Hashable, Sendable {
+    case expense
+    case refund
+}
+
+/// 一筆已結清的代墊明細怎麼結清的。
+public enum AdvanceSettlement: Hashable, Sendable {
+    /// 由某一次共同基金撥款報銷結清(報銷明細的 ID)。
+    case reimbursed(TransactionID)
+    /// 已額外處理(上游 `fe90634`):移出待報銷，沒有撥款流水、不動共同基金。
+    case handledSeparately
+}
+
+public struct SettledAdvanceItem: Hashable, Sendable, Identifiable {
+    public let item: AdvanceItem
+    public let settlement: AdvanceSettlement
+
+    public var id: TransactionID { item.id }
+
+    public init(item: AdvanceItem, settlement: AdvanceSettlement) {
+        self.item = item
+        self.settlement = settlement
+    }
+}
+
+/// 代墊明細的一筆：成員用個人帳戶付的家庭公帳支出(或收到的公帳退款)。
 public struct AdvanceItem: Hashable, Sendable, Identifiable {
     public let id: TransactionID
     public let date: CalendarDay
@@ -70,11 +117,18 @@ public struct AdvanceItem: Hashable, Sendable, Identifiable {
     public let accountKind: AccountKind?
     /// 記錄時間(後端 `created_at`,#207);舊回應沒有時是 `nil`。
     public let recordedAt: Date?
+    /// 支出或公帳退款;舊的回應沒有類型時是支出。
+    public let kind: AdvanceKind
+    /// 信用卡出帳狀態(上游 ADR 0029):只有扣款帳戶是信用卡時有;舊的回應沒有旗標時是未出帳。
+    public let billing: BillingStatus?
 
     public init(
         id: TransactionID, date: CalendarDay, category: TransactionCategory, note: String, amount: Money,
-        accountName: String, accountKind: AccountKind?, recordedAt: Date? = nil
+        accountName: String, accountKind: AccountKind?, recordedAt: Date? = nil,
+        kind: AdvanceKind = .expense, billing: BillingStatus? = nil
     ) {
+        self.kind = kind
+        self.billing = billing
         self.recordedAt = recordedAt
         self.id = id
         self.date = date

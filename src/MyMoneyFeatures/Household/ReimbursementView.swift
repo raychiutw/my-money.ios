@@ -38,13 +38,14 @@ struct ReimbursementView: View {
         Toggle(isOn: Binding(get: { model.isSelected(item.id) }, set: { _ in model.toggle(item.id) })) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)")
-                    Text(model.itemDateText(item))
+                    Text(item.displayTitle)
+                    Text([model.itemDateText(item), item.billingText].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                AmountText(.outflow(item.amount))
+                // 公帳退款是負項(綠色),抵扣待報銷總額(上游 ADR 0027)。
+                AmountText(item.kind == .refund ? .inflow(item.amount) : .outflow(item.amount))
                     .monospacedDigit()
             }
         }

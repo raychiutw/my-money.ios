@@ -282,12 +282,15 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `households-advances-with-settled-items.json` | 報銷家庭晚餐之後 | 200 | `settled_items` 多一筆(`reimbursement_id` 是撥款流水);`linked_reimbursed` 600、待報銷 550 |
 | `households-advances-external-settled.json` | 標記家庭交通為已額外處理之後 | 200 | `settled_items` 有 `reimbursement_id: "EXTERNAL_SETTLED"`;待報銷 150;`linked_reimbursed` 仍 600(不計入已額外處理) |
 | `households-advances-after-unlink.json` | 兩筆都解除報銷之後 | 200 | 都回到待報銷;`linked_reimbursed` 0、`unlinked_reimbursed` 820 |
-| `households-advances-mark-settled.json` | `POST /households/advances/mark-settled`,勾選家庭交通 | 200 | `{message, count}`(注意:沒有 `success: true` 以外的 `data` 包裝以外欄位,見測試) |
+| `households-advances-mark-settled.json` | `POST /households/advances/mark-settled`,勾選家庭交通 | 200 | `{success, data: {message, count}}`(訊息在 `data.message`;解除報銷的訊息則在最上層 `message`) |
 | `households-advances-mark-settled-empty.json` | `advance_ids: []` | 400 | 「請至少勾選一筆…」 |
 | `households-advances-mark-settled-no-household.json` | 沒有家庭時 | 400 | 「尚未建立或加入家庭群組」 |
 | `households-advance-unlink.json` | `POST /households/advances/:id/unlink`,已額外處理的家庭交通 | 200 | 只回 `{success, message}`,沒有 `data` |
 | `households-advance-unlink-not-settled.json` | 再解除一次 | 400 | 「該筆收支尚未報銷或非已結清項目」 |
 | `households-advance-unlink-missing.json` | 不存在的 ID | 404 | 「找不到該筆收支明細」 |
 | `households-advance-unlink-no-household.json` | 沒有家庭時 | 400 | 「尚未建立或加入家庭群組」 |
+
+| `accounts-list-household-masked-card-debt-matrix.json` | **手寫**(不是 prod 實錄):他人私卡脫敏後的回應,依上游 `fe90634` 的 `backend/src/handlers/accounts.ts` 組成——`balance` 是已出帳公帳、`unbilled` 是未出帳公帳、私帳欄位 0、`credit_limit: null`、`is_masked: true`(拿卡 25 的回應改欄位) | — | 脫敏的卡直接用 `balance`/`unbilled` 當已出帳公帳/未出帳公帳,不需特別翻譯。測試帳號沒有第二個帳號,錄不到 |
+| `transactions-list-shared-states-external-settled.json` | `GET /transactions?scope=all&limit=200&offset=0`(同一個時點,標記家庭交通為已額外處理之後) | 200 | 收支明細的 `reimbursement_id` 是 `EXTERNAL_SETTLED` → 「家庭公帳・已額外處理」;撥款流水 ID 仍是已撥款 |
 
 **舊 fixture 不重錄**:`accounts-list*.json` 等沒有新欄位的回應,解碼要能容忍(視為 0)。他人私卡脫敏的四欄位回應需要第二個帳號,測試帳號錄不到,另外**手寫**一份(見 #258 的測試說明)。

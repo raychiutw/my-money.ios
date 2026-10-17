@@ -15,7 +15,8 @@ public struct AdvanceGroup: Identifiable, Equatable {
     public let selectedCount: Int
 
     public var title: String { id.name }
-    public var subtotal: Money { items.reduce(.zero) { $0 + $1.amount } }
+    /// 小計是淨額:公帳退款算負項。
+    public var subtotal: Money { items.reduce(.zero) { $1.kind == .refund ? $0 - $1.amount : $0 + $1.amount } }
     public var isFullySelected: Bool { selectedCount == items.count }
 }
 
@@ -86,7 +87,7 @@ public final class ReimbursementModel: Submitting {
     }
 
     public var canSubmit: Bool {
-        !receivingAccounts.isEmpty && !isSaving && (!usesItemSelection || !selectedIDs.isEmpty)
+        !receivingAccounts.isEmpty && !isSaving && (!usesItemSelection || (!selectedIDs.isEmpty && selectedAmount > .zero))
     }
 
     // MARK: 逐筆勾選
@@ -113,8 +114,9 @@ public final class ReimbursementModel: Submitting {
     public var hasMultipleGroups: Bool { groups.count > 1 }
 
     /// 勾選明細的加總:報銷金額跟著它走。
+    /// 勾選明細的淨額:支出減公帳退款(上游 ADR 0027)。
     public var selectedAmount: Money {
-        advance.advanceItems.filter { selectedIDs.contains($0.id) }.reduce(.zero) { $0 + $1.amount }
+        advance.advanceItems.filter { selectedIDs.contains($0.id) }.reduce(.zero) { $1.kind == .refund ? $0 - $1.amount : $0 + $1.amount }
     }
 
     public func isSelected(_ id: TransactionID) -> Bool { selectedIDs.contains(id) }

@@ -93,7 +93,10 @@ struct MyMoneyApp: App {
                 ? InMemoryForecastRepository.overdraftSampleForToday()
                 : InMemoryForecastRepository.sampleForToday()
             // 建立家庭之後，範例帳號有一筆用個人現金錢包墊付的晚餐 250,小美待報銷 600(撥款報銷的 UI 測試)。
-            let advances = [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
+            // `-uiTestingAdvanceStates`:各種狀態都有的代墊(公帳退款負項、信用卡出帳標示、已結清與已額外處理、溢撥、公帳待抵扣;上游 ADR 0027、0029)。
+            let advances = arguments.contains("-uiTestingAdvanceStates")
+                ? [InMemoryHouseholdRepository.myAdvanceWithStates, InMemoryHouseholdRepository.meiOffsetAdvance]
+                : [InMemoryHouseholdRepository.myPendingAdvance, InMemoryHouseholdRepository.meiPendingAdvance]
             // 截圖巡覽要看已加入家庭的畫面，又不能在大字級打字建立家庭:啟動時就已加入(巡覽再用「離開家庭」拍建立與加入)。
             // `-uiTestingMemberRole`:範例帳號是一般成員(小美才是家庭管理員)，驗證邀請與撥款報銷的權限防呆(#132)。
             let household = arguments.contains("-uiTestingJoinedHousehold") || arguments.contains("-uiTestingMemberRole")

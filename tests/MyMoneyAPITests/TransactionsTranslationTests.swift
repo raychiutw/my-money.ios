@@ -87,6 +87,17 @@ struct TransactionsTranslationTests {
         #expect(privateRows.allSatisfy { $0.householdPayment == nil })
     }
 
+    @Test("上游 `fe90634`:reimbursement_id 是 EXTERNAL_SETTLED 的公帳代墊是「已額外處理」(第四態);撥款流水 ID 仍是已撥款")
+    func listDecodesHandledSeparately() async throws {
+        try stub.reply(status: 200, fixture: "transactions-list-shared-states-external-settled.json")
+
+        let transactions = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 200, offset: 0)
+
+        #expect(transactions.first { $0.note == "家庭交通" }?.householdPayment == .advanceHandledSeparately)
+        #expect(transactions.first { $0.note == "家庭晚餐" }?.householdPayment == .advanceReimbursed)
+        #expect(transactions.first { $0.note == "全家晚餐" }?.householdPayment == .advancePending)
+    }
+
     @Test("舊的回應沒有 account_is_joint:公帳的狀態未知(nil)，不誤判成待報銷")
     func legacyResponsesHaveNoPaymentState() async throws {
         try stub.reply(status: 200, fixture: "transactions-list.json")
