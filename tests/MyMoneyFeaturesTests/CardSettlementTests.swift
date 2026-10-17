@@ -193,7 +193,7 @@ struct CardPaymentTests {
         #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
-    @Test("扣款帳戶一律是空的:不論活存帳戶有沒有餘額，都不預選")
+    @Test("沒綁定預設扣款帳戶時扣款帳戶是空的:不論活存帳戶有沒有餘額，都不預選(綁定時帶入,見 PaymentAccountPrefillTests)")
     func bankAccountIsNeverPreselected() {
         #expect(payment(card(), banks: [empty]).bankAccountID == nil)
         #expect(payment(card(), banks: [salary, joint]).bankAccountID == nil)

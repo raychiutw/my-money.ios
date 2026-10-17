@@ -91,8 +91,10 @@ public final class CardPaymentModel: Submitting {
         self.repository = repository
         self.dataVersion = dataVersion
         self.isMaskedCard = isMaskedCard
-        // 扣款帳戶是空的:不預設「第一個餘額大於 0 的銀行存款帳戶」,要使用者自己選(上游 ADR 0011，#112)。
-        bankAccountID = nil
+        // 扣款帳戶:不預設「第一個餘額大於 0 的銀行存款帳戶」,要使用者自己選(上游 ADR 0011，#112)。
+        // **唯一的例外**:這張卡綁定了預設扣款帳戶(使用者自己設定的,上游 `3d09060`),而且它在這次可選的清單裡,就帶入它——
+        // 帶入使用者自己的設定不算擅自預選。他人的私卡(脫敏)不帶入(綁定是對方的私人設定);綁定的帳戶看不到、已刪除也維持空白。
+        bankAccountID = isMaskedCard ? nil : card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
         // 他人的私卡不管從哪個入口打開，都只繳家庭代墊。
         let preset = isMaskedCard ? Preset.shared : preset
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {

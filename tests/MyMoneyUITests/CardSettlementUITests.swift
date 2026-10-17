@@ -196,6 +196,25 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertFalse(field("預設扣款帳戶", value: "iOS 測試存款", in: app).exists, "改成不綁定之後詳細頁還有預設扣款帳戶")
     }
 
+    /// 繳款預設帶入預設扣款帳戶(上游 `3d09060`):卡綁定「iOS 測試存款」,從「全額結清」打開繳款,扣款帳戶已帶入、可用餘額那一列已出現。
+    /// (沒綁定時維持空白、顯示佔位文字,見 `testRolloverAndPayment`。)
+    @MainActor
+    func testPaymentPrefillsTheDefaultPaymentAccount() throws {
+        let app = launchSignedIn(flags: ["-uiTestingCardBoundBank"])
+        openCard("sample-card", named: "iOS 測試信用卡", in: app)
+        let pay = app.buttons["cardDetail.pay"]
+        reveal(pay, in: app)
+        pay.tap()
+        app.buttons["全額結清"].tap()
+        XCTAssertTrue(app.textFields["cardPayment.amount"].waitForExistence(timeout: 3), "沒有打開繳款")
+
+        let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
+        XCTAssertTrue(bankRow.waitForExistence(timeout: 3), "沒有「扣款帳戶」列")
+        XCTAssertTrue(bankRow.displayedText.contains("iOS 測試存款"), "沒有帶入預設扣款帳戶:\(bankRow.displayedText)")
+        XCTAssertFalse(bankRow.displayedText.contains("請選擇扣款銀行"), "還顯示佔位文字")
+        XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).waitForExistence(timeout: 3), "帶入之後沒有顯示可用餘額")
+    }
+
     /// 沒設結帳日的卡(上游 ADR 0030:後端回 400):按「出帳作業」不開預覽，說明要先設定結帳日，並可前往編輯。
     @MainActor
     func testRolloverWithoutStatementDayAsksToSetIt() throws {
