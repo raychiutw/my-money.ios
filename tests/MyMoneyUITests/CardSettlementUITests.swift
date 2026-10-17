@@ -16,6 +16,7 @@ final class CardSettlementUITests: XCTestCase {
         // 信用卡待繳總額 = 已出帳待繳款 12,000 + 未出帳款 3,500;剩餘額度 = 信用額度 100,000 − 15,500。
         for (label, value) in [
             ("信用卡待繳總額", "$15,500"), ("已出帳待繳款", "$12,000"), ("未出帳款", "$3,500"),
+            ("已出帳公帳", "$2,200"), ("已出帳私帳", "$9,800"), ("未出帳公帳", "$800"), ("未出帳私帳", "$2,700"),
             ("家庭代墊公帳", "$3,000"), ("個人私帳消費", "$12,500"),
             ("信用額度", "$100,000"), ("剩餘額度", "$84,500"), ("結帳日", "每月 15 日"), ("繳款日", "每月 5 日"),
         ] {
@@ -63,12 +64,20 @@ final class CardSettlementUITests: XCTestCase {
         payShared.tap()
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "「繳款」選單沒有打開信用卡扣款還款")
-        XCTAssertEqual(amount.value as? String, "3,000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
+        // 預設填已出帳公帳(上游 ADR 0025):共同基金只繳當期帳單,不提早繳未出帳的;可以快速切換成結清全部代墊公帳。
+        XCTAssertEqual(amount.value as? String, "2,200", "「繳家庭代墊」沒有預設填已出帳公帳")
+        let billedOnly = app.buttons["僅繳當期已出帳公帳 $2,200"], settleAll = app.buttons["結清全部代墊公帳 $3,000"]
+        XCTAssertTrue(billedOnly.exists && settleAll.exists, "沒有快速切換的兩個選項")
+        XCTAssertTrue(billedOnly.isSelected, "預設的選項不是「僅繳當期已出帳公帳」")
+        settleAll.tap()
+        XCTAssertEqual(amount.value as? String, "3,000", "切換成結清全部代墊公帳後金額欄沒有跟著變")
         // 歸屬是內嵌選擇列(2 列，點一下就選)，表單裡沒有分段控制(#65、ADR-0004、#90)。
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
+        for _ in 0..<5 where !form.buttons["個人私帳"].exists { app.swipeUp() }
         XCTAssertTrue(form.buttons["個人私帳"].exists, "信用卡扣款還款的歸屬缺少「私帳」這一列")
         XCTAssertTrue(form.buttons["家庭公帳"].isSelected, "「繳家庭代墊」的歸屬不是公帳")
         XCTAssertEqual(form.segmentedControls.count, 0, "信用卡扣款還款的表單裡還有分段控制")
+        for _ in 0..<5 { app.swipeDown() }
         // 扣款帳戶是空的(上游 ADR 0011、#112):顯示佔位文字，選了扣款銀行之後才另起一列顯示可用餘額。
         let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
         XCTAssertTrue(bankRow.waitForExistence(timeout: 3), "信用卡扣款還款沒有「扣款帳戶」列")
@@ -142,8 +151,8 @@ final class CardSettlementUITests: XCTestCase {
         // 關閉:沒有送出，卡上的數字不變。
         app.buttons["關閉"].tap()
         XCTAssertTrue(app.buttons["statementRollover.submit"].waitForNonExistence(timeout: 3))
-        XCTAssertTrue(field("已出帳待繳款", value: "$12,000", in: app).exists, "關閉預覽後卡上的已出帳待繳款變了")
-        XCTAssertTrue(field("未出帳款", value: "$3,500", in: app).exists, "關閉預覽後卡上的未出帳款變了")
+        XCTAssertTrue(findField("已出帳待繳款", value: "$12,000", in: app).exists, "關閉預覽後卡上的已出帳待繳款變了")
+        XCTAssertTrue(findField("未出帳款", value: "$3,500", in: app).exists, "關閉預覽後卡上的未出帳款變了")
 
         // 重開:延期不保留，回到開窗時的狀態;再延午餐、確認。
         reveal(rollover, in: app)
@@ -159,8 +168,8 @@ final class CardSettlementUITests: XCTestCase {
             "沒有顯示出帳作業的結果"
         )
         app.buttons["好"].tap()
-        XCTAssertTrue(field("未出帳款", value: "$2,300", in: app).waitForExistence(timeout: 5), "出帳後的未出帳款不對")
-        XCTAssertTrue(field("已出帳待繳款", value: "$13,200", in: app).exists, "出帳後的已出帳待繳款不對")
+        XCTAssertTrue(findField("未出帳款", value: "$2,300", in: app).exists, "出帳後的未出帳款不對")
+        XCTAssertTrue(findField("已出帳待繳款", value: "$13,200", in: app).exists, "出帳後的已出帳待繳款不對")
     }
 
     /// 沒設結帳日的卡(上游 ADR 0030:後端回 400):按「出帳作業」不開預覽，說明要先設定結帳日，並可前往編輯。
@@ -232,6 +241,15 @@ final class CardSettlementUITests: XCTestCase {
             if element.exists, element.isHittable, !tabBar.exists || element.frame.maxY <= tabBar.frame.minY { return }
             app.swipeUp()
         }
+    }
+
+    /// 詳細頁比一個畫面長,列是惰性渲染的:先往上捲再往下捲，找到那一列。
+    @MainActor
+    private func findField(_ label: String, value: String, in app: XCUIApplication) -> XCUIElement {
+        let element = field(label, value: value, in: app)
+        for _ in 0..<6 where !element.exists { app.swipeDown() }
+        for _ in 0..<6 where !element.exists { app.swipeUp() }
+        return element
     }
 
     /// 詳細頁的一個欄位(`LabeledContent`):VoiceOver 把標籤和值合成一個元素，例如「信用卡待繳總額、$15,500」。

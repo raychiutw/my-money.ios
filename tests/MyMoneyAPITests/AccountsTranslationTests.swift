@@ -26,6 +26,67 @@ struct AccountsTranslationTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
     }
 
+    @Test("信用卡的欠款矩陣(上游 ADR 0025):已出帳公帳／私帳、未出帳公帳／私帳四個欄位;總公帳、總私帳仍是兩個欄位的加總")
+    func creditCardDebtMatrix() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list-debt-matrix.json")
+
+        let accounts = try await repository.accounts()
+
+        guard case .creditCard(let card)? = accounts.first(where: { $0.name == "iOS 暫存卡25" }) else {
+            Issue.record("沒有「iOS 暫存卡25」")
+            return
+        }
+        // 卡 25 出帳之後(延期上期延入款):已出帳 1200 = 公帳 900(晚餐 600 + 交通 400 − 刷退 100)+ 私帳 300;未出帳 150(私帳)。
+        #expect(card.billedDebt == Money(1200))
+        #expect(card.debtMatrix == DebtMatrix(
+            billedShared: Money(900), billedPersonal: Money(300), unbilledShared: .zero, unbilledPersonal: Money(150)
+        ))
+        #expect(card.sharedDebt == Money(900))
+        #expect(card.personalDebt == Money(450))
+    }
+
+    @Test("共同基金繳家庭代墊之後,先沖已出帳公帳:已出帳公帳 900 → 400，私帳不變")
+    func sharedPaymentOffsetsBilledSharedFirst() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list-debt-matrix-after-shared-payment.json")
+
+        let card = try #require(try await repository.accounts().compactMap { account -> CreditCard? in
+            if case .creditCard(let card) = account, card.name == "iOS 暫存卡25" { card } else { nil }
+        }.first)
+
+        #expect(card.billedDebt == Money(700))
+        #expect(card.debtMatrix?.billedShared == Money(400))
+        #expect(card.debtMatrix?.billedPersonal == Money(300))
+    }
+
+    @Test("舊的回應沒有四個欄位:矩陣是 nil,不是 0(畫面不顯示拆解)")
+    func debtMatrixIsAbsentInOldResponses() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list.json")
+
+        let cards = try await repository.accounts().compactMap { account -> CreditCard? in
+            if case .creditCard(let card) = account { card } else { nil }
+        }
+
+        #expect(!cards.isEmpty)
+        #expect(cards.allSatisfy { $0.debtMatrix == nil })
+    }
+
+    @Test("他人私卡脫敏(手寫,依上游 accounts.ts):balance 就是已出帳公帳、unbilled 是未出帳公帳，私帳欄位 0")
+    func maskedCardRevealsOnlyTheSharedParts() async throws {
+        try stub.reply(status: 200, fixture: "accounts-list-household-masked-card-debt-matrix.json")
+
+        guard case .creditCard(let card)? = try await repository.accounts(scope: .household).first else {
+            Issue.record("沒有信用卡")
+            return
+        }
+
+        #expect(card.isMasked)
+        #expect(card.creditLimit == nil)
+        #expect(card.billedDebt == Money(900), "已出帳公帳")
+        #expect(card.unbilledDebt == Money(250), "未出帳公帳")
+        #expect(card.debtMatrix?.billedPersonal == .zero)
+        #expect(card.debtMatrix?.unbilledPersonal == .zero)
+    }
+
     @Test("帳戶檢視範圍：家庭共同基金帶 scope=household,只回傳歸屬家庭共同基金的帳戶")
     func householdScopeListsJointAccounts() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-household.json")

@@ -148,8 +148,22 @@ public actor InMemoryAccountRepository: AccountRepository {
                 // 後端是用最近的支出估算公帳、私帳各占多少;這裡簡化成:公帳的還款沖公帳，私帳的還款沖私帳。
                 let shared = payment.isShared ? max(card.sharedDebt - payment.amount, .zero) : card.sharedDebt
                 let personal = payment.isShared ? card.personalDebt : max(card.personalDebt - payment.amount, .zero)
+                // 欠款矩陣(上游 ADR 0025):共同基金的還款先沖已出帳公帳、溢出再沖未出帳公帳;私帳同理。
+                let matrix = card.debtMatrix.map { m -> DebtMatrix in
+                    func offset(_ billed: Money, _ unbilled: Money, by amount: Money) -> (Money, Money) {
+                        let newBilled = max(billed - amount, .zero)
+                        return (newBilled, max(unbilled - (amount - (billed - newBilled)), .zero))
+                    }
+                    if payment.isShared {
+                        let (b, u) = offset(m.billedShared, m.unbilledShared, by: payment.amount)
+                        return DebtMatrix(billedShared: b, billedPersonal: m.billedPersonal, unbilledShared: u, unbilledPersonal: m.unbilledPersonal)
+                    }
+                    let (b, u) = offset(m.billedPersonal, m.unbilledPersonal, by: payment.amount)
+                    return DebtMatrix(billedShared: m.billedShared, billedPersonal: b, unbilledShared: m.unbilledShared, unbilledPersonal: u)
+                }
                 return .creditCard(Self.card(
-                    card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero), shared: shared, personal: personal
+                    card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero), shared: shared, personal: personal,
+                    matrix: matrix
                 ))
             default:
                 return account
@@ -197,7 +211,9 @@ public actor InMemoryAccountRepository: AccountRepository {
         rolledOverIDs.append(id)
         rolledOverDeferrals.append(deferring)
         storedAccounts = storedAccounts.map {
-            $0.id == id ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled)) : $0
+            $0.id == id
+                ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled, keepsMatrix: false))
+                : $0
         }
         statementPreviews[id] = StatementPreview(
             startDate: preview.startDate, endDate: preview.endDate, isStatementPending: preview.isStatementPending,
@@ -231,12 +247,17 @@ public actor InMemoryAccountRepository: AccountRepository {
         return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.backendText)"
     }
 
-    private static func card(_ card: CreditCard, billed: Money, unbilled: Money, shared: Money? = nil, personal: Money? = nil) -> CreditCard {
+    /// `debtMatrix`:預設沿用原本的;出帳作業之後後端會重算,這裡拿不到明細,就拿掉(畫面回到沒有矩陣的版型)。
+    private static func card(
+        _ card: CreditCard, billed: Money, unbilled: Money, shared: Money? = nil, personal: Money? = nil,
+        keepsMatrix: Bool = true, matrix: DebtMatrix? = nil
+    ) -> CreditCard {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
             sharedDebt: shared ?? card.sharedDebt, personalDebt: personal ?? card.personalDebt, isJointFund: card.isJointFund,
-            ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked
+            ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked,
+            debtMatrix: matrix ?? (keepsMatrix ? card.debtMatrix : nil)
         )
     }
 
@@ -376,7 +397,11 @@ public enum SampleAccounts {
         paymentDueDay: 5,
         sharedDebt: Money(3000),
         personalDebt: Money(12500),
-        ownerID: me
+        ownerID: me,
+        // 欠款矩陣:已出帳 12,000 = 公帳 2,200 + 私帳 9,800;未出帳 3,500 = 公帳 800 + 私帳 2,700(合計公帳 3,000、私帳 12,500)。
+        debtMatrix: DebtMatrix(
+            billedShared: Money(2200), billedPersonal: Money(9800), unbilledShared: Money(800), unbilledPersonal: Money(2700)
+        )
     )
 
     /// 剩餘額度 7,000,低於 10,000 的警示門檻。

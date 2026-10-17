@@ -24,6 +24,33 @@ public final class CardPaymentModel: Submitting {
         bankAccounts.first { $0.id == bankAccountID }?.balance
     }
     public var amountText: String
+
+    /// 「繳家庭代墊」的兩種金額(上游 ADR 0025):只繳當期已出帳的公帳(預設,免得共同基金提早繳到還沒出帳的消費),或結清全部代墊公帳。
+    public enum SharedChoice: Hashable, Sendable {
+        case billedOnly
+        case all
+    }
+
+    /// 可以切換的選項:繳家庭代墊、有已出帳公帳、而且它比全部公帳少時才有(兩個金額一樣就不出現)。
+    public let sharedChoices: [SharedChoice]
+
+    /// 目前選的金額;切換時金額欄跟著帶入(仍可手動改)。
+    public var sharedChoice: SharedChoice = .billedOnly {
+        didSet {
+            guard oldValue != sharedChoice, sharedChoices.contains(sharedChoice) else { return }
+            amountText = Self.amountText(sharedChoice == .billedOnly ? card.defaultSharedPayment : card.sharedDebt)
+        }
+    }
+
+    public func sharedChoiceTitle(_ choice: SharedChoice) -> String {
+        switch choice {
+        case .billedOnly: "僅繳當期已出帳公帳 \(card.defaultSharedPayment.formatted())"
+        case .all: "結清全部代墊公帳 \(card.sharedDebt.formatted())"
+        }
+    }
+
+    private static func amountText(_ amount: Money) -> String { amount > .zero ? "\(amount.amount)" : "" }
+
     public var date: CalendarDay
     public var note: String
     public var isShared: Bool
@@ -69,11 +96,12 @@ public final class CardPaymentModel: Submitting {
         // 他人的私卡不管從哪個入口打開，都只繳家庭代墊。
         let preset = isMaskedCard ? Preset.shared : preset
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
-        case .shared: (card.sharedDebt, true, "家庭公帳代墊")
+        case .shared: (card.defaultSharedPayment, true, "家庭公帳代墊")
         case .personal: (card.personalDebt, false, "個人私帳")
         case .full: (card.totalDue, true, "全額")
         }
-        amountText = amount > .zero ? "\(amount.amount)" : ""
+        amountText = Self.amountText(amount)
+        sharedChoices = preset == .shared && card.hasSharedPaymentChoice ? [.billedOnly, .all] : []
         date = today()
         // 照上游 `97f4789` 的預設備註(W:Accounts.tsx@97f4789:226):半形括號，括號前有一個空格。
         note = "扣繳【\(card.name)】卡費 (\(kind))"

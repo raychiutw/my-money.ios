@@ -198,6 +198,11 @@ private struct AccountDTO: Decodable {
     /// 欠款公私拆解，只有信用卡帳戶有。
     let sharedDebt: Decimal?
     let personalDebt: Decimal?
+    /// 欠款雙層矩陣(上游 ADR 0025,`a4c0f4b` 起);舊的回應沒有，四個欄位都有才算有。
+    let billedSharedDebt: Decimal?
+    let billedPersonalDebt: Decimal?
+    let unbilledSharedDebt: Decimal?
+    let unbilledPersonalDebt: Decimal?
     /// 擁有者的名稱。
     let ownerName: String?
     /// 他人的個人信用卡在公帳範圍經過脫敏(上游 ADR 0015);沒有這個欄位時是 `nil`。
@@ -210,10 +215,22 @@ private struct AccountDTO: Decodable {
         case userID = "user_id"
         case sharedDebt = "shared_debt"
         case personalDebt = "personal_debt"
+        case billedSharedDebt = "billed_shared_debt"
+        case billedPersonalDebt = "billed_personal_debt"
+        case unbilledSharedDebt = "unbilled_shared_debt"
+        case unbilledPersonalDebt = "unbilled_personal_debt"
         case creditLimit = "credit_limit"
         case statementDay = "statement_day"
         case paymentDueDay = "payment_due_day"
         case isJoint = "is_joint"
+    }
+
+    private var debtMatrix: DebtMatrix? {
+        guard let billedSharedDebt, let billedPersonalDebt, let unbilledSharedDebt, let unbilledPersonalDebt else { return nil }
+        return DebtMatrix(
+            billedShared: Money(billedSharedDebt), billedPersonal: Money(billedPersonalDebt),
+            unbilledShared: Money(unbilledSharedDebt), unbilledPersonal: Money(unbilledPersonalDebt)
+        )
     }
 
     /// 不認得的類型是 `nil`,由呼叫端略過。
@@ -248,7 +265,8 @@ private struct AccountDTO: Decodable {
                 isJointFund: isJoint == 1,
                 ownerID: userID.map(UserID.init),
                 ownerName: ownerName,
-                isMasked: isMasked?.value ?? false
+                isMasked: isMasked?.value ?? false,
+                debtMatrix: debtMatrix
             ))
         default:
             return nil
