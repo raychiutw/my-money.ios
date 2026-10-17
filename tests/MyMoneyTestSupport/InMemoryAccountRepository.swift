@@ -12,6 +12,10 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// UI 測試的骨架屏要停留夠久(#204):每次查詢先等這麼久。不用 `Gate`——任何一個等待者被取消(切 tab)
     /// 都會放行所有等待者,別的畫面的載入就提早回來了。
     private let loadDelay: Duration?
+    /// 前幾次 `accounts()` 查詢不延遲,從第 N+1 次起才套用 `loadDelay`(`-uiTestingHoldAccountsAfter`):
+    /// 帳戶頁已載入、表單內才載入選項的情境(#255)用得到;預設 0 = 每一次都延遲。
+    private let loadDelayStartsAfter: Int
+    private var accountsCallsStarted = 0
 
     /// 新增過的內容，依送出順序。
     public private(set) var createdDrafts: [AccountDraft] = []
@@ -27,8 +31,9 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     public init(
         accounts: [Account], summary: BalanceSummary, statementPreviews: [AccountID: StatementPreview] = [:],
-        gate: Gate? = nil, loadDelay: Duration? = nil
+        gate: Gate? = nil, loadDelay: Duration? = nil, loadDelayStartsAfter: Int = 0
     ) {
+        self.loadDelayStartsAfter = loadDelayStartsAfter
         storedAccounts = accounts
         self.summary = summary
         self.statementPreviews = statementPreviews
@@ -46,7 +51,9 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):公帳範圍只留歸屬公帳的，加上有家庭代墊欠款的個人信用卡;私帳範圍只留私帳。
     public func accounts(scope: AccountScope) async throws -> [Account] {
-        if let loadDelay { try await Task.sleep(for: loadDelay) }
+        let call = accountsCallsStarted
+        accountsCallsStarted += 1
+        if let loadDelay, call >= loadDelayStartsAfter { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         fetchCount += 1
@@ -66,7 +73,7 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
     public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
-        if let loadDelay { try await Task.sleep(for: loadDelay) }
+        if let loadDelay, loadDelayStartsAfter == 0 { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         requestedSummaryScopes.append(scope)
@@ -311,10 +318,12 @@ extension Money {
 
 extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個活存帳戶、兩張信用卡帳戶。
-    public static func sample(gate: Gate? = nil, loadDelay: Duration? = nil) -> InMemoryAccountRepository {
+    public static func sample(
+        gate: Gate? = nil, loadDelay: Duration? = nil, loadDelayStartsAfter: Int = 0
+    ) -> InMemoryAccountRepository {
         InMemoryAccountRepository(
             accounts: SampleAccounts.all, summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
-            gate: gate, loadDelay: loadDelay
+            gate: gate, loadDelay: loadDelay, loadDelayStartsAfter: loadDelayStartsAfter
         )
     }
 

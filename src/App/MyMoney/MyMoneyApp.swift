@@ -57,16 +57,19 @@ struct MyMoneyApp: App {
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
             // `-uiTestingHoldOverview`:帳戶查詢停 30 秒才放行(登入要打字,啟動後十幾秒才進到總覽),總覽的骨架屏停留夠久,UI 測試才量得到(#201)。
             // `-uiTestingHoldHousehold`:家庭查詢同樣停住(家庭頁骨架,#204)。
-            let holdsAccounts = arguments.contains("-uiTestingHoldOverview")
+            // `-uiTestingHoldAccountsAfter N`:前 N 次帳戶查詢照常,第 N+1 次起才停住——帳戶頁已載入、表單內才載入選項的情境(#255)。
+            let holdAfter = UserDefaults.standard.string(forKey: "uiTestingHoldAccountsAfter").flatMap(Int.init)
+            let holdsAccounts = arguments.contains("-uiTestingHoldOverview") || holdAfter != nil
             let holdsHousehold = arguments.contains("-uiTestingHoldHousehold")
             // 每次查詢先等 30 秒(不用 Gate:切 tab 取消一個等待者會放行所有等待者,別的畫面就提早載入完成)。
             let hold = Duration.seconds(30)
             let accounts = includesFamily
                 ? InMemoryAccountRepository(
                     accounts: SampleAccounts.all + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
-                    summary: SampleAccounts.summary, loadDelay: holdsAccounts ? hold : nil
+                    summary: SampleAccounts.summary, loadDelay: holdsAccounts ? hold : nil,
+                    loadDelayStartsAfter: holdAfter ?? 0
                 )
-                : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil)
+                : InMemoryAccountRepository.sample(loadDelay: holdsAccounts ? hold : nil, loadDelayStartsAfter: holdAfter ?? 0)
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             // `-uiTestingLongRows`:列版面最長的內容組合(公帳三態、長帳戶名稱、長記帳人、長標題的系統紀錄,#246)。
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
