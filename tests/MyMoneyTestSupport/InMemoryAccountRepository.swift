@@ -94,7 +94,7 @@ public actor InMemoryAccountRepository: AccountRepository {
     public func update(_ id: AccountID, with draft: AccountDraft) async throws {
         if let failure { throw failure }
         updatedDrafts[id] = draft
-        storedAccounts = storedAccounts.map { $0.id == id ? Self.account(id, from: draft, banks: bankAccounts) : $0 }
+        storedAccounts = storedAccounts.map { $0.id == id ? Self.account(id, from: draft, banks: bankAccounts, existing: $0) : $0 }
     }
 
     public func delete(_ id: AccountID) async throws {
@@ -104,18 +104,24 @@ public actor InMemoryAccountRepository: AccountRepository {
     }
 
     /// 後端建立或更新後的資產帳戶(不重算資金指標)。
-    private static func account(_ id: AccountID, from draft: AccountDraft, banks: [BankAccount]) -> Account {
+    private static func account(_ id: AccountID, from draft: AccountDraft, banks: [BankAccount], existing: Account? = nil) -> Account {
         switch draft {
         case .cash(let wallet):
-            .cash(CashWallet(
+            return .cash(CashWallet(
                 id: id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance, isJointFund: wallet.isJointFund
             ))
         case .bank(let bank):
-            .bank(BankAccount(
+            return .bank(BankAccount(
                 id: id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance, isJointFund: bank.isJointFund
             ))
         case .creditCard(let card):
-            .creditCard(CreditCard(
+            // 跟後端一樣:沒動(`.unchanged`)保留原值,清除是 nil,新增時沒動就是沒綁定。
+            let boundID: AccountID? = switch card.paymentAccount {
+            case .unchanged: if case .creditCard(let old)? = existing { old.paymentAccountID } else { nil }
+            case .none: nil
+            case .bank(let bankID): bankID
+            }
+            return .creditCard(CreditCard(
                 id: id,
                 name: card.name,
                 colorHex: card.colorHex,
@@ -125,9 +131,9 @@ public actor InMemoryAccountRepository: AccountRepository {
                 statementDay: card.statementDay,
                 paymentDueDay: card.paymentDueDay,
                 isJointFund: card.isJointFund,
-                paymentAccountID: card.paymentAccountID,
+                paymentAccountID: boundID,
                 // 後端用 ID 對帳戶表取名稱(對不到是 null)。
-                paymentAccountName: card.paymentAccountID.flatMap { id in banks.first { $0.id == id }?.name }
+                paymentAccountName: boundID.flatMap { id in banks.first { $0.id == id }?.name }
             ))
         }
     }

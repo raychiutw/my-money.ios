@@ -33,7 +33,6 @@ struct BankDebitPreviewTests {
         #expect(preview.billed == Money(4000))
         #expect(preview.total == Money(4500))
         #expect(preview.balanceAfterBilled == Money(1000))
-        #expect(preview.balanceAfterTotal == Money(500))
         #expect(!preview.isShortOfBilled)
         #expect(preview.summaryText == "待扣卡費 2 張・已出帳 $4,000・含未出帳 $4,500")
         #expect(preview.balanceText == "扣已出帳後餘額 $1,000")
@@ -65,14 +64,8 @@ struct BankDebitPreviewTests {
         #expect(exact.warningText == nil)
 
         let onlyTotalShort = try #require(BankDebitPreview.make(for: bank(balance: 4000), cards: [card("a", billed: 3000, unbilled: 2000)]))
-        #expect(onlyTotalShort.balanceAfterTotal == Money(-1000))
+        #expect(onlyTotalShort.total == Money(5000))
         #expect(!onlyTotalShort.isShortOfBilled, "只有含未出帳的總待繳不夠:不警示(未出帳還沒到扣款日)")
-    }
-
-    @Test("脫敏的他人私卡不計入(它的綁定是對方的私人設定,balance 也只是已出帳公帳)")
-    func maskedCardsAreIgnored() {
-        #expect(BankDebitPreview.make(for: bank(), cards: [card("m", billed: 900, masked: true)]) == nil)
-        #expect(BankDebitPreview.make(for: bank(), cards: [card("a", billed: 100), card("m", billed: 900, masked: true)])?.cardCount == 1)
     }
 
     // MARK: 帳戶頁

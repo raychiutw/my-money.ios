@@ -333,8 +333,13 @@ struct NumberCardGrid<Content: View>: View {
     }
 }
 
-/// 帳戶卡片金額下面的一行補充小字(`NumberCard.notes`)。
-struct CardNote: Hashable {
-    let text: String
-    var isWarning = false
+/// 帳戶卡片金額下面的一行補充小字(`NumberCard.notes`、總覽帳戶卡的 `detailNotes`);警示的用紅色。
+public struct CardNote: Hashable, Sendable {
+    public let text: String
+    public var isWarning = false
+
+    public init(text: String, isWarning: Bool = false) {
+        self.text = text
+        self.isWarning = isWarning
+    }
 }

@@ -31,7 +31,17 @@ public final class AccountEditorModel: Submitting {
     public var paymentDueDay: Int?
 
     /// 信用卡的預設扣款帳戶(選填,上游 `3d09060`):繳款時預設帶入。`nil` 是「不綁定」。
-    public var paymentAccountID: AccountID?
+    /// 綁定的帳戶不在選項裡(已刪除、這個範圍看不到)時顯示成不綁定,但**使用者沒動它就不送這個欄位**(後端保留原值)。
+    public var paymentAccountID: AccountID? {
+        get { storedPaymentAccountID }
+        set {
+            storedPaymentAccountID = newValue
+            didChangePaymentAccount = true
+        }
+    }
+
+    private var storedPaymentAccountID: AccountID?
+    @ObservationIgnored private var didChangePaymentAccount = false
 
     /// 預設扣款帳戶的選項:目前帳戶範圍的活存帳戶。
     public let paymentAccountOptions: [BankAccount]
@@ -128,7 +138,7 @@ public final class AccountEditorModel: Submitting {
             paymentDueDay = card.paymentDueDay
             isJointFund = card.isJointFund
             // 帶入原本的綁定,只改別的欄位儲存才不會把它清掉;綁定的活存帳戶不在選項裡(已刪除、或這個範圍看不到)就當作沒綁定。
-            paymentAccountID = card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
+            storedPaymentAccountID = card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
         }
     }
 
@@ -172,9 +182,15 @@ public final class AccountEditorModel: Submitting {
                 statementDay: statementDay,
                 paymentDueDay: paymentDueDay,
                 isJointFund: isJointFund,
-                paymentAccountID: paymentAccountID
+                paymentAccount: paymentAccountSetting
             ))
         }
+    }
+
+    /// 編輯時使用者沒動過就是 `.unchanged`;新增、或動過:選了帳戶是 `.bank`,選「不綁定」是 `.none`(明確的 null)。
+    private var paymentAccountSetting: PaymentAccountSetting {
+        if editingID != nil, !didChangePaymentAccount { return .unchanged }
+        return storedPaymentAccountID.map(PaymentAccountSetting.bank) ?? .none
     }
 
     /// 新增時各類型的預設值(web 的 handleOpenAdd)。web 預填的金額「0」在 iOS 是 placeholder,
@@ -187,7 +203,7 @@ public final class AccountEditorModel: Submitting {
             creditLimitText = ""
             statementDay = nil
             paymentDueDay = nil
-            paymentAccountID = nil
+            storedPaymentAccountID = nil
         case .creditCard:
             creditLimitText = "100000"
             statementDay = 15

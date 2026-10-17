@@ -123,7 +123,8 @@ struct AccountEditorTests {
             unbilledDebt: Money(300),
             creditLimit: nil,
             statementDay: 15,
-            paymentDueDay: 5
+            paymentDueDay: 5,
+            paymentAccount: .none  // 新增時沒選預設扣款帳戶:明確的「不綁定」
         ))])
     }
 
@@ -315,7 +316,7 @@ struct AccountEditorTests {
             Issue.record("沒有送出編輯")
             return
         }
-        #expect(draft.paymentAccountID == savings.id, "只改名稱不能把綁定清掉")
+        #expect(draft.paymentAccount == .unchanged, "只改名稱:沒動過綁定,不送這個欄位(後端保留原值)")
     }
 
     @Test("更換與清除預設扣款帳戶:送出的內容跟著變")
@@ -326,17 +327,59 @@ struct AccountEditorTests {
         editor.paymentAccountID = otherBank.id
         #expect(await editor.save())
         guard case .creditCard(let changed)? = await repository.updatedDrafts[AccountID("card-1")] else { return }
-        #expect(changed.paymentAccountID == otherBank.id)
+        #expect(changed.paymentAccount == .bank(otherBank.id))
 
         editor.paymentAccountID = nil
         #expect(await editor.save())
         guard case .creditCard(let cleared)? = await repository.updatedDrafts[AccountID("card-1")] else { return }
-        #expect(cleared.paymentAccountID == nil)
+        #expect(cleared.paymentAccount == .none, "使用者清除:送明確的 null")
     }
 
-    @Test("綁定的活存帳戶已不在選項裡(被刪除,或帳戶範圍看不到):編輯器當作沒綁定,儲存就清掉懸空的綁定")
-    func danglingBindingIsDroppedByTheEditor() {
-        #expect(editing(boundCard(to: AccountID("deleted-bank"), name: nil)).paymentAccountID == nil)
-        #expect(editing(boundCard(to: savings.id, name: savings.name), banks: [otherBank]).paymentAccountID == nil)
+    @Test("綁定的活存帳戶不在選項裡(被刪除,或帳戶範圍看不到):編輯器顯示成沒綁定,但使用者沒動它儲存時**不送這個欄位**,不會把看不到的綁定清掉")
+    func bindingOutsideTheOptionsIsPreservedWhenUntouched() async throws {
+        let outOfScope = boundCard(to: savings.id, name: savings.name)
+        let repository = InMemoryAccountRepository(accounts: [.creditCard(outOfScope)], summary: .zero)
+        let editor = editing(outOfScope, banks: [otherBank], repository: repository)
+        #expect(editor.paymentAccountID == nil, "選項裡沒有它,畫面顯示成不綁定")
+
+        editor.name = "只改名稱"
+        #expect(await editor.save())
+
+        guard case .creditCard(let draft)? = await repository.updatedDrafts[AccountID("card-1")] else { return }
+        #expect(draft.paymentAccount == .unchanged)
+    }
+
+    @Test("懸空的綁定(活存帳戶已刪除)同樣沒動就不送;使用者選了別的帳戶才送新的,選「不綁定」才送 null")
+    func danglingBindingFollowsTheUsersChoice() async throws {
+        let dangling = boundCard(to: AccountID("deleted-bank"), name: nil)
+        let repository = InMemoryAccountRepository(accounts: [.creditCard(dangling)], summary: .zero)
+        let editor = editing(dangling, repository: repository)
+        #expect(editor.paymentAccountID == nil)
+
+        #expect(await editor.save())
+        guard case .creditCard(let untouched)? = await repository.updatedDrafts[AccountID("card-1")] else { return }
+        #expect(untouched.paymentAccount == .unchanged)
+
+        editor.paymentAccountID = savings.id
+        #expect(await editor.save())
+        guard case .creditCard(let chosen)? = await repository.updatedDrafts[AccountID("card-1")] else { return }
+        #expect(chosen.paymentAccount == .bank(savings.id))
+    }
+
+    @Test("新增信用卡:沒選預設扣款帳戶就是明確的「不綁定」,選了就送那個帳戶")
+    func addingSendsTheChoice() async throws {
+        let repository = InMemoryAccountRepository(accounts: [.bank(savings)], summary: .zero)
+        let editor = AccountEditorModel(
+            adding: .creditCard, bankAccounts: [savings], repository: repository, dataVersion: dataVersion, randomColor: { "#95E1D3" }
+        )
+        editor.name = "新卡"
+        #expect(await editor.save())
+        guard case .creditCard(let none)? = await repository.createdDrafts.last else { return }
+        #expect(none.paymentAccount == .none)
+
+        editor.paymentAccountID = savings.id
+        #expect(await editor.save())
+        guard case .creditCard(let bound)? = await repository.createdDrafts.last else { return }
+        #expect(bound.paymentAccount == .bank(savings.id))
     }
 }

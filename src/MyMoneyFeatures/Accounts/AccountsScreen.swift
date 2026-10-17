@@ -323,7 +323,7 @@ struct AccountsScreen: View {
             amount: warnsWhenNegative ? .stock(balance) : .plain(balance), caption: OwnershipName.title(isShared: isJointFund),
             spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(OwnershipName.title(isShared: isJointFund))"
                 + (debit.map { ",\($0.spokenText)" } ?? ""),
-            notes: debit.map { $0.notes } ?? []
+            notes: debit?.notes ?? []
         )
     }
 

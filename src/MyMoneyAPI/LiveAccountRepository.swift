@@ -204,7 +204,11 @@ private struct AccountBody: Encodable {
             paymentDueDay = card.paymentDueDay
             color = card.colorHex
             isJoint = card.isJointFund ? 1 : 0
-            paymentAccount = card.paymentAccountID.map { .set($0.rawValue) } ?? .cleared
+            switch card.paymentAccount {
+            case .unchanged: paymentAccount = .omitted
+            case .none: paymentAccount = .cleared
+            case .bank(let id): paymentAccount = .set(id.rawValue)
+            }
         }
     }
 }
@@ -304,7 +308,8 @@ private struct AccountDTO: Decodable {
                 isMasked: isMasked?.value ?? false,
                 debtMatrix: debtMatrix,
                 paymentAccountID: paymentAccountID.flatMap { $0.isEmpty ? nil : AccountID($0) },
-                paymentAccountName: paymentAccountName
+                // 空字串名稱當作沒有名稱(懸空)。
+                paymentAccountName: paymentAccountName.flatMap { $0.isEmpty ? nil : $0 }
             ))
         default:
             return nil

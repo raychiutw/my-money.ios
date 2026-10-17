@@ -113,7 +113,7 @@ public final class CreditCardDetailModel: Alerting {
     /// 脫敏的他人私卡(綁定是對方的私人設定)都沒有。
     public var paymentAccountRow: CardDetailRow? {
         guard !isMasked, let name = card.paymentAccountName else { return nil }
-        return CardDetailRow("預設扣款帳戶", name)
+        return CardDetailRow(Terms.defaultPaymentAccount, name)
     }
 
     /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
