@@ -98,6 +98,11 @@ struct TransactionRowContentTests {
         let reimbursed = TransactionRowContent(tx(payment: .advanceReimbursed), viewer: nil)
         #expect(reimbursed.subtitle.ownership == "家庭公帳・已撥款")
         #expect(reimbursed.spokenText.contains("，家庭公帳・已撥款，"))
+
+        // 上游 `fe90634`:已額外處理(移出待報銷、不動共同基金)。
+        let handled = TransactionRowContent(tx(payment: .advanceHandledSeparately), viewer: nil)
+        #expect(handled.subtitle.ownership == "家庭公帳・已額外處理")
+        #expect(handled.spokenText.contains("，家庭公帳・已額外處理，"))
     }
 
     @Test("私帳不受影響;公帳狀態未知時維持「家庭公帳」;與帳單狀態接在後面")

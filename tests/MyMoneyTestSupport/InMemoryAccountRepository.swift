@@ -12,6 +12,10 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// UI 測試的骨架屏要停留夠久(#204):每次查詢先等這麼久。不用 `Gate`——任何一個等待者被取消(切 tab)
     /// 都會放行所有等待者,別的畫面的載入就提早回來了。
     private let loadDelay: Duration?
+    /// 前幾次 `accounts()` 查詢不延遲,從第 N+1 次起才套用 `loadDelay`(`-uiTestingHoldAccountsAfter`):
+    /// 帳戶頁已載入、表單內才載入選項的情境(#255)用得到;預設 0 = 每一次都延遲。
+    private let loadDelayStartsAfter: Int
+    private var accountsCallsStarted = 0
 
     /// 新增過的內容，依送出順序。
     public private(set) var createdDrafts: [AccountDraft] = []
@@ -27,8 +31,9 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     public init(
         accounts: [Account], summary: BalanceSummary, statementPreviews: [AccountID: StatementPreview] = [:],
-        gate: Gate? = nil, loadDelay: Duration? = nil
+        gate: Gate? = nil, loadDelay: Duration? = nil, loadDelayStartsAfter: Int = 0
     ) {
+        self.loadDelayStartsAfter = loadDelayStartsAfter
         storedAccounts = accounts
         self.summary = summary
         self.statementPreviews = statementPreviews
@@ -46,7 +51,9 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 跟後端一樣依範圍篩選(這裡的帳戶都算本人的):公帳範圍只留歸屬公帳的，加上有家庭代墊欠款的個人信用卡;私帳範圍只留私帳。
     public func accounts(scope: AccountScope) async throws -> [Account] {
-        if let loadDelay { try await Task.sleep(for: loadDelay) }
+        let call = accountsCallsStarted
+        accountsCallsStarted += 1
+        if let loadDelay, call >= loadDelayStartsAfter { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         fetchCount += 1
@@ -66,7 +73,7 @@ public actor InMemoryAccountRepository: AccountRepository {
 
     /// 資金指標由後端算好，這裡回傳設定好的值(不依範圍重算)。
     public func balanceSummary(scope: AccountScope) async throws -> BalanceSummary {
-        if let loadDelay { try await Task.sleep(for: loadDelay) }
+        if let loadDelay, loadDelayStartsAfter == 0 { try await Task.sleep(for: loadDelay) }
         await gate?.pass()
         try checkCancellationIfGated()
         requestedSummaryScopes.append(scope)
@@ -141,8 +148,22 @@ public actor InMemoryAccountRepository: AccountRepository {
                 // 後端是用最近的支出估算公帳、私帳各占多少;這裡簡化成:公帳的還款沖公帳，私帳的還款沖私帳。
                 let shared = payment.isShared ? max(card.sharedDebt - payment.amount, .zero) : card.sharedDebt
                 let personal = payment.isShared ? card.personalDebt : max(card.personalDebt - payment.amount, .zero)
+                // 欠款矩陣(上游 ADR 0025):共同基金的還款先沖已出帳公帳、溢出再沖未出帳公帳;私帳同理。
+                let matrix = card.debtMatrix.map { m -> DebtMatrix in
+                    func offset(_ billed: Money, _ unbilled: Money, by amount: Money) -> (Money, Money) {
+                        let newBilled = max(billed - amount, .zero)
+                        return (newBilled, max(unbilled - (amount - (billed - newBilled)), .zero))
+                    }
+                    if payment.isShared {
+                        let (b, u) = offset(m.billedShared, m.unbilledShared, by: payment.amount)
+                        return DebtMatrix(billedShared: b, billedPersonal: m.billedPersonal, unbilledShared: u, unbilledPersonal: m.unbilledPersonal)
+                    }
+                    let (b, u) = offset(m.billedPersonal, m.unbilledPersonal, by: payment.amount)
+                    return DebtMatrix(billedShared: m.billedShared, billedPersonal: b, unbilledShared: m.unbilledShared, unbilledPersonal: u)
+                }
                 return .creditCard(Self.card(
-                    card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero), shared: shared, personal: personal
+                    card, billed: billed, unbilled: max(card.unbilledDebt - rest, .zero), shared: shared, personal: personal,
+                    matrix: matrix
                 ))
             default:
                 return account
@@ -156,6 +177,9 @@ public actor InMemoryAccountRepository: AccountRepository {
     /// 出帳預覽被查詢的次數。
     public private(set) var previewFetchCount = 0
 
+    /// 後端(上游 ADR 0030)對沒設結帳日的卡一律回 400。
+    private static let missingStatementDay = RepositoryError.rejected("此信用卡尚未設定每月結帳日，請先至帳戶設定填寫結帳日方可進行出帳作業")
+
     public func statementPreview(_ id: AccountID) async throws -> StatementPreview {
         await gate?.pass()
         try checkCancellationIfGated()
@@ -164,8 +188,9 @@ public actor InMemoryAccountRepository: AccountRepository {
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
             throw RepositoryError.rejected("信用卡不存在")
         }
+        guard card.statementDay != nil else { throw Self.missingStatementDay }
         return statementPreviews[id] ?? StatementPreview(
-            statementDate: nil, previousStatementDate: nil, items: [],
+            startDate: CalendarDay(year: 2026, month: 9, day: 16), endDate: CalendarDay(year: 2026, month: 10, day: 15), items: [],
             baseNetBilled: card.billedDebt, totalRepay: .zero, baseNetUnbilled: card.unbilledDebt
         )
     }
@@ -178,6 +203,7 @@ public actor InMemoryAccountRepository: AccountRepository {
         guard case .creditCard(let card)? = storedAccounts.first(where: { $0.id == id }) else {
             throw RepositoryError.rejected("信用卡不存在")
         }
+        guard card.statementDay != nil else { throw Self.missingStatementDay }
         guard let preview = statementPreviews[id], !preview.items.isEmpty || !deferring.isEmpty else {
             throw RepositoryError.rejected("目前結帳週期內無任何刷卡記錄")
         }
@@ -185,18 +211,21 @@ public actor InMemoryAccountRepository: AccountRepository {
         rolledOverIDs.append(id)
         rolledOverDeferrals.append(deferring)
         storedAccounts = storedAccounts.map {
-            $0.id == id ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled)) : $0
+            $0.id == id
+                ? .creditCard(Self.card(card, billed: outlook.projectedBilled, unbilled: outlook.projectedUnbilled, keepsMatrix: false))
+                : $0
         }
         statementPreviews[id] = StatementPreview(
-            statementDate: preview.statementDate, previousStatementDate: preview.previousStatementDate,
+            startDate: preview.startDate, endDate: preview.endDate, isStatementPending: preview.isStatementPending,
             items: preview.items.map {
                 StatementItem(
                     id: $0.id, kind: $0.kind, amount: $0.amount, date: $0.date, category: $0.category, note: $0.note,
-                    isShared: $0.isShared, isPriorDeferred: false, isInitiallyDeferred: deferring.contains($0.id)
+                    isShared: $0.isShared, householdPayment: $0.householdPayment,
+                    isPriorDeferred: $0.isPriorDeferred, isInitiallyDeferred: deferring.contains($0.id)
                 )
             },
             baseNetBilled: preview.baseNetBilled, totalRepay: preview.totalRepay, baseNetUnbilled: preview.baseNetUnbilled,
-            hasRolledCycle: true, priorDeferredCount: 0
+            baseUnbilledCount: preview.baseUnbilledCount, hasRolledCycle: true, priorDeferredCount: 0
         )
         let deferred = outlook.deferredCount > 0 ? "（另有 \(outlook.deferredCount) 筆消費已延至下期）" : ""
         // 後端 `79af1e9` 訊息的簡化版(沒有刷退時不帶扣除刷退的段落)。
@@ -218,12 +247,17 @@ public actor InMemoryAccountRepository: AccountRepository {
         return "已自動校準「\(card.name)」未出帳金額為 NT$ \(card.unbilledDebt.backendText)"
     }
 
-    private static func card(_ card: CreditCard, billed: Money, unbilled: Money, shared: Money? = nil, personal: Money? = nil) -> CreditCard {
+    /// `debtMatrix`:預設沿用原本的;出帳作業之後後端會重算,這裡拿不到明細,就拿掉(畫面回到沒有矩陣的版型)。
+    private static func card(
+        _ card: CreditCard, billed: Money, unbilled: Money, shared: Money? = nil, personal: Money? = nil,
+        keepsMatrix: Bool = true, matrix: DebtMatrix? = nil
+    ) -> CreditCard {
         CreditCard(
             id: card.id, name: card.name, colorHex: card.colorHex, billedDebt: billed, unbilledDebt: unbilled,
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
             sharedDebt: shared ?? card.sharedDebt, personalDebt: personal ?? card.personalDebt, isJointFund: card.isJointFund,
-            ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked
+            ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked,
+            debtMatrix: matrix ?? (keepsMatrix ? card.debtMatrix : nil)
         )
     }
 
@@ -311,10 +345,12 @@ extension Money {
 
 extension InMemoryAccountRepository {
     /// 對應 `accounts-list.json` 與 `accounts-balance.json` 的測試資料:一個活存帳戶、兩張信用卡帳戶。
-    public static func sample(gate: Gate? = nil, loadDelay: Duration? = nil) -> InMemoryAccountRepository {
+    public static func sample(
+        gate: Gate? = nil, loadDelay: Duration? = nil, loadDelayStartsAfter: Int = 0
+    ) -> InMemoryAccountRepository {
         InMemoryAccountRepository(
             accounts: SampleAccounts.all, summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
-            gate: gate, loadDelay: loadDelay
+            gate: gate, loadDelay: loadDelay, loadDelayStartsAfter: loadDelayStartsAfter
         )
     }
 
@@ -361,7 +397,11 @@ public enum SampleAccounts {
         paymentDueDay: 5,
         sharedDebt: Money(3000),
         personalDebt: Money(12500),
-        ownerID: me
+        ownerID: me,
+        // 欠款矩陣:已出帳 12,000 = 公帳 2,200 + 私帳 9,800;未出帳 3,500 = 公帳 800 + 私帳 2,700(合計公帳 3,000、私帳 12,500)。
+        debtMatrix: DebtMatrix(
+            billedShared: Money(2200), billedPersonal: Money(9800), unbilledShared: Money(800), unbilledPersonal: Money(2700)
+        )
     )
 
     /// 剩餘額度 7,000,低於 10,000 的警示門檻。
@@ -379,33 +419,48 @@ public enum SampleAccounts {
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
 
+    /// UI 測試的啟動旗標帶進來的額外帳戶(App 不直接依賴 Domain,所以由這裡組好)。
+    public static func extraAccounts(noStatementDayCard: Bool) -> [Account] {
+        noStatementDayCard ? [.creditCard(Self.noStatementDayCard)] : []
+    }
+
+    /// 沒設結帳日的信用卡(`-uiTestingCardNoStatementDay`):有款項所以看得到「出帳作業」，但後端不接受(上游 ADR 0030)。
+    public static let noStatementDayCard = CreditCard(
+        id: AccountID("sample-no-statement-day-card"), name: "iOS 無結帳日卡", colorHex: "#A8D8EA", billedDebt: Money(100),
+        unbilledDebt: .zero, creditLimit: nil, statementDay: nil, paymentDueDay: nil, ownerID: me
+    )
+
     private static func item(
         _ id: String, _ kind: StatementItem.Kind, _ amount: Int, _ day: (Int, Int), _ category: String, _ note: String,
-        priorDeferred: Bool = false, initiallyDeferred: Bool = false
+        shared: HouseholdPayment? = nil, priorDeferred: Bool = false, initiallyDeferred: Bool = false
     ) -> StatementItem {
         StatementItem(
             id: TransactionID(id), kind: kind, amount: Money(Decimal(amount)),
             date: CalendarDay(year: 2026, month: day.0, day: day.1), category: TransactionCategory(category), note: note,
-            isShared: false, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
+            isShared: shared != nil, householdPayment: shared, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
         )
     }
 
-    /// 「iOS 測試信用卡」(結帳日 15 號)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500。
-    /// 基準值讓合計對得上卡上的數字:已出帳 12,000、未出帳 3,500(1,300 + 1,200 − 300 + 800 + 500)。
+    /// 「iOS 測試信用卡」(結帳日 15 號,結算 9/16～10/15)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500,
+    /// 加兩筆公帳:家庭晚餐 600(待報銷)、家庭交通 400(已撥款)。基準值讓合計對得上卡上的數字:已出帳 12,000、
+    /// 未出帳 3,500(300 + 1,200 − 300 + 800 + 500 + 600 + 400)。開窗時:出帳淨額 2,400、公帳 600、私帳 1,800。
     public static let cardPreview = StatementPreview(
-        statementDate: CalendarDay(year: 2026, month: 10, day: 15), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 15),
+        startDate: CalendarDay(year: 2026, month: 9, day: 16), endDate: CalendarDay(year: 2026, month: 10, day: 15),
         items: [
             item("sample-stmt-deferred", .expense, 800, (10, 12), "購物", "本期延期", initiallyDeferred: true),
             item("sample-stmt-refund", .refund, 300, (10, 11), "購物", "本期刷退"),
             item("sample-stmt-lunch", .expense, 1200, (10, 10), "餐飲", "本期午餐"),
+            item("sample-stmt-family-dinner", .expense, 600, (10, 9), "餐飲", "家庭晚餐", shared: .advancePending),
+            item("sample-stmt-family-traffic", .expense, 400, (10, 8), "交通", "家庭交通", shared: .advanceReimbursed),
             item("sample-stmt-prior", .expense, 500, (9, 10), "購物", "上期延入", priorDeferred: true),
         ],
-        baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(1300), hasRolledCycle: false, priorDeferredCount: 1
+        baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(300), baseUnbilledCount: 1,
+        hasRolledCycle: false, priorDeferredCount: 1
     )
 
     /// 「iOS 測試小額卡」(結帳日 1 號):兩筆消費，沒有延期、沒有上期延入。已出帳 8,000、未出帳 5,000。
     public static let lowLimitCardPreview = StatementPreview(
-        statementDate: CalendarDay(year: 2026, month: 10, day: 1), previousStatementDate: CalendarDay(year: 2026, month: 9, day: 1),
+        startDate: CalendarDay(year: 2026, month: 9, day: 2), endDate: CalendarDay(year: 2026, month: 10, day: 1),
         items: [
             item("sample-low-fuel", .expense, 3000, (9, 30), "交通", "加油"),
             item("sample-low-dinner", .expense, 2000, (9, 28), "餐飲", "晚餐"),

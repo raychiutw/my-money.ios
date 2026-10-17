@@ -30,7 +30,10 @@ final class FieldLabelUITests: XCTestCase {
         let card = app.buttons["accounts.card.sample-card"]
         for _ in 0..<8 where !(card.exists && card.isHittable) { app.swipeUp() }
         card.tap()
-        app.buttons["cardDetail.pay"].tap()
+        // 詳細頁比一個畫面長(欠款矩陣多四列),「繳款」要先捲到。
+        let pay = app.buttons["cardDetail.pay"]
+        for _ in 0..<8 where !(pay.exists && pay.isHittable) { app.swipeUp() }
+        pay.tap()
         app.buttons["全額結清"].tap()
         assertNoteLabel(in: app, field: "cardPayment.note", form: "信用卡還款")
     }

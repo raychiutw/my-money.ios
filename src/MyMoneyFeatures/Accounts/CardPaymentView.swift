@@ -27,6 +27,10 @@ struct CardPaymentView: View {
                     if model.isMaskedCard {
                         // 他人的卡只看得到家庭代墊(上游 ADR 0015)。
                         debtRow("家庭公帳代墊待繳總額", model.card.sharedDebt)
+                        if let matrix = model.card.debtMatrix {
+                            debtRow("本期已出帳公帳待繳", matrix.billedShared)
+                            debtRow("未出帳公帳累計", matrix.unbilledShared)
+                        }
                     } else {
                         debtRow("信用卡待繳總額", model.card.totalDue)
                         debtRow("已出帳待繳款", model.card.billedDebt)
@@ -38,6 +42,13 @@ struct CardPaymentView: View {
                     Text(model.card.name)
                 }
                 .monospacedDigit()
+
+                // 繳家庭代墊且有已出帳公帳:快速切換只繳當期已出帳公帳或結清全部(上游 ADR 0025)，點一下就選，金額欄跟著帶入。
+                if !model.sharedChoices.isEmpty {
+                    Section("公帳金額") {
+                        InlineChoiceRows(model.sharedChoices.map { ($0, model.sharedChoiceTitle($0)) }, selection: $model.sharedChoice)
+                    }
+                }
 
                 Section {
                     AccountPicker(

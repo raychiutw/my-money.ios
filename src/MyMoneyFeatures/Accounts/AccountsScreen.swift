@@ -15,6 +15,7 @@ struct AccountsScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingDeletion: Account?
     @State private var rollover: StatementRolloverModel?
+    @State private var cardNeedingStatementDay: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
     /// 點信用卡卡片 push 信用卡詳細頁。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
@@ -76,6 +77,16 @@ struct AccountsScreen: View {
                 }
                 .sheet(item: $rollover) { rollover in
                     StatementRolloverView(model: rollover) { message in model.noticeMessage = message }
+                }
+                .alert(
+                    "無法出帳作業",
+                    isPresented: Binding(get: { cardNeedingStatementDay != nil }, set: { if !$0 { cardNeedingStatementDay = nil } }),
+                    presenting: cardNeedingStatementDay
+                ) { card in
+                    Button("前往設定") { editor = EditorSheet(model.makeEditor(editing: .creditCard(card))) }
+                    Button("取消", role: .cancel) {}
+                } message: { _ in
+                    Text(StatementRolloverModel.missingStatementDayMessage)
                 }
                 .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
                 .alert(
@@ -344,7 +355,13 @@ struct AccountsScreen: View {
                         }
                     }
                     if model.showsRollover(card) {
-                        Button("出帳作業", systemImage: "calendar.badge.clock") { rollover = model.makeStatementRollover(for: card) }
+                        Button("出帳作業", systemImage: "calendar.badge.clock") {
+                            if model.rolloverNeedsStatementDay(for: card) {
+                                cardNeedingStatementDay = card
+                            } else {
+                                rollover = model.makeStatementRollover(for: card)
+                            }
+                        }
                     }
                 }
             }

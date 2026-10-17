@@ -109,7 +109,8 @@ public final class AccountsModel: Alerting {
     private func fetchPendingAdvanceTotal(for scope: AccountScope) async -> Money? {
         guard scope == .household, let households else { return nil }
         guard let advances = try? await households.advances() else { return nil }
-        return advances.reduce(Money.zero) { $0 + $1.pendingReimbursement }
+        // 只加總大於 0 的:公帳待抵扣(負的)不能抵銷別人還沒領到的報銷(上游 ADR 0029)。
+        return advances.reduce(Money.zero) { $0 + max($1.pendingReimbursement, .zero) }
     }
 
     /// 編輯與刪除:個人私帳只有本人;家庭共同帳戶是建立者或家庭管理員(上游 ADR 0013、#133)。
@@ -153,6 +154,9 @@ public final class AccountsModel: Alerting {
         if isMasked(card) { return card.sharedDebt > .zero ? [.shared] : [] }
         return canOperate(card) ? card.paymentPresets : []
     }
+
+    /// 這張卡沒設結帳日:長按選單的「出帳作業」不開預覽，改請使用者先設定(上游 ADR 0030)。
+    public func rolloverNeedsStatementDay(for card: CreditCard) -> Bool { card.statementDay == nil }
 
     /// 出帳作業的預覽 sheet(上游 ADR 0024),跟詳細頁的一樣。
     public func makeStatementRollover(for card: CreditCard, locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
