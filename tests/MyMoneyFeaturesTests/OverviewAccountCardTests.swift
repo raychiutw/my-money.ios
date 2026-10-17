@@ -100,4 +100,54 @@ struct OverviewAccountCardTests {
         let creditCard = try #require(overview.accountCards.first)
         #expect(creditCard.choice == AccountChoice(id: AccountID("card"), name: "測試卡"))
     }
+
+    // MARK: 活存帳戶的待扣卡費(上游 `3d09060`、#265)
+
+    private func bank(balance: Int) -> Account {
+        .bank(BankAccount(
+            id: AccountID("bank"), name: "iOS 測試存款", colorHex: "#A8D8EA", balance: Money(Decimal(balance)), isJointFund: false
+        ))
+    }
+
+    private func boundCard(billed: Int, unbilled: Int = 0, masked: Bool = false) -> Account {
+        .creditCard(CreditCard(
+            id: AccountID("card"), name: "測試卡", colorHex: "#FFD4A0", billedDebt: Money(Decimal(billed)),
+            unbilledDebt: Money(Decimal(unbilled)), creditLimit: nil, statementDay: 15, paymentDueDay: 5, isMasked: masked,
+            paymentAccountID: AccountID("bank"), paymentAccountName: "iOS 測試存款"
+        ))
+    }
+
+    private func bankCard(_ overview: OverviewModel) throws -> OverviewAccountCard {
+        try #require(overview.accountCards.first { $0.id == AccountID("bank") })
+    }
+
+    @Test("活存帳戶卡:有信用卡綁定它時多兩行小字(待扣卡費、扣後餘額),跟帳戶頁同一個彙總與文字;VoiceOver 整句念出")
+    func bankCardShowsBoundCardsDebit() async throws {
+        let overview = await loaded([bank(balance: 5000), boundCard(billed: 3000, unbilled: 500)])
+
+        let card = try bankCard(overview)
+        #expect(card.detailLines == ["個人私帳", "待扣卡費 1 張・已出帳 $3,000・含未出帳 $3,500", "扣已出帳後餘額 $2,000"])
+        #expect(card.warningLines.isEmpty)
+        #expect(card.spokenText.contains("待扣卡費 1 張，已出帳 3,000 元，含未出帳 3,500 元，扣已出帳後餘額 2,000 元"))
+    }
+
+    @Test("存款不足扣已出帳:扣後餘額與不足的警示是警示行(紅字),VoiceOver 念出存款不足")
+    func bankCardWarnsWhenShort() async throws {
+        let overview = await loaded([bank(balance: 2000), boundCard(billed: 3000)])
+
+        let card = try bankCard(overview)
+        #expect(card.detailLines.suffix(2) == ["扣已出帳後餘額 −$1,000", "存款不足扣繳已出帳，差 $1,000"])
+        #expect(card.warningLines == ["扣已出帳後餘額 −$1,000", "存款不足扣繳已出帳，差 $1,000"])
+        #expect(card.spokenText.contains("存款不足扣繳已出帳"))
+    }
+
+    @Test("沒有卡綁定這個活存帳戶、或綁定的是脫敏的他人私卡:卡片維持原樣")
+    func bankCardUnchangedWithoutBoundCards() async throws {
+        let plain = await loaded([bank(balance: 5000)])
+        #expect(try bankCard(plain).detailLines == ["個人私帳"])
+
+        let masked = await loaded([bank(balance: 5000), boundCard(billed: 900, masked: true)])
+        #expect(try bankCard(masked).detailLines == ["個人私帳"], "脫敏卡不計入")
+    }
 }
+

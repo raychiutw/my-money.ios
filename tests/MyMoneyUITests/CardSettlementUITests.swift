@@ -242,6 +242,26 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertFalse(element(in: app, labelContaining: "待扣卡費").exists, "改成不綁定之後活存帳戶那一列還有待扣卡費")
     }
 
+    /// 首頁的活存帳戶卡也顯示待扣卡費預覽(上游 `3d09060`,跟帳戶頁同一個彙總):卡綁定「iOS 測試存款」時多兩行。
+    @MainActor
+    func testOverviewBankCardShowsBoundCardsDebitPreview() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingCardBoundBank"], signedIn: true)
+
+        let card = app.descendants(matching: .any)["overview.card.sample-bank"]
+        for _ in 0..<6 where !card.exists { app.swipeUp() }
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "首頁沒有活存帳戶卡")
+        XCTAssertTrue(
+            card.label.contains("待扣卡費 1 張，已出帳 12,000 元，含未出帳 15,500 元，扣已出帳後餘額 38,000 元"),
+            "首頁活存帳戶卡沒有待扣卡費預覽:\(card.label)"
+        )
+
+        let plain = XCUIApplication.launchUITesting(signedIn: true)
+        let unbound = plain.descendants(matching: .any)["overview.card.sample-bank"]
+        for _ in 0..<6 where !unbound.exists { plain.swipeUp() }
+        XCTAssertTrue(unbound.waitForExistence(timeout: 8))
+        XCTAssertFalse(unbound.label.contains("待扣卡費"), "沒有卡綁定時活存帳戶卡不該有待扣卡費")
+    }
+
     /// 沒設結帳日的卡(上游 ADR 0030:後端回 400):按「出帳作業」不開預覽，說明要先設定結帳日，並可前往編輯。
     @MainActor
     func testRolloverWithoutStatementDayAsksToSetIt() throws {

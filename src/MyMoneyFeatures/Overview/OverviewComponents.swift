@@ -189,7 +189,7 @@ struct OverviewAccountCardView: View {
             ForEach(card.detailLines, id: \.self) { line in
                 BreakableLine(text: line, alignment: .leading)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(card.warningLines.contains(line) ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
             }
         }
         .padding(14)
