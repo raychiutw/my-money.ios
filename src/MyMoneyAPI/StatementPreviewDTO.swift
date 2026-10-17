@@ -55,7 +55,7 @@ struct StatementPreviewDTO: Decodable {
             return StatementItem(
                 id: TransactionID(dto.id), kind: kind, amount: Money(dto.amount), date: date,
                 category: TransactionCategory(dto.category), note: dto.note ?? "", isShared: isShared,
-                householdSettlement: isShared ? Self.settlement(dto.reimbursementID) : nil,
+                householdPayment: isShared ? Self.payment(dto.reimbursementID) : nil,
                 isPriorDeferred: dto.isPriorDeferred, isInitiallyDeferred: dto.isInitiallyDeferred
             )
         }
@@ -73,11 +73,11 @@ struct StatementPreviewDTO: Decodable {
         )
     }
 
-    private static func settlement(_ reimbursementID: String?) -> HouseholdSettlement {
+    private static func payment(_ reimbursementID: String?) -> HouseholdPayment {
         switch reimbursementID?.trimmingCharacters(in: .whitespaces) {
-        case nil, "": .pending
-        case "EXTERNAL_SETTLED": .handledSeparately
-        default: .reimbursed
+        case nil, "": .advancePending
+        case "EXTERNAL_SETTLED": .advanceHandledSeparately
+        default: .advanceReimbursed
         }
     }
 }

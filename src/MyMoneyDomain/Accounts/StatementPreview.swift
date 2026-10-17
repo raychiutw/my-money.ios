@@ -54,7 +54,7 @@ public struct StatementPreview: Hashable, Sendable {
         let net = max(expense - refund, .zero)
         // 公私拆解(後端 `calculateRolloverDebtBreakdown`):只有還沒報銷的公帳消費算家庭公帳代墊(已報銷、已額外處理的轉列個人私帳),
         // 公帳刷退優先折抵它;最小是 0。
-        let pendingShared = Self.sum(expenses.filter { $0.householdSettlement == .pending })
+        let pendingShared = Self.sum(expenses.filter { $0.householdPayment == .advancePending })
         let sharedRefund = Self.sum(refunds.filter(\.isShared))
         let shared = max(pendingShared - sharedRefund, .zero)
         let deferred = items.filter { deferring.contains($0.id) }
@@ -84,13 +84,6 @@ public struct StatementPreview: Hashable, Sendable {
     }
 }
 
-/// 公帳明細的家庭報銷狀態:還沒報銷(待報銷)、已由家庭共同基金報銷(家庭已報銷)、已在家庭外處理掉(已額外處理,不動共同基金)。
-public enum HouseholdSettlement: Hashable, Sendable {
-    case pending
-    case reimbursed
-    case handledSeparately
-}
-
 /// 出帳預覽的一筆明細:本期的一筆消費或刷退。
 public struct StatementItem: Hashable, Sendable, Identifiable {
     public enum Kind: Hashable, Sendable {
@@ -105,8 +98,8 @@ public struct StatementItem: Hashable, Sendable, Identifiable {
     public let category: TransactionCategory
     public let note: String
     public let isShared: Bool
-    /// 公帳明細的家庭報銷狀態(上游 ADR 0029);不是公帳時是 `nil`。
-    public let householdSettlement: HouseholdSettlement?
+    /// 公帳明細的支付來源與報銷狀態(上游 ADR 0029):待報銷、已撥款、已額外處理;不是公帳時是 `nil`。
+    public let householdPayment: HouseholdPayment?
     /// 上期延入:交易日在上一個結帳日(含)之前、還沒出帳的款項。
     public let isPriorDeferred: Bool
     /// 開窗時是否已經延至下期。
@@ -114,9 +107,9 @@ public struct StatementItem: Hashable, Sendable, Identifiable {
 
     public init(
         id: TransactionID, kind: Kind, amount: Money, date: CalendarDay, category: TransactionCategory, note: String,
-        isShared: Bool, householdSettlement: HouseholdSettlement? = nil, isPriorDeferred: Bool, isInitiallyDeferred: Bool
+        isShared: Bool, householdPayment: HouseholdPayment? = nil, isPriorDeferred: Bool, isInitiallyDeferred: Bool
     ) {
-        self.householdSettlement = householdSettlement
+        self.householdPayment = householdPayment
         self.id = id
         self.kind = kind
         self.amount = amount

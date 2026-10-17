@@ -96,16 +96,8 @@ public final class StatementRolloverModel: Submitting, Identifiable {
 
     /// 明細第二行:日期;上期延入款與公帳的家庭報銷狀態後面加標記。
     public func itemDetailText(_ item: StatementItem) -> String {
-        [dayText(item.date), item.isPriorDeferred ? "上期延入" : nil, item.householdSettlement.map(Self.settlementText)]
+        [dayText(item.date), item.isPriorDeferred ? "上期延入" : nil, item.householdPayment.map { OwnershipName.title(isShared: true, payment: $0) }]
             .compactMap { $0 }.joined(separator: " · ")
-    }
-
-    private static func settlementText(_ settlement: HouseholdSettlement) -> String {
-        switch settlement {
-        case .pending: "公帳・\(Terms.pendingReimbursement)"
-        case .reimbursed: "公帳・\(Terms.reimbursedByFamily)"
-        case .handledSeparately: "公帳・\(Terms.handledSeparately)"
-        }
     }
 
     private func dayText(_ day: CalendarDay) -> String { day.text(today: today(), locale: locale) }

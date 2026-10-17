@@ -121,7 +121,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(row("上期延入(1 筆)", value: "500 元", in: app).exists)
         XCTAssertTrue(row("出帳後已出帳待繳款", value: "14,400 元", in: app).exists)
         XCTAssertTrue(row("剩餘未出帳(2 筆)", value: "1,100 元", in: app).exists)
-        // 公私拆解:待報銷的公帳 600 算家庭公帳代墊;家庭已報銷的 400 轉列私帳。
+        // 公私拆解:待報銷的公帳 600 算家庭公帳代墊;已撥款(家庭已報銷)的 400 轉列私帳。
         // 摘要比一個畫面長:捲到才在 UI 階層裡。
         let sharedRow = row("其中家庭公帳代墊", value: "600 元", in: app)
         for _ in 0..<6 where !sharedRow.exists { app.swipeUp() }
@@ -129,7 +129,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(row("其中個人私帳", value: "1,800 元", in: app).exists)
         for _ in 0..<6 { app.swipeDown() }
         // 公帳明細標示家庭報銷狀態。
-        for (id, text) in [("sample-stmt-family-dinner", "公帳・待報銷"), ("sample-stmt-family-traffic", "公帳・家庭已報銷")] {
+        for (id, text) in [("sample-stmt-family-dinner", "家庭公帳・待報銷"), ("sample-stmt-family-traffic", "家庭公帳・已撥款")] {
             let item = app.switches["statementRollover.item.\(id)"]
             for _ in 0..<6 where !item.exists { app.swipeUp() }
             XCTAssertTrue(item.exists && item.label.contains(text), "明細沒有標示「\(text)」:\(item.label)")

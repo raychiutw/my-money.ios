@@ -87,7 +87,11 @@ private struct TransactionDTO: Decodable {
     private var householdPayment: HouseholdPayment? {
         guard isShared == 1, let accountIsJoint else { return nil }
         if accountIsJoint == 1 { return .jointFund }
-        return (reimbursementID ?? "").isEmpty ? .advancePending : .advanceReimbursed
+        switch (reimbursementID ?? "").trimmingCharacters(in: .whitespaces) {
+        case "": return .advancePending
+        case "EXTERNAL_SETTLED": return .advanceHandledSeparately
+        default: return .advanceReimbursed
+        }
     }
 
     func transaction() throws -> Transaction {

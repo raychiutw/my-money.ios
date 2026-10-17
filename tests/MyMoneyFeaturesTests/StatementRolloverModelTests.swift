@@ -227,7 +227,7 @@ struct StatementRolloverModelTests {
         let trafficItem = try #require(model.items.first { $0.note == "家庭交通" })
         #expect(model.itemDetailText(priorItem) == "9月10日 · 上期延入")
         #expect(model.itemDetailText(lunchItem) == "10月10日")
-        #expect(model.itemDetailText(dinnerItem) == "10月9日 · 公帳・待報銷")
-        #expect(model.itemDetailText(trafficItem) == "10月8日 · 公帳・家庭已報銷")
+        #expect(model.itemDetailText(dinnerItem) == "10月9日 · 家庭公帳・待報銷")
+        #expect(model.itemDetailText(trafficItem) == "10月8日 · 家庭公帳・已撥款")
     }
 }

@@ -131,12 +131,14 @@ struct PrivateCardAdvanceTests {
         #expect(model.limitRows.isEmpty, "不顯示信用額度與剩餘額度")
     }
 
-    @Test("自己的卡(沒有脫敏)詳細頁照舊:五個卡費欄位與額度、剩餘額度")
+    @Test("自己的卡(沒有脫敏)詳細頁照舊:卡費欄位(有欠款矩陣時多四列公私拆解)與額度、剩餘額度")
     func ownDetailRowsUnchanged() {
         let model = detail(SampleAccounts.card)
 
         #expect(!model.isMasked)
-        #expect(model.feeRows.map(\.title) == ["信用卡待繳總額", "已出帳待繳款", "未出帳款", "家庭代墊公帳", "個人私帳消費"])
+        #expect(model.feeRows.map(\.title) == [
+            "信用卡待繳總額", "已出帳待繳款", "已出帳公帳", "已出帳私帳", "未出帳款", "未出帳公帳", "未出帳私帳", "家庭代墊公帳", "個人私帳消費",
+        ])
         #expect(model.limitRows.map(\.title) == ["信用額度", "剩餘額度"])
     }
 

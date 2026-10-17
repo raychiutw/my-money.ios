@@ -414,7 +414,7 @@ struct AccountsTranslationTests {
         #expect(preview.items.map(\.note) == ["公帳刷退", "個人購物", "家庭交通", "家庭晚餐", "上期延入"], "順序照後端(日期由新到舊)")
         #expect(preview.items.map(\.kind) == [.refund, .expense, .expense, .expense, .expense])
         #expect(preview.items.map(\.isPriorDeferred) == [false, false, false, false, true])
-        #expect(preview.items.map(\.householdSettlement) == [.pending, nil, .pending, .pending, nil])
+        #expect(preview.items.map(\.householdPayment) == [.advancePending, nil, .advancePending, .advancePending, nil])
         #expect(preview.initiallyDeferredIDs.isEmpty, "上期延入款首次結算預設納入，不是延期")
         #expect(preview.baseNetBilled == .zero)
         #expect(preview.totalRepay == .zero)
@@ -466,12 +466,12 @@ struct AccountsTranslationTests {
         #expect(outlook.sharedDebt == Money(900))
     }
 
-    @Test("出帳預覽:公帳明細已由家庭報銷(reimbursement_id 是撥款流水)=「家庭已報銷」,不計入家庭公帳代墊，轉列個人私帳")
+    @Test("出帳預覽:公帳明細已由家庭報銷(reimbursement_id 是撥款流水)=「家庭公帳・已撥款」,不計入家庭公帳代墊，轉列個人私帳")
     func reimbursedSharedItem() async throws {
         let (preview, outlook) = try await previewOutlook("accounts-rollover-preview-reimbursed.json")
 
-        #expect(preview.items.first { $0.note == "家庭晚餐" }?.householdSettlement == .reimbursed)
-        #expect(preview.items.first { $0.note == "家庭交通" }?.householdSettlement == .pending)
+        #expect(preview.items.first { $0.note == "家庭晚餐" }?.householdPayment == .advanceReimbursed)
+        #expect(preview.items.first { $0.note == "家庭交通" }?.householdPayment == .advancePending)
         #expect(outlook.net == Money(1450), "卡片待繳款仍要與銀行帳單吻合")
         #expect(outlook.sharedDebt == Money(300), "交通 400 − 刷退 100")
         #expect(outlook.personalDebt == Money(1150))
@@ -481,7 +481,7 @@ struct AccountsTranslationTests {
     func handledSeparatelySharedItem() async throws {
         let (preview, outlook) = try await previewOutlook("accounts-rollover-preview-external-settled.json")
 
-        #expect(preview.items.first { $0.note == "家庭交通" }?.householdSettlement == .handledSeparately)
+        #expect(preview.items.first { $0.note == "家庭交通" }?.householdPayment == .advanceHandledSeparately)
         #expect(outlook.sharedDebt == .zero)
         #expect(outlook.personalDebt == Money(1450))
     }

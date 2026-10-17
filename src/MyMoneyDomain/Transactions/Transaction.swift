@@ -74,6 +74,8 @@ public enum HouseholdPayment: Hashable, Sendable {
     case advancePending
     /// 個人墊付，已由共同基金撥款報銷。
     case advanceReimbursed
+    /// 個人墊付，已在家庭外處理掉、移出待報銷(上游 `fe90634` 的「已額外處理」):不動共同基金，沒有撥款流水。
+    case advanceHandledSeparately
 }
 
 /// 信用卡消費的帳單狀態(上游 ADR 0020):後端的 `is_billed` 與 `defer_to_next_statement` 收成一個明確的型別。

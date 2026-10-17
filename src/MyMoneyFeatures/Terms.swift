@@ -26,8 +26,6 @@ public enum Terms {
     public static let pendingReimbursementTotal = "待報銷總額"
     /// 公帳的狀態:個人墊付、還沒撥款報銷(上游 `d0424df` 的「公帳 · 待報銷」)。
     public static let pendingReimbursement = "待報銷"
-    /// 公帳的狀態:這筆代墊已由家庭共同基金報銷給持卡人(出帳預覽的「公帳・家庭已報銷」,上游 ADR 0029)。
-    public static let reimbursedByFamily = "家庭已報銷"
     /// 公帳的狀態:已在家庭外處理掉、移出待報銷,不動共同基金(上游 `fe90634`「已額外處理」)。
     public static let handledSeparately = "已額外處理"
     /// 公帳的狀態:個人墊付、已由共同基金撥款報銷(「公帳 · 已撥款」)。

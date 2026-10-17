@@ -220,7 +220,7 @@ public actor InMemoryAccountRepository: AccountRepository {
             items: preview.items.map {
                 StatementItem(
                     id: $0.id, kind: $0.kind, amount: $0.amount, date: $0.date, category: $0.category, note: $0.note,
-                    isShared: $0.isShared, householdSettlement: $0.householdSettlement,
+                    isShared: $0.isShared, householdPayment: $0.householdPayment,
                     isPriorDeferred: $0.isPriorDeferred, isInitiallyDeferred: deferring.contains($0.id)
                 )
             },
@@ -432,17 +432,17 @@ public enum SampleAccounts {
 
     private static func item(
         _ id: String, _ kind: StatementItem.Kind, _ amount: Int, _ day: (Int, Int), _ category: String, _ note: String,
-        shared: HouseholdSettlement? = nil, priorDeferred: Bool = false, initiallyDeferred: Bool = false
+        shared: HouseholdPayment? = nil, priorDeferred: Bool = false, initiallyDeferred: Bool = false
     ) -> StatementItem {
         StatementItem(
             id: TransactionID(id), kind: kind, amount: Money(Decimal(amount)),
             date: CalendarDay(year: 2026, month: day.0, day: day.1), category: TransactionCategory(category), note: note,
-            isShared: shared != nil, householdSettlement: shared, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
+            isShared: shared != nil, householdPayment: shared, isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
         )
     }
 
     /// 「iOS 測試信用卡」(結帳日 15 號,結算 9/16～10/15)這一期的出帳預覽:午餐 1,200、刷退 300、已延至下期的 800、上期延入的 500,
-    /// 加兩筆公帳:家庭晚餐 600(待報銷)、家庭交通 400(家庭已報銷)。基準值讓合計對得上卡上的數字:已出帳 12,000、
+    /// 加兩筆公帳:家庭晚餐 600(待報銷)、家庭交通 400(已撥款)。基準值讓合計對得上卡上的數字:已出帳 12,000、
     /// 未出帳 3,500(300 + 1,200 − 300 + 800 + 500 + 600 + 400)。開窗時:出帳淨額 2,400、公帳 600、私帳 1,800。
     public static let cardPreview = StatementPreview(
         startDate: CalendarDay(year: 2026, month: 9, day: 16), endDate: CalendarDay(year: 2026, month: 10, day: 15),
@@ -450,8 +450,8 @@ public enum SampleAccounts {
             item("sample-stmt-deferred", .expense, 800, (10, 12), "購物", "本期延期", initiallyDeferred: true),
             item("sample-stmt-refund", .refund, 300, (10, 11), "購物", "本期刷退"),
             item("sample-stmt-lunch", .expense, 1200, (10, 10), "餐飲", "本期午餐"),
-            item("sample-stmt-family-dinner", .expense, 600, (10, 9), "餐飲", "家庭晚餐", shared: .pending),
-            item("sample-stmt-family-traffic", .expense, 400, (10, 8), "交通", "家庭交通", shared: .reimbursed),
+            item("sample-stmt-family-dinner", .expense, 600, (10, 9), "餐飲", "家庭晚餐", shared: .advancePending),
+            item("sample-stmt-family-traffic", .expense, 400, (10, 8), "交通", "家庭交通", shared: .advanceReimbursed),
             item("sample-stmt-prior", .expense, 500, (9, 10), "購物", "上期延入", priorDeferred: true),
         ],
         baseNetBilled: Money(12000), totalRepay: .zero, baseNetUnbilled: Money(300), baseUnbilledCount: 1,

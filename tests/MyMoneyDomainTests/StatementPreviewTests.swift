@@ -7,12 +7,12 @@ struct StatementPreviewTests {
     private func day(_ month: Int, _ day: Int) -> CalendarDay { CalendarDay(year: 2026, month: month, day: day) }
 
     private func item(
-        _ id: String, _ kind: StatementItem.Kind, _ amount: Int, on date: CalendarDay? = nil, shared: HouseholdSettlement? = nil,
+        _ id: String, _ kind: StatementItem.Kind, _ amount: Int, on date: CalendarDay? = nil, shared: HouseholdPayment? = nil,
         priorDeferred: Bool = false, initiallyDeferred: Bool = false
     ) -> StatementItem {
         StatementItem(
             id: TransactionID(id), kind: kind, amount: Money(Decimal(amount)), date: date ?? day(9, 20),
-            category: TransactionCategory("餐飲"), note: id, isShared: shared != nil, householdSettlement: shared,
+            category: TransactionCategory("餐飲"), note: id, isShared: shared != nil, householdPayment: shared,
             isPriorDeferred: priorDeferred, isInitiallyDeferred: initiallyDeferred
         )
     }
@@ -20,12 +20,12 @@ struct StatementPreviewTests {
     /// 數字取自 prod 錄下的真實預覽(結帳日 25 號、今天 10/17,結算 8/26～9/25):本期晚餐 600(公帳)、交通 400(公帳)、
     /// 個人購物 300、公帳刷退 100、上期延入 250(8/20);已出帳基準 0、未出帳基準 150(結帳日之後的一筆,1 筆)。
     private func preview(
-        dinner: HouseholdSettlement = .pending, traffic: HouseholdSettlement = .pending, repay: Int = 0
+        dinner: HouseholdPayment = .advancePending, traffic: HouseholdPayment = .advancePending, repay: Int = 0
     ) -> StatementPreview {
         StatementPreview(
             startDate: day(8, 26), endDate: day(9, 25), isStatementPending: true,
             items: [
-                item("refund", .refund, 100, on: day(9, 20), shared: .pending),
+                item("refund", .refund, 100, on: day(9, 20), shared: .advancePending),
                 item("private", .expense, 300, on: day(9, 14)),
                 item("traffic", .expense, 400, on: day(9, 12), shared: traffic),
                 item("dinner", .expense, 600, on: day(9, 10), shared: dinner),
@@ -101,7 +101,7 @@ struct StatementPreviewTests {
 
     @Test("公帳已由家庭報銷:不計入家庭公帳代墊，全額轉列個人私帳(出帳淨額不變)")
     func reimbursedSharedItemsMoveToPersonal() {
-        let outlook = preview(dinner: .reimbursed).outlook(deferring: [])
+        let outlook = preview(dinner: .advanceReimbursed).outlook(deferring: [])
 
         #expect(outlook.net == Money(1450), "卡片待繳款仍要與銀行帳單吻合")
         #expect(outlook.sharedDebt == Money(300), "只剩交易 400 − 刷退 100")
@@ -110,7 +110,7 @@ struct StatementPreviewTests {
 
     @Test("已額外處理的公帳同樣不計入家庭公帳代墊;全部報銷或處理後公帳是 0")
     func handledSeparatelyIsNotSharedDebt() {
-        let outlook = preview(dinner: .reimbursed, traffic: .handledSeparately).outlook(deferring: [])
+        let outlook = preview(dinner: .advanceReimbursed, traffic: .advanceHandledSeparately).outlook(deferring: [])
 
         #expect(outlook.sharedDebt == .zero, "刷退 100 比剩下的公帳 0 多:最小是 0")
         #expect(outlook.personalDebt == Money(1450))
