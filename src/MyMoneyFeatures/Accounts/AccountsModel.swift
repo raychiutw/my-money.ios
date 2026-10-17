@@ -207,11 +207,11 @@ public final class AccountsModel: Alerting {
     }
 
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
-        AccountEditorModel(adding: kind, repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(adding: kind, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
     }
 
     public func makeEditor(editing account: Account) -> AccountEditorModel {
-        AccountEditorModel(editing: account, repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(editing: account, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
     }
 
     /// 現金錢包的餘額合計;還沒載入時是 `nil`。

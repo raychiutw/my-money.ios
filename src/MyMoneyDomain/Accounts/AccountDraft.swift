@@ -56,6 +56,9 @@ public struct CreditCardDraft: Hashable, Sendable {
     /// 家庭信用卡的標記。
     public var isJointFund: Bool
 
+    /// 預設扣款帳戶(上游 `3d09060`,選填);`nil` 送出時是明確的 null(清除),不是省略欄位。
+    public var paymentAccountID: AccountID?
+
     public init(
         name: String,
         colorHex: String,
@@ -64,8 +67,10 @@ public struct CreditCardDraft: Hashable, Sendable {
         creditLimit: Money?,
         statementDay: Int?,
         paymentDueDay: Int?,
-        isJointFund: Bool = false
+        isJointFund: Bool = false,
+        paymentAccountID: AccountID? = nil
     ) {
+        self.paymentAccountID = paymentAccountID
         self.isJointFund = isJointFund
         self.name = name
         self.colorHex = colorHex

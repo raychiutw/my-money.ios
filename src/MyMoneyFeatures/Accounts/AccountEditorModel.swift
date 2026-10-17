@@ -30,6 +30,15 @@ public final class AccountEditorModel: Submitting {
     public var statementDay: Int?
     public var paymentDueDay: Int?
 
+    /// 信用卡的預設扣款帳戶(選填,上游 `3d09060`):繳款時預設帶入。`nil` 是「不綁定」。
+    public var paymentAccountID: AccountID?
+
+    /// 預設扣款帳戶的選項:目前帳戶範圍的活存帳戶。
+    public let paymentAccountOptions: [BankAccount]
+
+    /// 只有信用卡有預設扣款帳戶這一列。
+    public var showsPaymentAccount: Bool { kind == .creditCard }
+
     public package(set) var errorMessage: String?
     public package(set) var isSaving = false
 
@@ -71,11 +80,13 @@ public final class AccountEditorModel: Submitting {
 
     public init(
         adding kind: AccountKind,
+        bankAccounts: [BankAccount] = [],
         repository: any AccountRepository,
         dataVersion: DataVersion,
         randomColor: () -> String = AccountColors.random
     ) {
         storedKind = kind
+        paymentAccountOptions = bankAccounts
         randomDefaultColor = randomColor()
         colorHex = randomDefaultColor
         editingID = nil
@@ -85,8 +96,11 @@ public final class AccountEditorModel: Submitting {
         applyDefaults(for: kind)
     }
 
-    public init(editing account: Account, repository: any AccountRepository, dataVersion: DataVersion) {
+    public init(
+        editing account: Account, bankAccounts: [BankAccount] = [], repository: any AccountRepository, dataVersion: DataVersion
+    ) {
         editingID = account.id
+        paymentAccountOptions = bankAccounts
         self.repository = repository
         self.dataVersion = dataVersion
         switch account {
@@ -113,6 +127,8 @@ public final class AccountEditorModel: Submitting {
             statementDay = card.statementDay
             paymentDueDay = card.paymentDueDay
             isJointFund = card.isJointFund
+            // 帶入原本的綁定,只改別的欄位儲存才不會把它清掉;綁定的活存帳戶不在選項裡(已刪除、或這個範圍看不到)就當作沒綁定。
+            paymentAccountID = card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
         }
     }
 
@@ -155,7 +171,8 @@ public final class AccountEditorModel: Submitting {
                 creditLimit: Self.optionalMoney(creditLimitText),
                 statementDay: statementDay,
                 paymentDueDay: paymentDueDay,
-                isJointFund: isJointFund
+                isJointFund: isJointFund,
+                paymentAccountID: paymentAccountID
             ))
         }
     }
@@ -170,6 +187,7 @@ public final class AccountEditorModel: Submitting {
             creditLimitText = ""
             statementDay = nil
             paymentDueDay = nil
+            paymentAccountID = nil
         case .creditCard:
             creditLimitText = "100000"
             statementDay = 15

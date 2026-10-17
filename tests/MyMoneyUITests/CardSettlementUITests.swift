@@ -172,6 +172,30 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(findField("已出帳待繳款", value: "$13,200", in: app).exists, "出帳後的已出帳待繳款不對")
     }
 
+    /// 預設扣款帳戶(上游 `3d09060`):信用卡綁定「iOS 測試存款」,詳細頁「設定」顯示它;編輯器改成「不綁定」儲存後，詳細頁沒有這一列。
+    @MainActor
+    func testDefaultPaymentAccountShowsAndCanBeCleared() throws {
+        let app = launchSignedIn(flags: ["-uiTestingCardBoundBank"])
+        openCard("sample-card", named: "iOS 測試信用卡", in: app)
+
+        let bound = findField("預設扣款帳戶", value: "iOS 測試存款", in: app)
+        XCTAssertTrue(bound.exists, "詳細頁沒有顯示綁定的預設扣款帳戶")
+
+        app.navigationBars.buttons["cardDetail.edit"].tap()
+        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "預設扣款帳戶")).firstMatch
+        for _ in 0..<6 where !picker.exists { app.swipeUp() }
+        XCTAssertTrue(picker.exists, "編輯器沒有預設扣款帳戶這一列")
+        XCTAssertTrue(picker.displayedText.contains("iOS 測試存款"), "編輯器沒有帶入原本的綁定:\(picker.displayedText)")
+        picker.tap()
+        app.buttons["不綁定"].tap()
+        for _ in 0..<6 where !app.buttons["accountEditor.save"].isHittable { app.swipeDown() }
+        app.buttons["accountEditor.save"].tap()
+
+        XCTAssertTrue(app.buttons["accountEditor.save"].waitForNonExistence(timeout: 5), "編輯器沒有關閉")
+        XCTAssertTrue(field("結帳日", value: "每月 15 日", in: app).waitForExistence(timeout: 5) || findField("結帳日", value: "每月 15 日", in: app).exists)
+        XCTAssertFalse(field("預設扣款帳戶", value: "iOS 測試存款", in: app).exists, "改成不綁定之後詳細頁還有預設扣款帳戶")
+    }
+
     /// 沒設結帳日的卡(上游 ADR 0030:後端回 400):按「出帳作業」不開預覽，說明要先設定結帳日，並可前往編輯。
     @MainActor
     func testRolloverWithoutStatementDayAsksToSetIt() throws {
@@ -271,8 +295,8 @@ final class CardSettlementUITests: XCTestCase {
 
     /// 登入 in-memory 的範例帳號，切到帳戶 tab。
     @MainActor
-    private func launchSignedIn() -> XCUIApplication {
-        let app = XCUIApplication.launchUITesting(signedIn: true)
+    private func launchSignedIn(flags: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication.launchUITesting(flags: flags, signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         return app
     }

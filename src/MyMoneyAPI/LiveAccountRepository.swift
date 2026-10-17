@@ -133,13 +133,41 @@ private struct AccountBody: Encodable {
     let paymentDueDay: Int?
     let color: String
     let isJoint: Int
+    /// 信用卡的預設扣款帳戶(上游 `3d09060`):只有信用卡會送。後端的 PUT 對「欄位沒送」是保留原值、對 `null` 才是清除,
+    /// 所以沒綁定要送**明確的 `null`**——省略欄位使用者就清不掉。現金與活存帳戶完全不送。
+    let paymentAccount: PaymentAccountField
+
+    enum PaymentAccountField {
+        case omitted
+        case set(String)
+        case cleared
+    }
 
     enum CodingKeys: String, CodingKey {
         case type, name, balance, unbilled, color
         case creditLimit = "credit_limit"
         case statementDay = "statement_day"
         case paymentDueDay = "payment_due_day"
+        case paymentAccountID = "payment_account_id"
         case isJoint = "is_joint"
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(type, forKey: .type)
+        try container.encode(name, forKey: .name)
+        try container.encode(balance, forKey: .balance)
+        try container.encode(unbilled, forKey: .unbilled)
+        try container.encodeIfPresent(creditLimit, forKey: .creditLimit)
+        try container.encodeIfPresent(statementDay, forKey: .statementDay)
+        try container.encodeIfPresent(paymentDueDay, forKey: .paymentDueDay)
+        switch paymentAccount {
+        case .omitted: break
+        case .set(let id): try container.encode(id, forKey: .paymentAccountID)
+        case .cleared: try container.encodeNil(forKey: .paymentAccountID)
+        }
+        try container.encode(color, forKey: .color)
+        try container.encode(isJoint, forKey: .isJoint)
     }
 
     init(_ draft: AccountDraft) {
@@ -154,6 +182,7 @@ private struct AccountBody: Encodable {
             paymentDueDay = nil
             color = wallet.colorHex
             isJoint = wallet.isJointFund ? 1 : 0
+            paymentAccount = .omitted
         case .bank(let bank):
             type = "bank"
             name = bank.name
@@ -164,6 +193,7 @@ private struct AccountBody: Encodable {
             paymentDueDay = nil
             color = bank.colorHex
             isJoint = bank.isJointFund ? 1 : 0
+            paymentAccount = .omitted
         case .creditCard(let card):
             type = "credit_card"
             name = card.name
@@ -174,6 +204,7 @@ private struct AccountBody: Encodable {
             paymentDueDay = card.paymentDueDay
             color = card.colorHex
             isJoint = card.isJointFund ? 1 : 0
+            paymentAccount = card.paymentAccountID.map { .set($0.rawValue) } ?? .cleared
         }
     }
 }
@@ -198,6 +229,9 @@ private struct AccountDTO: Decodable {
     /// 欠款公私拆解，只有信用卡帳戶有。
     let sharedDebt: Decimal?
     let personalDebt: Decimal?
+    /// 預設扣款帳戶(上游 `3d09060`):ID 與名稱;沒綁定是 null,綁定的活存帳戶被刪除後只剩 ID。舊的回應沒有這兩個欄位。
+    let paymentAccountID: String?
+    let paymentAccountName: String?
     /// 欠款雙層矩陣(上游 ADR 0025,`a4c0f4b` 起);舊的回應沒有，四個欄位都有才算有。
     let billedSharedDebt: Decimal?
     let billedPersonalDebt: Decimal?
@@ -215,6 +249,8 @@ private struct AccountDTO: Decodable {
         case userID = "user_id"
         case sharedDebt = "shared_debt"
         case personalDebt = "personal_debt"
+        case paymentAccountID = "payment_account_id"
+        case paymentAccountName = "payment_account_name"
         case billedSharedDebt = "billed_shared_debt"
         case billedPersonalDebt = "billed_personal_debt"
         case unbilledSharedDebt = "unbilled_shared_debt"
@@ -266,7 +302,9 @@ private struct AccountDTO: Decodable {
                 ownerID: userID.map(UserID.init),
                 ownerName: ownerName,
                 isMasked: isMasked?.value ?? false,
-                debtMatrix: debtMatrix
+                debtMatrix: debtMatrix,
+                paymentAccountID: paymentAccountID.flatMap { $0.isEmpty ? nil : AccountID($0) },
+                paymentAccountName: paymentAccountName
             ))
         default:
             return nil

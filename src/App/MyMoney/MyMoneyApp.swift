@@ -65,14 +65,16 @@ struct MyMoneyApp: App {
             let hold = Duration.seconds(30)
             // `-uiTestingCardNoStatementDay`:多一張沒設結帳日的信用卡(出帳作業要先請使用者設定結帳日)。
             let extraCards = SampleAccounts.extraAccounts(noStatementDayCard: arguments.contains("-uiTestingCardNoStatementDay"))
+            // `-uiTestingCardBoundBank`:範例信用卡綁定「iOS 測試存款」為預設扣款帳戶(上游 `3d09060`)。
+            let baseAccounts = SampleAccounts.all(withBoundCard: arguments.contains("-uiTestingCardBoundBank"))
             let accounts = includesFamily
                 ? InMemoryAccountRepository(
-                    accounts: SampleAccounts.all + extraCards + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
+                    accounts: baseAccounts + extraCards + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
                     summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
                     loadDelay: holdsAccounts ? hold : nil, loadDelayStartsAfter: holdAfter ?? 0
                 )
                 : InMemoryAccountRepository(
-                    accounts: SampleAccounts.all + extraCards, summary: SampleAccounts.summary,
+                    accounts: baseAccounts + extraCards, summary: SampleAccounts.summary,
                     statementPreviews: SampleAccounts.statementPreviews, loadDelay: holdsAccounts ? hold : nil,
                     loadDelayStartsAfter: holdAfter ?? 0
                 )

@@ -87,6 +87,23 @@ struct CreditCardDetailTests {
         #expect(StatementRolloverModel.missingStatementDayMessage == "請先設定每月結帳日，才能做出帳作業")
     }
 
+    @Test("設定區塊的預設扣款帳戶(上游 `3d09060`):有綁定而且有名稱才顯示;沒綁定、懸空的綁定、脫敏的他人私卡都沒有")
+    func paymentAccountRow() {
+        func card(id: String?, name: String?, masked: Bool = false) -> CreditCard {
+            CreditCard(
+                id: AccountID("card"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(100), unbilledDebt: .zero, creditLimit: nil,
+                statementDay: 15, paymentDueDay: 5, isMasked: masked, paymentAccountID: id.map(AccountID.init), paymentAccountName: name
+            )
+        }
+
+        let row = detail(card(id: "bank", name: "iOS 測試存款")).paymentAccountRow
+        #expect(row?.title == "預設扣款帳戶")
+        #expect(row?.value == "iOS 測試存款")
+        #expect(detail(card(id: nil, name: nil)).paymentAccountRow == nil)
+        #expect(detail(card(id: "deleted", name: nil)).paymentAccountRow == nil, "懸空的綁定當作沒綁定")
+        #expect(detail(card(id: "bank", name: "別人的存款", masked: true)).paymentAccountRow == nil, "他人私卡的綁定是對方的私人設定")
+    }
+
     @Test("出帳作業的預覽 sheet:確認後送出，資料版本遞增;載入的是這張卡的預覽")
     func rollOver() async {
         let repository = InMemoryAccountRepository.sample()

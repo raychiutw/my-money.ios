@@ -87,6 +87,44 @@ struct AccountsTranslationTests {
         #expect(card.debtMatrix?.unbilledPersonal == .zero)
     }
 
+    private static let savingsID = AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37")
+
+    private func creditCards(_ fixture: String) async throws -> [CreditCard] {
+        try stub.reply(status: 200, fixture: fixture)
+        return try await repository.accounts().compactMap { account in
+            if case .creditCard(let card) = account { card } else { nil }
+        }
+    }
+
+    @Test("信用卡的預設扣款帳戶(上游 `3d09060`):帳戶清單解出綁定的帳戶 ID 與名稱;沒綁定的卡是 nil")
+    func paymentAccountDecodes() async throws {
+        let cards = try await creditCards("accounts-list-payment-account.json")
+
+        let bound = try #require(cards.first { $0.name == "iOS 暫存卡扣款" })
+        #expect(bound.paymentAccountID == Self.savingsID)
+        #expect(bound.paymentAccountName == "iOS 測試存款")
+        let unbound = try #require(cards.first { $0.name == "iOS 測試信用卡" })
+        #expect(unbound.paymentAccountID == nil)
+        #expect(unbound.paymentAccountName == nil)
+    }
+
+    @Test("舊的回應沒有預設扣款帳戶欄位:視為沒綁定")
+    func paymentAccountAbsentInOldResponses() async throws {
+        let cards = try await creditCards("accounts-list.json")
+
+        #expect(!cards.isEmpty)
+        #expect(cards.allSatisfy { $0.paymentAccountID == nil && $0.paymentAccountName == nil })
+    }
+
+    @Test("綁定的活存帳戶已被刪除:後端還留著 ID、名稱是 null(懸空);解出來有 ID 沒名稱，畫面當作沒綁定")
+    func danglingPaymentAccount() async throws {
+        let cards = try await creditCards("accounts-list-payment-account-dangling.json")
+
+        let dangling = try #require(cards.first { $0.name == "iOS 暫存卡懸空" })
+        #expect(dangling.paymentAccountID != nil)
+        #expect(dangling.paymentAccountName == nil)
+    }
+
     @Test("帳戶檢視範圍：家庭共同基金帶 scope=household,只回傳歸屬家庭共同基金的帳戶")
     func householdScopeListsJointAccounts() async throws {
         try stub.reply(status: 200, fixture: "accounts-list-household.json")
