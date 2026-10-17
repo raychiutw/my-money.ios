@@ -116,10 +116,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         return stored == nil ? [] : storedAdvances
     }
 
-    /// 公帳退款是負項,支出是正項(上游 ADR 0027)。
-    private static func signed(_ item: AdvanceItem) -> Money { item.kind == .refund ? .zero - item.amount : item.amount }
-
-    private static func net(_ items: [AdvanceItem]) -> Money { items.reduce(.zero) { $0 + signed($1) } }
+    private static func net(_ items: [AdvanceItem]) -> Money { items.reduce(.zero) { $0 + $1.signedAmount } }
 
     /// 後端回傳的統計:待報銷是待報銷明細的淨額(可以是負的);已對應撥款額只算共同基金撥款結清的(已額外處理不算);
     /// 溢撥是累計撥款減去已對應撥款額,最小 0。
@@ -128,7 +125,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         reimbursementItems: [ReimbursementItem]? = nil
     ) -> HouseholdAdvance {
         let linked = settled.filter { if case .reimbursed = $0.settlement { true } else { false } }
-            .reduce(Money.zero) { $0 + signed($1.item) }
+            .reduce(Money.zero) { $0 + $1.item.signedAmount }
         return HouseholdAdvance(
             memberID: advance.memberID, memberName: advance.memberName, totalAdvanced: advance.totalAdvanced,
             totalReimbursed: reimbursed, pendingReimbursement: net(pending), advanceItems: pending,

@@ -37,17 +37,19 @@ struct MalformedResponseTranslationTests {
         }
     }
 
-    @Test("出帳預覽:區間起日格式錯、狀態看不懂都整份看不懂")
+    @Test("出帳預覽:區間起日格式錯整份看不懂;狀態(statusLabel)看不懂只是不寫區間說明，預覽照常載入")
     func statementCycle() async throws {
         let card = AccountID("27638439-d433-460f-b179-acdb8b513f93")
         try reply("accounts-rollover-preview.json", replacing: "\"startDate\":\"2026-08-26\"", with: "\"startDate\":\"8/26\"")
         await #expect(throws: RepositoryError.unreadableResponse) {
             try await LiveAccountRepository(client: client).statementPreview(card)
         }
+
+        // 上游將來新增的狀態:狀態只決定區間下面那句說明,不能讓出帳作業整個打不開。
         try reply("accounts-rollover-preview.json", replacing: "\"statusLabel\":\"before_statement\"", with: "\"statusLabel\":\"someday\"")
-        await #expect(throws: RepositoryError.unreadableResponse) {
-            try await LiveAccountRepository(client: client).statementPreview(card)
-        }
+        let preview = try await LiveAccountRepository(client: client).statementPreview(card)
+        #expect(preview.isStatementPending == nil)
+        #expect(preview.items.count == 5)
     }
 
     @Test("出帳預覽:明細的日期格式錯")

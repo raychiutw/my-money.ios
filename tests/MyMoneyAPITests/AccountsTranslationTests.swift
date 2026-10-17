@@ -410,7 +410,7 @@ struct AccountsTranslationTests {
         #expect(stub.requests.last?.url?.path() == "/accounts/27638439-d433-460f-b179-acdb8b513f93/rollover-preview")
         #expect(preview.startDate == CalendarDay(year: 2026, month: 8, day: 26), "上上期結帳日的次日")
         #expect(preview.endDate == CalendarDay(year: 2026, month: 9, day: 25), "上期結帳日")
-        #expect(preview.isStatementPending)
+        #expect(preview.isStatementPending == true)
         #expect(preview.items.map(\.note) == ["公帳刷退", "個人購物", "家庭交通", "家庭晚餐", "上期延入"], "順序照後端(日期由新到舊)")
         #expect(preview.items.map(\.kind) == [.refund, .expense, .expense, .expense, .expense])
         #expect(preview.items.map(\.isPriorDeferred) == [false, false, false, false, true])
@@ -443,7 +443,7 @@ struct AccountsTranslationTests {
 
         #expect(preview.startDate == CalendarDay(year: 2026, month: 9, day: 16))
         #expect(preview.endDate == CalendarDay(year: 2026, month: 10, day: 15))
-        #expect(!preview.isStatementPending)
+        #expect(preview.isStatementPending == false)
         #expect(preview.initiallyDeferredIDs == Set(preview.items.filter { $0.note == "本期延期" }.map(\.id)))
         #expect(outlook.net == Money(600), "消費 800 − 刷退 200;延期的 500 不算")
         #expect(outlook.projectedBilled == Money(600))

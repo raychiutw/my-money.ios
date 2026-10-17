@@ -188,7 +188,12 @@ private struct AdvanceDTO: Decodable {
     }
 
     private static func settlement(_ reimbursementID: String?) -> AdvanceSettlement {
-        reimbursementID == "EXTERNAL_SETTLED" ? .handledSeparately : .reimbursed(TransactionID(reimbursementID ?? ""))
+        switch ReimbursementMarker(reimbursementID) {
+        case .handledSeparately: .handledSeparately
+        case .reimbursed(let id): .reimbursed(id)
+        // 已結清明細一定有關聯;空的(不該發生)當作對不到撥款的已報銷。
+        case .none: .reimbursed(TransactionID(""))
+        }
     }
 
     /// 帳戶已刪除時後端回 `other`。

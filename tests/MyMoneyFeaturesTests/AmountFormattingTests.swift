@@ -53,4 +53,11 @@ struct AmountFormattingTests {
         #expect(AmountDigits.offset(in: "12,345", afterDigits: 5) == 6)
         #expect(AmountDigits.offset(in: "", afterDigits: 0) == 0)
     }
+
+    @Test("全是數字(含空字串)才套千分位規則;帶入有小數點的舊金額時欄位照常編輯", arguments: [
+        ("", true), ("1234", true), ("12.5", false), ("1,234", false), ("-5", false),
+    ])
+    func plainText(text: String, expected: Bool) {
+        #expect(AmountDigits.isPlain(text) == expected)
+    }
 }

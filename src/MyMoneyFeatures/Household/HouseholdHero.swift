@@ -113,7 +113,12 @@ struct MyAdvanceTiles: View {
         NumberTileRow(memory: memory) {
             NumberTile(title: "累計代墊", amount: .plain(advance.totalAdvanced), spokenTitle: "我的累計公帳墊付")
             NumberTile(title: "已報銷", amount: .plain(advance.totalReimbursed), spokenTitle: "我的已獲撥款報銷")
-            NumberTile(title: "待報銷", amount: .outflow(advance.pendingReimbursement), spokenTitle: "我的待報銷")
+            if advance.isOffsetPending {
+                // 公帳退款比待報銷的支出多:是待抵扣的餘額(綠色),不是欠款(上游 ADR 0029)。
+                NumberTile(title: "公帳待抵扣", amount: .inflow(.zero - advance.pendingReimbursement), spokenTitle: "我的公帳待抵扣")
+            } else {
+                NumberTile(title: "待報銷", amount: .outflow(advance.pendingReimbursement), spokenTitle: "我的待報銷")
+            }
         }
     }
 }

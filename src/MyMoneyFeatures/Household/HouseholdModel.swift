@@ -124,6 +124,9 @@ public final class HouseholdModel {
         advance.isOffsetPending ? "公帳待抵扣" : nil
     }
 
+    /// 家庭頁成員列的狀態(也是 VoiceOver 念的):待報銷是負的叫「公帳待抵扣」,不能說成已結清。
+    public func statusTitle(of advance: HouseholdAdvance) -> String { advance.statusTitle }
+
     /// 信用卡扣款的代墊明細標示出帳狀態(上游 ADR 0029):未出帳、已出帳、延至下期;現金與活存帳戶墊付的沒有。
     public func billingText(of item: AdvanceItem) -> String? { item.billingText }
 
@@ -335,5 +338,13 @@ extension AdvanceItem {
     var displayTitle: String {
         let base = note.isEmpty ? category.name : "\(category.name) · \(note)"
         return kind == .refund ? "退款 · \(base)" : base
+    }
+}
+
+extension HouseholdAdvance {
+    /// 成員列的狀態(也是 VoiceOver 念的):待報銷是負的叫「公帳待抵扣」,不能說成已結清。
+    var statusTitle: String {
+        if isOffsetPending { return "公帳待抵扣" }
+        return isSettled ? "已全數結清" : "有待請款代墊"
     }
 }

@@ -55,30 +55,22 @@ struct StatementPreviewDTO: Decodable {
             return StatementItem(
                 id: TransactionID(dto.id), kind: kind, amount: Money(dto.amount), date: date,
                 category: TransactionCategory(dto.category), note: dto.note ?? "", isShared: isShared,
-                householdPayment: isShared ? Self.payment(dto.reimbursementID) : nil,
+                householdPayment: isShared ? ReimbursementMarker(dto.reimbursementID).payment : nil,
                 isPriorDeferred: dto.isPriorDeferred, isInitiallyDeferred: dto.isInitiallyDeferred
             )
         }
         guard let start = CalendarDay(iso: startDate), let end = CalendarDay(iso: endDate) else { throw RepositoryError.unreadableResponse }
-        let isPending: Bool
-        switch statusLabel {
-        case "before_statement": isPending = true
-        case "after_statement": isPending = false
-        default: throw RepositoryError.unreadableResponse
+        // 狀態只用來決定區間下面那句說明:看不懂的(上游新增的)不讓整份預覽失敗，說明就不寫(nil)。
+        let isPending: Bool? = switch statusLabel {
+        case "before_statement": true
+        case "after_statement": false
+        default: nil
         }
         return StatementPreview(
             startDate: start, endDate: end, isStatementPending: isPending, items: items,
             baseNetBilled: Money(baseNetBilled), totalRepay: Money(totalRepay), baseNetUnbilled: Money(baseNetUnbilled),
             baseUnbilledCount: baseUnbilledCount, hasRolledCycle: hasRolledCycle, priorDeferredCount: priorDeferredCount
         )
-    }
-
-    private static func payment(_ reimbursementID: String?) -> HouseholdPayment {
-        switch reimbursementID?.trimmingCharacters(in: .whitespaces) {
-        case nil, "": .advancePending
-        case "EXTERNAL_SETTLED": .advanceHandledSeparately
-        default: .advanceReimbursed
-        }
     }
 }
 

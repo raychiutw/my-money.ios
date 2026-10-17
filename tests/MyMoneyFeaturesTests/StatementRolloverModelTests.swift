@@ -209,6 +209,35 @@ struct StatementRolloverModelTests {
         #expect(!model.canConfirm)
     }
 
+    @Test("家庭共同帳戶的信用卡:公帳是直接扣款、不是代墊,明細只寫「家庭公帳」,不標待報銷／已撥款")
+    func jointFundCardHasNoAdvanceStates() async throws {
+        let jointCard = CreditCard(
+            id: AccountID("sample-card"), name: "家庭卡", colorHex: "#FFD4A0", billedDebt: Money(12000), unbilledDebt: Money(3500),
+            creditLimit: nil, statementDay: 15, paymentDueDay: 5, isJointFund: true
+        )
+        let model = model(jointCard)
+        await model.load()
+
+        let dinner = try #require(model.items.first { $0.note == "家庭晚餐" })
+        #expect(model.itemDetailText(dinner) == "10月9日 · 家庭公帳")
+    }
+
+    @Test("看不懂的區間狀態:不寫說明，區間照常顯示")
+    func unknownCycleStateHasNoNote() async {
+        let preview = StatementPreview(
+            startDate: CalendarDay(year: 2026, month: 8, day: 26), endDate: CalendarDay(year: 2026, month: 9, day: 25),
+            isStatementPending: nil, items: [], baseNetBilled: .zero, totalRepay: .zero, baseNetUnbilled: .zero
+        )
+        let repository = InMemoryAccountRepository(
+            accounts: SampleAccounts.all, summary: SampleAccounts.summary, statementPreviews: [SampleAccounts.card.id: preview]
+        )
+        let model = model(repository: repository)
+        await model.load()
+
+        #expect(model.periodText == "8月26日 ～ 9月25日")
+        #expect(model.periodNote == nil)
+    }
+
     @Test("上期延入款的提示:有上期延入款而且這一期還沒出過帳才顯示")
     func priorDeferredNote() async {
         let model = model()

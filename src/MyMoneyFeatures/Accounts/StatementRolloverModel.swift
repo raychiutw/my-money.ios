@@ -84,8 +84,8 @@ public final class StatementRolloverModel: Submitting, Identifiable {
 
     /// 區間的說明:本月結帳日還沒到時結算的是上一期帳單。
     public var periodNote: String? {
-        guard let preview else { return nil }
-        return preview.isStatementPending ? "結帳日還沒到，結算上一期帳單" : "結算本期帳單"
+        guard let pending = preview?.isStatementPending else { return nil }
+        return pending ? "結帳日還沒到，結算上一期帳單" : "結算本期帳單"
     }
 
     /// 有上期延入款、而且這一期還沒出過帳才提示:這些款項首次結算預設納入本期(也可以再延一次)。
@@ -96,11 +96,17 @@ public final class StatementRolloverModel: Submitting, Identifiable {
 
     /// 明細第二行:日期;上期延入款與公帳的家庭報銷狀態後面加標記。
     public func itemDetailText(_ item: StatementItem) -> String {
-        [dayText(item.date), item.isPriorDeferred ? "上期延入" : nil, item.householdPayment.map { OwnershipName.title(isShared: true, payment: $0) }]
+        [dayText(item.date), item.isPriorDeferred ? "上期延入" : nil, householdText(of: item)]
             .compactMap { $0 }.joined(separator: " · ")
     }
 
     private func dayText(_ day: CalendarDay) -> String { day.text(today: today(), locale: locale) }
+
+    /// 公帳明細的支付狀態文字。家庭共同帳戶的信用卡直接扣款(不是代墊),沒有「待報銷」之類的狀態,只寫「家庭公帳」。
+    private func householdText(of item: StatementItem) -> String? {
+        guard let payment = item.householdPayment else { return nil }
+        return OwnershipName.title(isShared: true, payment: card.isJointFund ? .jointFund : payment)
+    }
 
     /// 確認出帳;成功回傳後端的訊息(畫面關閉 sheet 並顯示)，並遞增資料版本讓其他畫面重抓。
     public func submit() async -> String? {

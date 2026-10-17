@@ -5,8 +5,8 @@ public struct StatementPreview: Hashable, Sendable {
     /// 「上期結帳日的次日到本月結帳日」。iOS 不自己推算區間。沒設結帳日的卡後端回 400，不會有預覽。
     public let startDate: CalendarDay
     public let endDate: CalendarDay
-    /// 本月的結帳日還沒到(後端的 `statusLabel` 是 `before_statement`):這時結算的是上一期帳單。
-    public let isStatementPending: Bool
+    /// 本月的結帳日還沒到(後端的 `statusLabel` 是 `before_statement`):這時結算的是上一期帳單;看不懂的狀態是 `nil`。
+    public let isStatementPending: Bool?
     public let items: [StatementItem]
     /// 不在這期明細裡的已出帳消費減刷退(後端的 `baseNetBilled`)。
     public let baseNetBilled: Money
@@ -22,7 +22,7 @@ public struct StatementPreview: Hashable, Sendable {
     public let priorDeferredCount: Int
 
     public init(
-        startDate: CalendarDay, endDate: CalendarDay, isStatementPending: Bool = false, items: [StatementItem],
+        startDate: CalendarDay, endDate: CalendarDay, isStatementPending: Bool? = false, items: [StatementItem],
         baseNetBilled: Money, totalRepay: Money, baseNetUnbilled: Money, baseUnbilledCount: Int = 0,
         hasRolledCycle: Bool = false, priorDeferredCount: Int = 0
     ) {

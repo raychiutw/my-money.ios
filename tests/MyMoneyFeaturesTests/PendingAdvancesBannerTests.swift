@@ -30,6 +30,24 @@ struct PendingAdvancesBannerTests {
         #expect(model.pendingAdvanceBannerText == "家庭公帳待報銷總額 $850")
     }
 
+    @Test("有成員是公帳待抵扣(待報銷是負的)時不抵銷別人:只加總大於 0 的(600,不是 600 − 300)")
+    func offsetPendingDoesNotCancelOthers() async {
+        let model = await model(
+            scope: .household,
+            households: .sample(advances: [InMemoryHouseholdRepository.meiPendingAdvance, InMemoryHouseholdRepository.meiOffsetAdvance])
+        )
+
+        #expect(model.pendingAdvanceTotal == Money(600))
+        #expect(model.pendingAdvanceBannerText == "家庭公帳待報銷總額 $600")
+    }
+
+    @Test("只有公帳待抵扣的成員、沒有別人待報銷:不顯示橫幅")
+    func offsetOnlyHidesTheBanner() async {
+        let model = await model(scope: .household, households: .sample(advances: [InMemoryHouseholdRepository.meiOffsetAdvance]))
+
+        #expect(!model.showsPendingAdvanceBanner)
+    }
+
     @Test("全部與私帳範圍沒有橫幅，而且不多問 API")
     func otherScopesDoNotAsk() async {
         for scope in [AccountScope.all, .personal] {

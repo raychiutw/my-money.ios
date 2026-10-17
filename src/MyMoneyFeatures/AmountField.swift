@@ -49,13 +49,18 @@ struct AmountField<Value: Hashable>: View {
 
     /// 純數字 → 顯示的文字;帶進來的不是純數字(不該發生)就原樣顯示，讓驗證擋下。
     private static func shown(_ text: String) -> String {
-        text.allSatisfy { ("0"..."9").contains($0) } ? AmountDigits.grouped(text) : text
+        AmountDigits.isPlain(text) ? AmountDigits.grouped(text) : text
     }
 
     /// 使用者打字、刪除或貼上之後:取出純數字寫回綁定，重新格式化顯示，游標留在同樣數量的數字後面。
     /// 含不合法字元或超過位數上限的輸入整次拒絕，欄位退回上一個值。
     private func userEdited(_ edited: String) {
         guard let digits = AmountDigits.digits(from: edited) else {
+            // 綁定的文字本來就不是純數字(帶入了有小數點的舊金額):照使用者打的存回去，不凍住欄位;驗證在送出時擋下。
+            if !AmountDigits.isPlain(text) {
+                if edited != text { text = edited }
+                return
+            }
             display = Self.shown(text)
             return
         }

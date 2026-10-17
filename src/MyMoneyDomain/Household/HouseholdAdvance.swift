@@ -122,6 +122,9 @@ public struct AdvanceItem: Hashable, Sendable, Identifiable {
     /// 信用卡出帳狀態(上游 ADR 0029):只有扣款帳戶是信用卡時有;舊的回應沒有旗標時是未出帳。
     public let billing: BillingStatus?
 
+    /// 對待報銷淨額的貢獻:支出為正、公帳退款為負(上游 ADR 0027)。
+    public var signedAmount: Money { kind == .refund ? .zero - amount : amount }
+
     public init(
         id: TransactionID, date: CalendarDay, category: TransactionCategory, note: String, amount: Money,
         accountName: String, accountKind: AccountKind?, recordedAt: Date? = nil,

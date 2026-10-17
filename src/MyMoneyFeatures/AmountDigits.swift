@@ -17,6 +17,12 @@ package enum AmountDigits {
         return digits.count <= maxDigits ? digits : nil
     }
 
+    /// 全是 0 到 9(空字串也算):綁定的文字不是純數字(例如帶入了有小數點的舊金額)時,欄位不再套千分位規則,讓使用者照常編輯，
+    /// 由送出時的「請輸入有效的金額」驗證擋下。
+    package static func isPlain(_ text: String) -> Bool {
+        text.allSatisfy { ("0"..."9").contains($0) }
+    }
+
     /// 純數字 → 欄位顯示的文字:每三位一個逗號，固定用逗號，不跟裝置語系走。
     package static func grouped(_ digits: String) -> String {
         var result = ""

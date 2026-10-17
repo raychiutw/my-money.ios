@@ -39,6 +39,19 @@ struct HouseholdAdvanceStatesTests {
         #expect(model.canReimburse(mine))
     }
 
+    @Test("家庭頁成員列的狀態文字:已全數結清、公帳待抵扣、有待請款代墊——公帳待抵扣不能被說成已結清")
+    func memberRowStatus() async {
+        let (model, _) = await loaded()
+        let settled = HouseholdAdvance(
+            memberID: me, memberName: "小明", totalAdvanced: .zero, totalReimbursed: .zero, pendingReimbursement: .zero,
+            advanceItems: [], reimbursementItems: []
+        )
+
+        #expect(model.statusTitle(of: settled) == "已全數結清")
+        #expect(model.statusTitle(of: mei) == "公帳待抵扣")
+        #expect(model.statusTitle(of: mine) == "有待請款代墊")
+    }
+
     // MARK: 明細的標示
 
     @Test("信用卡扣款的明細標示出帳狀態:未出帳、已出帳、延至下期;現金墊付沒有")
@@ -167,5 +180,12 @@ struct HouseholdAdvanceStatesTests {
         reimbursement.toggle(TransactionID("sample-card-deferred"))
         #expect(reimbursement.selectedAmount == Money(-100), "只剩退款")
         #expect(!reimbursement.canSubmit, "淨額不大於 0 不能撥款")
+
+        // 就算直接呼叫 submit() 也不能送出淨額不大於 0 的報銷(canSubmit 只是停用按鈕)。
+        reimbursement.fromAccountID = SampleAccounts.savings.id
+        reimbursement.toAccountID = SampleAccounts.savings.id
+        let message = await reimbursement.submit()
+        #expect(message == nil)
+        #expect(reimbursement.errorMessage == "請輸入有效的報銷金額")
     }
 }
