@@ -60,7 +60,7 @@ final class CardSettlementUITests: XCTestCase {
         payShared.tap()
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "「繳款」選單沒有打開信用卡扣款還款")
-        XCTAssertEqual(amount.value as? String, "3000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
+        XCTAssertEqual(amount.value as? String, "3,000", "「繳家庭代墊」沒有帶入家庭公帳的欠款")
         // 歸屬是內嵌選擇列(2 列，點一下就選)，表單裡沒有分段控制(#65、ADR-0004、#90)。
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
         XCTAssertTrue(form.buttons["個人私帳"].exists, "信用卡扣款還款的歸屬缺少「私帳」這一列")
@@ -79,7 +79,7 @@ final class CardSettlementUITests: XCTestCase {
         // 點金額欄全選後重打一次，直接取代原值(#32)。
         amount.tap()
         amount.typeText("3000")
-        XCTAssertEqual(amount.value as? String, "3000")
+        XCTAssertEqual(amount.value as? String, "3,000")
         app.buttons["cardPayment.submit"].tap()
 
         XCTAssertTrue(amount.waitForNonExistence(timeout: 5), "還款後信用卡扣款還款沒有關閉")
