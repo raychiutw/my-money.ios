@@ -186,10 +186,10 @@ struct OverviewAccountCardView: View {
                 .lineLimit(1)
                 .foregroundStyle(card.presentation.color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(maxWidth: .infinity, alignment: .trailing)
-            ForEach(card.detailLines, id: \.self) { line in
-                BreakableLine(text: line, alignment: .leading)
+            ForEach(card.detailNotes, id: \.text) { note in
+                BreakableLine(text: note.text, alignment: .leading)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(note.isWarning ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
             }
         }
         .padding(14)

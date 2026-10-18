@@ -109,6 +109,13 @@ public final class CreditCardDetailModel: Alerting {
             ]
     }
 
+    /// 「設定」區塊的預設扣款帳戶(上游 `3d09060`):有綁定而且後端給得出名稱時才有;沒綁定、懸空的綁定(活存帳戶已刪除)、
+    /// 脫敏的他人私卡(綁定是對方的私人設定)都沒有。
+    public var paymentAccountRow: CardDetailRow? {
+        guard !isMasked, let name = card.paymentAccountName else { return nil }
+        return CardDetailRow(Terms.defaultPaymentAccount, name)
+    }
+
     /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
     /// 沒有設定信用額度時沒有剩餘額度(CONTEXT.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
     public var limitRows: [CardDetailRow] {
@@ -181,7 +188,7 @@ public final class CreditCardDetailModel: Alerting {
 
     /// toolbar 的「編輯」:現有的資產帳戶編輯器。
     public func makeEditor() -> AccountEditorModel {
-        AccountEditorModel(editing: .creditCard(card), repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(editing: .creditCard(card), bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
     }
 
     /// 重新取得時，這張卡已經不在這個帳戶檢視範圍(被刪除，或歸屬改了):畫面回到上一頁。

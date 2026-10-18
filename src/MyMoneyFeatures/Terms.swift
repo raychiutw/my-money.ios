@@ -12,6 +12,8 @@ public enum Terms {
     public static let ledger = "記帳"
     /// 收支明細:記錄本身(列表標題、刪除確認、空狀態、CSV)。上游舊稱交易記錄。
     public static let transactions = "收支明細"
+    /// 預設扣款帳戶(上游:預設扣款銀行帳戶):信用卡綁定的活存帳戶,繳款時預設帶入(上游 `3d09060`)。
+    public static let defaultPaymentAccount = "預設扣款帳戶"
     /// 已出帳:信用卡消費已算進已出帳待繳款(上游 ADR 0020)。
     public static let billed = "已出帳"
     /// 延至下期:商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單。

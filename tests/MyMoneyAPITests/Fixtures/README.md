@@ -294,3 +294,18 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `transactions-list-shared-states-external-settled.json` | `GET /transactions?scope=all&limit=200&offset=0`(同一個時點,標記家庭交通為已額外處理之後) | 200 | 收支明細的 `reimbursement_id` 是 `EXTERNAL_SETTLED` → 「家庭公帳・已額外處理」;撥款流水 ID 仍是已撥款 |
 
 **舊 fixture 不重錄**:`accounts-list*.json` 等沒有新欄位的回應,解碼要能容忍(視為 0)。他人私卡脫敏的四欄位回應需要第二個帳號,測試帳號錄不到,另外**手寫**一份(見 #258 的測試說明)。
+
+### 對齊上游 `3d09060`(信用卡預設扣款帳戶,#262)
+
+2026-10-18 錄的。測試帳號建暫存卡「iOS 暫存卡扣款」綁定「iOS 測試存款」,依序列表、編輯不送欄位、更換、清除;另建暫存活存「iOS 暫存活存」測試非信用卡、再建「iOS 暫存卡懸空」綁定它、刪掉暫存活存錄懸空的回應。錄完全部暫存帳戶已刪除,其餘帳戶逐項核對與錄製前相同。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `accounts-create-credit-card-payment-account.json` | `POST /accounts`,信用卡帶 `payment_account_id` | 201 | 回應多 `payment_account_id` |
+| `accounts-list-payment-account.json` | `GET /accounts?scope=all` | 200 | 每個帳戶都有 `payment_account_id`、`payment_account_name`;綁定的卡有 ID 與名稱,沒綁定是 null |
+| `accounts-update-keeps-payment-account.json` | `PUT /accounts/:id` **不送** `payment_account_id`(只改名稱) | 200 | 綁定保留 |
+| `accounts-update-change-payment-account.json` | `PUT` 送另一個活存帳戶 ID | 200 | 綁定換掉 |
+| `accounts-update-clear-payment-account.json` | `PUT` 送 `"payment_account_id": null` | 200 | 綁定清除(所以 iOS 要送明確的 null) |
+| `accounts-create-bank-ignores-payment-account.json` | `POST /accounts`,**活存帳戶**也帶 `payment_account_id` | 201 | 後端忽略(存成 null),只有信用卡會寫入 |
+| `accounts-list-payment-account-dangling.json` | 綁定的活存帳戶被刪除之後的 `GET /accounts` | 200 | 卡上還留著 `payment_account_id`、`payment_account_name` 是 null(懸空) |
+

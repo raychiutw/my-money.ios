@@ -41,6 +41,10 @@ public actor InMemoryAccountRepository: AccountRepository {
         self.loadDelay = loadDelay
     }
 
+    private var bankAccounts: [BankAccount] {
+        storedAccounts.compactMap { if case .bank(let bank) = $0 { bank } else { nil } }
+    }
+
     /// 停在 gate 的查詢放行後，跟 URLSession 一樣：工作已經被取消時丟出 `CancellationError`。
     private func checkCancellationIfGated() throws {
         if gate != nil { try Task.checkCancellation() }
@@ -84,13 +88,13 @@ public actor InMemoryAccountRepository: AccountRepository {
     public func create(_ draft: AccountDraft) async throws {
         if let failure { throw failure }
         createdDrafts.append(draft)
-        storedAccounts.append(Self.account(AccountID("in-memory-account-\(createdDrafts.count)"), from: draft))
+        storedAccounts.append(Self.account(AccountID("in-memory-account-\(createdDrafts.count)"), from: draft, banks: bankAccounts))
     }
 
     public func update(_ id: AccountID, with draft: AccountDraft) async throws {
         if let failure { throw failure }
         updatedDrafts[id] = draft
-        storedAccounts = storedAccounts.map { $0.id == id ? Self.account(id, from: draft) : $0 }
+        storedAccounts = storedAccounts.map { $0.id == id ? Self.account(id, from: draft, banks: bankAccounts, existing: $0) : $0 }
     }
 
     public func delete(_ id: AccountID) async throws {
@@ -100,18 +104,24 @@ public actor InMemoryAccountRepository: AccountRepository {
     }
 
     /// 後端建立或更新後的資產帳戶(不重算資金指標)。
-    private static func account(_ id: AccountID, from draft: AccountDraft) -> Account {
+    private static func account(_ id: AccountID, from draft: AccountDraft, banks: [BankAccount], existing: Account? = nil) -> Account {
         switch draft {
         case .cash(let wallet):
-            .cash(CashWallet(
+            return .cash(CashWallet(
                 id: id, name: wallet.name, colorHex: wallet.colorHex, balance: wallet.balance, isJointFund: wallet.isJointFund
             ))
         case .bank(let bank):
-            .bank(BankAccount(
+            return .bank(BankAccount(
                 id: id, name: bank.name, colorHex: bank.colorHex, balance: bank.balance, isJointFund: bank.isJointFund
             ))
         case .creditCard(let card):
-            .creditCard(CreditCard(
+            // 跟後端一樣:沒動(`.unchanged`)保留原值,清除是 nil,新增時沒動就是沒綁定。
+            let boundID: AccountID? = switch card.paymentAccount {
+            case .unchanged: if case .creditCard(let old)? = existing { old.paymentAccountID } else { nil }
+            case .none: nil
+            case .bank(let bankID): bankID
+            }
+            return .creditCard(CreditCard(
                 id: id,
                 name: card.name,
                 colorHex: card.colorHex,
@@ -120,7 +130,10 @@ public actor InMemoryAccountRepository: AccountRepository {
                 creditLimit: card.creditLimit,
                 statementDay: card.statementDay,
                 paymentDueDay: card.paymentDueDay,
-                isJointFund: card.isJointFund
+                isJointFund: card.isJointFund,
+                paymentAccountID: boundID,
+                // 後端用 ID 對帳戶表取名稱(對不到是 null)。
+                paymentAccountName: boundID.flatMap { id in banks.first { $0.id == id }?.name }
             ))
         }
     }
@@ -257,7 +270,8 @@ public actor InMemoryAccountRepository: AccountRepository {
             creditLimit: card.creditLimit, statementDay: card.statementDay, paymentDueDay: card.paymentDueDay,
             sharedDebt: shared ?? card.sharedDebt, personalDebt: personal ?? card.personalDebt, isJointFund: card.isJointFund,
             ownerID: card.ownerID, ownerName: card.ownerName, isMasked: card.isMasked,
-            debtMatrix: matrix ?? (keepsMatrix ? card.debtMatrix : nil)
+            debtMatrix: matrix ?? (keepsMatrix ? card.debtMatrix : nil),
+            paymentAccountID: card.paymentAccountID, paymentAccountName: card.paymentAccountName
         )
     }
 
@@ -386,23 +400,31 @@ public enum SampleAccounts {
         ownerID: UserID("sample-mei")
     )
 
-    public static let card = CreditCard(
-        id: AccountID("sample-card"),
-        name: "iOS 測試信用卡",
-        colorHex: "#FFD4A0",
-        billedDebt: Money(12000),
-        unbilledDebt: Money(3500),
-        creditLimit: Money(100_000),
-        statementDay: 15,
-        paymentDueDay: 5,
-        sharedDebt: Money(3000),
-        personalDebt: Money(12500),
-        ownerID: me,
-        // 欠款矩陣:已出帳 12,000 = 公帳 2,200 + 私帳 9,800;未出帳 3,500 = 公帳 800 + 私帳 2,700(合計公帳 3,000、私帳 12,500)。
-        debtMatrix: DebtMatrix(
-            billedShared: Money(2200), billedPersonal: Money(9800), unbilledShared: Money(800), unbilledPersonal: Money(2700)
+    private static func makeCard(boundTo bank: BankAccount?) -> CreditCard {
+        CreditCard(
+            id: AccountID("sample-card"),
+            name: "iOS 測試信用卡",
+            colorHex: "#FFD4A0",
+            billedDebt: Money(12000),
+            unbilledDebt: Money(3500),
+            creditLimit: Money(100_000),
+            statementDay: 15,
+            paymentDueDay: 5,
+            sharedDebt: Money(3000),
+            personalDebt: Money(12500),
+            ownerID: me,
+            // 欠款矩陣:已出帳 12,000 = 公帳 2,200 + 私帳 9,800;未出帳 3,500 = 公帳 800 + 私帳 2,700(合計公帳 3,000、私帳 12,500)。
+            debtMatrix: DebtMatrix(
+                billedShared: Money(2200), billedPersonal: Money(9800), unbilledShared: Money(800), unbilledPersonal: Money(2700)
+            ),
+            paymentAccountID: bank?.id, paymentAccountName: bank?.name
         )
-    )
+    }
+
+    public static let card = makeCard(boundTo: nil)
+
+    /// 綁定「iOS 測試存款」為預設扣款帳戶的 `card`(`-uiTestingCardBoundBank`)。
+    public static let cardBoundToSavings = makeCard(boundTo: savings)
 
     /// 剩餘額度 7,000,低於 10,000 的警示門檻。
     public static let lowLimitCard = CreditCard(
@@ -418,6 +440,11 @@ public enum SampleAccounts {
     )
 
     public static let all: [Account] = [.bank(savings), .creditCard(card), .creditCard(lowLimitCard)]
+
+    /// 範例帳戶;`withBoundCard`:信用卡綁定「iOS 測試存款」為預設扣款帳戶(`-uiTestingCardBoundBank`)。
+    public static func all(withBoundCard: Bool) -> [Account] {
+        [.bank(savings), .creditCard(withBoundCard ? cardBoundToSavings : card), .creditCard(lowLimitCard)]
+    }
 
     /// UI 測試的啟動旗標帶進來的額外帳戶(App 不直接依賴 Domain,所以由這裡組好)。
     public static func extraAccounts(noStatementDayCard: Bool) -> [Account] {

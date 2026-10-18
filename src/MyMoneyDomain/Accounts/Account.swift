@@ -137,6 +137,11 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 欠款公私拆解：信用卡待繳總額裡估算屬於個人私帳的部分。
     public let personalDebt: Money
 
+    /// 預設扣款帳戶(上游 `3d09060`):繳款時預設帶入的活存帳戶 ID 與名稱;沒綁定、舊的回應沒有欄位時是 `nil`。
+    /// 綁定的活存帳戶被刪除後,後端還留著 ID、名稱是 `nil`(懸空):畫面當作沒綁定。
+    public let paymentAccountID: AccountID?
+    public let paymentAccountName: String?
+
     /// 欠款的雙層公私矩陣(上游 ADR 0025):已出帳與未出帳各自的公帳、私帳;後端回應沒有這幾個欄位時是 `nil`。
     public let debtMatrix: DebtMatrix?
 
@@ -168,8 +173,12 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         ownerID: UserID? = nil,
         ownerName: String? = nil,
         isMasked: Bool = false,
-        debtMatrix: DebtMatrix? = nil
+        debtMatrix: DebtMatrix? = nil,
+        paymentAccountID: AccountID? = nil,
+        paymentAccountName: String? = nil
     ) {
+        self.paymentAccountID = paymentAccountID
+        self.paymentAccountName = paymentAccountName
         self.debtMatrix = debtMatrix
         self.isJointFund = isJointFund
         self.ownerID = ownerID

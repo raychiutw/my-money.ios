@@ -44,6 +44,16 @@ public struct BankAccountDraft: Hashable, Sendable {
     }
 }
 
+/// 信用卡預設扣款帳戶在新增或編輯時的意思(上游 `3d09060`):後端的 PUT 對「欄位沒送」是保留原值、對 `null` 才是清除。
+public enum PaymentAccountSetting: Hashable, Sendable {
+    /// 不動它:不送這個欄位(編輯時後端保留原值;新增時等於沒綁定)。
+    case unchanged
+    /// 使用者選了「不綁定」:送明確的 `null`(清除)。
+    case none
+    /// 綁定這個活存帳戶。
+    case bank(AccountID)
+}
+
 public struct CreditCardDraft: Hashable, Sendable {
     public var name: String
     public var colorHex: String
@@ -56,6 +66,10 @@ public struct CreditCardDraft: Hashable, Sendable {
     /// 家庭信用卡的標記。
     public var isJointFund: Bool
 
+    /// 預設扣款帳戶(上游 `3d09060`,選填)。**三態**:`nil` 同時代表「使用者清除」與「呼叫端沒有這個資訊」會把看不到的綁定清掉,
+    /// 所以分開——預設是 `.unchanged`(不送這個欄位,後端保留原值)。
+    public var paymentAccount: PaymentAccountSetting
+
     public init(
         name: String,
         colorHex: String,
@@ -64,8 +78,10 @@ public struct CreditCardDraft: Hashable, Sendable {
         creditLimit: Money?,
         statementDay: Int?,
         paymentDueDay: Int?,
-        isJointFund: Bool = false
+        isJointFund: Bool = false,
+        paymentAccount: PaymentAccountSetting = .unchanged
     ) {
+        self.paymentAccount = paymentAccount
         self.isJointFund = isJointFund
         self.name = name
         self.colorHex = colorHex

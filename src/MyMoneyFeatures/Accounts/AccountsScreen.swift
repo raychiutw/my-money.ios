@@ -290,7 +290,8 @@ struct AccountsScreen: View {
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
                     fundCard(
                         name: account.name, symbol: "building.columns", colorHex: account.colorHex, isJointFund: account.isJointFund,
-                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true
+                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true,
+                        debit: model.debitPreview(for: account)
                     )
                 }
             }
@@ -315,12 +316,14 @@ struct AccountsScreen: View {
     /// VoiceOver 念名稱、餘額、歸屬。
     private func fundCard(
         name: String, symbol: String, colorHex: String, isJointFund: Bool, balance: Money, balanceTitle: String,
-        warnsWhenNegative: Bool = false
+        warnsWhenNegative: Bool = false, debit: BankDebitPreview? = nil
     ) -> some View {
         NumberCard(
             title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray,
             amount: warnsWhenNegative ? .stock(balance) : .plain(balance), caption: OwnershipName.title(isShared: isJointFund),
             spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(OwnershipName.title(isShared: isJointFund))"
+                + (debit.map { ",\($0.spokenText)" } ?? ""),
+            notes: debit?.notes ?? []
         )
     }
 

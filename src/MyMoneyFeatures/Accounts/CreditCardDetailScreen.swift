@@ -94,6 +94,10 @@ struct CreditCardDetailScreen: View {
             }
             LabeledContent("結帳日", value: Self.monthlyDay(card.statementDay))
             LabeledContent("繳款日", value: Self.monthlyDay(card.paymentDueDay))
+            if let row = model.paymentAccountRow {
+                LabeledContent(row.title, value: row.value)
+                    .accessibilityIdentifier("cardDetail.paymentAccount")
+            }
         }
         .monospacedDigit()
     }
