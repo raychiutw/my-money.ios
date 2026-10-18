@@ -81,7 +81,7 @@ final class StatisticsUITests: XCTestCase {
         transport.tap()
         let amount = app.textFields["budgetEditor.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "點整列沒有打開設定 sheet")
-        XCTAssertEqual(amount.value as? String, "5000", "沒有預算時沒有預設 5000")
+        XCTAssertEqual(amount.value as? String, "5,000", "沒有預算時預設 5,000")
         app.buttons["budgetEditor.save"].tap()
 
         let updated = element(in: app, labelContaining: "交通，預算 5,000 元，已花 250 元")
@@ -102,7 +102,7 @@ final class StatisticsUITests: XCTestCase {
         add.tap()
         // 直接打開編輯，不先跳選單;預設是第一個還沒列出的支出分類(範例資料已列出餐飲、交通、購物)。
         XCTAssertTrue(app.navigationBars["設定 汽機車輛 的預算"].waitForExistence(timeout: 3), "沒有直接打開預設分類的設定 sheet")
-        XCTAssertEqual(app.textFields["budgetEditor.amount"].value as? String, "5000", "沒有預算時沒有預設 5000")
+        XCTAssertEqual(app.textFields["budgetEditor.amount"].value as? String, "5,000", "沒有預算時預設 5,000")
 
         // 在 sheet 的分類格裡改選娛樂。金額在格子上面，格子在下面:sheet 預設半高，要往上捲才看得到。
         let entertainment = app.buttons["娛樂"]

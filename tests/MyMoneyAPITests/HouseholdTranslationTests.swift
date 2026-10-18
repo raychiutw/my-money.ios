@@ -303,4 +303,142 @@ struct HouseholdTranslationTests {
             }
         }
     }
+
+    // MARK: 上游 ADR 0027、0029(`b310a59`、`7cebd6b`、`fe90634`):退款負項、已結清明細、溢撥、信用卡出帳狀態、解除報銷、已額外處理
+
+    private func mine(_ fixture: String) async throws -> HouseholdAdvance {
+        try stub.reply(status: 200, fixture: fixture)
+        return try #require(try await repository.advances().first { $0.memberID == me })
+    }
+
+    private func body(of request: URLRequest) throws -> [String: Any] {
+        let data = try #require(request.httpBody)
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    @Test("公帳退款(收入)以退款項進待報銷明細,待報銷總額是支出減退款(後端的值 1150 = 250 + 400 + 600 − 100);信用卡扣款的明細帶帳單狀態")
+    func refundsAndCardBilling() async throws {
+        let advance = try await mine("households-advances-refund-and-surplus.json")
+
+        #expect(advance.pendingReimbursement == Money(1150))
+        let refund = try #require(advance.advanceItems.first { $0.note == "公帳刷退" })
+        #expect(refund.kind == .refund)
+        #expect(refund.amount == Money(100))
+        #expect(refund.accountKind == .creditCard)
+        #expect(refund.billing == .unbilled)
+        let cash = try #require(advance.advanceItems.first { $0.note == "全家晚餐" })
+        #expect(cash.kind == .expense)
+        #expect(cash.billing == nil, "現金墊付沒有信用卡帳單狀態")
+    }
+
+    @Test("溢撥預收:累計撥款 220 沒有對應到任何明細(linked 0、unlinked 220)，iOS 顯示後端的值")
+    func surplusPrepayment() async throws {
+        let advance = try await mine("households-advances-refund-and-surplus.json")
+
+        #expect(advance.totalReimbursed == Money(220))
+        #expect(advance.linkedReimbursed == .zero)
+        #expect(advance.unlinkedReimbursed == Money(220))
+    }
+
+    @Test("已結清明細:報銷了家庭晚餐之後,它從待報銷移到 settled_items,並對得到是哪一次撥款結清的")
+    func settledItems() async throws {
+        let advance = try await mine("households-advances-with-settled-items.json")
+
+        #expect(advance.pendingReimbursement == Money(550))
+        #expect(advance.linkedReimbursed == Money(600))
+        #expect(advance.unlinkedReimbursed == Money(220))
+        #expect(advance.advanceItems.map(\.note).contains("家庭晚餐") == false)
+        let settled = try #require(advance.settledItems.first)
+        #expect(advance.settledItems.count == 1)
+        #expect(settled.item.note == "家庭晚餐")
+        #expect(settled.item.amount == Money(600))
+        let reimbursementID = TransactionID("52fab3e1-a2ae-4c32-98fc-fe8a1ec544b9")
+        #expect(settled.settlement == .reimbursed(reimbursementID))
+        #expect(advance.reimbursementItem(settling: settled)?.amount == Money(600), "結清它的那一次撥款(報銷明細裡的那一筆)")
+    }
+
+    @Test("已額外處理(reimbursement_id 是 EXTERNAL_SETTLED):也在已結清明細,不對應任何撥款，且不計入已對應撥款額")
+    func handledSeparately() async throws {
+        let advance = try await mine("households-advances-external-settled.json")
+
+        #expect(advance.settledItems.map(\.item.note) == ["家庭交通", "家庭晚餐"])
+        #expect(advance.settledItems.first?.settlement == .handledSeparately)
+        #expect(advance.reimbursementItem(settling: try #require(advance.settledItems.first)) == nil)
+        #expect(advance.linkedReimbursed == Money(600), "只算共同基金撥款對應的,已額外處理不虛增")
+        #expect(advance.pendingReimbursement == Money(150))
+    }
+
+    @Test("兩筆都解除報銷之後回到待報銷;已結清明細是空的")
+    func afterUnlinking() async throws {
+        let advance = try await mine("households-advances-after-unlink.json")
+
+        #expect(advance.settledItems.isEmpty)
+        #expect(advance.advanceItems.count == 4)
+        #expect(advance.pendingReimbursement == Money(1150))
+        #expect(advance.unlinkedReimbursed == Money(820))
+    }
+
+    @Test("舊的回應沒有新欄位:已結清明細是空的、對應撥款額 0、每筆明細是支出且沒有帳單狀態")
+    func oldResponsesStillDecode() async throws {
+        let advance = try #require(try await { try stub.reply(status: 200, fixture: "households-advances-after-reimburse.json"); return try await repository.advances().first }())
+
+        #expect(advance.settledItems.isEmpty)
+        #expect(advance.linkedReimbursed == .zero)
+        #expect(advance.unlinkedReimbursed == .zero)
+        #expect(advance.advanceItems.allSatisfy { $0.kind == .expense })
+    }
+
+    @Test("解除報銷:POST /households/advances/:id/unlink,沒有 body,回傳後端的訊息(在最上層,沒有 data)")
+    func unlinkAdvance() async throws {
+        try stub.reply(status: 200, fixture: "households-advance-unlink.json")
+
+        let message = try await repository.unlinkAdvance(TransactionID("08971f2a-d98e-4dad-8e39-e996c48dafd3"))
+
+        #expect(message == "已成功解除報銷，該筆明細已退回待報銷清單")
+        let request = try #require(stub.requests.last)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path() == "/households/advances/08971f2a-d98e-4dad-8e39-e996c48dafd3/unlink")
+    }
+
+    @Test("解除報銷的錯誤原樣傳遞:尚未報銷(400)、找不到(404)、沒有家庭(400)", arguments: [
+        ("households-advance-unlink-not-settled.json", 400, "該筆收支尚未報銷或非已結清項目"),
+        ("households-advance-unlink-missing.json", 404, "找不到該筆收支明細"),
+        ("households-advance-unlink-no-household.json", 400, "尚未建立或加入家庭群組"),
+    ])
+    func unlinkErrors(fixture: String, status: Int, message: String) async throws {
+        try stub.reply(status: status, fixture: fixture)
+
+        await #expect(throws: RepositoryError.rejected(message)) {
+            try await repository.unlinkAdvance(TransactionID("x"))
+        }
+    }
+
+    @Test("標記已額外處理:POST /households/advances/mark-settled,body 帶目標成員與明細 ID;回傳後端的訊息")
+    func markSettled() async throws {
+        try stub.reply(status: 200, fixture: "households-advances-mark-settled.json")
+
+        let message = try await repository.markAdvancesSettled(
+            for: me, ids: [TransactionID("b"), TransactionID("a")]
+        )
+
+        #expect(message == "已將 1 筆公帳代墊項目移出待報銷清單（標記為已額外處理完成）！")
+        let request = try #require(stub.requests.last)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path() == "/households/advances/mark-settled")
+        let json = try body(of: request)
+        #expect(json["target_user_id"] as? String == me.rawValue)
+        #expect(json["advance_ids"] as? [String] == ["a", "b"], "排序固定")
+    }
+
+    @Test("標記已額外處理的錯誤原樣傳遞:沒勾選(400)、沒有家庭(400)", arguments: [
+        ("households-advances-mark-settled-empty.json", "請至少勾選一筆要標記已額外處理的代墊明細"),
+        ("households-advances-mark-settled-no-household.json", "尚未建立或加入家庭群組"),
+    ])
+    func markSettledErrors(fixture: String, message: String) async throws {
+        try stub.reply(status: 400, fixture: fixture)
+
+        await #expect(throws: RepositoryError.rejected(message)) {
+            try await repository.markAdvancesSettled(for: me, ids: [])
+        }
+    }
 }

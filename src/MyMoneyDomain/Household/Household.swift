@@ -77,4 +77,11 @@ public protocol HouseholdRepository: Sendable {
 
     /// 從家庭共同基金撥款報銷代墊款。回傳後端的訊息;一般成員替其他成員撥款時回 403。
     func reimburse(_ reimbursement: Reimbursement) async throws -> String
+
+    /// 解除報銷(上游 ADR 0027):把已結清的代墊明細退回待報銷。只有該筆的記錄者或家庭管理員可以(其他人回 403)。回傳後端的訊息。
+    func unlinkAdvance(_ id: TransactionID) async throws -> String
+
+    /// 標記已額外處理(上游 `fe90634`):把這位成員的幾筆公帳代墊直接移出待報銷，不動共同基金、不產生撥款流水。
+    /// 家庭管理員可以替任何成員做，一般成員只能做自己的(其他人回 403)。回傳後端的訊息。
+    func markAdvancesSettled(for memberID: UserID, ids: [TransactionID]) async throws -> String
 }

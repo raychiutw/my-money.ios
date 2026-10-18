@@ -12,6 +12,8 @@ public enum Terms {
     public static let ledger = "記帳"
     /// 收支明細:記錄本身(列表標題、刪除確認、空狀態、CSV)。上游舊稱交易記錄。
     public static let transactions = "收支明細"
+    /// 預設扣款帳戶(上游:預設扣款銀行帳戶):信用卡綁定的活存帳戶,繳款時預設帶入(上游 `3d09060`)。
+    public static let defaultPaymentAccount = "預設扣款帳戶"
     /// 已出帳:信用卡消費已算進已出帳待繳款(上游 ADR 0020)。
     public static let billed = "已出帳"
     /// 延至下期:商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單。
@@ -26,6 +28,8 @@ public enum Terms {
     public static let pendingReimbursementTotal = "待報銷總額"
     /// 公帳的狀態:個人墊付、還沒撥款報銷(上游 `d0424df` 的「公帳 · 待報銷」)。
     public static let pendingReimbursement = "待報銷"
+    /// 公帳的狀態:已在家庭外處理掉、移出待報銷,不動共同基金(上游 `fe90634`「已額外處理」)。
+    public static let handledSeparately = "已額外處理"
     /// 公帳的狀態:個人墊付、已由共同基金撥款報銷(「公帳 · 已撥款」)。
     public static let reimbursedPayout = "已撥款"
     /// 報銷沖帳(上游舊稱:從共同基金一鍵報銷)。

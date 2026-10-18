@@ -137,6 +137,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     /// 欠款公私拆解：信用卡待繳總額裡估算屬於個人私帳的部分。
     public let personalDebt: Money
 
+    /// 預設扣款帳戶(上游 `3d09060`):繳款時預設帶入的活存帳戶 ID 與名稱;沒綁定、舊的回應沒有欄位時是 `nil`。
+    /// 綁定的活存帳戶被刪除後,後端還留著 ID、名稱是 `nil`(懸空):畫面當作沒綁定。
+    public let paymentAccountID: AccountID?
+    public let paymentAccountName: String?
+
+    /// 欠款的雙層公私矩陣(上游 ADR 0025):已出帳與未出帳各自的公帳、私帳;後端回應沒有這幾個欄位時是 `nil`。
+    public let debtMatrix: DebtMatrix?
+
     /// 是否歸屬家庭共同基金，也就是家庭信用卡(所有帳戶類型都能設歸屬)。
     public let isJointFund: Bool
 
@@ -164,8 +172,14 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
         isJointFund: Bool = false,
         ownerID: UserID? = nil,
         ownerName: String? = nil,
-        isMasked: Bool = false
+        isMasked: Bool = false,
+        debtMatrix: DebtMatrix? = nil,
+        paymentAccountID: AccountID? = nil,
+        paymentAccountName: String? = nil
     ) {
+        self.paymentAccountID = paymentAccountID
+        self.paymentAccountName = paymentAccountName
+        self.debtMatrix = debtMatrix
         self.isJointFund = isJointFund
         self.ownerID = ownerID
         self.ownerName = ownerName
@@ -191,5 +205,24 @@ public struct CreditCard: Hashable, Sendable, Identifiable {
     public var remainingCredit: Money? {
         guard let creditLimit, creditLimit > .zero else { return nil }
         return max(creditLimit - totalDue, .zero)
+    }
+}
+
+/// 信用卡欠款的雙層公私矩陣(上游 ADR 0025):已出帳待繳款與未出帳款,各自拆成家庭公帳與個人私帳。
+/// 全部是後端算好的值(共同基金的還款先沖已出帳公帳、溢出再沖未出帳公帳,後端處理);iOS 不自己加減。
+public struct DebtMatrix: Hashable, Sendable {
+    /// 已出帳公帳待繳款:當期帳單裡應由家庭共同基金繳納的部分。
+    public let billedShared: Money
+    /// 已出帳私帳待繳款:當期帳單裡持卡人自己繳的部分。
+    public let billedPersonal: Money
+    /// 未出帳公帳累計。
+    public let unbilledShared: Money
+    public let unbilledPersonal: Money
+
+    public init(billedShared: Money, billedPersonal: Money, unbilledShared: Money, unbilledPersonal: Money) {
+        self.billedShared = billedShared
+        self.billedPersonal = billedPersonal
+        self.unbilledShared = unbilledShared
+        self.unbilledPersonal = unbilledPersonal
     }
 }

@@ -15,6 +15,7 @@ struct AccountsScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingDeletion: Account?
     @State private var rollover: StatementRolloverModel?
+    @State private var cardNeedingStatementDay: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
     /// 點信用卡卡片 push 信用卡詳細頁。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
@@ -76,6 +77,16 @@ struct AccountsScreen: View {
                 }
                 .sheet(item: $rollover) { rollover in
                     StatementRolloverView(model: rollover) { message in model.noticeMessage = message }
+                }
+                .alert(
+                    "無法出帳作業",
+                    isPresented: Binding(get: { cardNeedingStatementDay != nil }, set: { if !$0 { cardNeedingStatementDay = nil } }),
+                    presenting: cardNeedingStatementDay
+                ) { card in
+                    Button("前往設定") { editor = EditorSheet(model.makeEditor(editing: .creditCard(card))) }
+                    Button("取消", role: .cancel) {}
+                } message: { _ in
+                    Text(StatementRolloverModel.missingStatementDayMessage)
                 }
                 .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
                 .alert(
@@ -279,7 +290,8 @@ struct AccountsScreen: View {
                 accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
                     fundCard(
                         name: account.name, symbol: "building.columns", colorHex: account.colorHex, isJointFund: account.isJointFund,
-                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true
+                        balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true,
+                        debit: model.debitPreview(for: account)
                     )
                 }
             }
@@ -304,12 +316,14 @@ struct AccountsScreen: View {
     /// VoiceOver 念名稱、餘額、歸屬。
     private func fundCard(
         name: String, symbol: String, colorHex: String, isJointFund: Bool, balance: Money, balanceTitle: String,
-        warnsWhenNegative: Bool = false
+        warnsWhenNegative: Bool = false, debit: BankDebitPreview? = nil
     ) -> some View {
         NumberCard(
             title: name, symbol: symbol, symbolColor: Color(hex: colorHex) ?? .gray,
             amount: warnsWhenNegative ? .stock(balance) : .plain(balance), caption: OwnershipName.title(isShared: isJointFund),
             spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(OwnershipName.title(isShared: isJointFund))"
+                + (debit.map { ",\($0.spokenText)" } ?? ""),
+            notes: debit?.notes ?? []
         )
     }
 
@@ -344,7 +358,13 @@ struct AccountsScreen: View {
                         }
                     }
                     if model.showsRollover(card) {
-                        Button("出帳作業", systemImage: "calendar.badge.clock") { rollover = model.makeStatementRollover(for: card) }
+                        Button("出帳作業", systemImage: "calendar.badge.clock") {
+                            if model.rolloverNeedsStatementDay(for: card) {
+                                cardNeedingStatementDay = card
+                            } else {
+                                rollover = model.makeStatementRollover(for: card)
+                            }
+                        }
                     }
                 }
             }

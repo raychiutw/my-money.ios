@@ -58,6 +58,90 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(app.textFields["household.createName"].waitForExistence(timeout: 5), "離開後沒有回到建立的畫面")
     }
 
+    /// 代墊的各種狀態(上游 ADR 0027、0029):待報銷明細有公帳退款(負項)與信用卡出帳標示、溢撥預收款；已結清分頁列出怎麼結清的，
+    /// 解除報銷把明細退回待報銷;標記已額外處理把勾選的明細移到已結清。
+    @MainActor
+    func testAdvanceStatesSettledTabUnlinkAndMarkSettled() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+        _ = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有推入代墊詳細頁")
+
+        // 統計:溢撥預收款獨立一列。
+        XCTAssertTrue(row("家庭基金溢撥／預收款", value: "200 元", in: app).waitForExistence(timeout: 5), "沒有顯示溢撥預收款")
+
+        // 待報銷明細:公帳退款是收入(負項),信用卡扣款的明細標示出帳狀態。
+        let refund = app.descendants(matching: .any)["advance.pending.sample-refund"]
+        XCTAssertTrue(refund.waitForExistence(timeout: 3), "待報銷明細沒有公帳退款")
+        XCTAssertTrue(refund.label.contains("收入 100 元") && refund.label.contains("退款"), "退款不是負項:\(refund.label)")
+        XCTAssertTrue(app.descendants(matching: .any)["advance.pending.sample-card-billed"].label.contains("已出帳"), "沒有標示已出帳")
+        XCTAssertTrue(app.descendants(matching: .any)["advance.pending.sample-card-deferred"].label.contains("延至下期"), "沒有標示延至下期")
+
+        // 已結清分頁:怎麼結清的。
+        app.segmentedControls["advance.tab"].buttons["已結清明細"].tap()
+        let reimbursed = app.descendants(matching: .any)["advance.settled.sample-settled-reimbursed"]
+        XCTAssertTrue(reimbursed.waitForExistence(timeout: 3), "已結清分頁沒有明細")
+        XCTAssertTrue(reimbursed.label.contains("9月25日撥款 $600 結清"), "沒有說明哪一次撥款結清:\(reimbursed.label)")
+        XCTAssertTrue(app.descendants(matching: .any)["advance.settled.sample-settled-external"].label.contains("已額外處理"))
+
+        // 解除報銷:往左滑，確認。
+        reimbursed.swipeLeft()
+        app.buttons["解除報銷"].firstMatch.tap()
+        let confirmUnlink = app.buttons.matching(NSPredicate(format: "label == %@", "解除報銷")).allElementsBoundByIndex.last!
+        confirmUnlink.tap()
+        XCTAssertTrue(element(in: app, labelContaining: "已成功解除報銷").waitForExistence(timeout: 5), "沒有顯示後端的訊息")
+        app.buttons["好"].tap()
+        XCTAssertTrue(app.navigationBars["小明"].exists, "解除報銷後應該留在這一頁")
+        app.segmentedControls["advance.tab"].buttons["待報銷明細"].tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["advance.pending.sample-settled-reimbursed"].waitForExistence(timeout: 3), "解除報銷後明細沒有回到待報銷"
+        )
+    }
+
+    /// 標記已額外處理(上游 `fe90634`):工具列的選單進勾選模式，勾一筆、標記，它移到已結清並標示「已額外處理」。
+    @MainActor
+    func testMarkAdvanceAsHandledSeparately() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+        _ = app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有推入代墊詳細頁")
+
+        let more = app.navigationBars["小明"].buttons["更多"]
+        XCTAssertTrue(more.waitForExistence(timeout: 3), "工具列沒有更多選單")
+        more.tap()
+        app.buttons["標記已額外處理…"].tap()
+
+        let pick = app.switches["advance.select.sample-card-billed"]
+        XCTAssertTrue(pick.waitForExistence(timeout: 3), "沒有進入勾選模式")
+        pick.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        app.buttons["advance.markSettled"].tap()
+        app.buttons["標記 1 筆"].tap()
+
+        XCTAssertTrue(
+            element(in: app, labelContaining: "已將 1 筆公帳代墊項目移出待報銷清單").waitForExistence(timeout: 5), "沒有顯示後端的訊息"
+        )
+        app.buttons["好"].tap()
+        XCTAssertTrue(app.navigationBars["小明"].exists, "標記之後應該留在這一頁")
+        app.segmentedControls["advance.tab"].buttons["已結清明細"].tap()
+        let settled = app.descendants(matching: .any)["advance.settled.sample-card-billed"]
+        XCTAssertTrue(settled.waitForExistence(timeout: 3), "標記的明細沒有移到已結清")
+        XCTAssertTrue(settled.label.contains("已額外處理"), "沒有標示已額外處理:\(settled.label)")
+    }
+
+    /// 公帳退款比待報銷的支出多:待報銷是負的,「公帳待抵扣」,沒有報銷沖帳入口(上游 ADR 0029)。
+    @MainActor
+    func testOffsetPendingDisablesReimbursement() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+        let reimburse = app.openMemberDetail("sample-mei")
+        XCTAssertTrue(app.navigationBars["小美"].waitForExistence(timeout: 5), "沒有推入小美的詳細頁")
+
+        let offset = app.descendants(matching: .any)["advance.offsetPending"]
+        XCTAssertTrue(offset.waitForExistence(timeout: 3), "沒有顯示「公帳待抵扣」")
+        XCTAssertTrue((offset.value as? String ?? "").contains("公帳待抵扣"), "待報銷沒有標示公帳待抵扣:\(offset.value ?? "")")
+        XCTAssertFalse(reimburse.exists, "公帳待抵扣時不能撥款報銷")
+    }
+
     /// 一般成員視角(上游 ADR 0013，#132):範例帳號是一般成員、小美是家庭管理員。沒有邀請入口;
     /// 撥款報銷只有自己的代墊款，小美的代墊卡片沒有入口(後端會回 403)。
     @MainActor

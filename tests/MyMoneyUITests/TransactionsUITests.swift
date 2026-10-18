@@ -662,6 +662,36 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "支出 770 元").waitForExistence(timeout: 5), "編輯後金額沒有更新")
     }
 
+    /// 金額欄打字時即時加上千分位(#256):欄位顯示 `1,234,567`,送出的金額仍是整數;刪除一個數字後重新格式化;
+    /// 點欄位全選後重打取代原值(#32 不能壞)。
+    @MainActor
+    func testAmountFieldShowsThousandsSeparators() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.tabBars.buttons["記帳"].tap()
+        app.buttons["transactions.add"].tap()
+        let amount = app.textFields["quickEntry.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        amount.tap()
+
+        amount.typeText("1234567")
+        XCTAssertEqual(amount.value as? String, "1,234,567", "打字時沒有加千分位")
+        amount.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(amount.value as? String, "123,456", "刪除一個數字後沒有重新格式化")
+
+        // 全選後重打:直接取代原值。
+        app.buttons["完成"].tap()
+        amount.tap()
+        amount.typeText("1500")
+        XCTAssertEqual(amount.value as? String, "1,500", "點金額欄後輸入的數字沒有取代原值")
+
+        app.chooseQuickEntryAccount()
+        app.buttons["quickEntry.save"].tap()
+        XCTAssertTrue(
+            element(in: app, labelContaining: "支出 1,500 元").waitForExistence(timeout: 5),
+            "送出的金額不是 1500(千分位不該影響送出的值)"
+        )
+    }
+
     /// 記一筆：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
     ///
     /// 以前「完成」只清掉金額欄的焦點，備註欄沒有納入同一個 focus 狀態，按了沒反應。

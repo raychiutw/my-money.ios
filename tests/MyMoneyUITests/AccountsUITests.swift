@@ -257,7 +257,7 @@ final class AccountsUITests: XCTestCase {
         let amount = app.textFields["accountEditor.amount"]
         amount.tap()
         amount.typeText("1234")
-        XCTAssertEqual(amount.value as? String, "1234", "金額欄沒有改成 1234")
+        XCTAssertEqual(amount.value as? String, "1,234", "金額欄沒有改成 1234")
         app.buttons["accountEditor.save"].tap()
 
         // 新帳戶在列表下方(上面有摘要和現金區塊):List 還沒捲到的列不在 UI 階層裡，
@@ -384,7 +384,7 @@ final class AccountsUITests: XCTestCase {
         pay.tap()
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡扣款還款")
-        XCTAssertEqual(amount.value as? String, "1200", "金額沒有帶入家庭代墊待繳額")
+        XCTAssertEqual(amount.value as? String, "1,200", "金額沒有帶入家庭代墊待繳額")
         XCTAssertTrue(app.staticTexts["cardPayment.fixedShared"].exists || element(in: app, labelContaining: "僅限自家庭共同帳戶沖抵他人私卡之家庭代墊款").exists, "沒有說明歸屬固定公帳")
         let form = app.collectionViews.containing(.textField, identifier: "cardPayment.amount").firstMatch
         XCTAssertFalse(form.buttons["個人私帳"].exists, "他人私卡的還款不該有私帳可選")

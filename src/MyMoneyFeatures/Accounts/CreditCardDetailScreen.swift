@@ -12,6 +12,7 @@ struct CreditCardDetailScreen: View {
     @State private var payment: CardPaymentModel?
     @State private var editor: AccountEditorModel?
     @State private var rollover: StatementRolloverModel?
+    @State private var isAskingForStatementDay = false
     @State private var isConfirmingReconcile = false
     @Environment(\.dismiss) private var dismiss
 
@@ -57,6 +58,13 @@ struct CreditCardDetailScreen: View {
         .sheet(item: $rollover) { rollover in
             StatementRolloverView(model: rollover) { message in model.noticeMessage = message }
         }
+        .alert("無法出帳作業", isPresented: $isAskingForStatementDay) {
+            Button("前往設定") { editor = model.makeEditor() }
+                .accessibilityIdentifier("cardDetail.setStatementDay")
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text(StatementRolloverModel.missingStatementDayMessage)
+        }
         .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
         .alert(
             "完成",
@@ -86,6 +94,10 @@ struct CreditCardDetailScreen: View {
             }
             LabeledContent("結帳日", value: Self.monthlyDay(card.statementDay))
             LabeledContent("繳款日", value: Self.monthlyDay(card.paymentDueDay))
+            if let row = model.paymentAccountRow {
+                LabeledContent(row.title, value: row.value)
+                    .accessibilityIdentifier("cardDetail.paymentAccount")
+            }
         }
         .monospacedDigit()
     }
@@ -120,8 +132,14 @@ struct CreditCardDetailScreen: View {
                 .accessibilityIdentifier("cardDetail.pay")
             }
             if model.showsRollover {
-                Button("出帳作業", systemImage: "calendar.badge.clock") { rollover = model.makeStatementRollover() }
-                    .accessibilityIdentifier("cardDetail.rollover")
+                Button("出帳作業", systemImage: "calendar.badge.clock") {
+                    if model.rolloverNeedsStatementDay {
+                        isAskingForStatementDay = true
+                    } else {
+                        rollover = model.makeStatementRollover()
+                    }
+                }
+                .accessibilityIdentifier("cardDetail.rollover")
             }
             if model.canOperate {
                 Button(model.isReconciling ? "校準中…" : "校準未出帳", systemImage: "arrow.triangle.2.circlepath") {

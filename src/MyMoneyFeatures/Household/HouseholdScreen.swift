@@ -337,7 +337,19 @@ private struct MemberRow: View {
     @ViewBuilder
     private var pending: some View {
         if let advance {
-            if advance.isSettled {
+            if advance.isOffsetPending {
+                // 公帳退款比待報銷的支出多:留待之後的代墊沖抵(綠色,不是欠款)。
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("公帳待抵扣")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    AmountText(.inflow(.zero - advance.pendingReimbursement))
+                        .font(.headline)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            } else if advance.isSettled {
                 Label("已結清", systemImage: "checkmark.circle")
                     .font(.subheadline)
                     .foregroundStyle(.green)
@@ -359,7 +371,7 @@ private struct MemberRow: View {
     /// 例如「小明,有待請款代墊,累計公帳墊付 250 元,已獲撥款報銷 0 元,待報銷 250 元,家庭管理員」;已結清是「已全數結清」。
     private var spokenText: String {
         guard let advance else { return [name, role?.title].compactMap { $0 }.joined(separator: ",") }
-        return ["\(advance.memberName)", advance.isSettled ? "已全數結清" : "有待請款代墊",
+        return ["\(advance.memberName)", advance.statusTitle,
                 "累計公帳墊付 \(advance.totalAdvanced.spokenText)", "已獲撥款報銷 \(advance.totalReimbursed.spokenText)",
                 "待報銷 \(advance.pendingReimbursement.spokenText)", role?.title]
             .compactMap { $0 }.joined(separator: ",")

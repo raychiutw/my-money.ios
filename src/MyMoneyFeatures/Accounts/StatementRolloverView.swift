@@ -74,31 +74,51 @@ struct StatementRolloverView: View {
                     .accessibilityIdentifier("statementRollover.period")
             }
         } footer: {
-            // 只留會影響決定的狀態:上期延入款預設已經納入。
-            if let note = model.priorDeferredNote {
-                Text(note)
+            // 只留會影響決定的狀態:結算的是哪一期、上期延入款預設已經納入。
+            VStack(alignment: .leading, spacing: 4) {
+                if let note = model.periodNote {
+                    Text(note)
+                        .accessibilityIdentifier("statementRollover.periodNote")
+                }
+                if let note = model.priorDeferredNote {
+                    Text(note)
+                }
             }
         }
     }
 
+    /// 四層摘要(上游 ADR 0030):出帳淨額;刷卡與刷退;本期新增、本期延後、上期延入(本期新增 − 本期延後 + 上期延入 = 出帳淨額);
+    /// 出帳後的待繳與剩餘未出帳。每一項附筆數。
     private func summarySection(_ outlook: StatementOutlook) -> some View {
-        Section {
-            AmountRow(title: "本期消費(\(outlook.expenseCount) 筆)", amount: .plain(outlook.expense))
-            if outlook.refund > .zero {
+        Group {
+            Section {
+                AmountRow(title: "本期出帳淨額(\(outlook.expenseCount + outlook.refundCount) 筆)", amount: .plain(outlook.net))
+                    .accessibilityIdentifier("statementRollover.net")
+                AmountRow(title: "刷卡金額(\(outlook.expenseCount) 筆)", amount: .plain(outlook.expense))
                 AmountRow(title: "刷退折抵(\(outlook.refundCount) 筆)", amount: .inflow(outlook.refund))
+            } header: {
+                Text("出帳淨額")
             }
-            AmountRow(title: "出帳淨額", amount: .plain(outlook.net))
-                .accessibilityIdentifier("statementRollover.net")
-            if outlook.sharedDebt > .zero {
-                AmountRow(title: "其中家庭公帳代墊", amount: .plain(outlook.sharedDebt))
-                AmountRow(title: "其中個人私帳", amount: .plain(outlook.personalDebt))
+            Section {
+                AmountRow(title: "本期新增(\(outlook.newInCycleCount) 筆)", amount: .plain(outlook.newInCycle))
+                AmountRow(title: "本期延後(\(outlook.deferredCount) 筆)", amount: .plain(outlook.deferred))
+                    .accessibilityIdentifier("statementRollover.deferred")
+                AmountRow(title: "上期延入(\(outlook.priorIncomingCount) 筆)", amount: .plain(outlook.priorIncoming))
+            } header: {
+                Text("組成")
             }
-            AmountRow(title: "出帳後已出帳待繳款", amount: .plain(outlook.projectedBilled))
-                .accessibilityIdentifier("statementRollover.billed")
-            AmountRow(title: "出帳後未出帳款", amount: .plain(outlook.projectedUnbilled))
-                .accessibilityIdentifier("statementRollover.unbilled")
-        } header: {
-            Text("出帳後")
+            Section {
+                AmountRow(title: "出帳後已出帳待繳款", amount: .plain(outlook.projectedBilled))
+                    .accessibilityIdentifier("statementRollover.billed")
+                AmountRow(title: "剩餘未出帳(\(outlook.remainingUnbilledCount) 筆)", amount: .plain(outlook.projectedUnbilled))
+                    .accessibilityIdentifier("statementRollover.unbilled")
+                if outlook.sharedDebt > .zero {
+                    AmountRow(title: "其中家庭公帳代墊", amount: .plain(outlook.sharedDebt))
+                    AmountRow(title: "其中個人私帳", amount: .plain(outlook.personalDebt))
+                }
+            } header: {
+                Text("出帳後")
+            }
         }
     }
 

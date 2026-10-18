@@ -75,6 +75,35 @@ struct CreditCardDetailTests {
         #expect(!detail(bare).showsRollover)
     }
 
+    @Test("沒設結帳日的卡按「出帳作業」要先請使用者設定結帳日(上游 ADR 0030:後端對沒結帳日的卡回 400)，不開預覽")
+    func rolloverNeedsStatementDay() {
+        let bare = CreditCard(
+            id: AccountID("bare"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(500), unbilledDebt: .zero,
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+        #expect(detail(bare).showsRollover, "有款項就顯示按鈕")
+        #expect(detail(bare).rolloverNeedsStatementDay)
+        #expect(!detail(SampleAccounts.card).rolloverNeedsStatementDay)
+        #expect(StatementRolloverModel.missingStatementDayMessage == "請先設定每月結帳日，才能做出帳作業")
+    }
+
+    @Test("設定區塊的預設扣款帳戶(上游 `3d09060`):有綁定而且有名稱才顯示;沒綁定、懸空的綁定、脫敏的他人私卡都沒有")
+    func paymentAccountRow() {
+        func card(id: String?, name: String?, masked: Bool = false) -> CreditCard {
+            CreditCard(
+                id: AccountID("card"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(100), unbilledDebt: .zero, creditLimit: nil,
+                statementDay: 15, paymentDueDay: 5, isMasked: masked, paymentAccountID: id.map(AccountID.init), paymentAccountName: name
+            )
+        }
+
+        let row = detail(card(id: "bank", name: "iOS 測試存款")).paymentAccountRow
+        #expect(row?.title == "預設扣款帳戶")
+        #expect(row?.value == "iOS 測試存款")
+        #expect(detail(card(id: nil, name: nil)).paymentAccountRow == nil)
+        #expect(detail(card(id: "deleted", name: nil)).paymentAccountRow == nil, "懸空的綁定當作沒綁定")
+        #expect(detail(card(id: "bank", name: "別人的存款", masked: true)).paymentAccountRow == nil, "他人私卡的綁定是對方的私人設定")
+    }
+
     @Test("出帳作業的預覽 sheet:確認後送出，資料版本遞增;載入的是這張卡的預覽")
     func rollOver() async {
         let repository = InMemoryAccountRepository.sample()
@@ -96,15 +125,16 @@ struct CreditCardDetailTests {
         let model = detail(SampleAccounts.card, scope: .personal, repository: repository)
 
         let payment = model.makePayment(.shared)
-        #expect(payment.amountText == "3000")
+        #expect(payment.amountText == "2200", "預設填已出帳公帳(上游 ADR 0025),不是含未出帳的全部公帳 3000")
         #expect(payment.bankAccounts.map(\.id) == [SampleAccounts.savings.id])
         #expect(payment.bankAccountID == nil, "扣款帳戶是空的，要自己選(上游 ADR 0011，#112)")
         payment.bankAccountID = SampleAccounts.savings.id
         #expect(await payment.submit() == .paid)
         await model.refreshIfStale()
 
-        #expect(model.card.billedDebt == Money(9000))
-        #expect(model.bankAccounts.map(\.balance) == [Money(47000)])
+        #expect(model.card.billedDebt == Money(9800), "已出帳 12,000 − 2,200")
+        #expect(model.card.debtMatrix?.billedShared == .zero, "還款先沖已出帳公帳")
+        #expect(model.bankAccounts.map(\.balance) == [Money(47800)])
         // 跟打開詳細頁的畫面同一個帳戶檢視範圍。
         #expect(await repository.requestedScopes == [.personal])
     }

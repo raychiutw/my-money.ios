@@ -15,7 +15,8 @@ public struct AdvanceGroup: Identifiable, Equatable {
     public let selectedCount: Int
 
     public var title: String { id.name }
-    public var subtotal: Money { items.reduce(.zero) { $0 + $1.amount } }
+    /// 小計是淨額:公帳退款算負項。
+    public var subtotal: Money { items.reduce(.zero) { $0 + $1.signedAmount } }
     public var isFullySelected: Bool { selectedCount == items.count }
 }
 
@@ -86,7 +87,7 @@ public final class ReimbursementModel: Submitting {
     }
 
     public var canSubmit: Bool {
-        !receivingAccounts.isEmpty && !isSaving && (!usesItemSelection || !selectedIDs.isEmpty)
+        !receivingAccounts.isEmpty && !isSaving && (!usesItemSelection || (!selectedIDs.isEmpty && selectedAmount > .zero))
     }
 
     // MARK: 逐筆勾選
@@ -112,9 +113,9 @@ public final class ReimbursementModel: Submitting {
     /// 只有一個墊付帳戶時不需要整組勾選與「僅選此帳戶」。
     public var hasMultipleGroups: Bool { groups.count > 1 }
 
-    /// 勾選明細的加總:報銷金額跟著它走。
+    /// 勾選明細的淨額:支出減公帳退款(上游 ADR 0027);報銷金額跟著它走。
     public var selectedAmount: Money {
-        advance.advanceItems.filter { selectedIDs.contains($0.id) }.reduce(.zero) { $0 + $1.amount }
+        advance.advanceItems.filter { selectedIDs.contains($0.id) }.reduce(.zero) { $0 + $1.signedAmount }
     }
 
     public func isSelected(_ id: TransactionID) -> Bool { selectedIDs.contains(id) }
@@ -175,6 +176,11 @@ public final class ReimbursementModel: Submitting {
         if usesItemSelection {
             guard !selectedIDs.isEmpty else {
                 errorMessage = "請至少勾選一筆要報銷的代墊明細"
+                return nil
+            }
+            // canSubmit 只是停用按鈕:送出前也要檢查淨額(只剩退款時是負的)。
+            guard selectedAmount > .zero else {
+                errorMessage = PositiveAmount.invalidMessage(label: "報銷金額")
                 return nil
             }
             amount = selectedAmount

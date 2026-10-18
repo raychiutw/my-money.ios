@@ -59,6 +59,69 @@ struct AccountMutationTranslationTests {
         #expect(json["statement_day"] == nil)
     }
 
+    private func card(_ paymentAccount: PaymentAccountSetting) -> AccountDraft {
+        .creditCard(CreditCardDraft(
+            name: "iOS 暫存卡扣款", colorHex: "#FFD4A0", billedDebt: Money(3000), unbilledDebt: Money(500),
+            creditLimit: Money(50000), statementDay: 15, paymentDueDay: 5, paymentAccount: paymentAccount
+        ))
+    }
+
+    private static let savings = AccountID("f4d3074a-4df6-4c98-bd90-bc6f2af91a37")
+
+    @Test("預設扣款帳戶(上游 `3d09060`):新增信用卡有綁定送 payment_account_id,沒綁定送明確的 null(欄位在)")
+    func createCardSendsPaymentAccount() async throws {
+        try stub.reply(status: 201, fixture: "accounts-create-credit-card-payment-account.json")
+        try await repository.create(card(.bank(Self.savings)))
+        #expect(try body(of: try #require(stub.requests.last))["payment_account_id"] as? String == Self.savings.rawValue)
+
+        try stub.reply(status: 201, fixture: "accounts-create-credit-card-payment-account.json")
+        try await repository.create(card(.none))
+        let json = try body(of: try #require(stub.requests.last))
+        #expect(json.keys.contains("payment_account_id"), "欄位要在")
+        #expect(json["payment_account_id"] is NSNull)
+    }
+
+    @Test("編輯信用卡:清除綁定要送明確的 null(省略欄位後端會保留舊值，清不掉);更換送新的 ID")
+    func updateCardSendsExplicitPaymentAccount() async throws {
+        let id = AccountID("27638439-d433-460f-b179-acdb8b513f93")
+        try stub.reply(status: 200, fixture: "accounts-update-clear-payment-account.json")
+        try await repository.update(id, with: card(.none))
+        let cleared = try body(of: try #require(stub.requests.last))
+        #expect(cleared.keys.contains("payment_account_id"))
+        #expect(cleared["payment_account_id"] is NSNull)
+
+        try stub.reply(status: 200, fixture: "accounts-update-change-payment-account.json")
+        try await repository.update(id, with: card(.bank(AccountID("c70d655c-0238-4bd7-ba83-92e165437e87"))))
+        #expect(try body(of: try #require(stub.requests.last))["payment_account_id"] as? String == "c70d655c-0238-4bd7-ba83-92e165437e87")
+    }
+
+    @Test("沒動過預設扣款帳戶(.unchanged,預設值)就完全不送這個欄位——PUT 省略欄位後端保留原值，看不到、沒打算改的綁定不會被清掉")
+    func unchangedPaymentAccountIsOmitted() async throws {
+        let id = AccountID("27638439-d433-460f-b179-acdb8b513f93")
+        try stub.reply(status: 200, fixture: "accounts-update-keeps-payment-account.json")
+        try await repository.update(id, with: card(.unchanged))
+        #expect(!(try body(of: try #require(stub.requests.last))).keys.contains("payment_account_id"))
+
+        // 沒有指定這個參數的呼叫端(預設值)也一樣不會清掉綁定。
+        try stub.reply(status: 200, fixture: "accounts-update-keeps-payment-account.json")
+        try await repository.update(id, with: .creditCard(CreditCardDraft(
+            name: "只改名稱", colorHex: "#FFD4A0", billedDebt: Money(3000), unbilledDebt: Money(500),
+            creditLimit: Money(50000), statementDay: 15, paymentDueDay: 5
+        )))
+        #expect(!(try body(of: try #require(stub.requests.last))).keys.contains("payment_account_id"))
+    }
+
+    @Test("現金與活存帳戶完全不送 payment_account_id")
+    func cashAndBankDoNotSendPaymentAccount() async throws {
+        try stub.reply(status: 201, fixture: "accounts-create-bank.json")
+        try await repository.create(.bank(BankAccountDraft(name: "存款", colorHex: "#A8D8EA", balance: Money(100), isJointFund: false)))
+        #expect(!(try body(of: try #require(stub.requests.last))).keys.contains("payment_account_id"))
+
+        try stub.reply(status: 201, fixture: "accounts-create-cash.json")
+        try await repository.create(.cash(CashWalletDraft(name: "皮夾", colorHex: "#10B981", balance: Money(100), isJointFund: false)))
+        #expect(!(try body(of: try #require(stub.requests.last))).keys.contains("payment_account_id"))
+    }
+
     @Test("家庭信用卡的標記送成 is_joint 1(所有類型都能設歸屬)")
     func householdCardSendsIsJoint() async throws {
         try stub.reply(status: 201, fixture: "accounts-create-credit-card.json")

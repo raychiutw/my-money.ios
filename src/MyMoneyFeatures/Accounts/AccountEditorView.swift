@@ -50,6 +50,13 @@ struct AccountEditorView: View {
                         amountRow("信用額度(選填)", text: $model.creditLimitText, field: .creditLimit, identifier: "accountEditor.creditLimit", prompt: nil)
                         dayPicker("結帳日", selection: $model.statementDay)
                         dayPicker("繳款日", selection: $model.paymentDueDay)
+                        // 預設扣款帳戶(選填,上游 `3d09060`):繳款時預設帶入;可以選「不綁定」。
+                        if model.showsPaymentAccount {
+                            AccountPicker(
+                                title: "\(Terms.defaultPaymentAccount)(選填)", selection: $model.paymentAccountID,
+                                options: model.paymentAccountOptions.map(AccountPicker.Option.init), noneTitle: "不綁定"
+                            )
+                        }
                     }
                 }
 

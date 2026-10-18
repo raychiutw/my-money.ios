@@ -34,6 +34,17 @@ struct StatementRolloverTests {
         #expect(!model.showsRollover(card(billed: 0, unbilled: 0, statementDay: nil)))
     }
 
+    @Test("長按選單的出帳作業:沒設結帳日的卡要先請使用者設定結帳日")
+    func rolloverNeedsStatementDay() async {
+        let (model, _) = await loaded(today: 28)
+        let bare = CreditCard(
+            id: AccountID("bare"), name: "卡", colorHex: "#FFD4A0", billedDebt: Money(500), unbilledDebt: .zero,
+            creditLimit: nil, statementDay: nil, paymentDueDay: nil
+        )
+        #expect(model.rolloverNeedsStatementDay(for: bare))
+        #expect(model.creditCards.map(model.rolloverNeedsStatementDay) == [false, false])
+    }
+
     @Test("長按選單的出帳作業:打開預覽 sheet,確認後送出延期的明細，資料版本遞增")
     func rollOverFromTheAccountsList() async throws {
         let (model, repository) = await loaded(today: 28)
@@ -182,7 +193,7 @@ struct CardPaymentTests {
         #expect(payment(card(shared: 0, personal: 19380), preset: .shared).amountText == "")
     }
 
-    @Test("扣款帳戶一律是空的:不論活存帳戶有沒有餘額，都不預選")
+    @Test("沒綁定預設扣款帳戶時扣款帳戶是空的:不論活存帳戶有沒有餘額，都不預選(綁定時帶入,見 PaymentAccountPrefillTests)")
     func bankAccountIsNeverPreselected() {
         #expect(payment(card(), banks: [empty]).bankAccountID == nil)
         #expect(payment(card(), banks: [salary, joint]).bankAccountID == nil)

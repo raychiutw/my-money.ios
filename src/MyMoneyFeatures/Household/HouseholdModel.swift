@@ -119,6 +119,58 @@ public final class HouseholdModel {
         !advance.isSettled && (household?.myRole == .admin || advance.memberID == currentUser)
     }
 
+    /// 待報銷是負的:公帳退款比待報銷的支出多，叫「公帳待抵扣」(上游 ADR 0029);這時不能撥款報銷。
+    public func pendingStatusText(of advance: HouseholdAdvance) -> String? {
+        advance.isOffsetPending ? "公帳待抵扣" : nil
+    }
+
+    /// 家庭頁成員列的狀態(也是 VoiceOver 念的):待報銷是負的叫「公帳待抵扣」,不能說成已結清。
+    public func statusTitle(of advance: HouseholdAdvance) -> String { advance.statusTitle }
+
+    /// 信用卡扣款的代墊明細標示出帳狀態(上游 ADR 0029):未出帳、已出帳、延至下期;現金與活存帳戶墊付的沒有。
+    public func billingText(of item: AdvanceItem) -> String? { item.billingText }
+
+    /// 已結清的明細怎麼結清的:共同基金撥款結清寫那一次撥款的日期與金額，已額外處理另寫;對不到撥款時只寫「已報銷」。
+    public func settlementText(of settled: SettledAdvanceItem, in advance: HouseholdAdvance) -> String {
+        switch settled.settlement {
+        case .handledSeparately:
+            Terms.handledSeparately
+        case .reimbursed:
+            advance.reimbursementItem(settling: settled).map { "\(dateText($0.date))撥款 \($0.amount.formatted()) 結清" } ?? "已報銷"
+        }
+    }
+
+    /// 解除報銷:該筆的記錄者(成員自己)或家庭管理員;後端對其他人回 403,所以不顯示入口(上游 ADR 0027)。
+    public func canUnlink(_ settled: SettledAdvanceItem, in advance: HouseholdAdvance) -> Bool {
+        household?.myRole == .admin || advance.memberID == currentUser
+    }
+
+    /// 標記已額外處理:要有待報銷明細;家庭管理員可以替任何成員做，一般成員只有自己的(上游 `fe90634`)。
+    public func canMarkSettled(_ advance: HouseholdAdvance) -> Bool {
+        !advance.advanceItems.isEmpty && (household?.myRole == .admin || advance.memberID == currentUser)
+    }
+
+    /// 把已結清的代墊明細退回待報銷;成功顯示後端的訊息，資料版本遞增並重新載入。
+    public func unlink(_ settled: SettledAdvanceItem) async {
+        await commitAdvanceChange { [repository] in try await repository.unlinkAdvance(settled.id) }
+    }
+
+    /// 把勾選的公帳代墊直接移出待報銷(不動共同基金、不產生撥款流水)。
+    public func markSettled(_ ids: [TransactionID], for advance: HouseholdAdvance) async {
+        await commitAdvanceChange { [repository] in try await repository.markAdvancesSettled(for: advance.memberID, ids: ids) }
+    }
+
+    private func commitAdvanceChange(_ work: @escaping @Sendable () async throws -> String) async {
+        do {
+            noticeMessage = try await work()
+        } catch {
+            alertMessage = error.localizedDescription
+            return
+        }
+        dataVersion.bump()
+        await load()
+    }
+
     /// 只有家庭管理員可以產生邀請碼(上游 ADR 0013,#47);一般成員呼叫會得到 403。
     public var canInvite: Bool { household?.myRole == .admin }
 
@@ -269,4 +321,30 @@ extension HouseholdRole {
 extension HouseholdMember {
     /// 名稱的開頭字，英文轉大寫;沒有名稱時是「?」。
     public var initial: String { name.first.map { String($0).uppercased() } ?? "?" }
+}
+
+extension AdvanceItem {
+    /// 信用卡扣款的代墊明細的出帳狀態文字(上游 ADR 0029);報銷沖帳的勾選列也用。
+    var billingText: String? {
+        switch billing {
+        case nil: nil
+        case .unbilled?: "未出帳"
+        case .billed?: Terms.billed
+        case .deferred?: Terms.deferredToNextStatement
+        }
+    }
+
+    /// 明細標題:分類加備註;公帳退款前面標「退款」。
+    var displayTitle: String {
+        let base = note.isEmpty ? category.name : "\(category.name) · \(note)"
+        return kind == .refund ? "退款 · \(base)" : base
+    }
+}
+
+extension HouseholdAdvance {
+    /// 成員列的狀態(也是 VoiceOver 念的):待報銷是負的叫「公帳待抵扣」,不能說成已結清。
+    var statusTitle: String {
+        if isOffsetPending { return "公帳待抵扣" }
+        return isSettled ? "已全數結清" : "有待請款代墊"
+    }
 }

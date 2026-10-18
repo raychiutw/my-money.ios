@@ -81,21 +81,39 @@ public final class CreditCardDetailModel: Alerting {
     /// 「卡費」區塊的各列。脫敏的卡只有家庭代墊是真的，個人帳單與個人消費顯示「隱私遮蔽」。
     public var feeRows: [CardDetailRow] {
         if isMasked {
-            return [
-                CardDetailRow("家庭公帳代墊待繳總額", card.sharedDebt.formatted()),
+            // 他人私卡現在揭露已出帳公帳與未出帳公帳(上游 ADR 0025);個人的部分維持遮蔽。
+            let revealed = card.debtMatrix.map {
+                [
+                    CardDetailRow("本期已出帳公帳待繳", $0.billedShared.formatted()),
+                    CardDetailRow("未出帳公帳累計", $0.unbilledShared.formatted()),
+                ]
+            } ?? []
+            return [CardDetailRow("家庭公帳代墊待繳總額", card.sharedDebt.formatted())] + revealed + [
                 CardDetailRow("個人帳單狀態", "隱私遮蔽"),
                 CardDetailRow("公帳代墊待清償", card.sharedDebt.formatted()),
                 CardDetailRow("個人私帳消費", "隱私遮蔽"),
             ]
         }
-        return [
-            CardDetailRow("信用卡待繳總額", card.totalDue.formatted()),
-            CardDetailRow("已出帳待繳款", card.billedDebt.formatted()),
-            CardDetailRow("未出帳款", card.unbilledDebt.formatted()),
-            // 欠款公私拆解(畫面上原本叫「負債性質拆解」,section 標題已經表達，不加前綴)。
-            CardDetailRow("家庭代墊公帳", card.sharedDebt.formatted()),
-            CardDetailRow("個人私帳消費", card.personalDebt.formatted()),
-        ]
+        // 雙層矩陣(上游 ADR 0025):已出帳與未出帳各自列出公帳與私帳;舊的回應沒有矩陣就維持原本的五列。
+        let billedSplit = card.debtMatrix.map {
+            [CardDetailRow("已出帳公帳", $0.billedShared.formatted()), CardDetailRow("已出帳私帳", $0.billedPersonal.formatted())]
+        } ?? []
+        let unbilledSplit = card.debtMatrix.map {
+            [CardDetailRow("未出帳公帳", $0.unbilledShared.formatted()), CardDetailRow("未出帳私帳", $0.unbilledPersonal.formatted())]
+        } ?? []
+        return [CardDetailRow("信用卡待繳總額", card.totalDue.formatted()), CardDetailRow("已出帳待繳款", card.billedDebt.formatted())]
+            + billedSplit + [CardDetailRow("未出帳款", card.unbilledDebt.formatted())] + unbilledSplit + [
+                // 欠款公私拆解(畫面上原本叫「負債性質拆解」,section 標題已經表達，不加前綴)。
+                CardDetailRow("家庭代墊公帳", card.sharedDebt.formatted()),
+                CardDetailRow("個人私帳消費", card.personalDebt.formatted()),
+            ]
+    }
+
+    /// 「設定」區塊的預設扣款帳戶(上游 `3d09060`):有綁定而且後端給得出名稱時才有;沒綁定、懸空的綁定(活存帳戶已刪除)、
+    /// 脫敏的他人私卡(綁定是對方的私人設定)都沒有。
+    public var paymentAccountRow: CardDetailRow? {
+        guard !isMasked, let name = card.paymentAccountName else { return nil }
+        return CardDetailRow(Terms.defaultPaymentAccount, name)
     }
 
     /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
@@ -130,6 +148,9 @@ public final class CreditCardDetailModel: Alerting {
 
     /// 操作成功時顯示的訊息(後端回傳的原文)。
     public var noticeMessage: String?
+
+    /// 這張卡沒設結帳日:按「出帳作業」不開預覽，改請使用者先設定(上游 ADR 0030)。
+    public var rolloverNeedsStatementDay: Bool { card.statementDay == nil }
 
     /// 出帳作業的預覽 sheet(上游 ADR 0024):載入這一期的明細、逐筆決定延至下期，確認後才送出。
     public func makeStatementRollover(locale: Locale = .autoupdatingCurrent) -> StatementRolloverModel {
@@ -167,7 +188,7 @@ public final class CreditCardDetailModel: Alerting {
 
     /// toolbar 的「編輯」:現有的資產帳戶編輯器。
     public func makeEditor() -> AccountEditorModel {
-        AccountEditorModel(editing: .creditCard(card), repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(editing: .creditCard(card), bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
     }
 
     /// 重新取得時，這張卡已經不在這個帳戶檢視範圍(被刪除，或歸屬改了):畫面回到上一頁。
@@ -204,6 +225,18 @@ extension CreditCard {
     /// 有結帳日、或有任何已出帳或未出帳的款項，就能打開出帳作業(預覽可以重複檢視，出帳過一次按鈕也不會消失;上游 ADR 0024)。
     var canRollOver: Bool {
         statementDay != nil || unbilledDebt > .zero || billedDebt > .zero
+    }
+
+    /// 「繳家庭代墊」的預設金額(上游 ADR 0025):有已出帳公帳就先填它(共同基金只繳當期帳單,不提早繳未出帳的),沒有才填全部公帳。
+    var defaultSharedPayment: Money {
+        if let matrix = debtMatrix, matrix.billedShared > .zero { return matrix.billedShared }
+        return sharedDebt
+    }
+
+    /// 已出帳公帳比全部公帳少:繳款畫面才有「僅繳當期已出帳公帳／結清全部代墊公帳」可切換。
+    var hasSharedPaymentChoice: Bool {
+        guard let matrix = debtMatrix else { return false }
+        return matrix.billedShared > .zero && matrix.billedShared < sharedDebt
     }
 
     /// 「繳款」的項目：繳家庭代墊、繳個人私帳、全額結清，沒有對應欠款的項目隱藏(web 是停用，parity 刻意偏離第 47 項)。

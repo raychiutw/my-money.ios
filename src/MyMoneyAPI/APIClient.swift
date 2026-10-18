@@ -60,6 +60,12 @@ public struct APIClient: Sendable {
         _ = try await perform(method, path, body: nil)
     }
 
+    /// 送出沒有 body 的請求,回傳最上層的 `message`(`{success, message}`,沒有 `data`,例如解除報銷);沒有訊息時是 `nil`。
+    package func sendForMessage(_ method: String, _ path: String) async throws -> String? {
+        let data = try await perform(method, path, body: nil)
+        return (try? JSONDecoder().decode(TopLevelMessage.self, from: data))?.message
+    }
+
     /// 送出帶 body、但不需要回傳內容的請求(例如新增後由資料版本機制重抓，不讀回應)。
     package func send(_ method: String, _ path: String, body: some Encodable) async throws {
         _ = try await perform(method, path, body: try JSONEncoder().encode(body))
@@ -113,6 +119,11 @@ public struct APIClient: Sendable {
 private struct StatusEnvelope: Decodable {
     let success: Bool
     let error: String?
+}
+
+/// 最上層有 `message` 的回應:`{success, message}`。
+private struct TopLevelMessage: Decodable {
+    let message: String?
 }
 
 /// 成功回應的 envelope:`{success: true, data}`。

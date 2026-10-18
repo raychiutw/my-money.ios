@@ -178,7 +178,10 @@ public final class OverviewModel {
 
     /// 總覽的帳戶卡片:順序跟帳戶頁一樣(現金錢包、銀行存款帳戶、信用卡)，最多 `accountCardLimit` 張。
     public var accountCards: [OverviewAccountCard] {
-        let all = cashWallets.map(OverviewAccountCard.init) + bankAccounts.map(OverviewAccountCard.init)
+        // 活存帳戶的待扣卡費(上游 `3d09060`):綁在它身上的卡的彙總,跟帳戶頁同一個 `BankDebitPreview`;脫敏的他人私卡不計入。
+        let visibleCards = creditCards.filter { !(permissions?.current.isMasked($0) ?? $0.isMasked) }
+        let all = cashWallets.map(OverviewAccountCard.init)
+            + bankAccounts.map { OverviewAccountCard($0, debit: BankDebitPreview.make(for: $0, cards: visibleCards)) }
             + creditCards.map { card in
                 // 公帳視角裡的個人卡是「私卡代墊」(上游 ADR 0015);他人的卡脫敏。
                 OverviewAccountCard(
@@ -285,35 +288,43 @@ public struct OverviewAccountCard: Identifiable, Hashable, Sendable {
     public let colorHex: String
     public let amount: Money
     public let kind: Kind
-    /// 金額底下的小字(#190)。
-    public let detailLines: [String]
+    /// 金額底下的小字(#190);警示的行(例如活存帳戶存款不足扣已出帳卡費)用紅字。
+    public let detailNotes: [CardNote]
+
+    public var detailLines: [String] { detailNotes.map(\.text) }
+    public var warningLines: [String] { detailNotes.filter(\.isWarning).map(\.text) }
     /// VoiceOver 念的整句。
     public let spokenText: String
 
     init(_ wallet: CashWallet) {
         let ownership = OwnershipName.title(isShared: wallet.isJointFund)
         (id, name, colorHex, amount, kind) = (wallet.id, wallet.name, wallet.colorHex, wallet.balance, .cash)
-        detailLines = [ownership]
+        detailNotes = [CardNote(text: ownership)]
         spokenText = "\(wallet.name)，\(Terms.cash)，\(ownership)，餘額 \(wallet.balance.spokenText)"
     }
 
-    init(_ account: BankAccount) {
+    init(_ account: BankAccount, debit: BankDebitPreview? = nil) {
         let ownership = OwnershipName.title(isShared: account.isJointFund)
         (id, name, colorHex, amount, kind) = (account.id, account.name, account.colorHex, account.balance, .bank)
-        detailLines = [ownership]
+        // 有卡綁定它:多兩行待扣卡費(不足時再一行警示)。
+        detailNotes = [CardNote(text: ownership)] + (debit?.notes ?? [])
         spokenText = "\(account.name)，\(Terms.bankAccount)，\(ownership)，餘額 \(account.balance.spokenText)"
+            + (debit.map { "，\($0.spokenText)" } ?? "")
     }
 
     /// 公帳視角裡的個人卡是「私卡代墊」(上游 ADR 0015)，不拆代墊與私帳;他人的卡脫敏，只有家庭代墊待繳額是真的。
     init(_ card: CreditCard, isPrivateCardAdvance: Bool = false, isMasked: Bool = false) {
         (id, name, colorHex, amount, kind) = (card.id, card.name, card.colorHex, card.totalDue, .creditCard(card))
         if isPrivateCardAdvance {
-            detailLines = [
-                ["私卡代墊", isMasked ? card.ownerName.map { "持卡人 \($0)" } : nil].compactMap { $0 }.joined(separator: "・"),
-            ] + (card.paymentDueDay.map { ["每月 \($0) 日繳款"] } ?? [])
+            detailNotes = (
+                [["私卡代墊", isMasked ? card.ownerName.map { "持卡人 \($0)" } : nil].compactMap { $0 }.joined(separator: "・")]
+                    + (card.paymentDueDay.map { ["每月 \($0) 日繳款"] } ?? [])
+            ).map { CardNote(text: $0) }
             spokenText = card.spokenAdvanceSummary(isMasked: isMasked)
         } else {
-            (detailLines, spokenText) = card.homeSummary()
+            let summary = card.homeSummary()
+            detailNotes = summary.lines.map { CardNote(text: $0) }
+            spokenText = summary.spoken
         }
     }
 
