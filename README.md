@@ -94,7 +94,3 @@
 </table>
 
 > 截圖使用範例資料。
-
-## 開發者
-
-開發流程、架構與規則請看 [CLAUDE.md](CLAUDE.md)；和網頁版的功能對照見 [docs/parity.md](docs/parity.md)。
