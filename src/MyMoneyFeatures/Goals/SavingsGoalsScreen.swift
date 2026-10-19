@@ -142,6 +142,7 @@ struct SavingsGoalsScreen: View {
                     }
                     .contentShape(.rect)
                     .onTapGesture { sheet = .editor(model.makeEditor(editing: goal)) }
+                    .accessibilityAction(named: "編輯") { sheet = .editor(model.makeEditor(editing: goal)) }
                     .overlayMoreMenu(label: "\(goal.name)的更多動作", identifier: "goals.more.\(goal.id.rawValue)") {
                         if let deposit = model.makeDeposit(for: goal) {
                             Button("存入", systemImage: "plus.circle") { sheet = .deposit(deposit) }
