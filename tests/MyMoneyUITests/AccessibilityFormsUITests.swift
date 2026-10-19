@@ -27,9 +27,7 @@ final class AccessibilityFormsUITests: XCTestCase {
     func testTransferDateRowFitsAtAX5() throws {
         let app = launchSignedIn()
         app.tabBars.buttons["帳戶"].tap()
-        let transfer = app.buttons["accounts.transfer"]
-        XCTAssertTrue(ScrollSupport.revealFully(transfer, in: app), "帳戶頁沒有 ATM 提款／轉帳")
-        transfer.tap()
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
         waitForSheet(app, "轉帳")
         try assertDateRowFits("日期", app: app)
     }
@@ -142,11 +140,9 @@ final class AccessibilityFormsUITests: XCTestCase {
         let card = app.buttons["accounts.card.sample-card"]
         XCTAssertTrue(ScrollSupport.revealFully(card, in: app), "帳戶頁沒有信用卡")
         card.tap()
-        let pay = app.buttons["cardDetail.pay"]
-        XCTAssertTrue(ScrollSupport.revealFully(pay, in: app), "詳細頁沒有「繳款」")
-        pay.tap()
+        app.buttons["cardDetail.more"].tap()
         let full = app.buttons["全額結清"]
-        XCTAssertTrue(full.waitForExistence(timeout: 5), "「繳款」選單沒有「全額結清」")
+        XCTAssertTrue(full.waitForExistence(timeout: 5), "⋯ 選單沒有「全額結清」")
         full.tap()
         waitForSheet(app, "信用卡扣款還款")
     }

@@ -134,16 +134,11 @@ struct AccountsScreen: View {
             label()
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            let items = model.menuItems(for: account)
-            if !items.isEmpty {
-                MoreMenu(label: "\(account.name)的更多動作", identifier: "accounts.more.\(account.id.rawValue)") {
-                    AccountMenuButtons(items: items) { perform($0, on: account) }
-                }
-            }
+        .accessibilityIdentifier(identifier ?? "accounts.row.\(account.id.rawValue)")
+        .overlayMoreMenu(label: "\(account.name)的更多動作", identifier: "accounts.more.\(account.id.rawValue)", isShown: !model.menuItems(for: account).isEmpty) {
+            AccountMenuButtons(items: model.menuItems(for: account)) { perform($0, on: account) }
         }
         .clearListRow()
-        .accessibilityIdentifier(identifier ?? "accounts.row.\(account.id.rawValue)")
         .swipeActions {
             if model.canModify(account) {
                 DestructiveSwipeButton { pendingDeletion = account }

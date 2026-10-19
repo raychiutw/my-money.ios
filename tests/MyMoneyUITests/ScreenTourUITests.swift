@@ -63,17 +63,17 @@ final class ScreenTourUITests: XCTestCase {
         tour.captureScrolling("transactions")
         tour.present(app.buttons["transactions.filter"], capturing: "transaction-filter")
 
-        // 帳戶，以及新增資產帳戶(三種類型)、ATM 提款／轉帳、信用卡詳細頁和信用卡扣款還款。
+        // 帳戶，以及新增資產帳戶(三種類型)、轉帳、信用卡詳細頁和信用卡扣款還款。
         tour.select(tab: "帳戶")
         tour.captureScrolling("accounts")
         tour.present(app.buttons["accounts.add"], menuItem: "新增現金", capturing: "account-editor-cash")
         tour.present(app.buttons["accounts.add"], menuItem: "新增活存帳戶", capturing: "account-editor-bank")
         tour.present(app.buttons["accounts.add"], menuItem: "新增信用卡", capturing: "account-editor-card")
-        tour.present(app.buttons["accounts.transfer"], capturing: "transfer")
-        // 信用卡精簡列點進詳細頁(#73),信用卡扣款還款從詳細頁的「繳款」選單打開。
+        tour.present(app.buttons["accounts.more.sample-bank"], menuItem: "轉帳", capturing: "transfer")
+        // 信用卡精簡列點進詳細頁(#73),信用卡扣款還款從詳細頁的 ⋯ 選單打開。
         // 每種組合都用同一張卡(範例資料的「iOS 測試信用卡」)、同一個項目(全額結清),改前改後才比得起來。
         tour.push(app.buttons["accounts.card.sample-card"], capturing: "card-detail") {
-            tour.present(app.buttons["cardDetail.pay"], menuItem: "全額結清", capturing: "card-payment")
+            tour.present(app.buttons["cardDetail.more"], menuItem: "全額結清", capturing: "card-payment")
         }
 
         // 家庭:啟動時已加入(`-uiTestingJoinedHousehold`),先拍已加入的主視覺(分攤建議、長條圖、數字磚、成員，#121)，

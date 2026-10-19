@@ -24,7 +24,7 @@ final class CardSettlementUITests: XCTestCase {
             for _ in 0..<5 where !row.exists { app.swipeUp() }
             XCTAssertTrue(row.exists, "詳細頁沒有「\(label)」\(value) 這一列")
         }
-        XCTAssertTrue(app.navigationBars.buttons["cardDetail.edit"].exists, "詳細頁的 toolbar 沒有「編輯」")
+        XCTAssertTrue(app.buttons["cardDetail.more"].exists, "詳細頁的 toolbar 沒有 ⋯ 選單")
     }
 
     /// 結帳日出帳作業(上游 ADR 0024):詳細頁的「出帳作業」打開預覽 sheet,確認後顯示後端的訊息;未出帳款轉入已出帳待繳款，
@@ -35,9 +35,7 @@ final class CardSettlementUITests: XCTestCase {
         let app = launchSignedIn()
         openCard("sample-low-limit-card", named: "iOS 測試小額卡", in: app)
 
-        let rollover = app.buttons["cardDetail.rollover"]
-        reveal(rollover, in: app)
-        rollover.tap()
+        app.chooseFromDetailMenu("出帳作業")
         XCTAssertTrue(app.buttons["statementRollover.submit"].waitForExistence(timeout: 3), "沒有打開出帳作業預覽")
         let fuel = element(in: app, labelContaining: "加油")
         for _ in 0..<6 where !fuel.exists { app.swipeUp() }
@@ -51,17 +49,11 @@ final class CardSettlementUITests: XCTestCase {
         )
         app.buttons["好"].tap()
         XCTAssertTrue(field("未出帳款", value: "$0", in: app).waitForExistence(timeout: 5), "出帳作業後詳細頁的未出帳款沒有更新")
-        reveal(rollover, in: app)
-        XCTAssertTrue(rollover.exists, "有結帳日的卡出帳過之後，「出帳作業」應該還在(可以再檢視這一期)")
+        XCTAssertTrue(app.menuContains("出帳作業", opening: app.buttons["cardDetail.more"]), "有結帳日的卡出帳過之後，⋯ 選單的「出帳作業」應該還在(可以再檢視這一期)")
 
         app.navigationBars.buttons["BackButton"].firstMatch.tap()
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
-        let pay = app.buttons["cardDetail.pay"]
-        reveal(pay, in: app)
-        pay.tap()
-        let payShared = app.buttons["繳家庭代墊"]
-        XCTAssertTrue(payShared.waitForExistence(timeout: 3), "「繳款」選單裡沒有「繳家庭代墊」")
-        payShared.tap()
+        app.chooseFromDetailMenu("繳家庭代墊")
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "「繳款」選單沒有打開信用卡扣款還款")
         // 預設填已出帳公帳(上游 ADR 0025):共同基金只繳當期帳單,不提早繳未出帳的;可以快速切換成結清全部代墊公帳。
@@ -106,9 +98,7 @@ final class CardSettlementUITests: XCTestCase {
     func testRolloverPreviewDeferralRecomputesLocally() throws {
         let app = launchSignedIn()
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
-        let rollover = app.buttons["cardDetail.rollover"]
-        reveal(rollover, in: app)
-        rollover.tap()
+        app.chooseFromDetailMenu("出帳作業")
 
         // 後端算好的結算區間與說明(結帳日 15 號已過:結算本期帳單)。
         XCTAssertTrue(element(in: app, labelContaining: "9月16日 ～ 10月15日").waitForExistence(timeout: 5), "沒有顯示結算區間")
@@ -155,8 +145,7 @@ final class CardSettlementUITests: XCTestCase {
         XCTAssertTrue(findField("未出帳款", value: "$3,500", in: app).exists, "關閉預覽後卡上的未出帳款變了")
 
         // 重開:延期不保留，回到開窗時的狀態;再延午餐、確認。
-        reveal(rollover, in: app)
-        rollover.tap()
+        app.chooseFromDetailMenu("出帳作業")
         XCTAssertTrue(row("本期出帳淨額(5 筆)", value: "2,400 元", in: app).waitForExistence(timeout: 5), "重開預覽沒有回到開窗時的狀態")
         let againLunch = app.switches["statementRollover.item.sample-stmt-lunch"]
         for _ in 0..<6 where !againLunch.exists { app.swipeUp() }
@@ -181,7 +170,7 @@ final class CardSettlementUITests: XCTestCase {
         let bound = findField("預設扣款帳戶", value: "iOS 測試存款", in: app)
         XCTAssertTrue(bound.exists, "詳細頁沒有顯示綁定的預設扣款帳戶")
 
-        app.navigationBars.buttons["cardDetail.edit"].tap()
+        app.chooseFromDetailMenu("編輯")
         let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "預設扣款帳戶")).firstMatch
         for _ in 0..<6 where !picker.exists { app.swipeUp() }
         XCTAssertTrue(picker.exists, "編輯器沒有預設扣款帳戶這一列")
@@ -202,10 +191,7 @@ final class CardSettlementUITests: XCTestCase {
     func testPaymentPrefillsTheDefaultPaymentAccount() throws {
         let app = launchSignedIn(flags: ["-uiTestingCardBoundBank"])
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
-        let pay = app.buttons["cardDetail.pay"]
-        reveal(pay, in: app)
-        pay.tap()
-        app.buttons["全額結清"].tap()
+        app.chooseFromDetailMenu("全額結清")
         XCTAssertTrue(app.textFields["cardPayment.amount"].waitForExistence(timeout: 3), "沒有打開繳款")
 
         let bankRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "扣款帳戶")).firstMatch
@@ -228,7 +214,7 @@ final class CardSettlementUITests: XCTestCase {
         for _ in 0..<6 { app.swipeDown() }
 
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
-        app.navigationBars.buttons["cardDetail.edit"].tap()
+        app.chooseFromDetailMenu("編輯")
         let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "預設扣款帳戶")).firstMatch
         for _ in 0..<6 where !picker.exists { app.swipeUp() }
         picker.tap()
@@ -273,9 +259,7 @@ final class CardSettlementUITests: XCTestCase {
         card.tap()
         XCTAssertTrue(app.navigationBars["iOS 無結帳日卡"].waitForExistence(timeout: 3), "沒有進入詳細頁")
 
-        let rollover = app.buttons["cardDetail.rollover"]
-        reveal(rollover, in: app)
-        rollover.tap()
+        app.chooseFromDetailMenu("出帳作業")
 
         XCTAssertTrue(
             element(in: app, labelContaining: "請先設定每月結帳日，才能做出帳作業").waitForExistence(timeout: 3), "沒有請使用者先設定結帳日"
@@ -297,9 +281,7 @@ final class CardSettlementUITests: XCTestCase {
         let app = launchSignedIn()
         openCard("sample-card", named: "iOS 測試信用卡", in: app)
 
-        let reconcile = app.buttons["cardDetail.reconcile"]
-        reveal(reconcile, in: app)
-        reconcile.tap()
+        app.chooseFromDetailMenu("校準未出帳")
         XCTAssertTrue(
             element(in: app, labelContaining: "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費").waitForExistence(timeout: 3),
             "確認時沒有說明依結帳區間重算(上游 ADR 0020)"

@@ -134,7 +134,9 @@ extension View {
         label: String, identifier: String, alignment: Alignment = .topTrailing, trailingInset: CGFloat = 0, isShown: Bool = true,
         @ViewBuilder content: @escaping () -> Menu
     ) -> some View {
-        overlay(alignment: alignment) {
+        // 用 ZStack 而不是 `.overlay`:蓋在按鈕上的 overlay 會被併進按鈕的 accessibility 元素，⋯ 就不是獨立的按鈕了。
+        ZStack(alignment: alignment) {
+            self
             if isShown {
                 MoreMenu(label: label, identifier: identifier, content: content)
                     .padding(.trailing, trailingInset)

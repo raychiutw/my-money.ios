@@ -136,14 +136,12 @@ struct SavingsGoalsScreen: View {
             Section("\(title)(\(goals.count))") {
                 ForEach(goals) { goal in
                     // 點整列編輯;「存入」是列裡的按鈕。右上角 ⋯ 是存入、編輯、刪除;往左滑是刪除。
-                    Button {
-                        sheet = .editor(model.makeEditor(editing: goal))
-                    } label: {
-                        SavingsGoalRow(goal: goal, deadline: model.deadlineText(of: goal)) {
-                            sheet = model.makeDeposit(for: goal).map(ActiveSheet.deposit)
-                        }
+                    // (不用 `Button` 包住整列:列裡有「存入」按鈕，而且 `Button` 會把整列的 VoiceOver 標籤蓋掉。)
+                    SavingsGoalRow(goal: goal, deadline: model.deadlineText(of: goal)) {
+                        sheet = model.makeDeposit(for: goal).map(ActiveSheet.deposit)
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(.rect)
+                    .onTapGesture { sheet = .editor(model.makeEditor(editing: goal)) }
                     .overlayMoreMenu(label: "\(goal.name)的更多動作", identifier: "goals.more.\(goal.id.rawValue)") {
                         if let deposit = model.makeDeposit(for: goal) {
                             Button("存入", systemImage: "plus.circle") { sheet = .deposit(deposit) }

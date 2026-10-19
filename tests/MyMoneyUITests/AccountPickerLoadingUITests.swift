@@ -28,7 +28,7 @@ final class AccountPickerLoadingUITests: XCTestCase {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingHoldAccountsAfter", "2"], signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
         XCTAssertTrue(app.buttons["accounts.card.sample-card"].waitForExistence(timeout: 10), "帳戶頁沒有載入完")
-        app.buttons["accounts.transfer"].tap()
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
         XCTAssertTrue(app.textFields["transfer.amount"].waitForExistence(timeout: 5), "沒有打開轉帳")
 
         assertDisabled("請選擇轉出帳戶", in: app)

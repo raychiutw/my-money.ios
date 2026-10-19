@@ -209,7 +209,8 @@ final class TransactionsUITests: XCTestCase {
         for _ in 0..<12 where !(lunch.exists && short.exists) { app.swipeUp() }
         XCTAssertTrue(lunch.exists && short.exists, "沒有找到範例交易")
         // 量完列高再點:一般成員點不開家人的家庭公帳,點了是說明(#146),原因不在整句裡。
-        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 4, "點不開的列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
+        // 點得開的列右側有 ⋯(44pt),文字欄比點不開的窄，最多多折一行(一行小字約 12pt);上下堆疊會多很多。
+        XCTAssertEqual(short.frame.height, lunch.frame.height, accuracy: 12, "點不開的列掉進上下堆疊:\(short.frame.height) vs \(lunch.frame.height)")
         XCTAssertFalse(short.label.contains("僅記錄者"), "整句不該再有鎖定說明:\(short.label)")
         XCTAssertTrue(ScrollSupport.revealFully(short, in: app), "捲不到這一列")
         short.tap()
@@ -256,7 +257,8 @@ final class TransactionsUITests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(bands.count, 3, "\(category) \(label):應該是標題加金額、記帳人・歸屬、資產帳戶由上往下:\(bands)")
                 guard bands.count >= 3 else { continue }
                 XCTAssertEqual(bands[0].clusters(minGap: 8 * scale), 2, "\(category) \(label):第一行(圖示之後)應該只有標題與金額，金額旁邊有多的圖示:\(bands)")
-                XCTAssertGreaterThan(rowWidth - bands[0].maxX, 5 * scale, "\(category) \(label):金額貼到列的右邊緣:\(bands)")
+                // 點得開的列右側有 ⋯(44pt):列元素的右緣就是金額的右緣，不再有內距;只要求沒有超出。
+                XCTAssertGreaterThanOrEqual(rowWidth - bands[0].maxX, 0, "\(category) \(label):金額超出列的右邊緣:\(bands)")
                 XCTAssertLessThan(rowWidth - bands[0].maxX, 32 * scale, "\(category) \(label):金額沒有靠右:\(bands)")
                 for band in bands.dropFirst() {
                     XCTAssertLessThan(band.maxX, rowWidth - 40 * scale, "\(category) \(label):次要文字或資產帳戶跑到金額那一欄:\(bands)")
@@ -283,7 +285,8 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertGreaterThan(amount.minX, rowWidth / 2, "最下面一行(金額)沒有靠右:\(amount) 寬度 \(rowWidth)")
         XCTAssertEqual(amount.clusters(minGap: 14 * scale), 1, "金額那一行只該有金額:\(amount)")
         let gap = rowWidth - amount.maxX
-        XCTAssertTrue(gap >= 6 * scale && gap <= 32 * scale, "金額沒有貼齊列的右內距:右邊空 \(gap) 畫素")
+        // 列右側有 ⋯(44pt):列元素的右緣就是金額的右緣。
+        XCTAssertTrue(gap >= 0 && gap <= 32 * scale, "金額沒有貼齊列的右緣:右邊空 \(gap) 畫素")
         // 其他行都在金額上面，而且靠左(不是金額那種靠右)。
         for band in bands.dropLast() {
             XCTAssertLessThan(band.maxY, amount.minY, "有一行在金額下面:\(band) vs \(amount)")
