@@ -224,10 +224,15 @@ struct MemberAdvanceScreen: View {
                     amount: settled.item.amount, isIncome: settled.item.kind == .refund
                 )
                 .accessibilityIdentifier("advance.settled.\(settled.id.rawValue)")
+                .trailingMoreMenu(
+                    label: "\(settled.item.displayTitle)的更多動作", identifier: "advance.more.\(settled.id.rawValue)",
+                    isShown: model.canUnlink(settled, in: advance)
+                ) {
+                    Button("解除報銷", systemImage: "link.badge.minus", role: .destructive) { settledToUnlink = settled }
+                }
                 .swipeActions {
                     if model.canUnlink(settled, in: advance) {
-                        Button("解除報銷") { settledToUnlink = settled }
-                            .tint(.orange)
+                        DestructiveSwipeButton("解除報銷", systemImage: "link.badge.minus") { settledToUnlink = settled }
                     }
                 }
                 .accessibilityAction(named: "解除報銷") {

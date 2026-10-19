@@ -182,36 +182,6 @@ final class GlassButtonsUITests: XCTestCase {
     }
 
     @MainActor
-    func testTransferCapsuleIsCIFilledInLight() throws {
-        try assertTransferCapsule(appearance: .light)
-    }
-
-    @MainActor
-    func testTransferCapsuleIsCIFilledInDark() throws {
-        try assertTransferCapsule(appearance: .dark)
-    }
-
-    /// 需要文字的主要動作(帳戶頁的「ATM 提款／轉帳」)是 CI 填色的膠囊、反白粗體字(ADR-0009、#176)。
-    @MainActor
-    private func assertTransferCapsule(appearance: XCUIDevice.Appearance) throws {
-        XCUIDevice.shared.appearance = appearance
-        let app = launchSignedIn()
-        app.tabBars.buttons["帳戶"].tap()
-        let transfer = app.buttons["accounts.transfer"]
-        for _ in 0..<5 where !(transfer.exists && transfer.isHittable) { app.swipeUp() }
-        XCTAssertTrue(transfer.exists, "沒有「ATM 提款／轉帳」膠囊")
-        let name = appearance == .dark ? "深色" : "淺色"
-        XCTAssertGreaterThanOrEqual(transfer.frame.height, 44, "\(name):膠囊高度不到 44pt:\(transfer.frame)")
-        var stats = try PixelAnalysis.statistics(of: transfer.screenshot().image, region: PixelAnalysis.center)
-        for _ in 0..<6 where stats.ciFraction < 0.5 {
-            Thread.sleep(forTimeInterval: 0.5)
-            stats = try PixelAnalysis.statistics(of: transfer.screenshot().image, region: PixelAnalysis.center)
-        }
-        XCTAssertGreaterThan(stats.ciFraction, 0.5, "\(name):主要膠囊沒有填 CI 色(CI 色只占 \(stats.ciFraction))")
-        XCTAssertGreaterThan(stats.lightFraction, 0.01, "\(name):膠囊上的反白字看不到")
-    }
-
-    @MainActor
     func testActiveFilterIsAHollowBrandPinkCircleInLight() throws {
         try assertActiveFilter(appearance: .light)
     }

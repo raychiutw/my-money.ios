@@ -192,15 +192,43 @@ public final class AccountsModel: Alerting {
         _ = await commit(dataVersion) { try await repository.delete(account.id) }
     }
 
+    /// 信用卡未出帳自動校準(⋯ 選單);成功後顯示後端的訊息，並遞增資料版本。
+    public func reconcile(_ card: CreditCard) async {
+        guard canOperate(card) else { return }
+        if let notice = await commit(dataVersion, { try await repository.reconcileUnbilled(card.id) }) { noticeMessage = notice }
+    }
+
     /// 資料版本或檢視範圍在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
         guard freshness.isStale(reloadKey) else { return }
         await load()
     }
 
-    /// ATM 提款／帳戶互轉的 sheet。從某個帳戶的按鈕打開時，預先選好轉出或轉入。
-    public func makeTransfer(from: AccountID? = nil, to: AccountID? = nil) -> TransferModel {
-        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredFrom: from, preferredTo: to)
+    /// 這個帳戶 ⋯ 選單的項目(列與詳細頁共用,見 `AccountMenuItem`)。
+    public func menuItems(for account: Account) -> [AccountMenuItem] {
+        switch account {
+        case .creditCard(let card):
+            AccountMenuItem.items(
+                for: account, canModify: canModify(account), canOperate: canOperate(card),
+                paymentPresets: paymentPresets(for: card), showsRollover: showsRollover(card)
+            )
+        case .cash, .bank:
+            AccountMenuItem.items(for: account, canModify: canModify(account), canOperate: false, paymentPresets: [], showsRollover: false)
+        }
+    }
+
+    /// 現金與活存帳戶詳細頁(點列 push):跟帳戶頁同一個帳戶檢視範圍。
+    public func makeAccountDetail(for account: Account) -> AccountDetailModel {
+        let preview = if case .bank(let bank) = account { debitPreview(for: bank) } else { nil as BankDebitPreview? }
+        return AccountDetailModel(
+            account: account, debitPreview: preview, bankAccounts: bankAccounts, loadedVersion: freshness.version, scope: scope,
+            repository: repository, permissions: permissions, context: context
+        )
+    }
+
+    /// 轉帳的 sheet。從某個現金或活存帳戶的「轉帳」打開:這個帳戶是轉入，轉出留給使用者選(上游 ADR 0011)。
+    public func makeTransfer(into account: Account) -> TransferModel {
+        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredTo: account.id)
     }
 
     /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。

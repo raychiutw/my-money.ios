@@ -94,4 +94,77 @@ final class SwipeActionUITests: XCTestCase {
             app.terminate()
         }
     }
+
+    /// 已報銷明細的「解除報銷」跟其他刪除一樣是紅色的滑動按鈕(以前是橘色的一般按鈕)。
+    @MainActor
+    func testSettledUnlinkIsRed() throws {
+        for dark in [false, true] {
+            let app = launch(dark: dark, extra: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"])
+            app.tabBars.buttons["家庭"].tap()
+            let reimburse = app.openMemberDetail("in-memory-member-1")
+            XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "沒有進到成員詳細頁")
+            app.segmentedControls["advance.tab"].buttons["已結清明細"].tap()
+            let row = app.descendants(matching: .any)["advance.settled.sample-settled-reimbursed"]
+            try assertSwipeActionIsRed(row, actionLabel: "解除報銷", in: app, "解除報銷 \(dark ? "深色" : "淺色")")
+            app.terminate()
+        }
+    }
+
+    /// 全 app 列操作一致:長按沒有任何選單;列右側的 ⋯ 才是完整清單(交易:編輯、刪除)。
+    @MainActor
+    func testLongPressShowsNothingAndMoreMenuHasEditAndDelete() throws {
+        let app = launch(dark: false)
+        app.tabBars.buttons["記帳"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND identifier == ''", "午餐")).firstMatch
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "找不到午餐這一列")
+        let more = app.buttons.matching(NSPredicate(format: "label == %@", "午餐的更多動作")).firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 3), "交易列右側沒有 ⋯")
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: app), "⋯ 捲不到看得見")
+        more.tap()
+        for item in ["編輯", "刪除"] {
+            XCTAssertTrue(app.buttons[item].firstMatch.waitForExistence(timeout: 3), "⋯ 選單沒有「\(item)」")
+        }
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["刪除"].firstMatch.waitForNonExistence(timeout: 3), "點選單外面沒有收起 ⋯ 選單")
+
+        // 長按只是按住的點擊(開編輯 sheet),不會出現選單。
+        row.press(forDuration: 1.0)
+        XCTAssertFalse(app.buttons["刪除"].waitForExistence(timeout: 1.5), "長按不該出現選單")
+        XCTAssertFalse(app.buttons["刪除"].exists, "長按不該出現選單")
+
+    }
+
+    /// 帳戶列長按也沒有選單(長按只是按住的點擊,進詳細頁)。
+    @MainActor
+    func testAccountRowLongPressShowsNoMenu() throws {
+        let app = launch(dark: false)
+        app.tabBars.buttons["帳戶"].tap()
+        let row = app.buttons["accounts.row.sample-bank"]
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "帳戶頁沒有活存帳戶列")
+        row.press(forDuration: 1.0)
+        XCTAssertFalse(app.buttons["刪除"].waitForExistence(timeout: 1.5), "長按不該出現選單")
+        XCTAssertFalse(app.buttons["轉帳"].exists, "長按不該出現選單")
+    }
+
+    /// AX5:各畫面列右側的 ⋯ 沒有被裁切(整顆在螢幕內、至少 44pt)。
+    @MainActor
+    func testRowMoreMenusAreNotClippedAtAX5() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "-resetSession", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        app.signInWithSampleAccount()
+        let window = app.windows.firstMatch.frame
+        func assertWholeMenu(_ label: String, _ name: String) {
+            let more = app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+            XCTAssertTrue(ScrollSupport.revealFully(more, in: app), "\(name):找不到 ⋯")
+            XCTAssertGreaterThanOrEqual(more.frame.width, 44, "\(name):⋯ 比 44pt 窄:\(more.frame)")
+            XCTAssertLessThanOrEqual(more.frame.maxX, window.maxX + 1, "\(name):⋯ 超出螢幕右緣:\(more.frame)")
+        }
+        app.tabBars.buttons["記帳"].tap()
+        assertWholeMenu("午餐的更多動作", "記帳")
+        app.tabBars.buttons["帳戶"].tap()
+        assertWholeMenu("iOS 測試存款的更多動作", "帳戶")
+        app.openHomeEntry("recurring")
+        assertWholeMenu("房租的更多動作", "週期收支")
+    }
 }

@@ -103,9 +103,10 @@ final class RecurringScopeUITests: XCTestCase {
         let amount = try XCTUnwrap(bands.last)
         let width = Int(image.size.width * image.scale)
         let gap = width - amount.maxX
-        XCTAssertTrue(gap >= 6 * Int(image.scale) && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
+        // 列右側有 ⋯(44pt):列元素到金額右緣只剩一點點空隙，只要求沒有超出。
+        XCTAssertTrue(gap >= 0 && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
         // 帶 −/+ 的金額在 AX5 很寬(#202),只要求沒有貼到最左邊。
-        XCTAssertGreaterThan(amount.minX, width / 5, "金額貼在左邊:\(amount)")
+        XCTAssertGreaterThan(amount.minX, width / 8, "金額貼在左邊:\(amount)")
     }
 
     /// 新增表單的歸屬(#154):內嵌兩列，勾勾是粉紅;預設隨視角;選了家庭公帳的資產帳戶自動帶成家庭公帳，個人帳戶帶成個人私帳。

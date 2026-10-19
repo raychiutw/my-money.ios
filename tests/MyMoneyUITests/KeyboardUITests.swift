@@ -32,9 +32,7 @@ final class KeyboardUITests: XCTestCase {
 
     @MainActor func testTransferFields() throws { try forEachSize { app in
         self.selectTab("帳戶", in: app)
-        let transfer = app.buttons["accounts.transfer"]
-        XCTAssertTrue(ScrollSupport.revealFully(transfer, in: app))
-        transfer.tap()
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
         try self.assertClear(app.textFields["transfer.amount"], app: app)
         try self.assertClear(app.descendants(matching: .any)["transfer.note"], app: app)
     } }
@@ -44,10 +42,7 @@ final class KeyboardUITests: XCTestCase {
         let card = app.buttons["accounts.card.sample-card"]
         XCTAssertTrue(ScrollSupport.revealFully(card, in: app))
         card.tap()
-        let pay = app.buttons["cardDetail.pay"]
-        XCTAssertTrue(ScrollSupport.revealFully(pay, in: app))
-        pay.tap()
-        app.buttons["全額結清"].tap()
+        app.chooseFromDetailMenu("全額結清")
         try self.assertClear(app.textFields["cardPayment.amount"], app: app)
         try self.assertClear(app.descendants(matching: .any)["cardPayment.note"], app: app)
     } }

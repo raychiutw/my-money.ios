@@ -149,7 +149,7 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(statementRow().displayedText.contains("每月 1 號"), "返回之後結帳日不是每月 1 號:\(statementRow().displayedText)")
     }
 
-    /// ATM 提款(#43):活存帳戶轉到現金，顯示後端的訊息，兩邊的餘額都更新。
+    /// ATM 提款(#43):從現金列的 ⋯ → 轉帳進去(這個現金是轉入、轉出空白),按快捷情境「ATM 提款至皮夾」,顯示後端的訊息，兩邊的餘額都更新。
     @MainActor
     func testATMWithdrawalMovesMoneyIntoWallet() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
@@ -167,13 +167,15 @@ final class AccountsUITests: XCTestCase {
         app.buttons["accountEditor.save"].tap()
         XCTAssertTrue(element(in: app, labelContaining: "UI 測試皮夾,現金餘額 800 元").waitForExistence(timeout: 5))
 
-        // 轉出與轉入都是空的(上游 ADR 0011、#111):頂端入口不預選;按快捷情境「ATM 提款至皮夾」(使用者主動按的輔助)
-        // 才帶入第一個活存帳戶與第一個現金。
-        app.buttons["accounts.transfer"].tap()
+        // 只帶入這個現金當轉入(上游 ADR 0011、#111),轉出是空的;按快捷情境「ATM 提款至皮夾」(使用者主動按的輔助)才帶入活存帳戶。
+        let walletMore = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "accounts.more.in-memory-account-")).firstMatch
+        XCTAssertTrue(walletMore.waitForExistence(timeout: 5), "新增的現金列沒有 ⋯")
+        let walletID = String(walletMore.identifier.dropFirst("accounts.more.".count))
+        app.chooseFromAccountMenu("轉帳", accountID: walletID)
         let amount = app.textFields["transfer.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開轉帳")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.exists, "轉出帳戶沒有顯示佔位文字")
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉入帳戶")).firstMatch.exists, "轉入帳戶沒有顯示佔位文字")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "轉入帳戶")).firstMatch.displayedText.contains("UI 測試皮夾"), "這個現金沒有帶入轉入")
         XCTAssertFalse(row("可用餘額", value: "50,000 元", in: app).exists, "還沒選轉出帳戶就顯示了可用餘額")
         app.buttons["transfer.atm"].tap()
         XCTAssertTrue(row("可用餘額", value: "50,000 元", in: app).exists, "轉帳沒有另起一列顯示轉出帳戶的可用餘額")
@@ -196,7 +198,7 @@ final class AccountsUITests: XCTestCase {
     func testTransferKeepsTheFromAccountAfterReturningFromTheList() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
-        app.buttons["accounts.transfer"].tap()
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
         XCTAssertTrue(app.textFields["transfer.amount"].waitForExistence(timeout: 3), "沒有打開轉帳")
 
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.tap()
@@ -206,24 +208,46 @@ final class AccountsUITests: XCTestCase {
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "請選擇轉出帳戶")).firstMatch.exists, "轉出帳戶又回到佔位文字")
     }
 
-    /// 活存帳戶列往右滑的「轉帳／提款」只帶入轉出，轉入是空的(上游 ADR 0011、#111)。
+    /// 活存帳戶列 ⋯ 的「轉帳」只帶入轉入(這個帳戶),轉出是空的(上游 ADR 0011、#111);「互換」把兩邊對調,再按一次換回來。
     @MainActor
-    func testBankRowShortcutFillsOnlyTheFromAccount() throws {
+    func testAccountMenuTransferFillsOnlyTheToAccountAndCanSwap() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
-
-        let bank = element(in: app, labelContaining: "iOS 測試存款,餘額 50,000 元")
-        _ = bank.waitForExistence(timeout: 5)
-        for _ in 0..<6 where !(bank.exists && bank.isHittable) { app.swipeUp() }
-        XCTAssertTrue(bank.exists, "帳戶頁沒有 iOS 測試存款這一列")
-        bank.swipeRight()
-        app.buttons["轉帳／提款"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["accounts.more.sample-bank"].waitForExistence(timeout: 5), "活存帳戶列沒有 ⋯")
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
 
         XCTAssertTrue(app.textFields["transfer.amount"].waitForExistence(timeout: 3), "沒有打開轉帳")
         let from = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "轉出帳戶")).firstMatch
         let to = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "轉入帳戶")).firstMatch
-        XCTAssertTrue(from.displayedText.contains("iOS 測試存款"), "從活存帳戶列進來，轉出沒有帶入這個帳戶:\(from.displayedText)")
-        XCTAssertTrue(to.displayedText.contains("請選擇轉入帳戶"), "轉入應該是空的，顯示佔位文字:\(to.displayedText)")
+        XCTAssertTrue(to.displayedText.contains("iOS 測試存款"), "從活存帳戶的選單進來，轉入沒有帶入這個帳戶:\(to.displayedText)")
+        XCTAssertTrue(from.displayedText.contains("請選擇轉出帳戶"), "轉出應該是空的，顯示佔位文字:\(from.displayedText)")
+
+        app.buttons["transfer.swap"].tap()
+        XCTAssertTrue(from.displayedText.contains("iOS 測試存款"), "互換之後轉出沒有換成這個帳戶:\(from.displayedText)")
+        XCTAssertTrue(to.displayedText.contains("請選擇轉入帳戶"), "互換之後轉入應該是空的:\(to.displayedText)")
+
+        app.buttons["transfer.swap"].tap()
+        XCTAssertTrue(to.displayedText.contains("iOS 測試存款"), "再互換一次沒有換回來:\(to.displayedText)")
+    }
+
+    /// 現金與活存帳戶點整列進詳細頁(跟信用卡一致),不是編輯器;toolbar 的 ⋯ 有轉帳、編輯、刪除。
+    @MainActor
+    func testBankRowOpensDetailWithMoreMenu() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.tabBars.buttons["帳戶"].tap()
+        let row = app.buttons["accounts.row.sample-bank"]
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "帳戶頁沒有活存帳戶列")
+        row.tap()
+
+        XCTAssertTrue(app.navigationBars["iOS 測試存款"].waitForExistence(timeout: 3), "點活存帳戶沒有進詳細頁")
+        XCTAssertFalse(app.textFields["accountEditor.name"].exists, "點活存帳戶不該直接開編輯器")
+        XCTAssertTrue(app.staticTexts["餘額、$50,000"].waitForExistence(timeout: 3) || element(in: app, labelContaining: "餘額").exists, "詳細頁沒有餘額")
+        let more = app.buttons["accountDetail.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 3), "詳細頁 toolbar 沒有 ⋯")
+        more.tap()
+        for item in ["轉帳", "編輯", "刪除"] {
+            XCTAssertTrue(app.buttons[item].firstMatch.waitForExistence(timeout: 3), "⋯ 選單沒有「\(item)」")
+        }
     }
 
     /// 轉帳：焦點在備註欄時，按鍵盤上的「完成」會收起鍵盤(#61)。
@@ -232,7 +256,7 @@ final class AccountsUITests: XCTestCase {
         let app = XCUIApplication.launchUITesting(signedIn: true)
         app.tabBars.buttons["帳戶"].tap()
 
-        app.buttons["accounts.transfer"].tap()
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
         let note = app.textFields["transfer.note"]
         XCTAssertTrue(note.waitForExistence(timeout: 3), "沒有打開轉帳")
         note.tap()
@@ -280,8 +304,8 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後還在列表上")
     }
 
-    /// 編輯權限防呆(上游 ADR 0013、#133):別人(小美)建立的家庭共同基金，一般成員點不開(不是按鈕)、左滑沒有「刪除」;
-    /// 自己的帳戶照舊可以點開。家庭管理員改得了共同基金，所以那一列是按鈕，左滑有「刪除」。
+    /// 編輯權限防呆(上游 ADR 0013、#133):別人(小美)建立的家庭共同基金，一般成員的 ⋯ 選單只有「轉帳」、沒有編輯與刪除,左滑沒有「刪除」;
+    /// 家庭管理員改得了共同基金，⋯ 選單有「編輯」「刪除」，左滑有「刪除」。
     @MainActor
     func testMemberCannotEditAnothersJointFundButAdminCan() throws {
         for isAdmin in [false, true] {
@@ -299,15 +323,20 @@ final class AccountsUITests: XCTestCase {
             XCTAssertTrue(mei.exists, "沒有看到小美建立的家庭共同基金")
             let role = isAdmin ? "家庭管理員" : "一般成員"
 
-            // 角色在登入時問一次，晚一點才到:家庭管理員等「可以點開」出現，一般成員則一直都點不開。
-            let meiButton = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "小美的共同基金")).firstMatch
+            // 角色在登入時問一次，晚一點才到:家庭管理員等「編輯」出現，一般成員的 ⋯ 選單一直只有「轉帳」。
+            let more = app.buttons["accounts.more.sample-mei-joint-fund"]
+            XCTAssertTrue(more.waitForExistence(timeout: 5), "\(role):別人建立的共同基金也要有 ⋯(轉帳)")
+            more.tap()
+            XCTAssertTrue(app.buttons["轉帳"].firstMatch.waitForExistence(timeout: 3), "\(role):⋯ 選單沒有「轉帳」")
+            let edit = app.buttons["編輯"].firstMatch
             if isAdmin {
-                XCTAssertTrue(meiButton.waitForExistence(timeout: 5), "\(role):改得了共同基金，那一列應該是按鈕")
+                XCTAssertTrue(edit.waitForExistence(timeout: 5), "\(role):改得了共同基金，⋯ 選單應該有「編輯」")
             } else {
-                XCTAssertFalse(meiButton.waitForExistence(timeout: 2), "\(role):別人建立的共同基金不該點得開")
+                XCTAssertFalse(edit.waitForExistence(timeout: 2), "\(role):別人建立的共同基金不該有「編輯」")
             }
-            let own = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "iOS 測試存款")).firstMatch
-            XCTAssertTrue(own.exists, "\(role):自己的帳戶要點得開")
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+            let own = app.buttons["accounts.row.sample-bank"]
+            XCTAssertTrue(own.exists, "\(role):自己的帳戶列要在")
 
             mei.swipeLeft()
             let delete = app.buttons["刪除"].firstMatch
@@ -355,8 +384,13 @@ final class AccountsUITests: XCTestCase {
         }
         XCTAssertFalse(app.staticTexts["信用額度"].exists, "他人的信用額度不該揭露")
         XCTAssertFalse(app.staticTexts["剩餘額度"].exists, "他人的剩餘額度不該揭露")
-        XCTAssertFalse(app.buttons["cardDetail.edit"].exists, "不能編輯他人的卡")
-        XCTAssertFalse(app.buttons["cardDetail.reconcile"].exists, "不能校準他人的卡")
+        // 他人私卡的 ⋯ 選單只有「繳家庭代墊」:沒有編輯、校準。
+        let more = app.buttons["cardDetail.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 3), "他人私卡有可繳的家庭代墊，應該有 ⋯")
+        more.tap()
+        XCTAssertTrue(app.buttons["繳家庭代墊"].waitForExistence(timeout: 3), "⋯ 選單沒有「繳家庭代墊」")
+        XCTAssertFalse(app.buttons["編輯"].exists, "不能編輯他人的卡")
+        XCTAssertFalse(app.buttons["校準未出帳"].exists, "不能校準他人的卡")
     }
 
     /// 非持卡人繳他人私卡的家庭代墊(上游 ADR 0015、#140):詳細頁只有「繳家庭代墊」(沒有繳款選單、出帳作業、校準);
@@ -374,14 +408,12 @@ final class AccountsUITests: XCTestCase {
         let tabBarTop = app.tabBars.firstMatch.frame.minY
         for _ in 0..<8 where !(mei.exists && mei.isHittable && mei.frame.midY < tabBarTop - 20) { app.swipeUp() }
         mei.tap()
-        let pay = app.buttons["cardDetail.paySharedDebt"]
-        for _ in 0..<5 where !pay.exists { app.swipeUp() }
-        XCTAssertTrue(pay.exists, "他人私卡的詳細頁沒有「繳家庭代墊」")
-        XCTAssertFalse(app.buttons["cardDetail.pay"].exists, "他人私卡不該有繳款選單(繳個人私帳、全額結清)")
-        XCTAssertFalse(app.buttons["cardDetail.rollover"].exists, "他人私卡不該有出帳作業")
-        XCTAssertFalse(app.buttons["cardDetail.reconcile"].exists, "他人私卡不該有校準")
-
-        pay.tap()
+        app.buttons["cardDetail.more"].tap()
+        XCTAssertTrue(app.buttons["繳家庭代墊"].waitForExistence(timeout: 3), "他人私卡的 ⋯ 選單沒有「繳家庭代墊」")
+        for hidden in ["繳個人私帳", "全額結清", "出帳作業", "校準未出帳", "編輯"] {
+            XCTAssertFalse(app.buttons[hidden].exists, "他人私卡的 ⋯ 選單不該有「\(hidden)」")
+        }
+        app.buttons["繳家庭代墊"].tap()
         let amount = app.textFields["cardPayment.amount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 3), "沒有打開信用卡扣款還款")
         XCTAssertEqual(amount.value as? String, "1,200", "金額沒有帶入家庭代墊待繳額")
@@ -446,9 +478,9 @@ final class AccountsUITests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5), "全部範圍還有待報銷橫幅")
     }
 
-    /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;「ATM 提款／轉帳」是摘要下面的膠囊按鈕(ADR-0004、#87、#119)。
+    /// 工具列只有檢視範圍、新增資產帳戶、頭像三顆;帳戶頁最上面沒有「ATM 提款／轉帳」(轉帳從帳戶的 ⋯ 選單進去)。
     @MainActor
-    func testToolbarHasThreeButtonsAndTransferIsTheLastSummaryRow() throws {
+    func testToolbarHasThreeButtonsAndNoTransferCapsule() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
 
         app.tabBars.buttons["帳戶"].tap()
@@ -460,14 +492,8 @@ final class AccountsUITests: XCTestCase {
         // 選單型的 toolbar 按鈕(檢視範圍、新增資產帳戶)旁邊，系統會多帶一個沒有名字的按鈕;只數有名字的。
         let named = toolbar.buttons.allElementsBoundByIndex.filter { !$0.identifier.isEmpty || !$0.label.isEmpty }
         XCTAssertEqual(named.count, 3, "工具列不是三顆按鈕:\(toolbar.buttonSummary)")
-        XCTAssertFalse(toolbar.buttons["accounts.transfer"].exists, "ATM 提款／轉帳還在工具列")
-
-        let transfer = app.buttons["accounts.transfer"]
-        XCTAssertTrue(transfer.waitForExistence(timeout: 3), "摘要下面沒有「ATM 提款／轉帳」")
-        XCTAssertEqual(transfer.label, "ATM 提款／轉帳")
-        let cardDebt = element(in: app, labelContaining: "信用卡待繳總額")
-        XCTAssertTrue(cardDebt.exists)
-        XCTAssertGreaterThan(transfer.frame.minY, cardDebt.frame.minY, "「ATM 提款／轉帳」不在數字磚下面")
+        XCTAssertFalse(app.buttons["accounts.transfer"].exists, "帳戶頁還有「ATM 提款／轉帳」按鈕")
+        XCTAssertFalse(element(in: app, labelContaining: "ATM 提款／轉帳").exists, "帳戶頁還有「ATM 提款／轉帳」")
     }
 
     /// 摘要的一般列(`AmountRow`):VoiceOver 念標籤，值是金額，例如標籤「信用卡待繳總額」、值「28,500 元」。

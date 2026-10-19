@@ -90,13 +90,3 @@ extension CompositionSegment.Kind {
         }
     }
 }
-
-/// ATM 提款／轉帳的膠囊按鈕(#119、#134):醒目的主要動作，在摘要下面;單色填滿的玻璃膠囊。
-struct TransferCapsuleButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        PrimaryCapsuleButton(title: "ATM 提款／轉帳", systemImage: "arrow.left.arrow.right", fillsWidth: true, action: action)
-            .accessibilityIdentifier("accounts.transfer")
-    }
-}

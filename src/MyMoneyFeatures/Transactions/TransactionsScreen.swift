@@ -176,35 +176,33 @@ struct TransactionsScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。系統紀錄與沒有權限的他人交易(#133)點不開。
+    /// 點一下編輯;往左滑刪除(刪除前一律確認);右側 ⋯ 是編輯與刪除。系統紀錄與沒有權限的他人交易(#133)點不開。
+    private func openEditor(_ transaction: MyMoneyDomain.Transaction) {
+        if let editorModel = model.makeEditor(for: transaction) {
+            editor = EditorSheet(model: editorModel)
+        }
+    }
+
     @ViewBuilder
     private func row(_ transaction: MyMoneyDomain.Transaction) -> some View {
         if model.canModify(transaction) {
             Button {
-                if let editorModel = model.makeEditor(for: transaction) {
-                    editor = EditorSheet(model: editorModel)
-                }
+                openEditor(transaction)
             } label: {
                 TransactionRow(
                     content: model.content(of: transaction), isOpenable: true
                 )
             }
             .tint(.primary)
+            .trailingMoreMenu(label: "\(model.content(of: transaction).title)的更多動作", identifier: "transactions.more.\(transaction.id.rawValue)") {
+                Button("編輯", systemImage: "pencil") { openEditor(transaction) }
+                Button("刪除", systemImage: "trash", role: .destructive) { pendingDeletion = transaction }
+            }
             .swipeActions {
                 DestructiveSwipeButton { pendingDeletion = transaction }
             }
-            .contextMenu {
-                Button("編輯", systemImage: "pencil") {
-                    if let editorModel = model.makeEditor(for: transaction) {
-                        editor = EditorSheet(model: editorModel)
-                    }
-                }
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = transaction
-                }
-            }
         } else {
-            // 列上沒有鎖定標記(#145);點一下跳出簡短說明(#146)。沒有左滑刪除與長按選單。點不開，所以標題不截斷。
+            // 列上沒有鎖定標記(#145);點一下跳出簡短說明(#146)。沒有左滑刪除與 ⋯ 選單。點不開，所以標題不截斷。
             Button {
                 explained = transaction
             } label: {

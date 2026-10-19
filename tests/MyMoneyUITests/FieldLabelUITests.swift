@@ -19,8 +19,8 @@ final class FieldLabelUITests: XCTestCase {
     func testTransferNoteHasVisibleLabel() {
         let app = launchSignedIn()
         app.tabBars.buttons["帳戶"].tap()
-        app.buttons["accounts.transfer"].tap()
-        assertNoteLabel(in: app, field: "transfer.note", form: "ATM 提款／轉帳")
+        app.chooseFromAccountMenu("轉帳", accountID: "sample-bank")
+        assertNoteLabel(in: app, field: "transfer.note", form: "轉帳")
     }
 
     @MainActor
@@ -30,11 +30,7 @@ final class FieldLabelUITests: XCTestCase {
         let card = app.buttons["accounts.card.sample-card"]
         for _ in 0..<8 where !(card.exists && card.isHittable) { app.swipeUp() }
         card.tap()
-        // 詳細頁比一個畫面長(欠款矩陣多四列),「繳款」要先捲到。
-        let pay = app.buttons["cardDetail.pay"]
-        for _ in 0..<8 where !(pay.exists && pay.isHittable) { app.swipeUp() }
-        pay.tap()
-        app.buttons["全額結清"].tap()
+        app.chooseFromDetailMenu("全額結清")
         assertNoteLabel(in: app, field: "cardPayment.note", form: "信用卡還款")
     }
 

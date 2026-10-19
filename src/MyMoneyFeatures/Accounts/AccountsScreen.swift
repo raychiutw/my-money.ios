@@ -2,10 +2,10 @@ import Foundation
 import MyMoneyDomain
 import SwiftUI
 
-/// 「帳戶」tab:數字優先的主視覺(淨可用餘額、組成比例條、三格數字磚、ATM 提款／轉帳膠囊按鈕)，
+/// 「帳戶」tab:數字優先的主視覺(淨可用餘額、組成比例條、三格數字磚)，
 /// 現金錢包、銀行存款帳戶與信用卡帳戶三區的卡片(parity.md「帳戶」,#119)。
 /// toolbar 有帳戶檢視範圍的篩選按鈕(目前的選擇由按鈕的圖示狀態表達)、新增資產帳戶和頭像三顆。
-/// 每個帳戶是一張卡片(整列);信用卡點進信用卡詳細頁(#73)。
+/// 每個帳戶是一張卡片(整列):點一下進詳細頁(#73),右上角 ⋯ 是這個帳戶的完整動作清單,往左滑是刪除。
 struct AccountsScreen: View {
     @Bindable var model: AccountsModel
     /// 切到別的 tab(待報銷橫幅的「前往家庭」)。
@@ -18,11 +18,12 @@ struct AccountsScreen: View {
     @State private var cardNeedingStatementDay: CreditCard?
     @State private var payment: CardPaymentModel?
     @State private var transfer: TransferModel?
-    /// 點信用卡卡片 push 信用卡詳細頁。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
-    @State private var cardPath: [CreditCard] = []
+    /// 點帳戶卡片 push 詳細頁(信用卡、現金、活存)。卡片不是 `NavigationLink`:列表裡的連結會多一個箭頭。
+    @State private var path: [Account] = []
+    @State private var cardToReconcile: CreditCard?
 
     var body: some View {
-        NavigationStack(path: $cardPath) {
+        NavigationStack(path: $path) {
             content
                 .skeletonTransition(value: model.phase)
                 .tabRootNavigation("帳戶")
@@ -51,8 +52,12 @@ struct AccountsScreen: View {
                     await model.refreshIfStale()
                 }
                 // 詳細頁的 model 由這裡(路由)建立，跟帳戶頁同一個帳戶檢視範圍。
-                .navigationDestination(for: CreditCard.self) { card in
-                    CreditCardDetailScreen(model: model.makeCardDetail(for: card))
+                .navigationDestination(for: Account.self) { account in
+                    if case .creditCard(let card) = account {
+                        CreditCardDetailScreen(model: model.makeCardDetail(for: card))
+                    } else {
+                        AccountDetailScreen(model: model.makeAccountDetail(for: account))
+                    }
                 }
                 .sheet(item: $editor) { sheet in
                     AccountEditorView(model: sheet.model)
@@ -88,6 +93,16 @@ struct AccountsScreen: View {
                 } message: { _ in
                     Text(StatementRolloverModel.missingStatementDayMessage)
                 }
+                .alert(
+                    "校準未出帳",
+                    isPresented: Binding(get: { cardToReconcile != nil }, set: { if !$0 { cardToReconcile = nil } }),
+                    presenting: cardToReconcile
+                ) { card in
+                    Button("校準") { Task { await model.reconcile(card) } }
+                    Button("取消", role: .cancel) {}
+                } message: { card in
+                    Text(card.reconcileConfirmation)
+                }
                 .errorAlert("無法完成", message: model.alertMessage) { model.alertMessage = nil }
                 .alert(
                     "完成",
@@ -110,55 +125,47 @@ struct AccountsScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認：後端刪除無法復原)。
-    /// `transferTitle` 有值時，往右滑和長按多一個轉帳動作(現金錢包是「ATM 提款」,銀行存款帳戶是「轉帳／提款」)。
-    /// 沒有編輯權限的帳戶(別人建立的家庭共同帳戶，上游 ADR 0013、#133)點不開、沒有編輯與刪除，轉帳照舊。
-    @ViewBuilder
-    private func accountRow(
-        _ account: Account,
-        transferTitle: String? = nil,
-        openTransfer: @escaping () -> TransferModel? = { nil },
-        @ViewBuilder label: () -> some View
-    ) -> some View {
-        let canModify = model.canModify(account)
-        Group {
-            if canModify {
-                Button {
-                    editor = EditorSheet(model.makeEditor(editing: account))
-                } label: {
-                    label()
-                }
-                .buttonStyle(.plain)
-            } else {
-                label()
-            }
+    /// 點一下進詳細頁;右上角 ⋯ 是完整動作清單(轉帳、編輯、刪除,信用卡再加繳款、出帳作業、校準);往左滑是刪除(刪除前一律確認：後端刪除無法復原)。
+    /// 沒有編輯權限的帳戶(別人建立的家庭共同帳戶，上游 ADR 0013、#133)沒有編輯與刪除，轉帳照舊。
+    private func accountRow(_ account: Account, identifier: String? = nil, @ViewBuilder label: () -> some View) -> some View {
+        Button {
+            path.append(account)
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier ?? "accounts.row.\(account.id.rawValue)")
+        .overlayMoreMenu(label: "\(account.name)的更多動作", identifier: "accounts.more.\(account.id.rawValue)", isShown: !model.menuItems(for: account).isEmpty) {
+            AccountMenuButtons(items: model.menuItems(for: account)) { perform($0, on: account) }
         }
         .clearListRow()
         .swipeActions {
-            if canModify {
+            if model.canModify(account) {
                 DestructiveSwipeButton { pendingDeletion = account }
             }
         }
-        .swipeActions(edge: .leading) {
-            if let transferTitle {
-                // 滑動動作的字固定是白色，深色模式 accent 是白色會白底白字:用中性灰(#134)。
-                NeutralSwipeButton(title: transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
+    }
+
+    /// ⋯ 選單的每個項目要做的事。
+    private func perform(_ item: AccountMenuItem, on account: Account) {
+        switch item {
+        case .transfer:
+            transfer = model.makeTransfer(into: account)
+        case .edit:
+            editor = EditorSheet(model.makeEditor(editing: account))
+        case .delete:
+            pendingDeletion = account
+        case .pay(let preset):
+            if case .creditCard(let card) = account { payment = model.makePayment(for: card, preset: preset) }
+        case .rollover:
+            guard case .creditCard(let card) = account else { return }
+            if model.rolloverNeedsStatementDay(for: card) {
+                cardNeedingStatementDay = card
+            } else {
+                rollover = model.makeStatementRollover(for: card)
             }
-        }
-        .contextMenu {
-            if canModify {
-                Button("編輯", systemImage: "pencil") {
-                    editor = EditorSheet(model.makeEditor(editing: account))
-                }
-            }
-            if let transferTitle {
-                Button(transferTitle, systemImage: "arrow.left.arrow.right") { transfer = openTransfer() }
-            }
-            if canModify {
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = account
-                }
-            }
+        case .reconcile:
+            if case .creditCard(let card) = account { cardToReconcile = card }
         }
     }
 
@@ -227,7 +234,7 @@ struct AccountsScreen: View {
             .skeletonRow()
     }
 
-    /// 主視覺(#119):超大的淨可用餘額與組成比例條，下面是三格數字磚和 ATM 提款／轉帳的膠囊按鈕。
+    /// 主視覺(#119):超大的淨可用餘額與組成比例條，下面是三格數字磚。
     /// 帳戶數不寫(section 標題有);已出帳待繳款、未出帳款在信用卡詳細頁。
     @ViewBuilder
     private var summarySection: some View {
@@ -250,11 +257,6 @@ struct AccountsScreen: View {
                 NumberTile(title: "信用卡待繳", amount: .outflow(model.totalCardDue ?? .zero), spokenTitle: "信用卡待繳總額")
             }
             .clearListRow()
-            // ATM 提款／轉帳:醒目的膠囊按鈕，在摘要下面(ADR-0004、#87、#119);現金錢包卡、銀行存款帳戶卡的滑動捷徑照舊。
-            TransferCapsuleButton {
-                transfer = model.makeTransfer()
-            }
-            .clearListRow()
         }
         .compactSectionSpacing()
     }
@@ -268,7 +270,7 @@ struct AccountsScreen: View {
                 ) { editor = EditorSheet(model.makeEditor(adding: .cash)) }
             }
             ForEach(model.cashWallets) { wallet in
-                accountRow(.cash(wallet), transferTitle: "ATM 提款", openTransfer: { model.makeTransfer(to: wallet.id) }) {
+                accountRow(.cash(wallet)) {
                     fundCard(
                         name: wallet.name, symbol: "wallet.bifold", colorHex: wallet.colorHex, isJointFund: wallet.isJointFund,
                         balance: wallet.balance, balanceTitle: "\(Terms.cash)餘額"
@@ -287,7 +289,7 @@ struct AccountsScreen: View {
                 ) { editor = EditorSheet(model.makeEditor(adding: .bank)) }
             }
             ForEach(model.bankAccounts) { account in
-                accountRow(.bank(account), transferTitle: "轉帳／提款", openTransfer: { model.makeTransfer(from: account.id) }) {
+                accountRow(.bank(account)) {
                     fundCard(
                         name: account.name, symbol: "building.columns", colorHex: account.colorHex, isJointFund: account.isJointFund,
                         balance: account.balance, balanceTitle: "餘額", warnsWhenNegative: true,
@@ -323,59 +325,18 @@ struct AccountsScreen: View {
             amount: warnsWhenNegative ? .stock(balance) : .plain(balance), caption: OwnershipName.title(isShared: isJointFund),
             spokenText: "\(name),\(balanceTitle) \(balance.spokenText),\(OwnershipName.title(isShared: isJointFund))"
                 + (debit.map { ",\($0.spokenText)" } ?? ""),
-            notes: debit?.notes ?? []
+            notes: debit?.notes ?? [], reservesMenuSpace: true
         )
     }
 
-    /// 信用卡卡片(#119、#73):名稱、待繳金額(有待繳時紅色)、歸屬與繳款日;整張卡點進信用卡詳細頁。
-    /// 往左滑可以刪除;長按有繳款、出帳作業、編輯和刪除的捷徑，每一項在詳細頁都找得到(HIG Context menus)。
+    /// 信用卡卡片(#119、#73):名稱、待繳金額(有待繳時紅色)、歸屬與繳款日;整張卡點進信用卡詳細頁，⋯ 與往左滑同其他帳戶。
     /// 沒有對應欠款的繳款項目、沒有未出帳款時的出帳作業都隱藏。
     private func creditCardRow(_ card: CreditCard) -> some View {
-        Button {
-            cardPath.append(card)
-        } label: {
+        accountRow(.creditCard(card), identifier: "accounts.card.\(card.id.rawValue)") {
             NumberCard(
                 title: card.name, symbol: "creditcard", symbolColor: Color(hex: card.colorHex) ?? .gray, amount: .outflow(card.totalDue),
-                caption: model.caption(for: card), spokenText: model.spokenSummary(of: card)
+                caption: model.caption(for: card), spokenText: model.spokenSummary(of: card), reservesMenuSpace: true
             )
-        }
-        .buttonStyle(.plain)
-        .clearListRow()
-        .accessibilityIdentifier("accounts.card.\(card.id.rawValue)")
-        .swipeActions {
-            if model.canModify(.creditCard(card)) {
-                DestructiveSwipeButton { pendingDeletion = .creditCard(card) }
-            }
-        }
-        .contextMenu {
-            // 還款、出帳作業只有能操作這張卡的人;編輯、刪除只有能修改這個帳戶的人(上游 ADR 0013、#133)。
-            let presets = model.paymentPresets(for: card)
-            if !presets.isEmpty || model.showsRollover(card) {
-                Section {
-                    ForEach(presets, id: \.self) { preset in
-                        Button(preset.title, systemImage: preset.systemImage) {
-                            payment = model.makePayment(for: card, preset: preset)
-                        }
-                    }
-                    if model.showsRollover(card) {
-                        Button("出帳作業", systemImage: "calendar.badge.clock") {
-                            if model.rolloverNeedsStatementDay(for: card) {
-                                cardNeedingStatementDay = card
-                            } else {
-                                rollover = model.makeStatementRollover(for: card)
-                            }
-                        }
-                    }
-                }
-            }
-            if model.canModify(.creditCard(card)) {
-                Button("編輯", systemImage: "pencil") {
-                    editor = EditorSheet(model.makeEditor(editing: .creditCard(card)))
-                }
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = .creditCard(card)
-                }
-            }
         }
     }
 }

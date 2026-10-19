@@ -138,8 +138,8 @@ struct RecurringScreen: View {
         }
     }
 
-    /// 點一下編輯;往左滑或長按可以刪除(刪除前一律確認)。不能改的項目(他人建立的家庭公帳，自己不是家庭管理員)
-    /// 點一下跳出說明,沒有左滑刪除與長按選單(上游 ADR 0016)。
+    /// 點一下編輯;往左滑刪除(刪除前一律確認);右側 ⋯ 是編輯與刪除。不能改的項目(他人建立的家庭公帳，自己不是家庭管理員)
+    /// 點一下跳出說明,沒有左滑刪除與 ⋯ 選單(上游 ADR 0016)。
     @ViewBuilder
     private func row(_ item: RecurringItem) -> some View {
         if model.canModify(item) {
@@ -149,16 +149,12 @@ struct RecurringScreen: View {
                 RecurringRow(item: item)
             }
             .tint(.primary)
+            .trailingMoreMenu(label: "\(item.name)的更多動作", identifier: "recurring.more.\(item.id.rawValue)") {
+                Button("編輯", systemImage: "pencil") { editor = EditorSheet(model.makeEditor(editing: item)) }
+                Button("刪除", systemImage: "trash", role: .destructive) { pendingDeletion = item }
+            }
             .swipeActions {
                 DestructiveSwipeButton { pendingDeletion = item }
-            }
-            .contextMenu {
-                Button("編輯", systemImage: "pencil") {
-                    editor = EditorSheet(model.makeEditor(editing: item))
-                }
-                Button("刪除", systemImage: "trash", role: .destructive) {
-                    pendingDeletion = item
-                }
             }
         } else {
             Button {
