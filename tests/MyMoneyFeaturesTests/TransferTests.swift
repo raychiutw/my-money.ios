@@ -1,10 +1,11 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("ATM 提款／帳戶互轉")
+@Suite("轉帳")
 struct TransferTests {
     private let today = CalendarDay(year: 2026, month: 9, day: 28)
     private let dataVersion = DataVersion()
@@ -45,15 +46,17 @@ struct TransferTests {
         #expect(model.availableBalance == nil)
     }
 
-    @Test("從現金的「ATM 提款」打開：只帶入轉入(這個現金)，轉出是空的;從活存帳戶的「轉帳／提款」打開：只帶入轉出，轉入是空的")
+    @Test("從現金或活存帳戶的「轉帳」打開:這個帳戶是轉入,轉出是空的(只帶入這一側,上游 ADR 0011)")
     func openedFromAnAccount() async {
-        let fromWallet = await loaded(to: SampleAccounts.wallet.id)
-        #expect(fromWallet.toAccountID == SampleAccounts.wallet.id)
-        #expect(fromWallet.fromAccountID == nil)
-
-        let fromBank = await loaded(from: SampleAccounts.savings.id)
-        #expect(fromBank.fromAccountID == SampleAccounts.savings.id)
-        #expect(fromBank.toAccountID == nil)
+        let accounts = AccountsModel(
+            repository: InMemoryAccountRepository.sampleWithCash(), dataVersion: dataVersion, defaults: UserDefaults.isolated()
+        )
+        for account in [Account.cash(SampleAccounts.wallet), .bank(SampleAccounts.savings)] {
+            let transfer = accounts.makeTransfer(into: account)
+            await transfer.load()
+            #expect(transfer.toAccountID == account.id, "\(account.name) 該是轉入")
+            #expect(transfer.fromAccountID == nil, "轉出不該預選")
+        }
     }
 
     @Test("開窗時轉出與轉入是同一個帳戶:轉入清成空(上游開窗時的處理)")
@@ -95,6 +98,39 @@ struct TransferTests {
         #expect(model.errorMessage == nil, "重新載入成功後舊的錯誤訊息還在")
         #expect(model.candidates.count == 2)
         #expect(model.fromAccountID == SampleAccounts.savings.id)
+    }
+
+    @Test("互換:轉出與轉入對調;轉出是空的時,轉入移到轉出、轉入變空(從帳戶選單進來只帶了轉入)")
+    func swapAccounts() async {
+        let model = await loaded(to: SampleAccounts.wallet.id)
+
+        model.swapAccounts()
+        #expect(model.fromAccountID == SampleAccounts.wallet.id)
+        #expect(model.toAccountID == nil)
+
+        model.toAccountID = SampleAccounts.savings.id
+        model.swapAccounts()
+        #expect(model.fromAccountID == SampleAccounts.savings.id)
+        #expect(model.toAccountID == SampleAccounts.wallet.id)
+        #expect(model.toCandidates.map(\.name) == ["iOS 測試皮夾"], "互換後轉入的選項仍要排除轉出帳戶")
+
+        model.toAccountID = nil
+        model.swapAccounts()
+        #expect(model.fromAccountID == nil)
+        #expect(model.toAccountID == SampleAccounts.savings.id)
+    }
+
+    @Test("互換不動金額、日期、備註")
+    func swapKeepsTheRest() async {
+        let model = await loaded(to: SampleAccounts.wallet.id)
+        model.amountText = "500"
+        model.note = "備註"
+
+        model.swapAccounts()
+
+        #expect(model.amountText == "500")
+        #expect(model.note == "備註")
+        #expect(model.date == today)
     }
 
     @Test("轉入的選項不含已選的轉出帳戶")

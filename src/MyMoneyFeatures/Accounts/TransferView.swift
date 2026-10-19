@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// ATM 提款／帳戶互轉的 sheet(DESIGN.md「元件對照」:Form + 取消 / 確認)。成功時把後端的訊息交給 `onDone`。
+/// 轉帳的 sheet(DESIGN.md「元件對照」:Form + 取消 / 確認)。成功時把後端的訊息交給 `onDone`。
 struct TransferView: View {
     @Bindable var model: TransferModel
     let onDone: (String) -> Void
@@ -33,6 +33,15 @@ struct TransferView: View {
                     if let balance = model.availableBalance {
                         AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
+                    // 互換轉出與轉入:放在兩列之間，點擊範圍 44pt。
+                    Button {
+                        model.swapAccounts()
+                    } label: {
+                        Label("互換轉出與轉入帳戶", systemImage: "arrow.up.arrow.down")
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(.rect)
+                    }
+                    .accessibilityIdentifier("transfer.swap")
                     AccountPicker(
                         title: "轉入帳戶", selection: $model.toAccountID, options: model.toCandidates.map(AccountPicker.Option.init),
                         placeholder: "請選擇轉入帳戶"
@@ -64,7 +73,7 @@ struct TransferView: View {
                     }
                 }
             }
-            .navigationTitle("ATM 提款／轉帳")
+            .navigationTitle("轉帳")
             .inlineNavigationTitle()
             .toolbar {
                 SheetCloseButton { dismiss() }

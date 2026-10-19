@@ -133,6 +133,13 @@ public final class CreditCardDetailModel: Alerting {
         return canOperate ? card.paymentPresets : []
     }
 
+    /// ⋯ 選單的項目,跟帳戶頁的列一樣(`AccountMenuItem`)。
+    public var menuItems: [AccountMenuItem] {
+        AccountMenuItem.items(
+            for: .creditCard(card), canModify: canEdit, canOperate: canOperate, paymentPresets: paymentPresets, showsRollover: showsRollover
+        )
+    }
+
     /// 「操作」區有東西可以顯示:能操作這張卡，或是可以繳家庭代墊。
     public var showsActions: Bool {
         canOperate || !paymentPresets.isEmpty
@@ -160,15 +167,7 @@ public final class CreditCardDetailModel: Alerting {
     /// 正在校準未出帳;送出期間停用「校準未出帳」。
     public private(set) var isReconciling = false
 
-    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退，以及還款實際沖到未出帳款的部分。
-    /// 後端在上游 `97f4789` 之前已改成只扣還款沖到未出帳款的部分(`unbilled_offset`),不再有「繳過已出帳待繳款就被算少」的問題,
-    /// 所以不提醒(parity 刻意偏離第 39 項已刪除)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
-    public var reconcileConfirmation: String {
-        // 上游 ADR 0020、`38f0a88`:依結帳區間重算，不再扣還款沖掉的部分;過了結帳日、持卡人還沒手動按「出帳作業」的那一期仍然是未出帳，
-        // 所以不說「上一個結帳日之後」(那會漏掉這一期);iOS 不解碼 `last_rollover_at`，不寫出確切的區間。
-        let scope = card.statementDay == nil ? "會重算所有還沒出帳的消費" : "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費"
-        return "確定要依據「\(card.name)」的當期消費明細，自動校準未出帳款嗎？\(scope)，並扣掉這段期間的刷退。"
-    }
+    public var reconcileConfirmation: String { card.reconcileConfirmation }
 
     /// 信用卡未出帳自動校準;成功後顯示後端的訊息，並遞增資料版本。
     public func reconcile() async {
@@ -222,6 +221,16 @@ public final class CreditCardDetailModel: Alerting {
 }
 
 extension CreditCard {
+    /// 第一句照 web 的確認文字，改用正名「未出帳款」;接著說明重算的期間、會扣掉刷退，以及還款實際沖到未出帳款的部分。
+    /// 後端在上游 `97f4789` 之前已改成只扣還款沖到未出帳款的部分(`unbilled_offset`),不再有「繳過已出帳待繳款就被算少」的問題,
+    /// 所以不提醒(parity 刻意偏離第 39 項已刪除)。iOS 不解碼 `last_rollover_at`,只依有沒有結帳日分兩種說法。
+    public var reconcileConfirmation: String {
+        // 上游 ADR 0020、`38f0a88`:依結帳區間重算，不再扣還款沖掉的部分;過了結帳日、持卡人還沒手動按「出帳作業」的那一期仍然是未出帳，
+        // 所以不說「上一個結帳日之後」(那會漏掉這一期);iOS 不解碼 `last_rollover_at`，不寫出確切的區間。
+        let scope = statementDay == nil ? "會重算所有還沒出帳的消費" : "會重算還沒出帳的消費（過了結帳日、還沒按「出帳作業」的那一期也算在內），加上延至下期的消費"
+        return "確定要依據「\(name)」的當期消費明細，自動校準未出帳款嗎？\(scope)，並扣掉這段期間的刷退。"
+    }
+
     /// 有結帳日、或有任何已出帳或未出帳的款項，就能打開出帳作業(預覽可以重複檢視，出帳過一次按鈕也不會消失;上游 ADR 0024)。
     var canRollOver: Bool {
         statementDay != nil || unbilledDebt > .zero || billedDebt > .zero

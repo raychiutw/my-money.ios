@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// ATM 提款／帳戶互轉的 sheet(web 的「ATM 提款 / 帳戶轉帳」Modal)。
+/// 轉帳的 sheet(web 的「ATM 提款 / 帳戶轉帳」Modal)。
 ///
 /// 只能在現金錢包和銀行存款帳戶之間轉，信用卡不在選項裡。後端會產生兩筆系統交易記錄，不算生活消費。
 @MainActor
@@ -25,8 +25,7 @@ public final class TransferModel: Submitting {
     @ObservationIgnored private let preferredTo: AccountID?
     @ObservationIgnored private var didApplyPreferred = false
 
-    /// `preferredFrom` / `preferredTo`:從某個帳戶的按鈕打開時預先選好的帳戶(現金錢包的「ATM 提款」是轉入，
-    /// 銀行存款帳戶的「轉帳／提款」是轉出)。
+    /// `preferredFrom` / `preferredTo`:從某個帳戶的「轉帳」打開時預先選好的帳戶(現金與活存帳戶都是轉入)。
     public init(
         repository: any AccountRepository,
         dataVersion: DataVersion,
@@ -56,9 +55,8 @@ public final class TransferModel: Submitting {
         firstBank != nil && firstWallet != nil
     }
 
-    /// 載入可選的帳戶。**轉出與轉入都不預選**(上游 ADR 0011「顯式帳戶選取」，#111):頂端入口兩側都空;
-    /// 從某個帳戶列的捷徑進來時，只帶入那一側(銀行存款帳戶的「轉帳／提款」是轉出，現金錢包的「ATM 提款」是轉入)，
-    /// 另一側仍是空的。開窗時如果兩側是同一個帳戶，轉入清成空(上游開窗時的處理)。
+    /// 載入可選的帳戶。**轉出與轉入都不預選**(上游 ADR 0011「顯式帳戶選取」，#111):
+    /// 從某個帳戶的「轉帳」進來時，只帶入那一側(這個帳戶是轉入)，另一側仍是空的。開窗時如果兩側是同一個帳戶，轉入清成空(上游開窗時的處理)。
     public func load() async {
         do {
             candidates = try await repository.accounts().filter {
@@ -80,6 +78,11 @@ public final class TransferModel: Submitting {
         if fromAccountID != nil, toAccountID == fromAccountID {
             toAccountID = nil
         }
+    }
+
+    /// 互換轉出與轉入(任一邊可以是空的);金額、日期、備註不動。轉入的選項照舊排除轉出帳戶。
+    public func swapAccounts() {
+        (fromAccountID, toAccountID) = (toAccountID, fromAccountID)
     }
 
     /// 「ATM 提款至皮夾」:第一個銀行存款帳戶轉到第一個現金錢包。

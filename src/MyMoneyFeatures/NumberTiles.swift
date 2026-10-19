@@ -262,6 +262,8 @@ struct NumberCard: View {
     let spokenText: String
     /// 金額下面的補充小字(例如活存帳戶的待扣卡費);警示的用紅色。沒有就不多出一行。
     var notes: [CardNote] = []
+    /// 右上角有 ⋯ 選單蓋在卡片上:名稱讓出它的位置(44pt),不被壓到。
+    var reservesMenuSpace = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -277,6 +279,7 @@ struct NumberCard: View {
                 Image(systemName: symbol)
                     .foregroundStyle(symbolColor)
             }
+            .padding(.trailing, reservesMenuSpace ? 32 : 0)
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     captionText
