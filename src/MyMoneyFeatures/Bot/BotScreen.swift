@@ -98,13 +98,11 @@ struct BotScreen: View {
             }
             ForEach(model.bindings ?? []) { binding in
                 LabeledContent(binding.platform.title, value: binding.displayName ?? "")
+                    .trailingMoreMenu(label: "\(binding.platform.title)綁定的更多動作", identifier: "bot.more.\(binding.platform.title)") {
+                        Button("解除", systemImage: "xmark.circle", role: .destructive) { pendingUnbind = binding }
+                    }
                     .swipeActions {
                         DestructiveSwipeButton("解除", systemImage: "xmark.circle") { pendingUnbind = binding }
-                    }
-                    .contextMenu {
-                        Button("解除", systemImage: "xmark.circle", role: .destructive) {
-                            pendingUnbind = binding
-                        }
                     }
             }
         }

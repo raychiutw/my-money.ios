@@ -240,17 +240,16 @@ extension HouseholdScreen {
             let members = model.household?.members ?? []
             ForEach(members) { member in
                 let advance = model.advance(of: member.userID)
-                memberRow(name: member.name, role: member.role, advance: advance, id: member.userID)
+                memberRow(name: member.name, role: member.role, advance: advance, id: member.userID, reservesMenuSpace: model.canRemove(member))
+                    .overlayMoreMenu(
+                        label: "\(member.name)的更多動作", identifier: "household.more.\(member.userID.rawValue)", alignment: .trailing,
+                        trailingInset: advance == nil ? 0 : 28, isShown: model.canRemove(member)
+                    ) {
+                        Button("移除", systemImage: "person.badge.minus", role: .destructive) { pendingRemoval = member }
+                    }
                     .swipeActions {
                         if model.canRemove(member) {
                             DestructiveSwipeButton("移除", systemImage: "person.badge.minus") { pendingRemoval = member }
-                        }
-                    }
-                    .contextMenu {
-                        if model.canRemove(member) {
-                            Button("移除", systemImage: "person.badge.minus", role: .destructive) {
-                                pendingRemoval = member
-                            }
                         }
                     }
             }
@@ -262,15 +261,21 @@ extension HouseholdScreen {
     }
 
     @ViewBuilder
-    private func memberRow(name: String, role: HouseholdRole?, advance: HouseholdAdvance?, id: UserID) -> some View {
+    private func memberRow(
+        name: String, role: HouseholdRole?, advance: HouseholdAdvance?, id: UserID, reservesMenuSpace: Bool = false
+    ) -> some View {
+        // ⋯ 蓋在右側:讓出 44pt 的位置，待報銷金額才不被壓到。
+        let menuSpace: CGFloat = reservesMenuSpace ? 36 : 0
         if advance != nil {
             NavigationLink(value: MemberRoute(memberID: id)) {
                 MemberRow(name: name, role: role, advance: advance)
+                    .padding(.trailing, menuSpace)
             }
             .accessibilityIdentifier("household.member.\(id.rawValue)")
             .accessibilityHint("查看代墊明細")
         } else {
             MemberRow(name: name, role: role, advance: advance)
+                .padding(.trailing, menuSpace)
         }
     }
 }

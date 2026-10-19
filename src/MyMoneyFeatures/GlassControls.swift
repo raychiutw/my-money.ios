@@ -114,3 +114,31 @@ struct MoreMenu<Content: View>: View {
         .accessibilityIdentifier(identifier)
     }
 }
+
+extension View {
+    /// 列右側的 ⋯ 選單,跟列並排(不蓋在內容上):整列是主要動作的按鈕,⋯ 是這一列所有動作的完整清單(全 app 一致:
+    /// 點整列開啟、往左滑刪除、⋯ 看全部;長按沒有作用)。
+    func trailingMoreMenu<Menu: View>(
+        label: String, identifier: String, isShown: Bool = true, @ViewBuilder content: @escaping () -> Menu
+    ) -> some View {
+        HStack(spacing: 0) {
+            self
+            if isShown {
+                MoreMenu(label: label, identifier: identifier, content: content)
+            }
+        }
+    }
+
+    /// 同上,但蓋在列的角落(卡片、帶 disclosure 的列用):內容要自己讓出位置。
+    func overlayMoreMenu<Menu: View>(
+        label: String, identifier: String, alignment: Alignment = .topTrailing, trailingInset: CGFloat = 0, isShown: Bool = true,
+        @ViewBuilder content: @escaping () -> Menu
+    ) -> some View {
+        overlay(alignment: alignment) {
+            if isShown {
+                MoreMenu(label: label, identifier: identifier, content: content)
+                    .padding(.trailing, trailingInset)
+            }
+        }
+    }
+}
