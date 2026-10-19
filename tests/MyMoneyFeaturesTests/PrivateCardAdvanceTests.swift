@@ -149,7 +149,7 @@ struct PrivateCardAdvanceTests {
         let model = detail(SampleAccounts.meiCardAdvance)
 
         #expect(model.paymentPresets == [.shared])
-        #expect(model.showsActions, "操作區還在，只留繳家庭代墊")
+        #expect(model.menuItems == [.pay(.shared)], "⋯ 選單只留繳家庭代墊")
         #expect(!model.canOperate && !model.canEdit && !model.showsRollover)
 
         let settled = CreditCard(
@@ -159,15 +159,15 @@ struct PrivateCardAdvanceTests {
         )
         let paidOff = detail(settled)
         #expect(paidOff.paymentPresets.isEmpty)
-        #expect(!paidOff.showsActions)
+        #expect(paidOff.menuItems.isEmpty, "沒有可做的動作就沒有 ⋯")
     }
 
-    @Test("自己的私卡與家庭卡:操作區照舊(三個還款入口、出帳作業、校準)")
+    @Test("自己的私卡與家庭卡:⋯ 選單照舊(三個還款入口、出帳作業、校準)")
     func ownCardKeepsEveryAction() {
         let model = detail(SampleAccounts.card)
 
         #expect(model.paymentPresets == [.shared, .personal, .full])
-        #expect(model.showsActions && model.canOperate && model.showsRollover)
+        #expect(model.menuItems.contains(.reconcile) && model.canOperate && model.showsRollover)
     }
 
     @Test("帳戶頁長按選單:他人私卡只有「繳家庭代墊」，沒有出帳作業;自己的卡照舊")

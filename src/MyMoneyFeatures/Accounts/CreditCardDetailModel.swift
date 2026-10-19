@@ -140,11 +140,6 @@ public final class CreditCardDetailModel: Alerting {
         )
     }
 
-    /// 「操作」區有東西可以顯示:能操作這張卡，或是可以繳家庭代墊。
-    public var showsActions: Bool {
-        canOperate || !paymentPresets.isEmpty
-    }
-
     /// 能操作這張卡、而且有結帳日或有款項才顯示「出帳作業」。
     public var showsRollover: Bool {
         canOperate && card.canRollOver
@@ -185,7 +180,17 @@ public final class CreditCardDetailModel: Alerting {
         )
     }
 
-    /// toolbar 的「編輯」:現有的資產帳戶編輯器。
+    public var deleteConfirmation: String {
+        "確定要刪除帳戶「\(card.name)」嗎？這個帳戶的\(Terms.transactions)也會一併刪除！"
+    }
+
+    /// 刪除;成功後遞增資料版本(取得時發現這張卡不見了，畫面回到上一頁)。
+    public func delete() async {
+        guard canEdit else { return }
+        _ = await commit(dataVersion) { try await repository.delete(card.id) }
+    }
+
+    /// ⋯ 選單的「編輯」:現有的資產帳戶編輯器。
     public func makeEditor() -> AccountEditorModel {
         AccountEditorModel(editing: .creditCard(card), bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
     }

@@ -71,6 +71,34 @@ struct AccountMenuTests {
         #expect(model.menuItems(for: others).isEmpty)
     }
 
+    @Test("信用卡詳細頁的選單跟列上的一樣;從詳細頁刪除成功後資料版本遞增")
+    func cardDetailMatchesRowAndDeletes() async {
+        let mine = card(owner: me, joint: false)
+        let accounts = await accountsModel(accounts: [.creditCard(mine)])
+        let detail = accounts.makeCardDetail(for: mine)
+
+        #expect(detail.menuItems == accounts.menuItems(for: .creditCard(mine)))
+        let before = dataVersion.value
+        await detail.delete()
+        #expect(dataVersion.value == before + 1)
+    }
+
+    @Test("帳戶頁的校準未出帳:成功後資料版本遞增;沒有操作權限的卡不送")
+    func reconcileFromTheList() async {
+        let mine = card(owner: me, joint: false)
+        let others = card(owner: mei, joint: false)
+        let accounts = await accountsModel(accounts: [.creditCard(mine)])
+        let before = dataVersion.value
+
+        await accounts.reconcile(mine)
+        #expect(dataVersion.value == before + 1)
+
+        let masked = await accountsModel(accounts: [.creditCard(others)])
+        let maskedBefore = dataVersion.value
+        await masked.reconcile(others)
+        #expect(dataVersion.value == maskedBefore)
+    }
+
     @Test("現金與活存詳細頁的選單跟列上的一樣")
     func detailMenuMatchesRow() async {
         let mine = bank("mine", owner: me, joint: false)
