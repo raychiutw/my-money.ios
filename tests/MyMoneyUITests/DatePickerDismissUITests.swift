@@ -11,17 +11,19 @@ final class DatePickerDismissUITests: XCTestCase {
         let app = XCUIApplication.launchUITesting(signedIn: true)
         app.buttons["overview.add"].tap()
         XCTAssertTrue(app.navigationBars.buttons["關閉"].firstMatch.waitForExistence(timeout: 8), "沒有打開「記一筆」表單")
-        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "日期")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 3))
-        row.tap()
-        // 彈出的日曆:月份標題的按鈕還在,表示日曆開著。
-        let calendar = app.datePickers.firstMatch
-        XCTAssertTrue(calendar.waitForExistence(timeout: 3))
-        let day = app.datePickers.collectionViews.buttons.matching(NSPredicate(format: "label CONTAINS %@", "日")).element(boundBy: 3)
+        // compact 日期選擇器的按鈕(label「日期選擇器」,value 是目前的日期)。
+        let picker = app.buttons["日期選擇器"].firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 3))
+        picker.tap()
+        // 彈出的日曆:點月曆裡的一天(標籤是「10月24日」這類)。
+        let day = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "[0-9]+月[0-9]+日.*")).element(boundBy: 3)
         XCTAssertTrue(day.waitForExistence(timeout: 3), app.debugDescription)
+        let shown = day.label
         day.tap()
-        let closed = NSPredicate(format: "exists == false")
-        expectation(for: closed, evaluatedWith: app.datePickers.collectionViews.firstMatch)
+        // 選完日期,彈出的日曆自己收起來(月曆的日期按鈕都消失),而且表單上顯示選到的日期。
+        let calendarGone = NSPredicate(format: "exists == false")
+        expectation(for: calendarGone, evaluatedWith: day)
         waitForExpectations(timeout: 3)
+        XCTAssertTrue(picker.exists, "表單回到前景:\(shown)")
     }
 }
