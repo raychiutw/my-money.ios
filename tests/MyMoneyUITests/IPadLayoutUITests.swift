@@ -62,7 +62,8 @@ final class IPadLayoutUITests: XCTestCase {
         // 記帳:一筆收支明細的列。
         select(tab: "記帳", in: app)
         let row = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "午餐")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "記帳頁沒有收支明細")
+        // 明細卡比較高(#280),橫向時這一列可能在畫面外、列表還沒建立:捲到看得到。
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "記帳頁沒有收支明細")
         assertLimited(row, in: app, "記帳頁的收支明細列")
 
         // 帳戶:信用卡卡片。
@@ -82,6 +83,25 @@ final class IPadLayoutUITests: XCTestCase {
         let budgets = app.buttons["budgets.add"]
         XCTAssertTrue(ScrollSupport.revealFully(budgets, in: app), "統計頁沒有新增預算額度")
         assertLimited(budgets, in: app, "統計頁的新增預算額度")
+    }
+
+    /// 帳號(頭像)按鈕在每個 tab 都看得到、點得到——窄的 iPad(直向的 mini)不能被收進「…」;
+    /// 「我的」sheet 不用捲就看得到登出、刪除帳號與版本(手機與平板功能一致)。
+    @MainActor
+    func testAccountButtonIsVisibleOnEveryTabAndMeSheetShowsEverythingWithoutScrolling() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        for tab in ["總覽", "記帳", "帳戶", "家庭", "統計"] {
+            select(tab: tab, in: app)
+            let me = app.buttons["toolbar.me"]
+            XCTAssertTrue(me.waitForExistence(timeout: 5) && me.isHittable, "\(tab):帳號按鈕不在工具列上(被收進「…」?)")
+        }
+        app.buttons["toolbar.me"].tap()
+        let signOut = app.buttons["me.signOut"], delete = app.buttons["me.deleteAccount"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 5) && signOut.isHittable, "我的:沒有看到登出")
+        XCTAssertTrue(delete.exists && delete.isHittable, "我的:不用捲動就該看到刪除帳號:\(delete.frame)")
+        let version = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "版本")).firstMatch
+        XCTAssertTrue(version.exists && version.isHittable, "我的:不用捲動就該看到版本")
     }
 
     /// iPad 的 tab 按鈕在頂端(sidebarAdaptable),按鈕的 identifier 是圖示名稱(同截圖巡覽)。

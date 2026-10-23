@@ -144,7 +144,7 @@ final class TruncationUITests: XCTestCase {
                 for amount in amounts where amount.exists && amount.frame.minY > window.minY + 120 && amount.frame.maxY < window.maxY - 90 {
                     // 同一列的其他部分:取垂直上最近、標題在金額上方或同一行的那一組。
                     let titles = app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
-                        .filter { $0.exists && $0.frame.minY <= amount.frame.maxY && amount.frame.minY - $0.frame.minY < 400 }
+                        .filter { $0.exists && $0.frame.minY <= amount.frame.maxY && amount.frame.minY - $0.frame.minY < 900 }
                     guard let title = titles.max(by: { $0.frame.minY < $1.frame.minY }) else { continue }
                     rows += 1
                     if stacked {
@@ -153,7 +153,7 @@ final class TruncationUITests: XCTestCase {
                         XCTAssertLessThan(amount.frame.minY, title.frame.maxY, "\(name):金額應該跟標題同一行:標題 \(title.frame)、金額 \(amount.frame)")
                         XCTAssertGreaterThanOrEqual(amount.frame.minX, title.frame.maxX - 1, "\(name):金額應該在標題右邊:標題 \(title.frame)、金額 \(amount.frame)")
                     }
-                    XCTAssertGreaterThan(amount.frame.maxX, window.maxX - 60, "\(name):金額沒有靠右:\(amount.frame)")
+                    XCTAssertGreaterThan(amount.frame.maxX, window.maxX - 90, "\(name):金額沒有靠右:\(amount.frame)")
                 }
                 let accounts = app.descendants(matching: .any).matching(identifier: "row.account").allElementsBoundByIndex
                 for account in accounts where account.exists && !account.frame.isEmpty {

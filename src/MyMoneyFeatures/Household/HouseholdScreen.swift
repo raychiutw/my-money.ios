@@ -323,7 +323,7 @@ extension HouseholdScreen {
         name: String, role: HouseholdRole?, advance: HouseholdAdvance?, id: UserID, reservesMenuSpace: Bool = false
     ) -> some View {
         // ⋯ 蓋在右側:讓出 44pt 的位置，待報銷金額才不被壓到。
-        let menuSpace: CGFloat = reservesMenuSpace ? 36 : 0
+        let menuSpace: CGFloat = reservesMenuSpace ? 56 : 0
         if advance != nil {
             NavigationLink(value: MemberRoute(memberID: id)) {
                 MemberRow(name: name, role: role, advance: advance)
