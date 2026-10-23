@@ -16,12 +16,10 @@ struct SavingsGoalDepositView: View {
                 Section {
                     Text(model.summary)
                         .monospacedDigit()
-                    LabeledContent("本次存入金額") {
-                        AmountField(
-                            "本次存入金額", text: $model.amountText, prompt: Text("例如：3000"),
-                            focus: $focusedField, equals: .amount, identifier: "goalDeposit.amount"
-                        )
-                    }
+                    AmountField(
+                        "本次存入金額", text: $model.amountText,
+                        focus: $focusedField, equals: .amount, identifier: "goalDeposit.amount"
+                    )
                     .tapToFocus($focusedField, equals: .amount)
                 }
 

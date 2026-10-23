@@ -58,19 +58,15 @@ struct CardPaymentView: View {
                     if let balance = model.availableBalance {
                         AmountRow(title: "可用餘額", amount: .plain(balance))
                     }
-                    LabeledContent("繳款金額") {
-                        AmountField(
-                            "繳款金額", text: $model.amountText, prompt: Text(verbatim: "0"),
-                            focus: $focusedField, equals: .amount, identifier: "cardPayment.amount"
-                        )
-                    }
+                    AmountField(
+                        "繳款金額", text: $model.amountText,
+                        focus: $focusedField, equals: .amount, identifier: "cardPayment.amount"
+                    )
                     .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "日期", day: $model.date)
-                    LabeledContent("備註") {
-                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
-                            .accessibilityIdentifier("cardPayment.note")
-                    }
-                    .tapToFocus($focusedField, equals: .note)
+                    NoteField(text: $model.note, focus: $focusedField, value: .note)
+                        .accessibilityIdentifier("cardPayment.note")
+                        .tapToFocus($focusedField, equals: .note)
                 }
 
                 if model.isMaskedCard {

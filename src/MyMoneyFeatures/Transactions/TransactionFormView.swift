@@ -82,12 +82,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 }
 
                 Section {
-                    LabeledContent("金額") {
-                        AmountField(
-                            "金額", text: $model.amountText, prompt: Text(verbatim: "0"),
-                            focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
-                        )
-                    }
+                    AmountField(
+                        "金額", text: $model.amountText,
+                        focus: $focusedField, equals: .amount, identifier: "quickEntry.amount"
+                    )
                     .tapToFocus($focusedField, equals: .amount)
                 }
 
@@ -95,12 +93,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 // 備註放在格子下面就看不到也捲不到;放這裡，打完金額就是備註，推薦提示緊貼在備註下面，
                 // 分類格就在下面跟著變(#99)。
                 Section {
-                    // 欄位要有看得見的標籤，placeholder 打了字就消失(DESIGN.md「列與欄位」第 8 條，#157)。
-                    LabeledContent("備註") {
-                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
-                            .accessibilityIdentifier("quickEntry.note")
-                    }
-                    .tapToFocus($focusedField, equals: .note)
+                    // 輸入框方案 B:提示文字當標籤，打了字上方浮出小字標籤(DESIGN.md「明細卡與輸入框」)。
+                    NoteField(text: $model.note, focus: $focusedField, value: .note)
+                        .accessibilityIdentifier("quickEntry.note")
+                        .tapToFocus($focusedField, equals: .note)
                 } footer: {
                     // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。
                     if let hint = model.categoryHintText {

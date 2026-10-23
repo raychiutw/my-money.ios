@@ -94,20 +94,16 @@ struct ReimbursementView: View {
                         AmountRow(title: "報銷金額", amount: .plain(model.selectedAmount))
                             .accessibilityIdentifier("reimbursement.amount")
                     } else {
-                        LabeledContent("報銷金額") {
-                            AmountField(
-                                "報銷金額", text: $model.amountText, prompt: Text(verbatim: "0"),
-                                focus: $focusedField, equals: .amount, identifier: "reimbursement.amount"
-                            )
-                        }
+                        AmountField(
+                            "報銷金額", text: $model.amountText,
+                            focus: $focusedField, equals: .amount, identifier: "reimbursement.amount"
+                        )
                         .tapToFocus($focusedField, equals: .amount)
                     }
                     DayPickerRow(title: "撥款日期", day: $model.date)
-                    LabeledContent("備註") {
-                        NoteField(text: $model.note, prompt: "選填", focus: $focusedField, value: .note)
-                            .accessibilityIdentifier("reimbursement.note")
-                    }
-                    .tapToFocus($focusedField, equals: .note)
+                    NoteField(text: $model.note, focus: $focusedField, value: .note)
+                        .accessibilityIdentifier("reimbursement.note")
+                        .tapToFocus($focusedField, equals: .note)
                 } footer: {
                     // 只留無法送出的原因(DESIGN.md「說明文字」第 3 類)。
                     if model.usesItemSelection, model.selectedIDs.isEmpty {

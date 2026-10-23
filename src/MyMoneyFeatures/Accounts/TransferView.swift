@@ -49,19 +49,15 @@ struct TransferView: View {
                 }
 
                 Section {
-                    LabeledContent("金額") {
-                        AmountField(
-                            "金額", text: $model.amountText, prompt: Text("例如：3000"),
-                            focus: $focusedField, equals: .amount, identifier: "transfer.amount"
-                        )
-                    }
+                    AmountField(
+                        "金額", text: $model.amountText,
+                        focus: $focusedField, equals: .amount, identifier: "transfer.amount"
+                    )
                     .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "日期", day: $model.date)
-                    LabeledContent("備註") {
-                        NoteField(text: $model.note, prompt: "例如：超商 ATM 提款", focus: $focusedField, value: .note)
-                            .accessibilityIdentifier("transfer.note")
-                    }
-                    .tapToFocus($focusedField, equals: .note)
+                    NoteField(text: $model.note, focus: $focusedField, value: .note)
+                        .accessibilityIdentifier("transfer.note")
+                        .tapToFocus($focusedField, equals: .note)
                 }
 
                 if let message = model.errorMessage {

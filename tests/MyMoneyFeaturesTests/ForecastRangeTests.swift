@@ -13,8 +13,13 @@ struct ForecastRangeTests {
 
     private func plus(_ days: Int) -> CalendarDay { today.addingDays(days) }
 
+    /// 每個測試自己的 UserDefaults(視角會記在裡面，不能寫進共用的 `.standard` 影響別的測試)。
     private func loaded() async -> ForecastModel {
-        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(), today: { today })
+        let suite = "ForecastRangeTests-\(UUID().uuidString)"
+        let model = ForecastModel(
+            repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion(),
+            defaults: UserDefaults(suiteName: suite)!, today: { today }
+        )
         await model.load()
         return model
     }

@@ -216,12 +216,10 @@ struct ForecastScreen: View {
 
     private var purchaseSection: some View {
         Section("購買力試算") {
-            LabeledContent("購買金額") {
-                AmountField(
-                    "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
-                    focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
-                )
-            }
+            AmountField(
+                "購買金額", text: $model.purchaseAmountText,
+                focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
+            )
             .tapToFocus($focusedField, equals: .amount)
             PrimaryCapsuleButton(title: "進行購買力試算", fillsWidth: true) {
                 focusedField = nil
