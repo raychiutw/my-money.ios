@@ -27,9 +27,14 @@ public struct AccountMemory {
 
     /// 記住的帳戶,而且還在 `accounts` 裡;沒記過或已不在清單是 `nil`。
     public func recall(among accounts: [Account]) -> AccountID? {
+        recall(amongIDs: accounts.map(\.id))
+    }
+
+    /// 同上,可選清單不是 `Account`(例如收款成員的可收款帳戶)時用。
+    public func recall(amongIDs ids: [AccountID]) -> AccountID? {
         guard let raw = defaults.string(forKey: key) else { return nil }
         let id = AccountID(raw)
-        return accounts.contains { $0.id == id } ? id : nil
+        return ids.contains(id) ? id : nil
     }
 
     /// 值和已記的一樣就不寫(同 `ScopeMemory`)。

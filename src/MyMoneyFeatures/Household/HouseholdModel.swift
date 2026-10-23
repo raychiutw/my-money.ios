@@ -176,7 +176,9 @@ public final class HouseholdModel {
 
     public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {
         ReimbursementModel(
-            advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, locale: locale, today: today
+            advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, locale: locale,
+            fundMemory: context.accountMemory(.reimbursementFund), receivingMemory: context.accountMemory(.reimbursementReceiving),
+            today: today
         )
     }
 

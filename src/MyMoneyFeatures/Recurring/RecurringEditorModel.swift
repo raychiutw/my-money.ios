@@ -39,12 +39,16 @@ public final class RecurringEditorModel: Submitting {
     @ObservationIgnored private let repository: any RecurringRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
+    /// 新增時記住上次主動選的關聯帳戶(#273、#279);編輯與 `nil` 都不記。
+    @ObservationIgnored private let accountMemory: AccountMemory?
+    @ObservationIgnored private var didRecall = false
 
     /// 新增：預設週期支出、每月、1 號、無特定帳戶;歸屬預設隨視角:家庭公帳視角 → 家庭公帳，其他 → 個人私帳(`sharedByDefault`)。
     public init(
         adding: Void, sharedByDefault: Bool = false, repository: any RecurringRepository, accounts: any AccountRepository,
-        dataVersion: DataVersion
+        dataVersion: DataVersion, accountMemory: AccountMemory? = nil
     ) {
+        self.accountMemory = accountMemory
         title = "新增週期收支"
         editingID = nil
         isShared = sharedByDefault
@@ -54,6 +58,7 @@ public final class RecurringEditorModel: Submitting {
     }
 
     public init(editing item: RecurringItem, repository: any RecurringRepository, accounts: any AccountRepository, dataVersion: DataVersion) {
+        accountMemory = nil
         title = "編輯週期收支"
         editingID = item.id
         type = item.type
@@ -102,6 +107,10 @@ public final class RecurringEditorModel: Submitting {
         } catch {
             errorMessage = error.localizedDescription
         }
+        // 新增時帶入上次主動選的關聯帳戶(只帶一次,使用者在這之前選了或之後改回「無特定帳戶」都不再補)。
+        guard !didRecall else { return }
+        didRecall = true
+        if accountID == nil { accountID = accountMemory?.recall(among: accounts) }
     }
 
     /// 儲存;成功時回傳 `true`(sheet 關閉)並遞增資料版本。
@@ -125,6 +134,8 @@ public final class RecurringEditorModel: Submitting {
             }
         }) != nil else { return false }
         dataVersion.bump()
+        // 只記主動選過的帳戶:儲存成「無特定帳戶」不覆蓋記憶。
+        if let accountID { accountMemory?.remember(accountID) }
         return true
     }
 }
