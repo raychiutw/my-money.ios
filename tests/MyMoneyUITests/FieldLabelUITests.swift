@@ -86,7 +86,10 @@ final class FieldLabelUITests: XCTestCase {
         let note = app.textFields[field]
         for _ in 0..<8 where !(note.exists && note.isHittable) { app.swipeUp() }
         XCTAssertTrue(note.exists, "\(form):沒有找到備註欄")
-        XCTAssertTrue(app.staticTexts["備註"].exists, "\(form):備註欄沒有看得見的「備註」標籤，只有 placeholder")
+        // 輸入框方案 B:空的時候提示文字當標籤,打了字上方浮出小字「備註」。
+        note.tap()
+        note.typeText("午餐")
+        XCTAssertTrue(app.staticTexts["備註"].waitForExistence(timeout: 3), "\(form):備註欄打了字之後沒有看得見的「備註」標籤")
     }
 
     @MainActor

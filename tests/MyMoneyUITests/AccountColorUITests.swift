@@ -56,8 +56,11 @@ final class AccountColorUITests: XCTestCase {
         for name in ["薰衣草", "玫瑰紅"] {
             // 把代表色改成這個顏色後儲存。
             XCTAssertTrue(swipeUntilHittable(bank, in: app), "帳戶頁沒有範例的活存帳戶")
-            bank.tap()
+            // 點整列是進詳細頁(#268);編輯在列右側 ⋯ 選單。
+            app.chooseFromAccountMenu("編輯", accountID: "sample-bank")
             let swatch = app.buttons[name]
+            // 輸入框變大(方案 B)，顏色列在更下面(惰性):往上捲到它出現。
+            for _ in 0..<8 where !swatch.exists { app.swipeUp() }
             XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有打開編輯資產帳戶")
             scrollIntoView(swatch, row: colorRow(in: app), app: app)
             swatch.tap()
@@ -67,7 +70,8 @@ final class AccountColorUITests: XCTestCase {
 
             // 再打開同一個帳戶：不滑動，剛存的顏色就完整看得到，而且是已選取。
             XCTAssertTrue(swipeUntilHittable(bank, in: app), "儲存後帳戶頁沒有範例的活存帳戶")
-            bank.tap()
+            app.chooseFromAccountMenu("編輯", accountID: "sample-bank")
+            for _ in 0..<8 where !swatch.exists { app.swipeUp() }
             XCTAssertTrue(swatch.waitForExistence(timeout: 3), "沒有再打開編輯資產帳戶")
             let row = colorRow(in: app)
             XCTAssertTrue(swatch.isSelected, "再打開時代表色不是剛存的「\(name)」")

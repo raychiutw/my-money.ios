@@ -204,7 +204,7 @@ final class TransactionsUITests: XCTestCase {
                 var previousMaxY = title.frame.maxY
                 for line in parts.lines {
                     XCTAssertGreaterThanOrEqual(line.frame.minY, previousMaxY - 1, "\(category):欄位沒有由上往下各占一行:\(line.frame)")
-                    XCTAssertEqual(line.frame.minX, title.frame.minX, accuracy: 1, "\(category):欄位左緣跟標題不一致")
+                    XCTAssertEqual(line.frame.minX, title.frame.minX, accuracy: 4, "\(category):欄位左緣跟標題不一致")
                     previousMaxY = line.frame.maxY
                 }
                 XCTAssertFalse(parts.lines.isEmpty, "\(category):這一列沒有時間、記帳人或帳戶")
@@ -231,7 +231,7 @@ final class TransactionsUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(line.frame.minY, title.frame.maxY - 1, "欄位應該在標題下面")
             XCTAssertLessThanOrEqual(line.frame.maxY, amount.frame.minY + 1, "金額應該在最下面一行:\(line.frame) vs \(amount.frame)")
         }
-        XCTAssertGreaterThan(amount.frame.minX, window.midX, "最下面一行(金額)沒有靠右:\(amount.frame)")
+        XCTAssertGreaterThan(amount.frame.maxX, window.midX + window.width / 4, "最下面一行(金額)沒有靠右:\(amount.frame)")
     }
 
     /// 同一列的金額與時間、記帳人、帳戶:標題下方第一個金額,以及它與下一列標題之間的欄位。

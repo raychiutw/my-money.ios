@@ -93,9 +93,10 @@ final class HouseholdUITests: XCTestCase {
         app.buttons["好"].tap()
         XCTAssertTrue(app.navigationBars["小明"].exists, "解除報銷後應該留在這一頁")
         app.segmentedControls["advance.tab"].buttons["待報銷明細"].tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any)["advance.pending.sample-settled-reimbursed"].waitForExistence(timeout: 3), "解除報銷後明細沒有回到待報銷"
-        )
+        // 明細卡比較高(#282),待報銷清單是惰性的:捲到看得到。
+        let restored = app.descendants(matching: .any)["advance.pending.sample-settled-reimbursed"]
+        for _ in 0..<6 where !restored.exists { app.swipeUp() }
+        XCTAssertTrue(restored.waitForExistence(timeout: 3), "解除報銷後明細沒有回到待報銷")
     }
 
     /// 標記已額外處理(上游 `fe90634`):家庭頁成員列 ⋯ 的「標記處理」進詳細頁的勾選模式，勾一筆、標記，它移到已結清並標示「已額外處理」(#274)。

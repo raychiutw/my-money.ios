@@ -10,6 +10,8 @@ struct NoteField<Value: Hashable>: View {
     @Binding var text: String
     let focus: FocusState<Value?>.Binding
     let value: Value
+    /// UI 測試用的識別碼,只放在輸入欄本身(浮出的小字標籤不重複,不然查詢會找到兩個)。
+    let identifier: String
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -23,6 +25,7 @@ struct NoteField<Value: Hashable>: View {
             }
             field
                 .focused(focus, equals: value)
+                .accessibilityIdentifier(identifier)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

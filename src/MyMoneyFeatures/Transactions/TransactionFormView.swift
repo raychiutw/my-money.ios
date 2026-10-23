@@ -94,8 +94,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 // 分類格就在下面跟著變(#99)。
                 Section {
                     // 輸入框方案 B:提示文字當標籤，打了字上方浮出小字標籤(DESIGN.md「明細卡與輸入框」)。
-                    NoteField(text: $model.note, focus: $focusedField, value: .note)
-                        .accessibilityIdentifier("quickEntry.note")
+                    NoteField(text: $model.note, focus: $focusedField, value: .note, identifier: "quickEntry.note")
                         .tapToFocus($focusedField, equals: .note)
                 } footer: {
                     // 依備註自動預選分類時的提示，放在備註欄正下方:打字時看得到，不必捲回分類格。

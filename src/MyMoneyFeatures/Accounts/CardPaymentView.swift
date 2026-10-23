@@ -64,8 +64,7 @@ struct CardPaymentView: View {
                     )
                     .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "日期", day: $model.date)
-                    NoteField(text: $model.note, focus: $focusedField, value: .note)
-                        .accessibilityIdentifier("cardPayment.note")
+                    NoteField(text: $model.note, focus: $focusedField, value: .note, identifier: "cardPayment.note")
                         .tapToFocus($focusedField, equals: .note)
                 }
 

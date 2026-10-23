@@ -267,7 +267,8 @@ extension HouseholdScreen {
                 let menuItems = model.memberMenuItems(for: member, advance: advance)
                 memberRow(name: member.name, role: member.role, advance: advance, id: member.userID, reservesMenuSpace: !menuItems.isEmpty)
                     .overlayMoreMenu(
-                        label: "\(member.name)的更多動作", identifier: "household.more.\(member.userID.rawValue)", alignment: .trailing,
+                        label: "\(member.name)的更多動作", identifier: "household.more.\(member.userID.rawValue)",
+                        alignment: dynamicTypeSize.isAccessibilitySize ? .topTrailing : .trailing,
                         trailingInset: advance == nil ? 0 : 28, isShown: !menuItems.isEmpty
                     ) {
                         memberMenu(menuItems, memberID: member.userID, member: member, advance: advance)
@@ -283,7 +284,8 @@ extension HouseholdScreen {
                 let menuItems = model.memberMenuItems(for: nil, advance: advance)
                 memberRow(name: advance.memberName, role: nil, advance: advance, id: advance.memberID, reservesMenuSpace: !menuItems.isEmpty)
                     .overlayMoreMenu(
-                        label: "\(advance.memberName)的更多動作", identifier: "household.more.\(advance.memberID.rawValue)", alignment: .trailing,
+                        label: "\(advance.memberName)的更多動作", identifier: "household.more.\(advance.memberID.rawValue)",
+                        alignment: dynamicTypeSize.isAccessibilitySize ? .topTrailing : .trailing,
                         trailingInset: 28, isShown: !menuItems.isEmpty
                     ) {
                         memberMenu(menuItems, memberID: advance.memberID, member: nil, advance: advance)
@@ -326,14 +328,12 @@ extension HouseholdScreen {
         let menuSpace: CGFloat = reservesMenuSpace ? 56 : 0
         if advance != nil {
             NavigationLink(value: MemberRoute(memberID: id)) {
-                MemberRow(name: name, role: role, advance: advance)
-                    .padding(.trailing, menuSpace)
+                MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace)
             }
             .accessibilityIdentifier("household.member.\(id.rawValue)")
             .accessibilityHint("查看代墊明細")
         } else {
-            MemberRow(name: name, role: role, advance: advance)
-                .padding(.trailing, menuSpace)
+            MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace)
         }
     }
 }
@@ -347,6 +347,9 @@ private struct MemberRow: View {
     let role: HouseholdRole?
     /// 這位成員的代墊統計;後端沒有這位成員的紀錄時是 `nil`。
     let advance: HouseholdAdvance?
+    /// 右邊留給 ⋯ 的寬度(#274):一般字級留在待報銷金額後面;無障礙字級 ⋯ 在右上角，只讓第一排(頭像與名字)讓位，
+    /// 最下面一行的金額照舊靠右(#149)。
+    var reservedTrailing: CGFloat = 0
 
     /// 圓形頭像跟著字級放大，大字級時開頭字才放得進去。
     @ScaledMetric(relativeTo: .headline) private var avatarSize: CGFloat = 40
@@ -361,6 +364,7 @@ private struct MemberRow: View {
                         avatar
                         names
                     }
+                    .padding(.trailing, reservedTrailing)
                     // 堆疊時待報銷金額在最下面一行、靠右(#149)。
                     pending
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -371,6 +375,7 @@ private struct MemberRow: View {
                     names
                     Spacer(minLength: 8)
                     pending
+                        .padding(.trailing, reservedTrailing)
                 }
             }
         }

@@ -101,8 +101,7 @@ struct ReimbursementView: View {
                         .tapToFocus($focusedField, equals: .amount)
                     }
                     DayPickerRow(title: "撥款日期", day: $model.date)
-                    NoteField(text: $model.note, focus: $focusedField, value: .note)
-                        .accessibilityIdentifier("reimbursement.note")
+                    NoteField(text: $model.note, focus: $focusedField, value: .note, identifier: "reimbursement.note")
                         .tapToFocus($focusedField, equals: .note)
                 } footer: {
                     // 只留無法送出的原因(DESIGN.md「說明文字」第 3 類)。

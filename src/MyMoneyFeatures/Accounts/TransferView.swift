@@ -55,8 +55,7 @@ struct TransferView: View {
                     )
                     .tapToFocus($focusedField, equals: .amount)
                     DayPickerRow(title: "日期", day: $model.date)
-                    NoteField(text: $model.note, focus: $focusedField, value: .note)
-                        .accessibilityIdentifier("transfer.note")
+                    NoteField(text: $model.note, focus: $focusedField, value: .note, identifier: "transfer.note")
                         .tapToFocus($focusedField, equals: .note)
                 }
 

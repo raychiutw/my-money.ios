@@ -111,6 +111,8 @@ final class OverviewUITests: XCTestCase {
         // 預測頁是同一個功能:進去看到房租已繳。
         app.openHomeEntry("forecast")
         let pageButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "forecast.settle.sample:rent")).firstMatch
+        // 預測頁最上面多了查詢區間，事件清單在下面(惰性列表):捲到它。
+        for _ in 0..<8 where !pageButton.exists { app.swipeUp() }
         XCTAssertTrue(pageButton.waitForExistence(timeout: 5), "預測頁沒有房租的已繳圓圈")
         XCTAssertEqual(pageButton.label, "取消已繳", "預測頁的狀態沒有跟首頁同步")
     }
