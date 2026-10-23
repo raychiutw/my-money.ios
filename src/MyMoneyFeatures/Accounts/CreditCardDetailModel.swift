@@ -176,7 +176,7 @@ public final class CreditCardDetailModel: Alerting {
     public func makePayment(_ preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
-            isMaskedCard: isMasked, today: today
+            isMaskedCard: isMasked, accountMemory: context.accountMemory(.cardPaymentBank), today: today
         )
     }
 

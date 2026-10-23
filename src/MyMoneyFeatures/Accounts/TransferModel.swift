@@ -24,6 +24,9 @@ public final class TransferModel: Submitting {
     @ObservationIgnored private let preferredFrom: AccountID?
     @ObservationIgnored private let preferredTo: AccountID?
     @ObservationIgnored private var didApplyPreferred = false
+    /// 轉出、轉入各自記住上次選的帳戶(#273、#278);`nil` 是不記。
+    @ObservationIgnored private let fromMemory: AccountMemory?
+    @ObservationIgnored private let toMemory: AccountMemory?
 
     /// `preferredFrom` / `preferredTo`:從某個帳戶的「轉帳」打開時預先選好的帳戶(現金與活存帳戶都是轉入)。
     public init(
@@ -31,8 +34,12 @@ public final class TransferModel: Submitting {
         dataVersion: DataVersion,
         today: () -> CalendarDay = { CalendarDay.today() },
         preferredFrom: AccountID? = nil,
-        preferredTo: AccountID? = nil
+        preferredTo: AccountID? = nil,
+        fromMemory: AccountMemory? = nil,
+        toMemory: AccountMemory? = nil
     ) {
+        self.fromMemory = fromMemory
+        self.toMemory = toMemory
         self.repository = repository
         self.dataVersion = dataVersion
         date = today()
@@ -55,7 +62,7 @@ public final class TransferModel: Submitting {
         firstBank != nil && firstWallet != nil
     }
 
-    /// 載入可選的帳戶。**轉出與轉入都不預選**(上游 ADR 0011「顯式帳戶選取」，#111):
+    /// 載入可選的帳戶。**不擅自預選**(上游 ADR 0011「顯式帳戶選取」，#111;唯一的例外是使用者自己上次送出時選的,#278):
     /// 從某個帳戶的「轉帳」進來時，只帶入那一側(這個帳戶是轉入)，另一側仍是空的。開窗時如果兩側是同一個帳戶，轉入清成空(上游開窗時的處理)。
     public func load() async {
         do {
@@ -77,6 +84,13 @@ public final class TransferModel: Submitting {
         toAccountID = preferredTo
         if fromAccountID != nil, toAccountID == fromAccountID {
             toAccountID = nil
+        }
+        // 沒有捷徑帶入的那一側,帶入上次記住的帳戶(#278);跟捷徑帶入的那一側同一個帳戶就不帶,留給捷徑。
+        if fromAccountID == nil, let recalled = fromMemory?.recall(among: candidates), recalled != toAccountID {
+            fromAccountID = recalled
+        }
+        if toAccountID == nil, let recalled = toMemory?.recall(among: candidates), recalled != fromAccountID {
+            toAccountID = recalled
         }
     }
 
@@ -124,6 +138,8 @@ public final class TransferModel: Submitting {
             ))
         }) else { return nil }
         dataVersion.bump()
+        fromMemory?.remember(fromAccountID)
+        toMemory?.remember(toAccountID)
         return message
     }
 
