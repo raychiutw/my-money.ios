@@ -270,7 +270,7 @@ extension HouseholdScreen {
                         label: "\(member.name)的更多動作", identifier: "household.more.\(member.userID.rawValue)", alignment: .trailing,
                         trailingInset: advance == nil ? 0 : 28, isShown: !menuItems.isEmpty
                     ) {
-                        memberMenu(menuItems, member: member, advance: advance)
+                        memberMenu(menuItems, memberID: member.userID, member: member, advance: advance)
                     }
                     .swipeActions {
                         if model.canRemove(member) {
@@ -280,18 +280,27 @@ extension HouseholdScreen {
             }
             // 代墊統計裡有、名冊裡沒有的人(例如剛離開家庭的成員):照樣列出，沒有身分。
             ForEach(model.advances.filter { advance in !members.contains { $0.userID == advance.memberID } }) { advance in
-                memberRow(name: advance.memberName, role: nil, advance: advance, id: advance.memberID)
+                let menuItems = model.memberMenuItems(for: nil, advance: advance)
+                memberRow(name: advance.memberName, role: nil, advance: advance, id: advance.memberID, reservesMenuSpace: !menuItems.isEmpty)
+                    .overlayMoreMenu(
+                        label: "\(advance.memberName)的更多動作", identifier: "household.more.\(advance.memberID.rawValue)", alignment: .trailing,
+                        trailingInset: 28, isShown: !menuItems.isEmpty
+                    ) {
+                        memberMenu(menuItems, memberID: advance.memberID, member: nil, advance: advance)
+                    }
             }
         }
     }
 
     /// ⋯ 選單(#274):明細、沖銷、標記處理，最後是破壞性的移除;項目與順序由 model 決定。
     @ViewBuilder
-    private func memberMenu(_ items: [MemberMenuItem], member: HouseholdMember, advance: HouseholdAdvance?) -> some View {
+    private func memberMenu(
+        _ items: [MemberMenuItem], memberID: UserID, member: HouseholdMember?, advance: HouseholdAdvance?
+    ) -> some View {
         ForEach(items, id: \.self) { item in
             switch item {
             case .details:
-                Button("明細", systemImage: "list.bullet.rectangle") { path.append(MemberRoute(memberID: member.userID)) }
+                Button("明細", systemImage: "list.bullet.rectangle") { path.append(MemberRoute(memberID: memberID)) }
                     .accessibilityIdentifier("household.menu.details")
             case .reimburse:
                 Button("沖銷", systemImage: "arrow.left.arrow.right") {
@@ -300,11 +309,11 @@ extension HouseholdScreen {
                 .accessibilityIdentifier("household.menu.reimburse")
             case .markSettled:
                 Button("標記處理", systemImage: "checkmark.circle") {
-                    path.append(MemberRoute(memberID: member.userID, startsSelecting: true))
+                    path.append(MemberRoute(memberID: memberID, startsSelecting: true))
                 }
                 .accessibilityIdentifier("household.menu.markSettled")
             case .remove:
-                Button("移除", systemImage: "person.badge.minus", role: .destructive) { pendingRemoval = member }
+                if let member { Button("移除", systemImage: "person.badge.minus", role: .destructive) { pendingRemoval = member } }
             }
         }
     }
