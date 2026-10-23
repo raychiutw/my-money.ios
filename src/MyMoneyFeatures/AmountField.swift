@@ -30,12 +30,12 @@ struct AmountField<Value: Hashable>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if !display.isEmpty {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
+            // 標籤的位置一直留著(空的時候透明):輸入第一個數字時欄位不會長高、下面的內容不會跳動。
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .opacity(display.isEmpty ? 0 : 1)
+                .accessibilityHidden(true)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(verbatim: "$")
                     .foregroundStyle(.secondary)

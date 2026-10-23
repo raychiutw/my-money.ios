@@ -103,17 +103,20 @@ public final class QuickEntryModel: Submitting {
     /// 載入資產帳戶(表單出現時呼叫，可以重複呼叫);已選的帳戶不在清單裡了才清掉。不預選任何帳戶。
     public func prepare() async {
         errorMessage = nil
+        var loaded = true
         do {
             accounts = try await accountRepository.accounts()
         } catch {
             errorMessage = error.localizedDescription
+            loaded = false
         }
         if let accountID, !accounts.contains(where: { $0.id == accountID }) {
             self.accountID = nil
         }
         // 開 sheet 時帳戶清單可能還沒載好:載好之後補帶入上次的帳戶(使用者還沒選時才補)。
         if accountID == nil, !hasRecalled { accountID = accountMemory?.recall(among: accounts) }
-        hasRecalled = true
+        // 載入失敗時還不算帶入過:重試成功再帶入。
+        if loaded { hasRecalled = true }
     }
 
     /// 使用者手動選分類:鎖定，之後備註怎麼改都不再覆蓋，提示也清掉。

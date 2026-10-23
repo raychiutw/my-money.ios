@@ -212,6 +212,10 @@ public final class ForecastModel {
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             forecast = loaded
+            // 期程隨日期位移:選好的區間整個落在新的期程之外就回到整個期程，不顯示沒有資料的 $0。
+            if let full = fullRange, (rangeStart.map { $0 > full.upperBound } ?? false) || (rangeEnd.map { $0 < full.lowerBound } ?? false) {
+                resetRange()
+            }
             freshness.markLoaded(key)
             skeletonMemory.record(count: loaded.events.count, for: "events")
             skeletonMemory.record(flag: loaded.startingBalance != nil, for: "startingBalance")

@@ -17,12 +17,12 @@ struct NoteField<Value: Hashable>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if !text.isEmpty {
-                Text("備註")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
+            // 標籤的位置一直留著(空的時候透明):輸入第一個字時欄位不會長高。
+            Text("備註")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .opacity(text.isEmpty ? 0 : 1)
+                .accessibilityHidden(true)
             field
                 .focused(focus, equals: value)
                 .accessibilityIdentifier(identifier)

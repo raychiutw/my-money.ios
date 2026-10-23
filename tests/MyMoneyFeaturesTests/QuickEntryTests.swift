@@ -80,6 +80,27 @@ struct QuickEntryTests {
         #expect(memory.recall(among: SampleAccounts.all) == nil)
     }
 
+    @Test("記一筆:帳戶載入失敗後重試成功,仍帶入記住的帳戶(code review)")
+    func recallsAfterFailedLoadThenRetry() async {
+        let suite = "QuickEntryMemory-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let memory = AccountMemory(defaults: defaults, userID: UserID("me"), purpose: .quickEntry)
+        memory.remember(SampleAccounts.savings.id)
+        let accounts = InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero)
+        let model = QuickEntryModel(
+            transactions: transactions, accounts: accounts, dataVersion: dataVersion, accountMemory: memory, today: { today }
+        )
+        model.startNewEntry()
+        await accounts.fail(with: .unreadableResponse)
+        await model.prepare()
+        #expect(model.accountID == nil)
+
+        await accounts.recover()
+        await model.prepare()
+        #expect(model.accountID == SampleAccounts.savings.id)
+    }
+
     @Test("切到收入時分類變成「薪資」,切回支出變成「餐飲」")
     func switchingTypeResetsCategory() async {
         let entry = await model()

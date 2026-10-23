@@ -96,4 +96,16 @@ struct ForecastRangeTests {
 
         #expect(!model.isRangeFiltered)
     }
+
+    @Test("重新載入後期程位移,區間整個落在期程外:回到整個期程,不顯示沒有資料的 $0(code review)")
+    func rangeOutsideReloadedForecastIsReset() async {
+        let model = await loaded()
+        model.rangeStart = plus(500)
+        model.rangeEnd = plus(510)
+
+        await model.load()
+
+        #expect(!model.isRangeFiltered)
+        #expect(model.visibleDailyBalances.count == ForecastHorizon.days)
+    }
 }

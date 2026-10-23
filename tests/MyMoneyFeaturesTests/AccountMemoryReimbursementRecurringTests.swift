@@ -93,4 +93,22 @@ struct AccountMemoryReimbursementRecurringTests {
         #expect(await model.save())
         #expect(await editor().accountID == SampleAccounts.savings.id)
     }
+
+    @Test("週期收支:第一次載入帳戶失敗,重試成功後仍帶入記住的帳戶(code review)")
+    func recurringRecallsAfterFailedLoadThenRetry() async {
+        defaults.removePersistentDomain(forName: suite)
+        AccountMemory(defaults: defaults, userID: me, purpose: .recurring).remember(SampleAccounts.savings.id)
+        let accounts = InMemoryAccountRepository.sample()
+        let model = RecurringEditorModel(
+            adding: (), repository: InMemoryRecurringRepository.sample(), accounts: accounts,
+            dataVersion: dataVersion, accountMemory: AccountMemory(defaults: defaults, userID: me, purpose: .recurring)
+        )
+        await accounts.fail(with: .unreadableResponse)
+        await model.prepare()
+        #expect(model.accountID == nil)
+
+        await accounts.recover()
+        await model.prepare()
+        #expect(model.accountID == SampleAccounts.savings.id)
+    }
 }

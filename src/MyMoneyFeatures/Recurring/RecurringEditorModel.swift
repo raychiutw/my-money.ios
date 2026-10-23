@@ -106,6 +106,8 @@ public final class RecurringEditorModel: Submitting {
             accounts = try await accountRepository.accounts()
         } catch {
             errorMessage = error.localizedDescription
+            // 載入失敗:還沒有可選的帳戶,下次重試成功時再帶入記憶(不能先標成已帶入)。
+            return
         }
         // 新增時帶入上次主動選的關聯帳戶(只帶一次,使用者在這之前選了或之後改回「無特定帳戶」都不再補)。
         guard !didRecall else { return }
