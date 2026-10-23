@@ -228,46 +228,17 @@ struct MemberAdvanceScreen: View {
     private func detailRow(
         date: CalendarDay, time: Date?, title: String, account: String, extra: String?, amount: Money, isIncome: Bool
     ) -> some View {
-        MemberDetailRow(
-            title: title, units: ["\(model.dateTimeText(date, time))", account] + [extra].compactMap { $0 },
+        // 共用的明細卡(#282，DESIGN.md「明細卡與輸入框」方案 B):結清或出帳狀態是膠囊，日期時間與扣款帳戶各占一行。
+        EntryCard(
+            title: title, badge: extra,
+            lines: [
+                EntryCard.Line(kind: .time, text: model.dateTimeText(date, time)),
+                EntryCard.Line(kind: .account, text: account),
+            ],
             amount: isIncome ? .inflow(amount) : .outflow(amount)
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(model.dateTimeText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)\(extra.map { ",\($0)" } ?? "")")
-    }
-}
-
-/// 成員詳細頁的項目列:標題、次要文字(日期時間・帳戶，每段不拆開)，金額在右邊跟標題同一行;
-/// 無障礙字級改上下堆疊、金額最後一行靠右。結構只跟字級走、不跟資料長短走(#248)。
-private struct MemberDetailRow: View {
-    let title: String
-    let units: [String]
-    let amount: AmountPresentation
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 4) {
-                texts
-                AmountText(amount).monospacedDigit().lineLimit(1).fixedSize()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                texts
-                Spacer(minLength: 0)
-                AmountText(amount).monospacedDigit().lineLimit(1).fixedSize()
-            }
-        }
-    }
-
-    private var texts: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-            WrappingUnits(units: units)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
     }
 }
 

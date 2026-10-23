@@ -36,18 +36,13 @@ struct ReimbursementView: View {
     /// 一筆待報銷的代墊明細:開關在右邊;VoiceOver 念「備註，日期，金額」加開關狀態。
     private func itemRow(_ item: AdvanceItem) -> some View {
         Toggle(isOn: Binding(get: { model.isSelected(item.id) }, set: { _ in model.toggle(item.id) })) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.displayTitle)
-                    Text([model.itemDateText(item), item.billingText].compactMap { $0 }.joined(separator: " · "))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                // 公帳退款是負項(綠色),抵扣待報銷總額(上游 ADR 0027)。
-                AmountText(item.kind == .refund ? .inflow(item.amount) : .outflow(item.amount))
-                    .monospacedDigit()
-            }
+            // 共用的明細卡(#283，DESIGN.md「明細卡與輸入框」方案 B):出帳狀態是膠囊，日期一行。
+            // 公帳退款是負項(綠色),抵扣待報銷總額(上游 ADR 0027)。
+            EntryCard(
+                title: item.displayTitle, badge: item.billingText,
+                lines: [EntryCard.Line(kind: .time, text: model.itemDateText(item))],
+                amount: item.kind == .refund ? .inflow(item.amount) : .outflow(item.amount)
+            )
         }
         // 開關打開是 CI 填色(ADR-0009:CI 色一律以明確色票套用，不靠全域強調色——深色模式是白色，看不出開關狀態，#246)。
         .tint(Color.ciFill)

@@ -141,17 +141,13 @@ struct StatementRolloverView: View {
     private func itemRow(_ item: StatementItem) -> some View {
         let isDeferred = model.isDeferred(item.id)
         return Toggle(isOn: Binding(get: { isDeferred }, set: { _ in model.toggleDeferral(item.id) })) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)")
-                    Text(model.itemDetailText(item))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                AmountText(item.kind == .expense ? .outflow(item.amount) : .inflow(item.amount))
-                    .monospacedDigit()
-            }
+            // 共用的明細卡(#283，DESIGN.md「明細卡與輸入框」方案 B):狀態是膠囊，日期一行。
+            EntryCard(
+                title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
+                badge: model.itemBadgeText(item),
+                lines: [EntryCard.Line(kind: .time, text: model.itemDayText(item))],
+                amount: item.kind == .expense ? .outflow(item.amount) : .inflow(item.amount)
+            )
             .strikethrough(isDeferred)
         }
         // 開關打開是 CI 填色(ADR-0009:CI 色一律以明確色票套用，不靠全域強調色)。

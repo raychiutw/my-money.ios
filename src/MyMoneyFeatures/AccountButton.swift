@@ -121,7 +121,11 @@ struct AccountToolbarItem: ToolbarContent {
     /// 手機:右上角(其他動作的右邊)。iPad:左邊——頂端的 tab 列占掉中間，直向的 iPad mini 右邊放不下，
     /// 系統把右邊的項目收進「…」，帳號按鈕就找不到(手機與平板功能要一致);左邊是空的，永遠看得到。
     private var placement: ToolbarItemPlacement {
+        #if os(iOS)
         horizontalSizeClass == .regular ? .topBarLeading : .primaryAction
+        #else
+        .primaryAction
+        #endif
     }
 
     var body: some ToolbarContent {

@@ -188,8 +188,13 @@ final class TransactionsUITests: XCTestCase {
         for category in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXL", "UICTContentSizeCategoryXXXL"] {
             let app = launchFamily(memberRole: false, category: category, rowParts: true)
             let window = app.windows.firstMatch.frame
-            let titles = app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
-                .filter { $0.exists && $0.frame.minY > window.minY + 120 && $0.frame.maxY < window.maxY - 120 }
+            // 明細卡比較高(#280),主視覺下面一屏放不下幾列:往上捲到看得到至少兩列。
+            func visibleTitles() -> [XCUIElement] {
+                app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
+                    .filter { $0.exists && $0.frame.minY > window.minY + 120 && $0.frame.maxY < window.maxY - 120 }
+            }
+            for _ in 0..<4 where visibleTitles().count < 2 { app.swipeUp() }
+            let titles = visibleTitles()
             XCTAssertGreaterThan(titles.count, 1, "\(category):沒有量到列")
             for title in titles.prefix(3) {
                 let parts = rowParts(below: title, in: app)
@@ -213,10 +218,12 @@ final class TransactionsUITests: XCTestCase {
     func testAccessibilityStackKeepsAmountOnTheBottomRight() throws {
         let app = launchFamily(memberRole: false, category: "UICTContentSizeCategoryAccessibilityXXXL", rowParts: true)
         let window = app.windows.firstMatch.frame
-        let title = try XCTUnwrap(
+        func firstTitle() -> XCUIElement? {
             app.descendants(matching: .any).matching(identifier: "row.title").allElementsBoundByIndex
-                .first { $0.exists && $0.frame.minY > window.minY + 100 }, "沒有量到列"
-        )
+                .first { $0.exists && $0.frame.minY > window.minY + 100 && $0.frame.maxY < window.maxY - 100 }
+        }
+        for _ in 0..<6 where firstTitle() == nil { app.swipeUp() }
+        let title = try XCTUnwrap(firstTitle(), "沒有量到列")
         let parts = rowParts(below: title, in: app)
         let amount = try XCTUnwrap(parts.amount, "沒有金額")
         XCTAssertFalse(parts.lines.isEmpty)
@@ -281,16 +288,18 @@ final class TransactionsUITests: XCTestCase {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingCardBilling"], signedIn: true)
         app.tabBars.buttons["記帳"].tap()
 
-        // 清單是惰性的:一次只建立畫面附近的列，逐一捲到看得到再讀 VoiceOver 念法。
-        let billed = element(in: app, labelContaining: "上期晚餐")
-        let deferred = element(in: app, labelContaining: "延遲請款的機票")
-        let plain = element(in: app, labelContaining: "耳機")
-        for (name, row) in [("上期晚餐", billed), ("延遲請款的機票", deferred), ("耳機", plain)] {
+        // 清單是惰性的(列變高之後一屏只有幾列):逐一捲到看得到、立刻讀 VoiceOver 念法,不能先找好三個元素再回頭讀。
+        func spokenLabel(of name: String) throws -> String {
+            let row = element(in: app, labelContaining: name)
             XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "範例資料的信用卡消費「\(name)」不在清單上")
+            return row.label
         }
-        XCTAssertTrue(billed.label.contains("已出帳"), "已出帳的消費沒有念出已出帳:\(billed.label)")
-        XCTAssertTrue(deferred.label.contains("延至下期"), "延至下期的消費沒有念出延至下期:\(deferred.label)")
-        XCTAssertFalse(plain.label.contains("已出帳") || plain.label.contains("延至下期"), "未出帳的消費不該有標籤:\(plain.label)")
+        let billed = try spokenLabel(of: "上期晚餐")
+        XCTAssertTrue(billed.contains("已出帳"), "已出帳的消費沒有念出已出帳:\(billed)")
+        let deferred = try spokenLabel(of: "延遲請款的機票")
+        XCTAssertTrue(deferred.contains("延至下期"), "延至下期的消費沒有念出延至下期:\(deferred)")
+        let plain = try spokenLabel(of: "耳機")
+        XCTAssertFalse(plain.contains("已出帳") || plain.contains("延至下期"), "未出帳的消費不該有標籤:\(plain)")
     }
 
     /// 信用卡專屬的「列入下期帳單」(上游 ADR 0020、#184):選了信用卡才出現，選別的帳戶就收起並重設。
