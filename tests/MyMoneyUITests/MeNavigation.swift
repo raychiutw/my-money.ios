@@ -22,16 +22,47 @@ extension XCUIApplication {
 }
 
 extension XCUIApplication {
-    /// 家庭頁:點成員列進該成員的代墊詳細頁(#246),回傳詳細頁「操作」裡的「報銷沖帳」鈕(沒有入口時 `exists` 是 false)。
+    /// 家庭頁:點成員列進該成員的代墊詳細頁(#246)。
+    @MainActor
+    func openMemberDetail(_ memberID: String) {
+        let row = memberRow(memberID)
+        row.tap()
+    }
+
+    /// 家庭頁成員列右側 ⋯ 的項目(#274:明細、沖銷、標記處理、移除);回傳有沒有點到(項目不在選單裡就是 `false`)。
     @MainActor
     @discardableResult
-    func openMemberDetail(_ memberID: String) -> XCUIElement {
+    func chooseMemberMenuItem(_ item: String, memberID: String) -> Bool {
+        let row = memberRow(memberID)
+        let more = buttons["household.more.\(memberID)"]
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: self) || row.exists, "家庭頁找不到成員「\(memberID)」的 ⋯")
+        more.tap()
+        let entry = buttons[item].firstMatch
+        guard entry.waitForExistence(timeout: 3) else {
+            // 沒有這個項目:點選單外面收起來。
+            windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+            return false
+        }
+        entry.tap()
+        return true
+    }
+
+    /// 家庭頁成員列的 ⋯ 選單裡有沒有這個項目(開了看一眼就收起來)。
+    @MainActor
+    func memberMenuContains(_ item: String, memberID: String) -> Bool {
+        let more = buttons["household.more.\(memberID)"]
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: self), "家庭頁找不到成員「\(memberID)」的 ⋯")
+        return menuContains(item, opening: more)
+    }
+
+    /// 成員列捲到看得見。
+    @MainActor
+    private func memberRow(_ memberID: String) -> XCUIElement {
         let row = descendants(matching: .any)["household.member.\(memberID)"]
         _ = row.waitForExistence(timeout: 5)
         for _ in 0..<8 where !(row.exists && row.isHittable) { swipeUp() }
         XCTAssertTrue(row.exists, "家庭頁找不到成員「\(memberID)」的列")
-        row.tap()
-        return buttons["household.reimburse.\(memberID)"]
+        return row
     }
 }
 

@@ -94,10 +94,10 @@ public final class ForecastModel {
         )
     }
 
-    /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.days` 天)。
-    public static var chartTitle: String { "未來 \(ForecastHorizon.days) 天逐日餘額" }
-    public static var eventsCountTitle: String { "未來 \(ForecastHorizon.days) 天的預定收支" }
-    public static var noEventsText: String { "未來 \(ForecastHorizon.days) 天沒有預定收支" }
+    /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.label`)。
+    public static var chartTitle: String { "未來 \(ForecastHorizon.label)逐日餘額" }
+    public static var eventsCountTitle: String { "未來 \(ForecastHorizon.label)的預定收支" }
+    public static var noEventsText: String { "未來 \(ForecastHorizon.label)沒有預定收支" }
 
     /// 預測裡的日期(預定收支日、逐日餘額),例如「10月5日」,不是今年的加上年份(DESIGN.md「日期」)。
     public func dateText(_ day: CalendarDay) -> String {
@@ -133,8 +133,8 @@ public final class ForecastModel {
         return StartingBalance(
             amount: start,
             detail: "\(Terms.cash) \(cash.formatted())・\(Terms.bankAccount) \(bank.formatted())",
-            // 後端已把繳款日不在未來 \(ForecastHorizon.days) 天內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
-            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 \(ForecastHorizon.days) 天內的信用卡待繳款"
+            // 後端已把繳款日不在未來 \(ForecastHorizon.label)內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
+            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 \(ForecastHorizon.label)內的信用卡待繳款"
         )
     }
 
@@ -177,7 +177,7 @@ public final class ForecastModel {
             settleError = message.isEmpty ? "更新已繳狀態失敗" : message
             return
         }
-        // 遞增資料版本:總覽「接下來 60 天」等其他畫面也要重抓(#189);先遞增再 `load()`，這頁記下的版本就是新的，不會再重抓一次。
+        // 遞增資料版本:總覽「接下來 12 個月」等其他畫面也要重抓(#189);先遞增再 `load()`，這頁記下的版本就是新的，不會再重抓一次。
         dataVersion.bump()
         await load()
     }
@@ -234,11 +234,11 @@ extension PurchaseCheck {
     public var message: String {
         switch verdict {
         case .safe:
-            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.days) 天的最低餘額仍有 \(minBalance.formatted()),也不影響儲蓄目標的每月預留。"
+            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.label)的最低餘額仍有 \(minBalance.formatted()),也不影響儲蓄目標的每月預留。"
         case .caution:
             "花 \(amount.formatted()) 不會透支，但會壓縮儲蓄目標的每月預留(可能影響\(affectedGoalNames.joined(separator: "、")))。建議延後購買或調降金額。"
         case .danger:
-            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.days) 天的餘額最低會跌到 \(minBalance.formatted())。"
+            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.label)的餘額最低會跌到 \(minBalance.formatted())。"
         }
     }
 }

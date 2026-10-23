@@ -82,10 +82,13 @@ final class ScreenTourUITests: XCTestCase {
         tour.captureScrolling("household-joined")
         // 自己的代墊款可以報銷:從清單裡的「從共同基金報銷」打開表單(#157 審查補拍)。
         // 成員詳細頁(#246)與報銷表單;拍完回到家庭頁。
-        let reimburseMine = app.openMemberDetail("in-memory-member-1")
+        app.openMemberDetail("in-memory-member-1")
         tour.captureScrolling("household-member-detail")
-        tour.present(reimburseMine, capturing: "reimbursement")
         app.navigationBars.buttons.firstMatch.tap()
+        // 沖銷在成員列右側的 ⋯(#274)。
+        app.chooseMemberMenuItem("沖銷", memberID: "in-memory-member-1")
+        tour.captureOnce("reimbursement")
+        tour.tap(app.navigationBars.buttons["關閉"].firstMatch)
         // 離開家庭先跳確認，拍確認訊息再按「離開」。大字級時「離開家庭」在清單最下面，先捲到它。
         // 「離開家庭」在家庭頁 toolbar 的右上方(#250)。
         tour.tap(app.navigationBars.buttons["household.leave"])

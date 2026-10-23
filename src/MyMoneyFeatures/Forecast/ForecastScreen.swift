@@ -333,7 +333,7 @@ private struct ForecastEventRow: View {
 }
 
 /// 預定收支右邊的「已繳」圓圈(上游 ADR 0018，#182):未繳是空心圓、已繳是 CI 填色加勾勾;觸控範圍 44×44pt，
-/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 60 天」共用。
+/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 12 個月」共用。
 struct SettleButton: View {
     let isSettled: Bool
     let isBusy: Bool

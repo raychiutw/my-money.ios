@@ -101,8 +101,8 @@ final class SwipeActionUITests: XCTestCase {
         for dark in [false, true] {
             let app = launch(dark: dark, extra: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"])
             app.tabBars.buttons["家庭"].tap()
-            let reimburse = app.openMemberDetail("in-memory-member-1")
-            XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "沒有進到成員詳細頁")
+            app.openMemberDetail("in-memory-member-1")
+            XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有進到成員詳細頁")
             app.segmentedControls["advance.tab"].buttons["已結清明細"].tap()
             let row = app.descendants(matching: .any)["advance.settled.sample-settled-reimbursed"]
             try assertSwipeActionIsRed(row, actionLabel: "解除報銷", in: app, "解除報銷 \(dark ? "深色" : "淺色")")

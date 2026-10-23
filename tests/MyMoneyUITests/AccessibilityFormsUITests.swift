@@ -151,10 +151,8 @@ final class AccessibilityFormsUITests: XCTestCase {
     @MainActor
     private func openReimbursement(in app: XCUIApplication) throws {
         app.tabBars.buttons["家庭"].tap()
-        let reimburse = app.openMemberDetail("in-memory-member-1")
-        // 報銷沖帳在 toolbar(#248)，不用捲。
-        XCTAssertTrue(reimburse.waitForExistence(timeout: 5) && reimburse.isHittable, "成員詳細頁沒有「報銷沖帳」")
-        reimburse.tap()
+        // 沖銷在家庭頁成員列的 ⋯(#274)。
+        XCTAssertTrue(app.chooseMemberMenuItem("沖銷", memberID: "in-memory-member-1"), "成員列 ⋯ 沒有「沖銷」")
         waitForSheet(app, "報銷")
     }
 
