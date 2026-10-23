@@ -25,8 +25,22 @@ public final class ForecastModel {
     public var scope: ViewScope {
         didSet {
             scopeMemory.save(scope)
+            resetRange()
             purchaseCheck = nil
             purchaseError = nil
+        }
+    }
+
+    /// 區間篩選的起日與迄日(上游 `aecab6b`、#277);`nil` 是整個期程。迄日不早於起日。
+    public var rangeStart: CalendarDay? {
+        didSet {
+            if let start = rangeStart, let end = rangeEnd, end < start { rangeEnd = start }
+        }
+    }
+
+    public var rangeEnd: CalendarDay? {
+        didSet {
+            if let start = rangeStart, let end = rangeEnd, end < start { rangeStart = end }
         }
     }
 
@@ -142,6 +156,52 @@ public final class ForecastModel {
     public func minDateText(of forecast: CashFlowForecast) -> String {
         guard let minDate = forecast.minDate else { return "無變動" }
         return dateText(minDate)
+    }
+
+    // MARK: 區間篩選(上游 `aecab6b`、#277)
+
+    /// 整個期程的第一天與最後一天(後端回來幾筆就幾筆);還沒載入是 `nil`。
+    public var fullRange: ClosedRange<CalendarDay>? {
+        guard let first = forecast?.dailyBalances.first?.date, let last = forecast?.dailyBalances.last?.date else { return nil }
+        return first...last
+    }
+
+    /// 正在用區間篩選(起日或迄日縮小了整個期程)。
+    public var isRangeFiltered: Bool {
+        guard let full = fullRange else { return false }
+        return (rangeStart.map { $0 > full.lowerBound } ?? false) || (rangeEnd.map { $0 < full.upperBound } ?? false)
+    }
+
+    private func isVisible(_ day: CalendarDay) -> Bool {
+        (rangeStart.map { day >= $0 } ?? true) && (rangeEnd.map { day <= $0 } ?? true)
+    }
+
+    /// 區間內的逐日餘額與預定收支;沒篩選時就是後端回的全部。
+    public var visibleDailyBalances: [DailyBalance] { forecast?.dailyBalances.filter { isVisible($0.date) } ?? [] }
+    public var visibleEvents: [ForecastEvent] { forecast?.events.filter { isVisible($0.date) } ?? [] }
+
+    /// 區間內的最低餘額與日期:沒篩選用後端的值;篩選時是區間內逐日餘額的最小值(顯示用的取最小值，跟 web 的區間指標卡一樣在前端算，
+    /// 不是業務規則重算;餘額本身是後端算好的),同值取最早的一天。
+    public var visibleMinBalance: Money {
+        guard isRangeFiltered else { return forecast?.minBalance ?? .zero }
+        return visibleDailyBalances.map(\.balance).min() ?? .zero
+    }
+
+    public var visibleMinDate: CalendarDay? {
+        guard isRangeFiltered else { return forecast?.minDate }
+        let low = visibleMinBalance
+        return visibleDailyBalances.first { $0.balance == low }?.date
+    }
+
+    /// 區間內會不會透支:沒篩選用後端的 `willOverdraft`;篩選時看區間最低餘額是不是負的。
+    public var visibleWillOverdraft: Bool {
+        isRangeFiltered ? visibleMinBalance < .zero : (forecast?.willOverdraft ?? false)
+    }
+
+    /// 回到整個期程。
+    public func resetRange() {
+        rangeStart = nil
+        rangeEnd = nil
     }
 
     public func load() async {
