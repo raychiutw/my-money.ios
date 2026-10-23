@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
@@ -31,6 +32,73 @@ struct QuickEntryTests {
         #expect(entry.date == today)
         #expect(entry.accountID == nil, "不該預選第一個帳戶")
         #expect(entry.amountText == "")
+    }
+
+    @Test("記一筆:成功送出後記住帳戶,下次打開帶入(#273,偏離 ADR 0011);可以改選,沒記過時仍是空的")
+    func recallsLastAccount() async {
+        let suite = "QuickEntryMemory-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        func make() async -> QuickEntryModel {
+            let model = QuickEntryModel(
+                transactions: transactions,
+                accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
+                dataVersion: dataVersion,
+                accountMemory: AccountMemory(defaults: defaults, userID: UserID("me"), purpose: .quickEntry),
+                today: { today }
+            )
+            await model.prepare()
+            model.startNewEntry()
+            return model
+        }
+        let first = await make()
+        #expect(first.accountID == nil, "沒記過不預選")
+        first.accountID = SampleAccounts.savings.id
+        first.amountText = "80"
+        #expect(await first.save())
+
+        let next = await make()
+        #expect(next.accountID == SampleAccounts.savings.id, "下次打開帶入上次的帳戶")
+        next.accountID = nil
+        #expect(next.accountID == nil, "可以改選")
+    }
+
+    @Test("記一筆:沒送出(取消)不更新記憶")
+    func cancelDoesNotRemember() async {
+        let suite = "QuickEntryMemory-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let memory = AccountMemory(defaults: defaults, userID: UserID("me"), purpose: .quickEntry)
+        let model = QuickEntryModel(
+            transactions: transactions,
+            accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
+            dataVersion: dataVersion, accountMemory: memory, today: { today }
+        )
+        await model.prepare()
+        model.startNewEntry()
+        model.accountID = SampleAccounts.savings.id
+        #expect(memory.recall(among: SampleAccounts.all) == nil)
+    }
+
+    @Test("記一筆:帳戶載入失敗後重試成功,仍帶入記住的帳戶(code review)")
+    func recallsAfterFailedLoadThenRetry() async {
+        let suite = "QuickEntryMemory-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let memory = AccountMemory(defaults: defaults, userID: UserID("me"), purpose: .quickEntry)
+        memory.remember(SampleAccounts.savings.id)
+        let accounts = InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero)
+        let model = QuickEntryModel(
+            transactions: transactions, accounts: accounts, dataVersion: dataVersion, accountMemory: memory, today: { today }
+        )
+        model.startNewEntry()
+        await accounts.fail(with: .unreadableResponse)
+        await model.prepare()
+        #expect(model.accountID == nil)
+
+        await accounts.recover()
+        await model.prepare()
+        #expect(model.accountID == SampleAccounts.savings.id)
     }
 
     @Test("切到收入時分類變成「薪資」,切回支出變成「餐飲」")

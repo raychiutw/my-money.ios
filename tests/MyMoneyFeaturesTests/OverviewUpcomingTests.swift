@@ -55,10 +55,10 @@ struct OverviewUpcomingTests {
         #expect(rows.map(\.isIncome) == [false, true])
     }
 
-    @Test("區塊標題與走勢圖右下標籤跟著 60 天期程")
+    @Test("區塊標題與走勢圖右下標籤跟著 12 個月期程")
     func horizonLabels() {
-        #expect(OverviewModel.upcomingTitle == "接下來 60 天")
-        #expect(ForecastTrend.endLabel == "60 天後")
+        #expect(OverviewModel.upcomingTitle == "接下來 12 個月")
+        #expect(ForecastTrend.endLabel == "12 個月後")
     }
 
     @Test("最多列 5 筆,順序跟後端一樣")

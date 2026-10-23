@@ -100,6 +100,15 @@ public final class StatementRolloverModel: Submitting, Identifiable {
             .compactMap { $0 }.joined(separator: " · ")
     }
 
+    /// 明細卡的日期那一行(#283)。
+    public func itemDayText(_ item: StatementItem) -> String { dayText(item.date) }
+
+    /// 明細卡的狀態膠囊(#283):上期延入、公帳的家庭報銷狀態;都沒有就沒有膠囊。
+    public func itemBadgeText(_ item: StatementItem) -> String? {
+        let parts = [item.isPriorDeferred ? "上期延入" : nil, householdText(of: item)].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: "・")
+    }
+
     private func dayText(_ day: CalendarDay) -> String { day.text(today: today(), locale: locale) }
 
     /// 公帳明細的支付狀態文字。家庭共同帳戶的信用卡直接扣款(不是代墊),沒有「待報銷」之類的狀態,只寫「家庭公帳」。

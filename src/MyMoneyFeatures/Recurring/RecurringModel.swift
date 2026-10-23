@@ -158,7 +158,7 @@ public final class RecurringModel: Alerting {
     public func makeEditor() -> RecurringEditorModel {
         RecurringEditorModel(
             adding: (), sharedByDefault: scope == .household, repository: repository, accounts: accountRepository,
-            dataVersion: dataVersion
+            dataVersion: dataVersion, accountMemory: context.accountMemory(.recurring)
         )
     }
 

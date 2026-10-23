@@ -42,12 +42,10 @@ struct RecurringEditorView: View {
                         .accessibilityIdentifier("recurringEditor.name")
                     }
                     .tapToFocus($focusedField, equals: .name)
-                    LabeledContent("每期金額") {
-                        AmountField(
-                            "每期金額", text: $model.amountText, prompt: Text("例如：15000"),
-                            focus: $focusedField, equals: .amount, identifier: "recurringEditor.amount"
-                        )
-                    }
+                    AmountField(
+                        "每期金額", text: $model.amountText,
+                        focus: $focusedField, equals: .amount, identifier: "recurringEditor.amount"
+                    )
                     .tapToFocus($focusedField, equals: .amount)
                 }
 

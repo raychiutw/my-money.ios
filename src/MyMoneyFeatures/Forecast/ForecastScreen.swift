@@ -56,6 +56,7 @@ struct ForecastScreen: View {
             }
         case (_, .some(let forecast)):
             List {
+                rangeSection(forecast)
                 summarySection(forecast)
                 chartSection(forecast)
                 eventsSection(forecast)
@@ -75,22 +76,45 @@ struct ForecastScreen: View {
         }
     }
 
+    /// 起日~迄日篩選(上游 `aecab6b`、#277):預設是整個期程;下面的指標、走勢圖與清單一起連動，有「重設」。
+    private func rangeSection(_ forecast: CashFlowForecast) -> some View {
+        Section("查詢區間") {
+            if let full = model.fullRange {
+                DayPickerRow(
+                    title: "起日",
+                    day: Binding(get: { model.rangeStart ?? full.lowerBound }, set: { model.rangeStart = $0 })
+                )
+                .accessibilityIdentifier("forecast.rangeStart")
+                DayPickerRow(
+                    title: "迄日",
+                    day: Binding(get: { model.rangeEnd ?? full.upperBound }, set: { model.rangeEnd = $0 }),
+                    minimum: model.rangeStart ?? full.lowerBound
+                )
+                .accessibilityIdentifier("forecast.rangeEnd")
+                if model.isRangeFiltered {
+                    Button("重設為整個期間") { model.resetRange() }
+                        .accessibilityIdentifier("forecast.rangeReset")
+                }
+            }
+        }
+    }
+
     private func summarySection(_ forecast: CashFlowForecast) -> some View {
         Section {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(forecast.riskTitle)
+                    Text(model.visibleWillOverdraft ? "存在透支風險" : "現金流充裕安全")
                         .font(.headline)
                     // 只留透支的警告;安全時不另外解釋(DESIGN.md「說明文字」第 2 類)。
-                    if forecast.willOverdraft {
+                    if model.visibleWillOverdraft {
                         Text("預計餘額會跌破 0，請及早調整")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
             } icon: {
-                Image(systemName: forecast.willOverdraft ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
-                    .foregroundStyle(forecast.willOverdraft ? .red : .green)
+                Image(systemName: model.visibleWillOverdraft ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                    .foregroundStyle(model.visibleWillOverdraft ? .red : .green)
             }
             .accessibilityElement(children: .combine)
             if let start = model.startingBalance(of: forecast) {
@@ -112,23 +136,23 @@ struct ForecastScreen: View {
             }
             SummaryRow(
                 title: "最低餘額",
-                amount: .stock(forecast.minBalance),
-                detail: forecast.minDate == nil ? model.minDateText(of: forecast) : "發生在 \(model.minDateText(of: forecast))"
+                amount: .stock(model.visibleMinBalance),
+                detail: model.visibleMinDate == nil ? "無變動" : "發生在 \(model.dateText(model.visibleMinDate!))"
             )
-            LabeledContent(ForecastModel.eventsCountTitle, value: "\(forecast.events.count) 筆")
+            LabeledContent(model.isRangeFiltered ? "區間內的預定收支" : ForecastModel.eventsCountTitle, value: "\(model.visibleEvents.count) 筆")
         }
     }
 
     private func chartSection(_ forecast: CashFlowForecast) -> some View {
         Section(ForecastModel.chartTitle) {
-            Chart(forecast.dailyBalances, id: \.date) { day in
+            Chart(model.visibleDailyBalances, id: \.date) { day in
                 AreaMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
                     .foregroundStyle(.tint.opacity(0.2))
                     .accessibilityHidden(true)
                 LineMark(x: .value("日期", day.date.startOfDay), y: .value("餘額", day.balance.chartValue))
                     .accessibilityLabel(model.dateText(day.date))
                     .accessibilityValue("餘額 \(day.balance.spokenText)")
-                if forecast.willOverdraft {
+                if model.visibleWillOverdraft {
                     RuleMark(y: .value("零", 0))
                         .foregroundStyle(.red)
                         .accessibilityHidden(true)
@@ -169,11 +193,11 @@ struct ForecastScreen: View {
 
     private func eventsSection(_ forecast: CashFlowForecast) -> some View {
         Section("預定收支") {
-            if forecast.events.isEmpty {
-                Text(ForecastModel.noEventsText)
+            if model.visibleEvents.isEmpty {
+                Text(model.isRangeFiltered ? "這段期間沒有預定收支" : ForecastModel.noEventsText)
                     .foregroundStyle(.secondary)
             }
-            ForEach(Array(forecast.events.enumerated()), id: \.offset) { _, event in
+            ForEach(Array(model.visibleEvents.enumerated()), id: \.offset) { _, event in
                 HStack(alignment: .top, spacing: 4) {
                     ForecastEventRow(
                         event: event, subtitle: model.subtitle(of: event), account: model.accountText(of: event),
@@ -192,12 +216,10 @@ struct ForecastScreen: View {
 
     private var purchaseSection: some View {
         Section("購買力試算") {
-            LabeledContent("購買金額") {
-                AmountField(
-                    "購買金額", text: $model.purchaseAmountText, prompt: Text("例如：25000"),
-                    focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
-                )
-            }
+            AmountField(
+                "購買金額", text: $model.purchaseAmountText,
+                focus: $focusedField, equals: .amount, identifier: "forecast.purchaseAmount"
+            )
             .tapToFocus($focusedField, equals: .amount)
             PrimaryCapsuleButton(title: "進行購買力試算", fillsWidth: true) {
                 focusedField = nil
@@ -333,7 +355,7 @@ private struct ForecastEventRow: View {
 }
 
 /// 預定收支右邊的「已繳」圓圈(上游 ADR 0018，#182):未繳是空心圓、已繳是 CI 填色加勾勾;觸控範圍 44×44pt，
-/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 60 天」共用。
+/// VoiceOver 念「標示為已繳」或「取消已繳」。送出期間停用。預測頁與總覽「接下來 12 個月」共用。
 struct SettleButton: View {
     let isSettled: Bool
     let isBusy: Bool

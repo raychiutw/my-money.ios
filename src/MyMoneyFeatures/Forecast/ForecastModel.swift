@@ -25,8 +25,22 @@ public final class ForecastModel {
     public var scope: ViewScope {
         didSet {
             scopeMemory.save(scope)
+            resetRange()
             purchaseCheck = nil
             purchaseError = nil
+        }
+    }
+
+    /// 區間篩選的起日與迄日(上游 `aecab6b`、#277);`nil` 是整個期程。迄日不早於起日。
+    public var rangeStart: CalendarDay? {
+        didSet {
+            if let start = rangeStart, let end = rangeEnd, end < start { rangeEnd = start }
+        }
+    }
+
+    public var rangeEnd: CalendarDay? {
+        didSet {
+            if let start = rangeStart, let end = rangeEnd, end < start { rangeStart = end }
         }
     }
 
@@ -94,10 +108,10 @@ public final class ForecastModel {
         )
     }
 
-    /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.days` 天)。
-    public static var chartTitle: String { "未來 \(ForecastHorizon.days) 天逐日餘額" }
-    public static var eventsCountTitle: String { "未來 \(ForecastHorizon.days) 天的預定收支" }
-    public static var noEventsText: String { "未來 \(ForecastHorizon.days) 天沒有預定收支" }
+    /// 預測頁描述期程的文字(後端的期程是 `ForecastHorizon.label`)。
+    public static var chartTitle: String { "未來 \(ForecastHorizon.label)逐日餘額" }
+    public static var eventsCountTitle: String { "未來 \(ForecastHorizon.label)的預定收支" }
+    public static var noEventsText: String { "未來 \(ForecastHorizon.label)沒有預定收支" }
 
     /// 預測裡的日期(預定收支日、逐日餘額),例如「10月5日」,不是今年的加上年份(DESIGN.md「日期」)。
     public func dateText(_ day: CalendarDay) -> String {
@@ -133,8 +147,8 @@ public final class ForecastModel {
         return StartingBalance(
             amount: start,
             detail: "\(Terms.cash) \(cash.formatted())・\(Terms.bankAccount) \(bank.formatted())",
-            // 後端已把繳款日不在未來 \(ForecastHorizon.days) 天內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
-            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 \(ForecastHorizon.days) 天內的信用卡待繳款"
+            // 後端已把繳款日不在未來 \(ForecastHorizon.label)內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
+            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 \(ForecastHorizon.label)內的信用卡待繳款"
         )
     }
 
@@ -142,6 +156,52 @@ public final class ForecastModel {
     public func minDateText(of forecast: CashFlowForecast) -> String {
         guard let minDate = forecast.minDate else { return "無變動" }
         return dateText(minDate)
+    }
+
+    // MARK: 區間篩選(上游 `aecab6b`、#277)
+
+    /// 整個期程的第一天與最後一天(後端回來幾筆就幾筆);還沒載入是 `nil`。
+    public var fullRange: ClosedRange<CalendarDay>? {
+        guard let first = forecast?.dailyBalances.first?.date, let last = forecast?.dailyBalances.last?.date else { return nil }
+        return first...last
+    }
+
+    /// 正在用區間篩選(起日或迄日縮小了整個期程)。
+    public var isRangeFiltered: Bool {
+        guard let full = fullRange else { return false }
+        return (rangeStart.map { $0 > full.lowerBound } ?? false) || (rangeEnd.map { $0 < full.upperBound } ?? false)
+    }
+
+    private func isVisible(_ day: CalendarDay) -> Bool {
+        (rangeStart.map { day >= $0 } ?? true) && (rangeEnd.map { day <= $0 } ?? true)
+    }
+
+    /// 區間內的逐日餘額與預定收支;沒篩選時就是後端回的全部。
+    public var visibleDailyBalances: [DailyBalance] { forecast?.dailyBalances.filter { isVisible($0.date) } ?? [] }
+    public var visibleEvents: [ForecastEvent] { forecast?.events.filter { isVisible($0.date) } ?? [] }
+
+    /// 區間內的最低餘額與日期:沒篩選用後端的值;篩選時是區間內逐日餘額的最小值(顯示用的取最小值，跟 web 的區間指標卡一樣在前端算，
+    /// 不是業務規則重算;餘額本身是後端算好的),同值取最早的一天。
+    public var visibleMinBalance: Money {
+        guard isRangeFiltered else { return forecast?.minBalance ?? .zero }
+        return visibleDailyBalances.map(\.balance).min() ?? .zero
+    }
+
+    public var visibleMinDate: CalendarDay? {
+        guard isRangeFiltered else { return forecast?.minDate }
+        let low = visibleMinBalance
+        return visibleDailyBalances.first { $0.balance == low }?.date
+    }
+
+    /// 區間內會不會透支:沒篩選用後端的 `willOverdraft`;篩選時看區間最低餘額是不是負的。
+    public var visibleWillOverdraft: Bool {
+        isRangeFiltered ? visibleMinBalance < .zero : (forecast?.willOverdraft ?? false)
+    }
+
+    /// 回到整個期程。
+    public func resetRange() {
+        rangeStart = nil
+        rangeEnd = nil
     }
 
     public func load() async {
@@ -152,6 +212,10 @@ public final class ForecastModel {
             // 被取消(換了視角)或已經過期的結果不套用。
             guard !Task.isCancelled, scope == self.scope else { return }
             forecast = loaded
+            // 期程隨日期位移:選好的區間整個落在新的期程之外就回到整個期程，不顯示沒有資料的 $0。
+            if let full = fullRange, (rangeStart.map { $0 > full.upperBound } ?? false) || (rangeEnd.map { $0 < full.lowerBound } ?? false) {
+                resetRange()
+            }
             freshness.markLoaded(key)
             skeletonMemory.record(count: loaded.events.count, for: "events")
             skeletonMemory.record(flag: loaded.startingBalance != nil, for: "startingBalance")
@@ -177,7 +241,7 @@ public final class ForecastModel {
             settleError = message.isEmpty ? "更新已繳狀態失敗" : message
             return
         }
-        // 遞增資料版本:總覽「接下來 60 天」等其他畫面也要重抓(#189);先遞增再 `load()`，這頁記下的版本就是新的，不會再重抓一次。
+        // 遞增資料版本:總覽「接下來 12 個月」等其他畫面也要重抓(#189);先遞增再 `load()`，這頁記下的版本就是新的，不會再重抓一次。
         dataVersion.bump()
         await load()
     }
@@ -234,11 +298,11 @@ extension PurchaseCheck {
     public var message: String {
         switch verdict {
         case .safe:
-            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.days) 天的最低餘額仍有 \(minBalance.formatted()),也不影響儲蓄目標的每月預留。"
+            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.label)的最低餘額仍有 \(minBalance.formatted()),也不影響儲蓄目標的每月預留。"
         case .caution:
             "花 \(amount.formatted()) 不會透支，但會壓縮儲蓄目標的每月預留(可能影響\(affectedGoalNames.joined(separator: "、")))。建議延後購買或調降金額。"
         case .danger:
-            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.days) 天的餘額最低會跌到 \(minBalance.formatted())。"
+            "花 \(amount.formatted()) 之後，未來 \(ForecastHorizon.label)的餘額最低會跌到 \(minBalance.formatted())。"
         }
     }
 }

@@ -172,7 +172,7 @@ public final class AccountsModel: Alerting {
     public func makePayment(for card: CreditCard, preset: CardPaymentModel.Preset) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion,
-            isMaskedCard: isMasked(card), today: today
+            isMaskedCard: isMasked(card), accountMemory: context.accountMemory(.cardPaymentBank), today: today
         )
     }
 
@@ -228,7 +228,10 @@ public final class AccountsModel: Alerting {
 
     /// 轉帳的 sheet。從某個現金或活存帳戶的「轉帳」打開:這個帳戶是轉入，轉出留給使用者選(上游 ADR 0011)。
     public func makeTransfer(into account: Account) -> TransferModel {
-        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredTo: account.id)
+        TransferModel(
+            repository: repository, dataVersion: dataVersion, today: today, preferredTo: account.id,
+            fromMemory: context.accountMemory(.transferFrom), toMemory: context.accountMemory(.transferTo)
+        )
     }
 
     /// 信用卡詳細頁(點信用卡精簡列 push):跟帳戶頁同一個帳戶檢視範圍，扣款帳戶是這個範圍的銀行存款帳戶。

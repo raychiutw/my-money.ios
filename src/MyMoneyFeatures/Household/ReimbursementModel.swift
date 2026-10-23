@@ -49,6 +49,10 @@ public final class ReimbursementModel: Submitting {
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     @ObservationIgnored private let locale: Locale
+    /// 撥款帳戶與收款帳戶各自記住上次選的(#273、#279);`nil` 是不記。
+    @ObservationIgnored private let fundMemory: AccountMemory?
+    @ObservationIgnored private let receivingMemory: AccountMemory?
+    @ObservationIgnored private var didRecall = false
 
     init(
         advance: HouseholdAdvance,
@@ -56,8 +60,12 @@ public final class ReimbursementModel: Submitting {
         accounts: any AccountRepository,
         dataVersion: DataVersion,
         locale: Locale = .autoupdatingCurrent,
+        fundMemory: AccountMemory? = nil,
+        receivingMemory: AccountMemory? = nil,
         today: @escaping () -> CalendarDay
     ) {
+        self.fundMemory = fundMemory
+        self.receivingMemory = receivingMemory
         self.today = today
         self.locale = locale
         self.advance = advance
@@ -65,8 +73,9 @@ public final class ReimbursementModel: Submitting {
         self.accounts = accounts
         self.dataVersion = dataVersion
         receivingAccounts = advance.receivingAccounts
-        // 收款帳戶不預選收款成員的第一個可收款帳戶:要使用者自己選(上游 ADR 0011，#113)。
-        toAccountID = nil
+        // 收款帳戶不預選收款成員的第一個可收款帳戶:要使用者自己選(上游 ADR 0011，#113);
+        // 唯一的例外是使用者自己上次報銷選的帳戶(#279,見 `AccountMemory`),而且它要是這位成員的可收款帳戶。
+        toAccountID = receivingMemory?.recall(amongIDs: advance.receivingAccounts.map(\.id))
         amountText = "\(advance.pendingReimbursement.amount)"
         selectedIDs = Set(advance.advanceItems.map(\.id))
         date = today()
@@ -158,6 +167,10 @@ public final class ReimbursementModel: Submitting {
             errorMessage = error.localizedDescription
             return
         }
+        // 只在打開的那一次帶入撥款帳戶:從帳戶清單頁返回時 `.task` 會再跑，不能把使用者剛清掉或改選的帳戶補回來。
+        guard !didRecall else { return }
+        didRecall = true
+        if fromAccountID == nil { fromAccountID = fundMemory?.recall(among: fundAccounts) }
     }
 
     /// 送出;成功時回傳後端的訊息(畫面關閉 sheet 並顯示),並遞增資料版本讓其他畫面重抓。
@@ -197,6 +210,8 @@ public final class ReimbursementModel: Submitting {
             ))
         }) else { return nil }
         dataVersion.bump()
+        fundMemory?.remember(fromAccountID)
+        receivingMemory?.remember(toAccountID)
         return message
     }
 

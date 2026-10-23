@@ -26,12 +26,13 @@ struct ForecastTests {
         )
     }
 
-    @Test("預測頁的期程文字跟著後端的 60 天(b1f6067)")
+    @Test("預測頁的期程文字跟著後端的 12 個月、365 天(上游 aecab6b)")
     func horizonTexts() {
-        #expect(ForecastHorizon.days == 60)
-        #expect(ForecastModel.chartTitle == "未來 60 天逐日餘額")
-        #expect(ForecastModel.eventsCountTitle == "未來 60 天的預定收支")
-        #expect(ForecastModel.noEventsText == "未來 60 天沒有預定收支")
+        #expect(ForecastHorizon.days == 365)
+        #expect(ForecastHorizon.label == "12 個月")
+        #expect(ForecastModel.chartTitle == "未來 12 個月逐日餘額")
+        #expect(ForecastModel.eventsCountTitle == "未來 12 個月的預定收支")
+        #expect(ForecastModel.noEventsText == "未來 12 個月沒有預定收支")
     }
 
     @Test("資料回來之前沒有預測(畫面不會先顯示「安全」或 $0)")
@@ -130,7 +131,7 @@ struct ForecastTests {
         let check = PurchaseCheck(amount: Money(1000), verdict: .safe, minBalance: Money(52440), affectedGoalNames: ["沖繩旅遊"])
 
         #expect(check.title == "放心購買")
-        #expect(check.message == "花 $1,000 之後，未來 60 天的最低餘額仍有 $52,440,也不影響儲蓄目標的每月預留。")
+        #expect(check.message == "花 $1,000 之後，未來 12 個月的最低餘額仍有 $52,440,也不影響儲蓄目標的每月預留。")
     }
 
     @Test("審慎評估：列出受影響的儲蓄目標，用「、」串接")
@@ -146,7 +147,7 @@ struct ForecastTests {
         let check = PurchaseCheck(amount: Money(60000), verdict: .danger, minBalance: Money(-6560), affectedGoalNames: [])
 
         #expect(check.title == "不建議購買")
-        #expect(check.message == "花 $60,000 之後，未來 60 天的餘額最低會跌到 −$6,560。")
+        #expect(check.message == "花 $60,000 之後，未來 12 個月的餘額最低會跌到 −$6,560。")
     }
 
     @Test("試算失敗時顯示後端的訊息")
@@ -311,13 +312,13 @@ struct ForecastTests {
         #expect(summary.note == nil, "起始餘額等於現金加活存帳戶時不加說明")
     }
 
-    @Test("起始餘額比現金加活存帳戶少時,說明已先扣掉繳款日不在未來 60 天內的信用卡待繳款")
+    @Test("起始餘額比現金加活存帳戶少時,說明已先扣掉繳款日不在未來 12 個月內的信用卡待繳款")
     func startingBalanceDeduction() throws {
         let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
 
         let summary = try #require(model.startingBalance(of: startingForecast(start: 86570, cash: 1750, bank: 101200)))
 
-        #expect(summary.note == "已先扣掉繳款日不在未來 60 天內的信用卡待繳款")
+        #expect(summary.note == "已先扣掉繳款日不在未來 12 個月內的信用卡待繳款")
     }
 
     @Test("舊回應沒有起始餘額,或缺少現金、活存帳戶其中一個:不顯示這一組")

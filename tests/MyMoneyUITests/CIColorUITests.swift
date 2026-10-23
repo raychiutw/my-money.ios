@@ -79,9 +79,7 @@ final class CIColorUITests: XCTestCase {
             XCUIDevice.shared.appearance = appearance
             let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold"], signedIn: true)
             app.tabBars.buttons["家庭"].tap()
-            let reimburse = app.openMemberDetail("in-memory-member-1")
-            XCTAssertTrue(reimburse.waitForExistence(timeout: 5), "\(name):自己的代墊詳細頁沒有報銷入口")
-            reimburse.tap()
+            XCTAssertTrue(app.chooseMemberMenuItem("沖銷", memberID: "in-memory-member-1"), "\(name):自己的代墊詳細頁沒有報銷入口")
 
             let item = app.switches["reimbursement.item.sample-advance"]
             XCTAssertTrue(item.waitForExistence(timeout: 5), "\(name):沒有代墊明細開關")

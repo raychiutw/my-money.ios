@@ -49,7 +49,7 @@ struct OverviewForecastTests {
         await overview.load()
 
         #expect(overview.forecastTrend?.points.count == ForecastHorizon.days)
-        #expect(overview.forecastSummary?.hasPrefix("未來 60 天預測餘額，最低餘額 53,440 元，") == true)
+        #expect(overview.forecastSummary?.hasPrefix("未來 12 個月預測餘額，最低餘額 53,440 元，") == true)
         #expect(overview.forecastSummary?.hasSuffix("不會透支") == true)
     }
 
@@ -145,10 +145,10 @@ struct ForecastTrendTests {
         let today = CalendarDay(year: 2026, month: 9, day: 28)
         let locale = Locale(identifier: "zh_Hant_TW")
         let overdraft = trend([30, -10, 5], minDate: CalendarDay(year: 2026, month: 9, day: 29))
-        #expect(overdraft.spokenSummary(today: today, locale: locale) == "未來 60 天預測餘額，最低餘額 負 10 元，9月29日，會透支")
+        #expect(overdraft.spokenSummary(today: today, locale: locale) == "未來 12 個月預測餘額，最低餘額 負 10 元，9月29日，會透支")
 
         let safe = trend([30, 20, 25], minDate: CalendarDay(year: 2026, month: 9, day: 29))
-        #expect(safe.spokenSummary(today: today, locale: locale) == "未來 60 天預測餘額，最低餘額 20 元，9月29日，不會透支")
+        #expect(safe.spokenSummary(today: today, locale: locale) == "未來 12 個月預測餘額，最低餘額 20 元，9月29日，不會透支")
     }
 
     @Test("沒有任何一天時沒有圖")

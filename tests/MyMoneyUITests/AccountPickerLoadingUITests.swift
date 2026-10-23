@@ -68,9 +68,7 @@ final class AccountPickerLoadingUITests: XCTestCase {
             flags: ["-uiTestingJoinedHousehold", "-uiTestingHoldAccountsAfter", "2"], signedIn: true
         )
         app.tabBars.buttons["家庭"].tap()
-        let reimburse = app.openMemberDetail("sample-mei")
-        XCTAssertTrue(reimburse.waitForExistence(timeout: 10), "小美的詳細頁沒有報銷入口")
-        reimburse.tap()
+        XCTAssertTrue(app.chooseMemberMenuItem("沖銷", memberID: "sample-mei"), "小美的詳細頁沒有報銷入口")
         XCTAssertTrue(app.buttons["reimbursement.submit"].waitForExistence(timeout: 5), "沒有打開報銷沖帳")
 
         assertDisabled("請選擇家庭共同基金帳戶", in: app)

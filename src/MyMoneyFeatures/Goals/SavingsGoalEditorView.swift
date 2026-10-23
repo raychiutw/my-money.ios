@@ -70,10 +70,8 @@ struct SavingsGoalEditorView: View {
     }
 
     private func amountRow(_ label: String, text: Binding<String>, field: Field, identifier: String) -> some View {
-        LabeledContent(label) {
-            AmountField(label, text: text, focus: $focusedField, equals: field, identifier: identifier)
-        }
-        .tapToFocus($focusedField, equals: field)
+        AmountField(label, text: text, focus: $focusedField, equals: field, identifier: identifier)
+            .tapToFocus($focusedField, equals: field)
     }
 }
 

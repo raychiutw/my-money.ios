@@ -176,7 +176,9 @@ public final class HouseholdModel {
 
     public func makeReimbursement(for advance: HouseholdAdvance) -> ReimbursementModel {
         ReimbursementModel(
-            advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, locale: locale, today: today
+            advance: advance, households: repository, accounts: accounts, dataVersion: dataVersion, locale: locale,
+            fundMemory: context.accountMemory(.reimbursementFund), receivingMemory: context.accountMemory(.reimbursementReceiving),
+            today: today
         )
     }
 
@@ -198,6 +200,19 @@ public final class HouseholdModel {
 
     private var familyNameForConfirmation: String {
         household.map { "「\($0.name)」" } ?? "這個家庭"
+    }
+
+    /// 成員列 ⋯ 選單的項目(#274):明細、沖銷、標記處理，最後是移除。權限與可用性沿用各自的判斷;
+    /// 沒有權限或用不到的項目直接不給(HIG Context menus:隱藏、不要變灰)。`advance` 是這位成員的代墊統計(沒有就沒有前三項)。
+    public func memberMenuItems(for member: HouseholdMember?, advance: HouseholdAdvance?) -> [MemberMenuItem] {
+        var items: [MemberMenuItem] = []
+        if let advance {
+            items.append(.details)
+            if canReimburse(advance) { items.append(.reimburse) }
+            if canMarkSettled(advance) { items.append(.markSettled) }
+        }
+        if let member, canRemove(member) { items.append(.remove) }
+        return items
     }
 
     /// 只有家庭管理員看得到「移除」,而且只出現在一般成員上。

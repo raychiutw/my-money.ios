@@ -64,6 +64,8 @@ public final class CardPaymentModel: Submitting {
 
     @ObservationIgnored private let repository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
+    /// 記住上次選的扣款帳戶(#273、#278);`nil` 是不記。
+    @ObservationIgnored private let accountMemory: AccountMemory?
 
     /// 從「繳款」選單的哪個項目打開(web 的 `handleOpenPay`;信用卡詳細頁和精簡列的長按選單，#73)。
     public enum Preset: Sendable {
@@ -84,8 +86,10 @@ public final class CardPaymentModel: Submitting {
         repository: any AccountRepository,
         dataVersion: DataVersion,
         isMaskedCard: Bool = false,
+        accountMemory: AccountMemory? = nil,
         today: () -> CalendarDay = { CalendarDay.today() }
     ) {
+        self.accountMemory = accountMemory
         self.card = card
         self.bankAccounts = bankAccounts
         self.repository = repository
@@ -94,7 +98,9 @@ public final class CardPaymentModel: Submitting {
         // 扣款帳戶:不預設「第一個餘額大於 0 的銀行存款帳戶」,要使用者自己選(上游 ADR 0011，#112)。
         // **唯一的例外**:這張卡綁定了預設扣款帳戶(使用者自己設定的,上游 `3d09060`),而且它在這次可選的清單裡,就帶入它——
         // 帶入使用者自己的設定不算擅自預選。他人的私卡(脫敏)不帶入(綁定是對方的私人設定);綁定的帳戶看不到、已刪除也維持空白。
-        bankAccountID = isMaskedCard ? nil : card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
+        let bound = isMaskedCard ? nil : card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
+        // 優先序:卡片綁定的預設扣款帳戶 ＞ 使用者上次繳款選的帳戶(#278,偏離 ADR 0011，見 `AccountMemory`)＞ 空白。
+        bankAccountID = bound ?? accountMemory?.recall(among: bankAccounts.map(Account.bank))
         // 他人的私卡不管從哪個入口打開，都只繳家庭代墊。
         let preset = isMaskedCard ? Preset.shared : preset
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
@@ -139,6 +145,7 @@ public final class CardPaymentModel: Submitting {
             ))
         }) != nil else { return .failed }
         dataVersion.bump()
+        accountMemory?.remember(bankAccountID)
         return .paid
     }
 }

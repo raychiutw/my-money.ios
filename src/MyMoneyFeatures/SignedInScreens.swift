@@ -45,7 +45,7 @@ public struct MainScreens {
     ) {
         let dataVersion = DataVersion()
         // 共同建構脈絡(#227):資料版本、defaults、地區、今天;model 收它一個參數。
-        let context = SessionContext(dataVersion: dataVersion, defaults: defaults)
+        let context = SessionContext(dataVersion: dataVersion, defaults: defaults, userID: currentUser)
         // 編輯權限(上游 ADR 0013、#133):角色在登入時問一次，帳戶頁、交易頁、信用卡詳細頁共用;家庭頁載入後同步。
         let permissions = PermissionsModel(userID: currentUser, households: householdRepository)
         Task { await permissions.loadIfNeeded() }
@@ -60,7 +60,10 @@ public struct MainScreens {
             repository: transactionRepository, accounts: accountRepository, currentUser: currentUser,
             permissions: permissions, context: context
         )
-        quickEntry = QuickEntryModel(transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion)
+        quickEntry = QuickEntryModel(
+            transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion,
+            accountMemory: AccountMemory(defaults: defaults, userID: currentUser, purpose: .quickEntry)
+        )
         recurring = RecurringModel(
             repository: recurringRepository, accounts: accountRepository, permissions: permissions, context: context
         )

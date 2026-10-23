@@ -103,11 +103,11 @@ extension OverviewEntry {
     }
 }
 
-// MARK: 接下來 60 天(#189)
+// MARK: 接下來 12 個月(#189)
 
 extension OverviewModel {
-    /// 首頁「接下來 60 天」區塊的標題(期程是後端的 60 天)。
-    public static var upcomingTitle: String { "接下來 \(ForecastHorizon.days) 天" }
+    /// 首頁「接下來 12 個月」區塊的標題(期程是後端的 12 個月)。
+    public static var upcomingTitle: String { "接下來 \(ForecastHorizon.label)" }
 
     /// 首頁「接下來」最多列幾筆。
     public static let upcomingLimit = 5

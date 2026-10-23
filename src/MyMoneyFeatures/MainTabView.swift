@@ -57,6 +57,8 @@ struct MainTabView: View {
         .sheet(isPresented: $isAccountPresented) {
             MeSheet(screens: screens)
                 .tint(.primary)
+                // iPad 的表單 sheet 預設比內容矮，登出、刪除帳號與版本要捲才看得到;頁面尺寸把整個設定一次放得下。
+                .presentationSizing(.page)
         }
     }
 }

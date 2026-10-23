@@ -69,7 +69,10 @@ public final class AccountDetailModel: Alerting {
 
     /// 轉帳的 sheet:這個帳戶是轉入，轉出留給使用者選(上游 ADR 0011)。
     public func makeTransfer() -> TransferModel {
-        TransferModel(repository: repository, dataVersion: dataVersion, today: today, preferredTo: account.id)
+        TransferModel(
+            repository: repository, dataVersion: dataVersion, today: today, preferredTo: account.id,
+            fromMemory: context.accountMemory(.transferFrom), toMemory: context.accountMemory(.transferTo)
+        )
     }
 
     public func makeEditor() -> AccountEditorModel {

@@ -67,43 +67,56 @@ public final class QuickEntryModel: Submitting {
     @ObservationIgnored private let accountRepository: any AccountRepository
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
+    /// 記住上次選的帳戶(#273);`nil` 是不記(帳戶永遠從空白開始)。
+    @ObservationIgnored private let accountMemory: AccountMemory?
     /// 近 3 個月的備註歷史，給智慧推薦的第一層用;還沒載入或載入失敗時是空的。
     @ObservationIgnored private var noteHistory = NoteHistory.empty
+    /// 這一次打開是否已經帶入過記憶(`prepare` 會因為從帳戶清單頁返回而再跑，不能把使用者清掉的選擇又補回來)。
+    @ObservationIgnored private var hasRecalled = false
 
     public init(
         transactions: any TransactionRepository,
         accounts: any AccountRepository,
         dataVersion: DataVersion,
+        accountMemory: AccountMemory? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.transactions = transactions
         accountRepository = accounts
         self.dataVersion = dataVersion
+        self.accountMemory = accountMemory
         self.today = today
         date = today()
     }
 
-    /// 開始新的一筆(sheet 打開的那一次):**帳戶一律是空的**,不預選任何一個(上游 ADR 0011「顯式帳戶選取」，#109),
-    /// 避免沒注意預填的帳戶就記錯，連續記帳也一樣，每次打開都要自己選;也從沒鎖定分類、沒有推薦提示開始。
+    /// 開始新的一筆(sheet 打開的那一次):帳戶是空的,不擅自預選(上游 ADR 0011「顯式帳戶選取」，#109);
+    /// 唯一的例外是使用者自己上次送出時選的帳戶(#273,刻意偏離,見 `AccountMemory`)，仍可改選;也從沒鎖定分類、沒有推薦提示開始。
     ///
     /// 跟 `prepare` 分開:表單的 `.task` 在從帳戶清單頁返回時會再跑一次 `prepare`,不能因此清掉剛選的帳戶與分類的鎖定。
     public func startNewEntry() {
         isCategoryChosen = false
         recommendation = nil
-        accountID = nil
+        accountID = accountMemory?.recall(among: accounts)
+        hasRecalled = !accounts.isEmpty
     }
 
     /// 載入資產帳戶(表單出現時呼叫，可以重複呼叫);已選的帳戶不在清單裡了才清掉。不預選任何帳戶。
     public func prepare() async {
         errorMessage = nil
+        var loaded = true
         do {
             accounts = try await accountRepository.accounts()
         } catch {
             errorMessage = error.localizedDescription
+            loaded = false
         }
         if let accountID, !accounts.contains(where: { $0.id == accountID }) {
             self.accountID = nil
         }
+        // 開 sheet 時帳戶清單可能還沒載好:載好之後補帶入上次的帳戶(使用者還沒選時才補)。
+        if accountID == nil, !hasRecalled { accountID = accountMemory?.recall(among: accounts) }
+        // 載入失敗時還不算帶入過:重試成功再帶入。
+        if loaded { hasRecalled = true }
     }
 
     /// 使用者手動選分類:鎖定，之後備註怎麼改都不再覆蓋，提示也清掉。
@@ -162,11 +175,13 @@ public final class QuickEntryModel: Submitting {
             ))
         }) != nil else { return false }
         dataVersion.bump()
+        accountMemory?.remember(accountID)
         amountText = ""
         note = ""
         date = today()
-        // 帳戶不沿用上一筆(ADR 0011):下一筆要重新選;延期勾選也不沿用。
+        // 帳戶不直接沿用在表單上:下一次打開由 `startNewEntry` 依記憶帶入;延期勾選不沿用。
         self.accountID = nil
+        hasRecalled = false
         defersToNextStatement = false
         return true
     }

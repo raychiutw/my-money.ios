@@ -189,9 +189,7 @@ struct TransactionsScreen: View {
             Button {
                 openEditor(transaction)
             } label: {
-                TransactionRow(
-                    content: model.content(of: transaction), isOpenable: true
-                )
+                TransactionRow(content: model.content(of: transaction))
             }
             .tint(.primary)
             .trailingMoreMenu(label: "\(model.content(of: transaction).title)的更多動作", identifier: "transactions.more.\(transaction.id.rawValue)") {
@@ -211,6 +209,8 @@ struct TransactionsScreen: View {
                 )
             }
             .tint(.primary)
+            // 沒有 ⋯ 的列也留 ⋯ 的位置:金額欄跟有 ⋯ 的列對齊(#280)。
+            .reservingMoreMenuSpace()
         }
     }
 }

@@ -308,4 +308,4 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-update-clear-payment-account.json` | `PUT` 送 `"payment_account_id": null` | 200 | 綁定清除(所以 iOS 要送明確的 null) |
 | `accounts-create-bank-ignores-payment-account.json` | `POST /accounts`,**活存帳戶**也帶 `payment_account_id` | 201 | 後端忽略(存成 null),只有信用卡會寫入 |
 | `accounts-list-payment-account-dangling.json` | 綁定的活存帳戶被刪除之後的 `GET /accounts` | 200 | 卡上還留著 `payment_account_id`、`payment_account_name` 是 null(懸空) |
-
+| `forecast-365-days.json` | `GET /forecast`(2026-10-23,上游 `aecab6b`) | 200 | 預測延長到 12 個月:365 筆逐日餘額(#276);其他預測 fixture 是 60 天或更舊的期程,形狀相同,不重錄 |

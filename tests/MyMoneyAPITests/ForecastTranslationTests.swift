@@ -12,6 +12,17 @@ struct ForecastTranslationTests {
         LiveForecastRepository(client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session))
     }
 
+    /// 預測延長到 12 個月、365 天(上游 `aecab6b`、#276):期程由後端決定，逐日餘額有幾筆就解出幾筆。
+    @Test("365 天的逐日餘額照樣解得出來;期程常數跟後端一致(2026-10-23 從 prod 錄的)")
+    func decodes365Days() async throws {
+        try stub.reply(status: 200, fixture: "forecast-365-days.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        #expect(forecast.dailyBalances.count == 365)
+        #expect(forecast.dailyBalances.count == ForecastHorizon.days)
+    }
+
     @Test("逐日餘額(舊回應是 30 天)、最低餘額與日期、透支風險、預定收支")
     func forecast() async throws {
         try stub.reply(status: 200, fixture: "forecast.json")

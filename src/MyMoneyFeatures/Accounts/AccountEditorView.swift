@@ -101,17 +101,12 @@ struct AccountEditorView: View {
         }
     }
 
-    /// `prompt` 是留空時代表的值(存成 0 的欄位才顯示「0」)。
+    /// 留空代表 0(存成 0 的欄位);提示文字是欄位名稱(輸入框方案 B)。
     private func amountRow(
         _ label: String, text: Binding<String>, field: Field, identifier: String, prompt: String? = "0"
     ) -> some View {
-        LabeledContent(label) {
-            AmountField(
-                label, text: text, prompt: prompt.map { Text(verbatim: $0) },
-                focus: $focusedField, equals: field, identifier: identifier
-            )
-        }
-        .tapToFocus($focusedField, equals: field)
+        AmountField(label, text: text, focus: $focusedField, equals: field, identifier: identifier)
+            .tapToFocus($focusedField, equals: field)
     }
 
     private func dayPicker(_ label: String, selection: Binding<Int?>) -> some View {

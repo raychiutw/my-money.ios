@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// 頭像的配色:字與底色都是**明確的 RGB**,不用語意色(尤其不用「背景色」):語意色在 Liquid Glass 的 toolbar 裡,
 /// 真機與模擬器解析的結果不一樣(真機深色模式曾經字比圓還淺，對比只有 1.3:1,#106)。
@@ -117,9 +120,30 @@ struct AccountToolbarItem: ToolbarContent {
     @Environment(AppSession.self) private var session
     @Environment(\.openAccount) private var openAccount
 
+    /// 手機:右上角(其他動作的右邊)。iPad:左邊——頂端的 tab 列占掉中間，直向的 iPad mini 右邊放不下，
+    /// 系統把右邊的項目收進「…」，帳號按鈕就找不到(手機與平板功能要一致);左邊是空的，永遠看得到。
+    private var placement: ToolbarItemPlacement {
+        #if os(iOS)
+        isPad ? .topBarLeading : .primaryAction
+        #else
+        .primaryAction
+        #endif
+    }
+
+    /// 裝置種類(不是尺寸類別):iPhone Pro Max 橫向也是 regular 寬度，但它右邊放得下;iPad 分屏縮成 compact 時左邊照樣看得到。
+    private var isPad: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
+    }
+
     var body: some ToolbarContent {
-        ToolbarSpacer(.fixed, placement: .primaryAction)
-        ToolbarItem(placement: .primaryAction) {
+        if !isPad {
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+        }
+        ToolbarItem(placement: placement) {
             Button {
                 openAccount()
             } label: {

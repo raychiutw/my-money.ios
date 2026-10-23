@@ -16,6 +16,8 @@ struct DayPickerRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.locale) private var locale
     @State private var isPresenting = false
+    /// compact 日期選擇器的彈出日曆沒有關閉的 API(選完日期它還停在畫面上，要再點外面);選定日期後換掉選擇器的身分，彈出的日曆就收起來(#272)。
+    @State private var pickerGeneration = 0
 
     var body: some View {
         if dynamicTypeSize.isAccessibilitySize {
@@ -40,6 +42,12 @@ struct DayPickerRow: View {
         }
         .datePickerStyle(style)
         .calendarDayTimeZone()
+        .id(pickerGeneration)
+        // 選定日期就收起:一般字級重建選擇器收起彈出的日曆，無障礙字級關掉 sheet。
+        .onChange(of: day) { _, _ in
+            pickerGeneration += 1
+            isPresenting = false
+        }
     }
 
     private var accessibleRow: some View {
