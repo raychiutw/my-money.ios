@@ -58,6 +58,8 @@ public final class AppLockModel {
     @ObservationIgnored private let authenticator: any DeviceAuthenticator
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let now: () -> Date
+    /// 設定存在 UserDefaults(不是可觀察的),寫入時遞增這個數字,讀設定的畫面才會跟著更新(#299)。
+    private var settingRevision = 0
     @ObservationIgnored private var backgroundedAt: Date?
     /// 這次登入是剛輸入密碼登入的(不是讀回 session):才有資格被詢問。
     @ObservationIgnored private var isFreshLogin = false
@@ -72,7 +74,8 @@ public final class AppLockModel {
 
     /// 這位使用者有沒有開鎖。
     public func isEnabled(for userID: UserID) -> Bool {
-        defaults.bool(forKey: Self.key(userID))
+        _ = settingRevision
+        return defaults.bool(forKey: Self.key(userID))
     }
 
     /// 目前登入的人有沒有開鎖。
@@ -81,6 +84,7 @@ public final class AppLockModel {
     /// 不經驗證直接寫入設定:給 UI 測試的啟動旗標與設定頁驗證成功之後用。
     public func setEnabledWithoutAuthentication(_ enabled: Bool, for userID: UserID) {
         defaults.set(enabled, forKey: Self.key(userID))
+        settingRevision += 1
     }
 
     /// 設定頁的開關:**開啟與關閉都要先驗證成功一次**才變更。裝置不能驗證時不能開(並說明);
@@ -161,7 +165,10 @@ public final class AppLockModel {
     /// `clearingSetting`:登出與刪除帳號清掉這位使用者的鎖設定;401 過期不清,下次登入還是開著。
     /// `forgettingUser`:刪除帳號才清掉「已經問過要不要開啟」的記號(#300);登出再登入不會再問。
     public func sessionEnded(clearingSetting: Bool = false, forgettingUser: Bool = false) {
-        if clearingSetting, let userID { defaults.removeObject(forKey: Self.key(userID)) }
+        if clearingSetting, let userID {
+            defaults.removeObject(forKey: Self.key(userID))
+            settingRevision += 1
+        }
         if forgettingUser, let userID { defaults.removeObject(forKey: Self.askedKey(userID)) }
         userID = nil
         isFreshLogin = false
