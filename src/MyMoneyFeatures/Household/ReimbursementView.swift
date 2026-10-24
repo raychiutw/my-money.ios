@@ -39,7 +39,7 @@ struct ReimbursementView: View {
             // 共用的明細卡(#289，DESIGN.md「明細卡與輸入框」第三版):日期與出帳狀態是膠囊。
             // 公帳退款是負項(綠色),抵扣待報銷總額(上游 ADR 0027)。
             EntryCard(
-                title: item.displayTitle, chips: [model.itemDateText(item), item.billingText].compactMap { $0 },
+                title: item.displayTitle, chips: [model.itemDateText(item), item.billingText].compactMap { $0 }.map { CardChip($0) },
                 amount: item.kind == .refund ? .inflow(item.amount) : .outflow(item.amount), reservesMenuSpace: false
             )
         }

@@ -2,10 +2,14 @@ import SwiftUI
 
 /// 鎖畫面(#298):不透明、蓋住整個 app,只有 App 名稱、鎖圖示與「解鎖」按鈕。出現時自動跳出系統的驗證;
 /// 取消或失敗按「解鎖」可以再試。VoiceOver 念「已鎖定,需要 Face ID 解鎖」。
-struct AppLockView: View {
+public struct AppLockView: View {
     let model: AppLockModel
 
-    var body: some View {
+    public init(model: AppLockModel) {
+        self.model = model
+    }
+
+    public var body: some View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "lock.fill")
@@ -51,8 +55,10 @@ struct AppLockView: View {
 }
 
 /// 隱私遮罩(#301):場景不在作用中時蓋住內容,app 切換器只看得到 App 名稱。
-struct AppLockCover: View {
-    var body: some View {
+public struct AppLockCover: View {
+    public init() {}
+
+    public var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "lock.fill")
                 .font(.title)

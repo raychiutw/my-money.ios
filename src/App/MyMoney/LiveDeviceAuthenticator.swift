@@ -24,7 +24,8 @@ struct LiveDeviceAuthenticator: DeviceAuthenticator {
         } catch let error as LAError {
             switch error.code {
             case .userCancel, .appCancel, .systemCancel: return .cancelled
-            case .passcodeNotSet, .biometryNotAvailable, .biometryNotEnrolled: return .unavailable
+            // 只有沒設裝置密碼才是「不能驗證」;生物辨識不可用(例如拒絕了 Face ID 權限)不是放行的理由,交給鎖維持鎖定。
+            case .passcodeNotSet: return .unavailable
             default: return .failed
             }
         } catch {

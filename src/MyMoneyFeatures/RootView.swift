@@ -33,7 +33,8 @@ public struct RootView: View {
                 ProgressView()
             }
         }
-        // 鎖著時背後的內容對 VoiceOver 與點擊都不可及(只是蓋住畫面不夠:VoiceOver 仍讀得到、點得到後面的帳務)。
+        // 鎖畫面與隱私遮罩在獨立的 window(App 層的 `AppLockWindowPresenter`,蓋得住 sheet 與 alert);
+        // 這裡再讓背後的內容對 VoiceOver 與點擊都不可及(只是蓋住畫面不夠:VoiceOver 仍讀得到、點得到後面的帳務)。
         .accessibilityHidden(appLock.isLocked)
         .allowsHitTesting(!appLock.isLocked)
         .onChange(of: session.current?.user.id, initial: true) {
@@ -57,25 +58,12 @@ public struct RootView: View {
         // 第一次登入成功後詢問要不要開啟 Face ID(只問一次,#300)。
         .alert(
             "要開啟 \(appLock.unlockMethodName) 解鎖嗎？",
-            isPresented: Binding(get: { appLock.shouldOfferEnabling }, set: { _ in })
+            isPresented: Binding(get: { appLock.shouldOfferEnabling }, set: { if !$0 { appLock.hideOffer() } })
         ) {
             Button("開啟") { Task { await appLock.answerOffer(enable: true) } }
             Button("暫時不要", role: .cancel) { Task { await appLock.answerOffer(enable: false) } }
         } message: {
             Text("開啟後，每次打開或離開超過一分鐘再回來都要驗證本人，保護你的帳務。之後可以到「我的」設定裡更改。")
-        }
-        // 隱私遮罩(#301):鎖有開時,app 切換器裡看到的是遮罩,不是帳務畫面。
-        .overlay {
-            if appLock.coversContent(sceneIsActive: scenePhase == .active) {
-                AppLockCover()
-            }
-        }
-        // 鎖畫面蓋在所有內容上(不透明),包含 sheet 之上的畫面由系統層級的 overlay 蓋住整個根畫面。
-        .overlay {
-            if appLock.isLocked {
-                AppLockView(model: appLock)
-                    .transition(.identity)
-            }
         }
     }
 }

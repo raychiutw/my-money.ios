@@ -84,14 +84,25 @@ struct AppLockTests {
         #expect(model.failureMessage != nil)
     }
 
-    @Test("驗證當下裝置已不能驗證(例如移除了裝置密碼):不把人鎖在外面,直接解鎖")
-    func unavailableUnlocks() async {
-        let (model, _, _) = make(authenticator: FakeDeviceAuthenticator(result: .unavailable))
+    @Test("驗證當下裝置真的已不能驗證(確認過沒有生物辨識也沒有密碼):不把人鎖在外面,直接解鎖")
+    func unavailableUnlocksWhenDeviceHasNoAuthentication() async {
+        let (model, _, _) = make(authenticator: FakeDeviceAuthenticator(capability: .unavailable, result: .unavailable))
         model.sessionStarted(userID: me, restored: true)
 
         await model.unlock()
 
         #expect(model.state == .unlocked)
+    }
+
+    @Test("驗證回「不可用」但裝置其實還能驗證(例如對本 app 拒絕了 Face ID):不能放行,維持鎖定(code review)")
+    func unavailableResultDoesNotBypassWhenDeviceCanStillAuthenticate() async {
+        let (model, _, _) = make(authenticator: FakeDeviceAuthenticator(capability: .faceID, result: .unavailable))
+        model.sessionStarted(userID: me, restored: true)
+
+        await model.unlock()
+
+        #expect(model.state == .locked)
+        #expect(model.failureMessage != nil)
     }
 
     @Test("離開 app 不到寬限時間(60 秒)回來:不鎖;滿 60 秒才鎖")
@@ -230,14 +241,25 @@ struct AppLockSettingTests {
         #expect(await fake.authenticateCount == 0, "不能驗證就不該跳驗證")
     }
 
-    @Test("關閉時裝置已不能驗證(例如移除了密碼):允許關閉,不把人鎖在設定裡")
+    @Test("關閉時裝置真的已不能驗證(例如移除了密碼):允許關閉,不把人鎖在設定裡")
     func disableAllowedWhenDeviceCannotAuthenticate() async {
         let (model, fake) = make()
         _ = await model.requestEnabled(true)
+        await fake.setCapability(.unavailable)
         await fake.setResult(.unavailable)
 
         #expect(await model.requestEnabled(false))
         #expect(!model.isEnabled)
+    }
+
+    @Test("關閉時驗證回「不可用」但裝置其實還能驗證:不能關(不能靠錯誤碼繞過,code review)")
+    func disableNotAllowedWhenResultIsUnavailableButDeviceCanAuthenticate() async {
+        let (model, fake) = make()
+        _ = await model.requestEnabled(true)
+        await fake.setResult(.unavailable)
+
+        #expect(await model.requestEnabled(false) == false)
+        #expect(model.isEnabled)
     }
 
     @Test("登出清掉設定;401 過期不清(下次登入還是開著)")

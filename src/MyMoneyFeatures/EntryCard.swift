@@ -14,7 +14,7 @@ struct EntryCard: View {
     var avatarInitial: String?
     var isSystemRecord = false
     let title: String
-    var chips: [String] = []
+    var chips: [CardChip] = []
     let amount: AmountPresentation
     var note: String?
     /// 第一排右邊留給 ⋯ 的位置(沒有 ⋯ 的列不留)。
@@ -78,7 +78,7 @@ struct EntryCard: View {
     private var chipRow: some View {
         FlowLayout(spacing: 6, lineSpacing: 6) {
             ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
-                EntryChip(text: chip)
+                EntryChip(chip: chip)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,18 +97,18 @@ struct EntryCard: View {
 
 /// 一顆膠囊:字不折行,單顆比一行寬就在裡面加「…」。「待報銷」用淡粉色,其他是中性灰。
 struct EntryChip: View {
-    let text: String
+    let chip: CardChip
 
     var body: some View {
-        Text(text)
+        Text(chip.text)
             .font(.caption)
-            .foregroundStyle(text == Terms.pendingReimbursement ? Color.ciText : Color.secondary)
+            .foregroundStyle(chip.isHighlighted ? Color.ciText : Color.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background(
-                Capsule().fill(text == Terms.pendingReimbursement ? Color.ciFill.opacity(0.16) : Color.secondary.opacity(0.14))
+                Capsule().fill(chip.isHighlighted ? Color.ciFill.opacity(0.16) : Color.secondary.opacity(0.14))
             )
             .fixedSize(horizontal: false, vertical: true)
     }

@@ -231,7 +231,7 @@ struct MemberAdvanceScreen: View {
     ) -> some View {
         // 共用的明細卡(#289，DESIGN.md「明細卡與輸入框」第三版):標題、膠囊(日期、結清或出帳狀態、扣款帳戶)、金額;不放頭像。
         EntryCard(
-            title: title, chips: [model.dateText(date), extra, account].compactMap { $0 },
+            title: title, chips: [model.dateText(date), extra, account].compactMap { $0 }.filter { !$0.isEmpty }.map { CardChip($0) },
             amount: isIncome ? .inflow(amount) : .outflow(amount), reservesMenuSpace: hasMenu
         )
         .accessibilityElement(children: .ignore)

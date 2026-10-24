@@ -41,4 +41,18 @@ struct SessionTests {
         session.signOut()
         #expect(await seenByTranslationLayer.currentToken() == nil)
     }
+
+    @Test("結束原因旗標:過期後換人登入,旗標回到預設(不會把上一次的原因帶到下一個 session,code review)")
+    func endReasonFlagsResetOnStart() async {
+        let session = AppSession(storage: InMemorySessionStorage(session: nil))
+        let sample = Session(token: "t", user: InMemoryAuthRepository.Member.sample.user)
+        session.start(sample)
+
+        await session.sessionDidExpire()
+        #expect(session.endedByExpiry)
+
+        session.start(sample)
+        #expect(!session.endedByExpiry)
+        #expect(!session.endedByDeletion)
+    }
 }

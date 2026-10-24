@@ -52,8 +52,9 @@ public final class AppLockModel {
         capability = await authenticator.capability()
     }
 
-    /// 離開 app 滿這麼多秒再回來才鎖。
+    /// 離開 app 滿這麼多秒再回來才鎖(預設值;UI 測試可以縮短)。
     public static let gracePeriod: TimeInterval = 60
+    @ObservationIgnored private let graceSeconds: TimeInterval
 
     @ObservationIgnored private let authenticator: any DeviceAuthenticator
     @ObservationIgnored private let defaults: UserDefaults
@@ -64,7 +65,11 @@ public final class AppLockModel {
     /// 這次登入是剛輸入密碼登入的(不是讀回 session):才有資格被詢問。
     @ObservationIgnored private var isFreshLogin = false
 
-    public init(authenticator: any DeviceAuthenticator, defaults: UserDefaults, now: @escaping () -> Date = { Date() }) {
+    public init(
+        authenticator: any DeviceAuthenticator, defaults: UserDefaults, now: @escaping () -> Date = { Date() },
+        gracePeriod: TimeInterval = AppLockModel.gracePeriod
+    ) {
+        graceSeconds = gracePeriod
         self.authenticator = authenticator
         self.defaults = defaults
         self.now = now
@@ -104,9 +109,14 @@ public final class AppLockModel {
         case .success:
             break
         case .unavailable:
-            // 關閉時裝置已不能驗證:允許;開啟時不能驗證:不開。
+            // 開啟時不能驗證:不開;關閉時只有裝置真的沒有任何驗證方式才允許(不能靠錯誤碼繞過)。
             guard !enabled else {
                 settingMessage = "這支手機目前不能驗證，無法開啟。"
+                return false
+            }
+            await refreshCapability()
+            guard capability?.isAvailable == false else {
+                settingMessage = "驗證失敗，設定沒有變更。"
                 return false
             }
         case .cancelled:
@@ -134,6 +144,11 @@ public final class AppLockModel {
         await refreshCapability()
         guard canEnable else { return }
         shouldOfferEnabling = true
+    }
+
+    /// 詢問框一關掉就同步隱藏(不等回答的非同步工作做完,避免重複彈出)。
+    public func hideOffer() {
+        shouldOfferEnabling = false
     }
 
     /// 回答詢問:**不管選什麼都算問過**(只問一次);選「開啟」要先驗證成功才生效。
@@ -188,7 +203,7 @@ public final class AppLockModel {
     public func becameActive() {
         defer { backgroundedAt = nil }
         guard let backgroundedAt, isEnabled, state == .unlocked else { return }
-        if now().timeIntervalSince(backgroundedAt) >= Self.gracePeriod {
+        if now().timeIntervalSince(backgroundedAt) >= graceSeconds {
             state = .locked
         }
     }
@@ -201,8 +216,18 @@ public final class AppLockModel {
         state = .authenticating
         failureMessage = nil
         switch await authenticator.authenticate(reason: "解鎖「我的記帳本」") {
-        case .success, .unavailable:
+        case .success:
             state = .unlocked
+        case .unavailable:
+            // 只有裝置真的沒有生物辨識也沒有密碼才放行(不把人鎖在外面);不能只靠錯誤碼——
+            // 例如對本 app 拒絕了 Face ID 也會回「不可用」,那不能當成通過(code review)。
+            await refreshCapability()
+            if capability?.isAvailable == false {
+                state = .unlocked
+            } else {
+                state = .locked
+                failureMessage = "驗證失敗，請再試一次"
+            }
         case .cancelled:
             state = .locked
         case .failed:

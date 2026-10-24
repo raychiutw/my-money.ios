@@ -88,4 +88,12 @@ struct CardContentTests {
             #expect(spoken.contains(part), "整句少了「\(part)」:\(spoken)")
         }
     }
+
+    @Test("只有「待報銷」狀態那顆要強調;帳戶剛好叫「待報銷」也不會被當成狀態(樣式由內容決定,不比對字串,code review)")
+    func onlyThePendingStatusIsHighlighted() {
+        let pending = content(shared: true, payment: .advancePending)
+        #expect(pending.chipItems.map(\.isHighlighted) == [false, true, false])
+        let tricky = content(shared: false, account: "待報銷")
+        #expect(tricky.chipItems.allSatisfy { !$0.isHighlighted })
+    }
 }

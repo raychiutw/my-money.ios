@@ -32,6 +32,8 @@ struct MyMoneyApp: App {
     /// UI 測試要量收支明細列裡每個部分的位置(#246)。一般使用者永遠是 `false`。
     private let exposesRowParts: Bool
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    /// 鎖畫面與隱私遮罩的獨立 window(蓋得住 sheet 與 alert)。
+    private let lockWindow = AppLockWindowPresenter()
 
     init() {
         #if DEBUG
@@ -59,9 +61,11 @@ struct MyMoneyApp: App {
             // 假驗證器預設「這支裝置不能驗證」:登入後不會跳出「要不要開啟 Face ID」的詢問,不干擾其他 UI 測試;
             // `-uiTestingBiometry`(或 `-uiTestingAppLock`)才當作有 Face ID。
             let hasBiometry = arguments.contains("-uiTestingBiometry") || arguments.contains("-uiTestingAppLock")
+            // `-uiTestingLockGrace N`:離開 app 滿 N 秒再回來就鎖(預設 60 秒,UI 測試縮短才測得到)。
+            let grace = UserDefaults.standard.string(forKey: "uiTestingLockGrace").flatMap(TimeInterval.init) ?? AppLockModel.gracePeriod
             appLock = AppLockModel(
                 authenticator: FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult),
-                defaults: defaults
+                defaults: defaults, gracePeriod: grace
             )
             if arguments.contains("-uiTestingAppLock") {
                 appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
@@ -193,6 +197,7 @@ struct MyMoneyApp: App {
                 .environment(session)
                 .environment(appearance)
                 .environment(appLock)
+                .task { lockWindow.start(appLock: appLock) }
                 .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)

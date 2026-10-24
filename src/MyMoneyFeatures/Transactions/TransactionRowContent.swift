@@ -13,6 +13,8 @@ public struct TransactionRowContent: Equatable, Sendable {
     /// 明細卡第二排的膠囊,順序固定:歸屬、銷帳狀態(待報銷、已撥款、已額外處理)、信用卡出帳狀態(已出帳、延至下期)、帳戶;
     /// 沒有的不放。
     public let chips: [String]
+    /// 同 `chips`,多帶是否要強調(「待報銷」用淡粉色):樣式由內容決定,畫面不比對字串。
+    public let chipItems: [CardChip]
     /// 建檔人頭像裡的字:名字第一個字(大寫);系統紀錄是「系」;沒有建檔人是 `nil`(不放頭像)。
     public let avatarInitial: String?
     /// 系統自動產生的紀錄(頭像用灰色)。
@@ -35,7 +37,8 @@ public struct TransactionRowContent: Equatable, Sendable {
         isSystemRecord = transaction.isSystemRecord
         avatarInitial = transaction.isSystemRecord
             ? "系" : transaction.recorderName.flatMap { $0.first }.map { String($0).uppercased() }
-        chips = Self.chips(of: transaction)
+        chipItems = Self.chipItems(of: transaction)
+        chips = chipItems.map(\.text)
         // 次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;沒有記帳人名稱時只寫歸屬。
         subtitle = TransactionSubtitle(
             recorder: transaction.isSystemRecord ? "系統紀錄" : transaction.recorderName,
@@ -64,20 +67,31 @@ public struct TransactionRowContent: Equatable, Sendable {
     }
 }
 
+/// 明細卡上的一顆膠囊(#287):文字,以及要不要強調(淡粉色)。
+public struct CardChip: Equatable, Sendable {
+    public let text: String
+    public let isHighlighted: Bool
+
+    public init(_ text: String, isHighlighted: Bool = false) {
+        self.text = text
+        self.isHighlighted = isHighlighted
+    }
+}
+
 extension TransactionRowContent {
     /// 膠囊清單(#287):歸屬、銷帳狀態、出帳狀態、帳戶。
-    fileprivate static func chips(of transaction: Transaction) -> [String] {
-        var chips = [OwnershipName.title(isShared: transaction.isShared)]
+    fileprivate static func chipItems(of transaction: Transaction) -> [CardChip] {
+        var chips = [CardChip(OwnershipName.title(isShared: transaction.isShared))]
         if transaction.isShared {
             switch transaction.householdPayment {
-            case .advancePending: chips.append(Terms.pendingReimbursement)
-            case .advanceReimbursed: chips.append(Terms.reimbursedPayout)
-            case .advanceHandledSeparately: chips.append(Terms.handledSeparately)
+            case .advancePending: chips.append(CardChip(Terms.pendingReimbursement, isHighlighted: true))
+            case .advanceReimbursed: chips.append(CardChip(Terms.reimbursedPayout))
+            case .advanceHandledSeparately: chips.append(CardChip(Terms.handledSeparately))
             case nil, .jointFund: break
             }
         }
-        if let billing = transaction.billing.chipLabel { chips.append(billing) }
-        if let account = transaction.accountName, !account.isEmpty { chips.append(account) }
+        if let billing = transaction.billing.label { chips.append(CardChip(billing)) }
+        if let account = transaction.accountName, !account.isEmpty { chips.append(CardChip(account)) }
         return chips
     }
 }
@@ -110,8 +124,6 @@ public struct TransactionSubtitle: Equatable, Sendable {
 }
 
 extension BillingStatus {
-    fileprivate var chipLabel: String? { label }
-
     /// 列上的標籤;未出帳不標。
     fileprivate var label: String? {
         switch self {

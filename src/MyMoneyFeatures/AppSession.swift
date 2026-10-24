@@ -28,6 +28,8 @@ public final class AppSession {
     /// 登入或註冊成功後開始 session,並存到裝置上。
     public func start(_ session: Session) {
         storage.save(session)
+        endedByExpiry = false
+        endedByDeletion = false
         didRestoreFromStorage = false
         current = session
     }

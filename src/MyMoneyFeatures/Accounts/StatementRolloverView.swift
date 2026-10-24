@@ -143,7 +143,7 @@ struct StatementRolloverView: View {
         return Toggle(isOn: Binding(get: { isDeferred }, set: { _ in model.toggleDeferral(item.id) })) {
             // 共用的明細卡(#289，DESIGN.md「明細卡與輸入框」第三版):標題用分類，備註在最下面一排,日期與狀態是膠囊。
             EntryCard(
-                title: item.category.name, chips: [model.itemDayText(item), model.itemBadgeText(item)].compactMap { $0 },
+                title: item.category.name, chips: [model.itemDayText(item), model.itemBadgeText(item)].compactMap { $0 }.map { CardChip($0) },
                 amount: item.kind == .expense ? .outflow(item.amount) : .inflow(item.amount),
                 note: item.note.isEmpty ? nil : item.note, reservesMenuSpace: false
             )

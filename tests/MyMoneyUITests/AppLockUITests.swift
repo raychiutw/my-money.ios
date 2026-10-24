@@ -124,3 +124,24 @@ extension AppLockUITests {
         waitForExpectations(timeout: 5)
     }
 }
+
+/// 鎖要蓋得住 sheet(code review):開著「我的」離開超過寬限時間再回來,sheet 裡的內容不能還點得到。
+extension AppLockUITests {
+    @MainActor
+    func testLockCoversAnOpenSheetAfterTheGracePeriod() throws {
+        let app = XCUIApplication.launchUITesting(
+            flags: ["-uiTestingAppLock", "-uiTestingAuthResult", "fail", "-uiTestingLockGrace", "2"], signedIn: true
+        )
+        app.openMe()
+        let signOut = app.buttons["me.signOut"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 5), "「我的」沒有打開")
+
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 4)
+        app.activate()
+
+        let unlock = app.buttons["appLock.unlock"]
+        XCTAssertTrue(unlock.waitForExistence(timeout: 10), "離開超過寬限時間回來沒有鎖畫面")
+        XCTAssertFalse(signOut.isHittable, "鎖著時「我的」sheet 裡的內容還點得到")
+    }
+}
