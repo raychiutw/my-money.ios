@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 import MyMoneyFeatures
 import MyMoneyTestSupport
@@ -120,5 +121,46 @@ struct TransactionEditorTests {
         #expect(await editor.save())
 
         #expect(await repository.updatedDrafts[headphones.id]?.defersToNextStatement == false)
+    }
+}
+
+/// 編輯頁的建立時間(#290):唯讀,用後端的建立時間(台灣時間);沒有資料的舊交易不顯示;記一筆沒有。
+@MainActor
+@Suite("編輯頁的建立時間")
+struct CreatedAtTests {
+    private func transaction(recordedAt: Date?) -> Transaction {
+        Transaction(
+            id: TransactionID("created"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+            type: .expense, category: .dining, amount: Money(120), note: "午餐", date: CalendarDay(year: 2026, month: 9, day: 28),
+            isShared: false, recorderName: "小明", recordedAt: recordedAt
+        )
+    }
+
+    private func editor(_ transaction: Transaction) -> TransactionEditorModel {
+        TransactionEditorModel(
+            editing: transaction, transactions: InMemoryTransactionRepository(transactions: []),
+            accounts: InMemoryAccountRepository.sample(), dataVersion: DataVersion(), locale: Locale(identifier: "zh_Hant_TW")
+        )
+    }
+
+    @Test("建立時間用台灣時間的完整日期時間")
+    func createdAtText() throws {
+        // UTC 2026-09-27 19:57:02 = 台灣 9/28 03:57。
+        let date = try #require(RecordedTime.date(fromBackend: "2026-09-27 19:57:02"))
+        #expect(editor(transaction(recordedAt: date)).createdAtText == "2026年9月28日 03:57")
+    }
+
+    @Test("沒有建立時間的舊交易:不顯示這一列")
+    func noCreatedAt() {
+        #expect(editor(transaction(recordedAt: nil)).createdAtText == nil)
+    }
+
+    @Test("記一筆沒有建立時間(還沒建立)")
+    func quickEntryHasNone() {
+        let model = QuickEntryModel(
+            transactions: InMemoryTransactionRepository(transactions: []), accounts: InMemoryAccountRepository.sample(),
+            dataVersion: DataVersion()
+        )
+        #expect(model.createdAtText == nil)
     }
 }

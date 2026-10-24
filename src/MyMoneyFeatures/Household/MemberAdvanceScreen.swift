@@ -203,12 +203,12 @@ struct MemberAdvanceScreen: View {
                 detailRow(
                     date: settled.item.date, time: settled.item.recordedAt, title: settled.item.displayTitle,
                     account: settled.item.accountName, extra: model.settlementText(of: settled, in: advance),
-                    amount: settled.item.amount, isIncome: settled.item.kind == .refund
+                    amount: settled.item.amount, isIncome: settled.item.kind == .refund, hasMenu: model.canUnlink(settled, in: advance)
                 )
                 .accessibilityIdentifier("advance.settled.\(settled.id.rawValue)")
-                .trailingMoreMenu(
+                .overlayMoreMenu(
                     label: "\(settled.item.displayTitle)的更多動作", identifier: "advance.more.\(settled.id.rawValue)",
-                    isShown: model.canUnlink(settled, in: advance)
+                    alignment: .topTrailing, isShown: model.canUnlink(settled, in: advance), glyphAtTrailingEdge: true
                 ) {
                     Button("解除報銷", systemImage: "link.badge.minus", role: .destructive) { settledToUnlink = settled }
                 }
@@ -226,16 +226,13 @@ struct MemberAdvanceScreen: View {
 
     /// 代墊消費是支出、撥款報銷是收入;VoiceOver 念出收支方向(DESIGN.md「無障礙」)。
     private func detailRow(
-        date: CalendarDay, time: Date?, title: String, account: String, extra: String?, amount: Money, isIncome: Bool
+        date: CalendarDay, time: Date?, title: String, account: String, extra: String?, amount: Money, isIncome: Bool,
+        hasMenu: Bool = false
     ) -> some View {
-        // 共用的明細卡(#282，DESIGN.md「明細卡與輸入框」方案 B):結清或出帳狀態是膠囊，日期時間與扣款帳戶各占一行。
+        // 共用的明細卡(#289，DESIGN.md「明細卡與輸入框」第三版):標題、膠囊(日期、結清或出帳狀態、扣款帳戶)、金額;不放頭像。
         EntryCard(
-            title: title, badge: extra,
-            lines: [
-                EntryCard.Line(kind: .time, text: model.dateTimeText(date, time)),
-                EntryCard.Line(kind: .account, text: account),
-            ],
-            amount: isIncome ? .inflow(amount) : .outflow(amount)
+            title: title, chips: [model.dateText(date), extra, account].compactMap { $0 },
+            amount: isIncome ? .inflow(amount) : .outflow(amount), reservesMenuSpace: hasMenu
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isIncome ? "收入" : "支出") \(amount.spokenText),\(title),\(model.dateTimeText(date, nil))\(RecordedTime.spokenText(of: time).map { " \($0)" } ?? ""),\(account)\(extra.map { ",\($0)" } ?? "")")

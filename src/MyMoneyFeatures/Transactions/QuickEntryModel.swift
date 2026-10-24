@@ -36,6 +36,9 @@ public final class QuickEntryModel: Submitting {
     /// 目前分類是依備註自動預選的結果;使用者手動選分類、切換類型或沒有命中時是 `nil`。
     public private(set) var recommendation: CategoryRecommendation?
 
+    /// 記一筆還沒有建立時間(建立之後才有)。
+    public var createdAtText: String? { nil }
+
     /// 分類旁邊的提示文字:歷史命中是「依歷史習慣推薦【分類】」,詞庫命中是「智慧推薦為【分類】」。
     public var categoryHintText: String? { recommendation?.hintText }
 

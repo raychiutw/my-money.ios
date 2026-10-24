@@ -40,6 +40,11 @@ public final class TransactionEditorModel: Submitting {
 
     public let title = "編輯\(Terms.transactions)"
 
+    /// 建立時間(後端的 `created_at`,台灣時間):唯讀,不能改;沒有資料不顯示(#290)。後端沒有修改時間欄位,所以沒有「修改時間」。
+    public var createdAtText: String? {
+        recordedAt.map { "\($0.formatted(Date.FormatStyle.taipei(locale).year().month().day())) \(RecordedTime.clockText(of: $0))" }
+    }
+
     public var categories: [TransactionCategory] {
         let fixed = type == .expense ? TransactionCategory.expenseCategories : TransactionCategory.incomeCategories
         // 機器人記帳可能寫入清單以外的分類;編輯時保留原本的分類可選。
@@ -60,6 +65,8 @@ public final class TransactionEditorModel: Submitting {
     /// 編輯不依備註推薦，不需要歷史。
     public func loadNoteHistory() async {}
 
+    @ObservationIgnored private let recordedAt: Date?
+    @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let id: TransactionID
     @ObservationIgnored private let transactions: any TransactionRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
@@ -69,8 +76,11 @@ public final class TransactionEditorModel: Submitting {
         editing transaction: Transaction,
         transactions: any TransactionRepository,
         accounts: any AccountRepository,
-        dataVersion: DataVersion
+        dataVersion: DataVersion,
+        locale: Locale = .autoupdatingCurrent
     ) {
+        recordedAt = transaction.recordedAt
+        self.locale = locale
         id = transaction.id
         isShared = transaction.isShared
         type = transaction.type

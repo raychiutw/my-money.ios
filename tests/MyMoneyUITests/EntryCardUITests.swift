@@ -68,3 +68,20 @@ final class EntryCardUITests: XCTestCase {
         XCTAssertGreaterThan(checked, 6, "沒有量到足夠的標題與備註")
     }
 }
+
+/// 編輯頁的建立時間(#290):灰字、唯讀,沒有輸入框。
+extension EntryCardUITests {
+    @MainActor
+    func testEditorShowsReadOnlyCreatedAt() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.tabBars.buttons["記帳"].tap()
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "午餐")).firstMatch
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app), "記帳頁沒有「午餐」")
+        row.tap()
+        let createdAt = app.descendants(matching: .any)["form.createdAt"]
+        for _ in 0..<4 where !createdAt.exists { app.swipeUp() }
+        XCTAssertTrue(createdAt.waitForExistence(timeout: 5), "編輯頁沒有建立時間")
+        XCTAssertFalse((createdAt.value as? String ?? "").isEmpty, "建立時間是空的")
+        XCTAssertEqual(app.textFields.matching(identifier: "form.createdAt").count, 0, "建立時間不該是輸入框")
+    }
+}
