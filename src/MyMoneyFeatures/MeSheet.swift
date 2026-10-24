@@ -89,7 +89,7 @@ struct MeSheet: View {
             if let message = appLock.settingMessage {
                 Text(message)
             } else if !appLock.canEnable {
-                Text("這支手機還沒有設定 Face ID 或裝置密碼,請先到「設定」開啟。")
+                Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
             }
         }
         .task { await appLock.refreshCapability() }

@@ -96,7 +96,7 @@ public final class AppLockModel {
         if enabled {
             await refreshCapability()
             guard canEnable else {
-                settingMessage = "這支手機還沒有設定 Face ID 或裝置密碼,請先到「設定」開啟。"
+                settingMessage = "這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。"
                 return false
             }
         }
@@ -106,13 +106,13 @@ public final class AppLockModel {
         case .unavailable:
             // 關閉時裝置已不能驗證:允許;開啟時不能驗證:不開。
             guard !enabled else {
-                settingMessage = "這支手機目前不能驗證,無法開啟。"
+                settingMessage = "這支手機目前不能驗證，無法開啟。"
                 return false
             }
         case .cancelled:
             return false
         case .failed:
-            settingMessage = "驗證失敗,設定沒有變更。"
+            settingMessage = "驗證失敗，設定沒有變更。"
             return false
         }
         setEnabledWithoutAuthentication(enabled, for: userID)
@@ -207,7 +207,7 @@ public final class AppLockModel {
             state = .locked
         case .failed:
             state = .locked
-            failureMessage = "驗證失敗,請再試一次"
+            failureMessage = "驗證失敗，請再試一次"
         }
     }
 }

@@ -9,7 +9,7 @@ struct AppLockView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "lock.fill")
-                .font(.system(size: 44))
+                .font(.largeTitle)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text("我的記帳本")
@@ -41,7 +41,7 @@ struct AppLockView: View {
         // 不透明的背景:背後的帳務完全看不到,不是半透明。
         .background(.background)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("已鎖定,需要 \(model.unlockMethodName) 解鎖")
+        .accessibilityLabel("已鎖定，需要 \(model.unlockMethodName) 解鎖")
         .accessibilityIdentifier("appLock.screen")
         .task {
             await model.refreshCapability()
@@ -55,7 +55,7 @@ struct AppLockCover: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 36))
+                .font(.title)
                 .foregroundStyle(.secondary)
             Text("我的記帳本")
                 .font(.title3.weight(.semibold))
