@@ -1,4 +1,5 @@
 import MyMoneyAPI
+import MyMoneyDomain
 import MyMoneyFeatures
 import SwiftUI
 import UIKit
@@ -15,6 +16,8 @@ struct MyMoneyApp: App {
     private let register: RegisterModel
     private let accountDeletion: AccountDeletionModel
     private let signedIn: SignedInScreens
+    /// App 鎖(#298):生物辨識鎖,純本機。
+    private let appLock: AppLockModel
     /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
@@ -46,6 +49,17 @@ struct MyMoneyApp: App {
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
             session = AppSession(storage: storage)
+            // `-uiTestingAppLock`:範例帳號開著 App 鎖(重啟讀回 session 就會鎖);`-uiTestingAuthResult cancel|fail|unavailable`:假驗證器的結果(預設成功)。
+            let fakeResult: DeviceAuthResult = switch UserDefaults.standard.string(forKey: "uiTestingAuthResult") {
+            case "cancel": .cancelled
+            case "fail": .failed
+            case "unavailable": .unavailable
+            default: .success
+            }
+            appLock = AppLockModel(authenticator: FakeDeviceAuthenticator(result: fakeResult), defaults: defaults)
+            if arguments.contains("-uiTestingAppLock") {
+                appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
+            }
             appearance = AppearanceSetting(defaults: defaults)
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
@@ -135,6 +149,7 @@ struct MyMoneyApp: App {
         }
         #endif
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
+        appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
@@ -168,7 +183,7 @@ struct MyMoneyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(login: login, register: register, signedIn: signedIn)
+            RootView(login: login, register: register, signedIn: signedIn, appLock: appLock)
                 .environment(session)
                 .environment(appearance)
                 .environment(accountDeletion)

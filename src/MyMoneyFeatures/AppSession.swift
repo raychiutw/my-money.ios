@@ -8,6 +8,9 @@ public final class AppSession {
     /// 登入中的 session;未登入時是 `nil`。
     public private(set) var current: Session?
 
+    /// 這個 session 是冷啟動時從裝置讀回來的(不是剛輸入密碼登入的);App 鎖只在這種情況下一開始就鎖(#298)。
+    public private(set) var didRestoreFromStorage = false
+
     @ObservationIgnored private let storage: any SessionStorage
 
     /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。
@@ -15,17 +18,20 @@ public final class AppSession {
     public init(storage: any SessionStorage) {
         self.storage = storage
         current = storage.load()
+        didRestoreFromStorage = current != nil
     }
 
     /// 登入或註冊成功後開始 session,並存到裝置上。
     public func start(_ session: Session) {
         storage.save(session)
+        didRestoreFromStorage = false
         current = session
     }
 
     /// 清掉 session、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
     public func signOut() {
         storage.clear()
+        didRestoreFromStorage = false
         current = nil
     }
 }
