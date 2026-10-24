@@ -5,6 +5,9 @@ public enum RepositoryError: Error, Equatable, Sendable {
     /// 後端拒絕請求，並附上給人看的訊息(`{success: false, error}`),原樣顯示。
     case rejected(String)
 
+    /// `/auth/*` 回應 401:Email 或密碼錯誤(附後端訊息)。跟一般的 `rejected` 分開,Face ID 登入才能只在密碼真的錯了時清掉已存帳密。
+    case invalidCredentials(String)
+
     /// 回應不是看得懂的 envelope,例如後端出錯時回的純文字。
     case unreadableResponse
 
@@ -16,7 +19,7 @@ extension RepositoryError: LocalizedError {
     /// 顯示給使用者的訊息，跟 web 一致。
     public var errorDescription: String? {
         switch self {
-        case .rejected(let message):
+        case .rejected(let message), .invalidCredentials(let message):
             message
         case .unreadableResponse:
             "伺服器無回應"

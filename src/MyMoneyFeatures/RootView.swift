@@ -45,6 +45,7 @@ public struct RootView: View {
                 Task { await appLock.evaluateOffer() }
             } else {
                 appLock.sessionEnded(clearingSetting: !session.endedByExpiry, forgettingUser: session.endedByDeletion)
+                if session.endedByDeletion { login.forgetSavedLogin() }
             }
         }
         // 離開 app 滿寬限時間再回來才鎖(#298)。

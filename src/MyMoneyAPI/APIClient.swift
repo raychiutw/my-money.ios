@@ -97,6 +97,10 @@ public struct APIClient: Sendable {
             await session.sessionDidExpire()
             throw RepositoryError.sessionExpired
         }
+        if statusCode == 401, path.hasPrefix("/auth/") {
+            let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)
+            throw RepositoryError.invalidCredentials(status?.error ?? "Email 或密碼錯誤")
+        }
         if !expectsEnvelope {
             guard (200..<300).contains(statusCode) else {
                 let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)

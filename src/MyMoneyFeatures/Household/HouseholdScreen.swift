@@ -269,7 +269,7 @@ extension HouseholdScreen {
                     .overlayMoreMenu(
                         label: "\(member.name)的更多動作", identifier: "household.more.\(member.userID.rawValue)",
                         alignment: dynamicTypeSize.isAccessibilitySize ? .topTrailing : .trailing,
-                        trailingInset: advance == nil ? 0 : 28, isShown: !menuItems.isEmpty
+                        isShown: !menuItems.isEmpty, glyphAtTrailingEdge: true
                     ) {
                         memberMenu(menuItems, memberID: member.userID, member: member, advance: advance)
                     }
@@ -286,7 +286,7 @@ extension HouseholdScreen {
                     .overlayMoreMenu(
                         label: "\(advance.memberName)的更多動作", identifier: "household.more.\(advance.memberID.rawValue)",
                         alignment: dynamicTypeSize.isAccessibilitySize ? .topTrailing : .trailing,
-                        trailingInset: 28, isShown: !menuItems.isEmpty
+                        isShown: !menuItems.isEmpty, glyphAtTrailingEdge: true
                     ) {
                         memberMenu(menuItems, memberID: advance.memberID, member: nil, advance: advance)
                     }
@@ -331,14 +331,14 @@ extension HouseholdScreen {
             Button {
                 path.append(MemberRoute(memberID: id))
             } label: {
-                MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace)
+                MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace, colorKey: id.rawValue)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("household.member.\(id.rawValue)")
             .accessibilityHint("查看代墊明細")
         } else {
-            MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace)
+            MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace, colorKey: id.rawValue)
         }
     }
 }
@@ -355,6 +355,8 @@ private struct MemberRow: View {
     /// 右邊留給 ⋯ 的寬度(#274):一般字級留在待報銷金額後面;無障礙字級 ⋯ 在右上角，只讓第一排(頭像與名字)讓位，
     /// 最下面一行的金額照舊靠右(#149)。
     var reservedTrailing: CGFloat = 0
+    /// 頭像顏色的依據(使用者 ID,#307)。
+    var colorKey = ""
 
     /// 圓形頭像跟著字級放大，大字級時開頭字才放得進去。
     @ScaledMetric(relativeTo: .headline) private var avatarSize: CGFloat = 40
@@ -389,10 +391,12 @@ private struct MemberRow: View {
     }
 
     private var avatar: some View {
-        Text(name.first.map { String($0).uppercased() } ?? "?")
+        let swatch = MemberAvatarColor.swatch(for: colorKey)
+        return Text(name.first.map { String($0).uppercased() } ?? "?")
             .font(.headline)
             .frame(width: avatarSize, height: avatarSize)
-            .background(Circle().fill(.tint.opacity(0.2)))
+            .foregroundStyle(swatch.letter.color)
+            .background(Circle().fill(swatch.fill.color))
     }
 
     private var names: some View {

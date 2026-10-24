@@ -17,6 +17,8 @@ public struct TransactionRowContent: Equatable, Sendable {
     public let chipItems: [CardChip]
     /// 建檔人頭像裡的字:名字第一個字(大寫);系統紀錄是「系」;沒有建檔人是 `nil`(不放頭像)。
     public let avatarInitial: String?
+    /// 頭像顏色的依據(#307):記帳人 ID,沒有就用名字;系統紀錄與沒有記帳人是 `nil`(灰色)。
+    public let avatarColorKey: String?
     /// 系統自動產生的紀錄(頭像用灰色)。
     public let isSystemRecord: Bool
     public let subtitle: TransactionSubtitle
@@ -37,6 +39,7 @@ public struct TransactionRowContent: Equatable, Sendable {
         isSystemRecord = transaction.isSystemRecord
         avatarInitial = transaction.isSystemRecord
             ? "系" : transaction.recorderName.flatMap { $0.first }.map { String($0).uppercased() }
+        avatarColorKey = transaction.isSystemRecord ? nil : (transaction.recorderID?.rawValue ?? transaction.recorderName)
         chipItems = Self.chipItems(of: transaction)
         chips = chipItems.map(\.text)
         // 次要文字「記帳人・歸屬」(#145):自己記的也顯示;系統自動產生的紀錄記帳人寫「系統紀錄」;沒有記帳人名稱時只寫歸屬。

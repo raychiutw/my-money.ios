@@ -15,7 +15,7 @@ struct TransactionRow: View {
 
     var body: some View {
         EntryCard(
-            avatarInitial: content.avatarInitial, isSystemRecord: content.isSystemRecord, title: content.categoryTitle,
+            avatarInitial: content.avatarInitial, avatarColorKey: content.avatarColorKey, isSystemRecord: content.isSystemRecord, title: content.categoryTitle,
             chips: content.chipItems, amount: content.amount, note: content.note, reservesMenuSpace: hasMenu
         )
         .accessibilityElement(children: exposesParts ? .contain : .ignore)

@@ -84,6 +84,18 @@ struct LoginView: View {
                     .clearListRow()
             }
 
+            if model.canUseBiometricLogin {
+                Section {
+                    GlassCapsuleButton(title: model.biometricLoginTitle, systemImage: "faceid") {
+                        Task { await model.signInWithBiometrics() }
+                    }
+                    .disabled(model.isSubmitting)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("login.biometric")
+                    .clearListRow()
+                }
+            }
+
             Section {
                 HStack(spacing: 4) {
                     Text("還沒有帳號？")
@@ -98,6 +110,16 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
             }
+        }
+        .task { await model.refreshBiometricLogin() }
+        .alert(
+            "要用 \(model.biometricMethodName) 登入嗎？",
+            isPresented: Binding(get: { model.isOfferingBiometricLogin }, set: { _ in })
+        ) {
+            Button("開啟") { model.answerBiometricOffer(save: true) }
+            Button("暫時不要", role: .cancel) { model.answerBiometricOffer(save: false) }
+        } message: {
+            Text("下次登入可以直接用 \(model.biometricMethodName),不用再輸入密碼。帳號密碼只存在這支裝置上。")
         }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現在畫面下方，VoiceOver 使用者不一定會移過去，直接念出來。

@@ -210,7 +210,7 @@ struct AvatarView: View {
 }
 
 extension AvatarPalette.RGB {
-    fileprivate var color: Color {
+    var color: Color {
         Color(.sRGB, red: Double(red) / 255, green: Double(green) / 255, blue: Double(blue) / 255)
     }
 }
