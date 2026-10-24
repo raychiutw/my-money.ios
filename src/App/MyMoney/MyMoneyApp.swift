@@ -74,7 +74,20 @@ struct MyMoneyApp: App {
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
             let auth = InMemoryAuthRepository(members: [.sample])
-            login = LoginModel(auth: auth, session: session)
+            // `-uiTestingSavedLogin`:已存好帳密(登入頁有 Face ID 按鈕);`-uiTestingBiometricLogin`:登入時會詢問要不要用 Face ID 登入。
+            // 登入用的假驗證器跟 App 鎖分開:其他 UI 測試登入時不會多出這個詢問。
+            let hasLoginBiometry = arguments.contains("-uiTestingSavedLogin") || arguments.contains("-uiTestingBiometricLogin")
+            let savedLogin = arguments.contains("-uiTestingSavedLogin")
+                ? SavedCredentials(email: InMemoryAuthRepository.Member.sample.email, password: InMemoryAuthRepository.Member.sample.password)
+                : nil
+            login = LoginModel(
+                auth: auth, session: session,
+                biometricLogin: BiometricLogin(
+                    vault: InMemoryCredentialVault(saved: savedLogin),
+                    authenticator: FakeDeviceAuthenticator(capability: hasLoginBiometry ? .faceID : .unavailable, result: fakeResult),
+                    defaults: defaults
+                )
+            )
             register = RegisterModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
@@ -164,7 +177,13 @@ struct MyMoneyApp: App {
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
         let auth = LiveAuthRepository(client: client)
-        login = LoginModel(auth: auth, session: session)
+        login = LoginModel(
+            auth: auth, session: session,
+            biometricLogin: BiometricLogin(
+                vault: KeychainCredentialVault(service: "com.raychiu.mymoney.credentials"),
+                authenticator: LiveDeviceAuthenticator(), defaults: .standard
+            )
+        )
         register = RegisterModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)
         let accounts = LiveAccountRepository(client: client)
