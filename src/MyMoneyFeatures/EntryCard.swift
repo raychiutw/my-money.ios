@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 明細卡第三版(DESIGN.md「明細卡與輸入框」,#288):記帳頁、成員代墊明細、已結清明細、撥款沖帳紀錄、出帳預覽、報銷勾選明細共用。
 ///
-/// 三排,排與排之間有分隔線:
+/// 三排,卡內排與排之間沒有分隔線(#305;每筆明細之間的列線由列表畫):
 /// 1. 頭像(建檔人名字第一個字;沒有就不放)｜標題(單行,超過用「…」;最大字級不限)｜右邊讓出 ⋯ 的位置。
 /// 2. 膠囊(歸屬、銷帳或出帳狀態、帳戶…;一行放得下並排,放不下**整顆**換行,膠囊裡的字不折行,單顆比一行寬才在裡面加「…」)｜金額。
 /// 3. 備註(單欄、整行、一行加「…」);沒有備註整排不出現。
@@ -12,6 +12,8 @@ import SwiftUI
 /// VoiceOver 由呼叫端用一句完整的話念(含收支方向)。
 struct EntryCard: View {
     var avatarInitial: String?
+    /// 頭像顏色的依據(記帳人 ID 或名字);`nil` 是中性灰。
+    var avatarColorKey: String?
     var isSystemRecord = false
     let title: String
     var chips: [CardChip] = []
@@ -28,10 +30,8 @@ struct EntryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
-            Divider()
             if isLarge {
                 if !chips.isEmpty { chipRow }
-                if !chips.isEmpty { Divider() }
                 amountText.frame(maxWidth: .infinity, alignment: .trailing)
             } else {
                 HStack(alignment: .center, spacing: 12) {
@@ -41,7 +41,6 @@ struct EntryCard: View {
                 }
             }
             if let note, !note.isEmpty {
-                Divider()
                 Text(note)
                     .font(.subheadline)
                     .lineLimit(1)
@@ -53,13 +52,19 @@ struct EntryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var avatarSwatch: MemberAvatarColor.Swatch? {
+        guard !isSystemRecord, let avatarColorKey else { return nil }
+        return MemberAvatarColor.swatch(for: avatarColorKey)
+    }
+
     private var header: some View {
         HStack(alignment: isLarge ? .firstTextBaseline : .center, spacing: 10) {
             if let avatarInitial {
                 Text(avatarInitial)
                     .font(.subheadline.weight(.bold))
                     .frame(width: avatarSize, height: avatarSize)
-                    .background(Circle().fill(isSystemRecord ? Color.secondary.opacity(0.2) : Color.ciFill.opacity(0.22)))
+                    .foregroundStyle(avatarSwatch?.letter.color ?? Color.primary)
+                    .background(Circle().fill(avatarSwatch?.fill.color ?? Color.secondary.opacity(0.2)))
                     .accessibilityHidden(true)
                     .accessibilityIdentifier("row.avatar")
             }

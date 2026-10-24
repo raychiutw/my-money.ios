@@ -99,6 +99,21 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(restored.waitForExistence(timeout: 3), "解除報銷後明細沒有回到待報銷")
     }
 
+    /// 成員列的 ⋯ 靠到列的右緣(#306),而且不壓到待報銷金額。
+    @MainActor
+    func testMemberMoreMenuSitsAtTheRowTrailingEdge() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+        let row = app.buttons["household.member.in-memory-member-1"]
+        let more = app.buttons["household.more.in-memory-member-1"]
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: app), "找不到成員的 ⋯")
+        XCTAssertEqual(more.frame.maxX, row.frame.maxX, accuracy: 2, "⋯ 沒有靠到成員列右緣:⋯ \(more.frame)、列 \(row.frame)")
+        let amounts = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", "待報銷", "-")).allElementsBoundByIndex
+        for amount in amounts where amount.exists && amount.frame.intersects(more.frame) && amount.frame.minY > row.frame.minY && amount.frame.maxY < row.frame.maxY {
+            XCTFail("⋯ 壓到金額:\(amount.frame)")
+        }
+    }
+
     /// 標記已額外處理(上游 `fe90634`):家庭頁成員列 ⋯ 的「標記處理」進詳細頁的勾選模式，勾一筆、標記，它移到已結清並標示「已額外處理」(#274)。
     @MainActor
     func testMarkAdvanceAsHandledSeparately() throws {
