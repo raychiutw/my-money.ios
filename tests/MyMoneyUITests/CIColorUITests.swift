@@ -31,16 +31,17 @@ final class CIColorUITests: XCTestCase {
         }
     }
 
-    /// 記一筆的帳戶列：還沒選時的佔位文字「請選擇扣款／存入帳戶」是 CI 文字色(可點的值)。
+    /// 記一筆的帳戶列：還沒選時的佔位文字「請選擇扣款／存入帳戶」是次要文字色,**不是**紅色系的 CI 色
+    /// (HIG:紅色是錯誤與破壞性,還沒做錯事不該用,#293)。
     @MainActor
-    func testAccountPlaceholderIsCIText() throws {
+    func testAccountPlaceholderIsSecondaryNotCIText() throws {
         for (appearance, name) in Self.appearances {
             let app = launch(appearance)
             app.buttons["overview.add"].tap()
             let row = app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
             XCTAssertTrue(row.waitForExistence(timeout: 5), "\(name):記一筆沒有帳戶列")
             let stats = try PixelAnalysis.statistics(of: row.screenshot().image)
-            XCTAssertGreaterThan(stats.ci, 30, "\(name):帳戶列的佔位文字不是 CI 文字色(CI 色像素 \(stats.ci))")
+            XCTAssertLessThan(stats.ci, 30, "\(name):帳戶列的佔位文字還是紅色系的 CI 色(CI 色像素 \(stats.ci))")
             app.terminate()
         }
     }

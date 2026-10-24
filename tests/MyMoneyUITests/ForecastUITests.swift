@@ -54,7 +54,10 @@ final class ForecastUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部")
         filter.tap()
         app.buttons["家庭公帳"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 18,000 元").waitForExistence(timeout: 5), "切到家庭公帳之後最低餘額沒有換成公帳的")
+        // 試算結果在頁面下面:切換視角時列表還停在下面,摘要(惰性)不在畫面附近;捲回最上面再看最低餘額。
+        let minBalance = element(in: app, labelContaining: "最低餘額 18,000 元")
+        for _ in 0..<8 where !minBalance.exists { app.swipeDown(velocity: .fast) }
+        XCTAssertTrue(minBalance.waitForExistence(timeout: 5), "切到家庭公帳之後最低餘額沒有換成公帳的")
         XCTAssertEqual(filter.value as? String, "家庭公帳")
         XCTAssertFalse(element(in: app, labelContaining: "放心購買").exists, "換了視角,上一個視角的試算結論還在")
     }

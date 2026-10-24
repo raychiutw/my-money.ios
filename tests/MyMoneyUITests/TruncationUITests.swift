@@ -147,12 +147,8 @@ final class TruncationUITests: XCTestCase {
                         .filter { $0.exists && $0.frame.minY <= amount.frame.maxY && amount.frame.minY - $0.frame.minY < 900 }
                     guard let title = titles.max(by: { $0.frame.minY < $1.frame.minY }) else { continue }
                     rows += 1
-                    if stacked {
-                        XCTAssertGreaterThanOrEqual(amount.frame.minY, title.frame.maxY - 1, "\(name):金額應該在標題下面:標題 \(title.frame)、金額 \(amount.frame)")
-                    } else {
-                        XCTAssertLessThan(amount.frame.minY, title.frame.maxY, "\(name):金額應該跟標題同一行:標題 \(title.frame)、金額 \(amount.frame)")
-                        XCTAssertGreaterThanOrEqual(amount.frame.minX, title.frame.maxX - 1, "\(name):金額應該在標題右邊:標題 \(title.frame)、金額 \(amount.frame)")
-                    }
+                    // 第三版明細卡(#288):標題在第一排,金額一律在標題下面(第二排右邊;最大字級是獨立一排)。
+                    XCTAssertGreaterThanOrEqual(amount.frame.minY, title.frame.maxY - 1, "\(name):金額應該在標題下面:標題 \(title.frame)、金額 \(amount.frame)")
                     XCTAssertGreaterThan(amount.frame.maxX, window.maxX - 90, "\(name):金額沒有靠右:\(amount.frame)")
                 }
                 let accounts = app.descendants(matching: .any).matching(identifier: "row.account").allElementsBoundByIndex
