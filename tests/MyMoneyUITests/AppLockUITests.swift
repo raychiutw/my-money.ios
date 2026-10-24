@@ -58,3 +58,69 @@ final class AppLockUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(unlock.frame.height, 44)
     }
 }
+
+/// 設定開關(#299):在「我的」裡開啟與關閉,都要先驗證成功。
+extension AppLockUITests {
+    @MainActor
+    func testSettingsToggleEnablesLockAfterAuthentication() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry"], signedIn: true)
+        declineOfferIfShown(in: app)
+        app.openMe()
+        let toggle = app.switches["me.appLock"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "「我的」沒有 App 鎖開關")
+        XCTAssertEqual(toggle.value as? String, "0", "預設應該是關的")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let on = NSPredicate(format: "value == %@", "1")
+        expectation(for: on, evaluatedWith: toggle)
+        waitForExpectations(timeout: 5)
+    }
+
+    @MainActor
+    func testSettingsToggleStaysOffWhenAuthenticationIsCancelled() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry", "-uiTestingAuthResult", "cancel"], signedIn: true)
+        declineOfferIfShown(in: app)
+        app.openMe()
+        let toggle = app.switches["me.appLock"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertEqual(toggle.value as? String, "0", "取消驗證後開關不該打開")
+    }
+}
+
+/// 登入後主動詢問(#300):第一次登入問一次,選「暫時不要」之後登出再登入不再問。
+extension AppLockUITests {
+    func declineOfferIfShown(in app: XCUIApplication) {
+        let decline = app.alerts.buttons["暫時不要"]
+        if decline.waitForExistence(timeout: 5) { decline.tap() }
+    }
+
+    @MainActor
+    func testOfferIsShownOnFirstLoginAndOnlyOnce() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry"], signedIn: true)
+        let decline = app.alerts.buttons["暫時不要"]
+        XCTAssertTrue(decline.waitForExistence(timeout: 8), "第一次登入沒有詢問要不要開啟 Face ID")
+        decline.tap()
+        XCTAssertFalse(app.alerts.firstMatch.waitForExistence(timeout: 2))
+
+        // 登出再登入:不再問。
+        app.openMe()
+        app.buttons["me.signOut"].tap()
+        app.signInWithSampleAccount()
+        XCTAssertFalse(app.alerts.buttons["暫時不要"].waitForExistence(timeout: 3), "登出再登入不該再問")
+    }
+
+    @MainActor
+    func testAcceptingOfferEnablesLock() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry"], signedIn: true)
+        let accept = app.alerts.buttons["開啟"]
+        XCTAssertTrue(accept.waitForExistence(timeout: 8))
+        accept.tap()
+        app.openMe()
+        let toggle = app.switches["me.appLock"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        let on = NSPredicate(format: "value == %@", "1")
+        expectation(for: on, evaluatedWith: toggle)
+        waitForExpectations(timeout: 5)
+    }
+}

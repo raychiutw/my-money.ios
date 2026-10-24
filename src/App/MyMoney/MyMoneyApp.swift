@@ -56,7 +56,13 @@ struct MyMoneyApp: App {
             case "unavailable": .unavailable
             default: .success
             }
-            appLock = AppLockModel(authenticator: FakeDeviceAuthenticator(result: fakeResult), defaults: defaults)
+            // 假驗證器預設「這支裝置不能驗證」:登入後不會跳出「要不要開啟 Face ID」的詢問,不干擾其他 UI 測試;
+            // `-uiTestingBiometry`(或 `-uiTestingAppLock`)才當作有 Face ID。
+            let hasBiometry = arguments.contains("-uiTestingBiometry") || arguments.contains("-uiTestingAppLock")
+            appLock = AppLockModel(
+                authenticator: FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult),
+                defaults: defaults
+            )
             if arguments.contains("-uiTestingAppLock") {
                 appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
             }
@@ -186,6 +192,7 @@ struct MyMoneyApp: App {
             RootView(login: login, register: register, signedIn: signedIn, appLock: appLock)
                 .environment(session)
                 .environment(appearance)
+                .environment(appLock)
                 .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)

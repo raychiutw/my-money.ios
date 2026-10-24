@@ -41,8 +41,9 @@ public struct RootView: View {
             // App 鎖(#298):讀回上次的 session(冷啟動)才一開始就鎖;剛登入成功不鎖;沒有 session 就沒有東西好鎖。
             if let user = session.current?.user.id {
                 appLock.sessionStarted(userID: user, restored: session.didRestoreFromStorage)
+                Task { await appLock.evaluateOffer() }
             } else {
-                appLock.sessionEnded()
+                appLock.sessionEnded(clearingSetting: !session.endedByExpiry, forgettingUser: session.endedByDeletion)
             }
         }
         // 離開 app 滿寬限時間再回來才鎖(#298)。
@@ -51,6 +52,22 @@ public struct RootView: View {
             case .background: appLock.enteredBackground()
             case .active: appLock.becameActive()
             default: break
+            }
+        }
+        // 第一次登入成功後詢問要不要開啟 Face ID(只問一次,#300)。
+        .alert(
+            "要開啟 \(appLock.unlockMethodName) 解鎖嗎？",
+            isPresented: Binding(get: { appLock.shouldOfferEnabling }, set: { _ in })
+        ) {
+            Button("開啟") { Task { await appLock.answerOffer(enable: true) } }
+            Button("暫時不要", role: .cancel) { Task { await appLock.answerOffer(enable: false) } }
+        } message: {
+            Text("開啟後，每次打開或離開超過一分鐘再回來都要驗證本人，保護你的帳務。之後可以到「我的」設定裡更改。")
+        }
+        // 隱私遮罩(#301):鎖有開時,app 切換器裡看到的是遮罩,不是帳務畫面。
+        .overlay {
+            if appLock.coversContent(sceneIsActive: scenePhase == .active) {
+                AppLockCover()
             }
         }
         // 鎖畫面蓋在所有內容上(不透明),包含 sheet 之上的畫面由系統層級的 overlay 蓋住整個根畫面。

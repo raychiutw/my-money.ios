@@ -10,6 +10,10 @@ public final class AppSession {
 
     /// 這個 session 是冷啟動時從裝置讀回來的(不是剛輸入密碼登入的);App 鎖只在這種情況下一開始就鎖(#298)。
     public private(set) var didRestoreFromStorage = false
+    /// 上一次 session 結束是不是因為後端回 401(過期);主動登出與刪除帳號是 `false`。App 鎖只在主動結束時清掉設定(#299)。
+    public private(set) var endedByExpiry = false
+    /// 上一次 session 結束是不是因為刪除帳號(只有這種情況才清掉「已問過要不要開啟 App 鎖」的記號,#300)。
+    public private(set) var endedByDeletion = false
 
     @ObservationIgnored private let storage: any SessionStorage
 
@@ -30,6 +34,8 @@ public final class AppSession {
 
     /// 清掉 session、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
     public func signOut() {
+        endedByExpiry = false
+        endedByDeletion = false
         storage.clear()
         didRestoreFromStorage = false
         current = nil
@@ -41,8 +47,15 @@ extension AppSession: SessionProvider {
         current?.token
     }
 
+    /// 帳號刪除成功之後:跟登出一樣清掉 session,並記下是刪除帳號。
+    public func signOutAfterAccountDeletion() {
+        signOut()
+        endedByDeletion = true
+    }
+
     /// 任何非 `/auth/*` 的請求回應 401 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
     public func sessionDidExpire() async {
         signOut()
+        endedByExpiry = true
     }
 }

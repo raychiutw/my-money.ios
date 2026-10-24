@@ -27,6 +27,15 @@ public final class AppLockModel {
     /// 這支裝置能用的驗證方式(鎖畫面寫「Face ID」「Touch ID」…);還沒查過是 `nil`。
     public private(set) var capability: DeviceAuthCapability?
 
+    /// 第一次登入成功後要不要跳出「要不要開啟」的詢問(#300);登入頁之後的畫面依它顯示。
+    public private(set) var shouldOfferEnabling = false
+
+    /// 設定頁的說明:不能開啟(裝置沒有可用的驗證)或驗證失敗時的訊息;沒事是 `nil`。
+    public private(set) var settingMessage: String?
+
+    /// 這支裝置能不能開鎖(有生物辨識或裝置密碼);還沒查過時先當作可以(設定頁會先查)。
+    public var canEnable: Bool { capability?.isAvailable ?? true }
+
     /// 例如「Face ID」;沒有生物辨識寫「裝置密碼」。還沒查過時是通用的「Face ID 或裝置密碼」。
     public var unlockMethodName: String {
         switch capability {
@@ -50,6 +59,8 @@ public final class AppLockModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var backgroundedAt: Date?
+    /// 這次登入是剛輸入密碼登入的(不是讀回 session):才有資格被詢問。
+    @ObservationIgnored private var isFreshLogin = false
 
     public init(authenticator: any DeviceAuthenticator, defaults: UserDefaults, now: @escaping () -> Date = { Date() }) {
         self.authenticator = authenticator
@@ -72,6 +83,66 @@ public final class AppLockModel {
         defaults.set(enabled, forKey: Self.key(userID))
     }
 
+    /// 設定頁的開關:**開啟與關閉都要先驗證成功一次**才變更。裝置不能驗證時不能開(並說明);
+    /// 關閉時裝置已不能驗證就允許關(不把人鎖在設定裡)。回傳這次有沒有變更成功。
+    @discardableResult
+    public func requestEnabled(_ enabled: Bool) async -> Bool {
+        guard let userID else { return false }
+        settingMessage = nil
+        if enabled {
+            await refreshCapability()
+            guard canEnable else {
+                settingMessage = "這支手機還沒有設定 Face ID 或裝置密碼,請先到「設定」開啟。"
+                return false
+            }
+        }
+        switch await authenticator.authenticate(reason: enabled ? "開啟 App 鎖" : "關閉 App 鎖") {
+        case .success:
+            break
+        case .unavailable:
+            // 關閉時裝置已不能驗證:允許;開啟時不能驗證:不開。
+            guard !enabled else {
+                settingMessage = "這支手機目前不能驗證,無法開啟。"
+                return false
+            }
+        case .cancelled:
+            return false
+        case .failed:
+            settingMessage = "驗證失敗,設定沒有變更。"
+            return false
+        }
+        setEnabledWithoutAuthentication(enabled, for: userID)
+        return true
+    }
+
+    // MARK: 隱私遮罩(#301)
+
+    /// 鎖有開、有登入、場景不在作用中(app 切換器、通知中心等)時,內容要被遮住。
+    public func coversContent(sceneIsActive: Bool) -> Bool {
+        !sceneIsActive && isEnabled
+    }
+
+    // MARK: 登入後詢問(只問一次)
+
+    /// 第一次登入成功之後:裝置能驗證、鎖還沒開、這位使用者還沒被問過,才要詢問。
+    public func evaluateOffer() async {
+        guard isFreshLogin, let userID, !isEnabled(for: userID), !defaults.bool(forKey: Self.askedKey(userID)) else { return }
+        await refreshCapability()
+        guard canEnable else { return }
+        shouldOfferEnabling = true
+    }
+
+    /// 回答詢問:**不管選什麼都算問過**(只問一次);選「開啟」要先驗證成功才生效。
+    public func answerOffer(enable: Bool) async {
+        guard let userID else { return }
+        defaults.set(true, forKey: Self.askedKey(userID))
+        shouldOfferEnabling = false
+        isFreshLogin = false
+        if enable { await requestEnabled(true) }
+    }
+
+    private static func askedKey(_ userID: UserID) -> String { "appLock.asked.\(userID.rawValue)" }
+
     private static func key(_ userID: UserID) -> String { "appLock.enabled.\(userID.rawValue)" }
 
     // MARK: session
@@ -81,12 +152,20 @@ public final class AppLockModel {
         self.userID = userID
         failureMessage = nil
         backgroundedAt = nil
+        isFreshLogin = !restored
+        shouldOfferEnabling = false
         state = restored && isEnabled(for: userID) ? .locked : .unlocked
     }
 
     /// session 結束(登出、刪除帳號、401):沒有東西好鎖,解開鎖並回到登入頁。
-    public func sessionEnded() {
+    /// `clearingSetting`:登出與刪除帳號清掉這位使用者的鎖設定;401 過期不清,下次登入還是開著。
+    /// `forgettingUser`:刪除帳號才清掉「已經問過要不要開啟」的記號(#300);登出再登入不會再問。
+    public func sessionEnded(clearingSetting: Bool = false, forgettingUser: Bool = false) {
+        if clearingSetting, let userID { defaults.removeObject(forKey: Self.key(userID)) }
+        if forgettingUser, let userID { defaults.removeObject(forKey: Self.askedKey(userID)) }
         userID = nil
+        isFreshLogin = false
+        shouldOfferEnabling = false
         failureMessage = nil
         backgroundedAt = nil
         state = .unlocked

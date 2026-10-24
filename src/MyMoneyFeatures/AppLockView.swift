@@ -49,3 +49,20 @@ struct AppLockView: View {
         }
     }
 }
+
+/// 隱私遮罩(#301):場景不在作用中時蓋住內容,app 切換器只看得到 App 名稱。
+struct AppLockCover: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+            Text("我的記帳本")
+                .font(.title3.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
+        .accessibilityHidden(true)
+        .accessibilityIdentifier("appLock.cover")
+    }
+}
