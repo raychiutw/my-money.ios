@@ -36,14 +36,16 @@ public struct KeychainCredentialVault: CredentialVault {
         return SavedCredentials(email: stored.email, password: stored.password)
     }
 
-    public func save(_ credentials: SavedCredentials) {
-        guard let data = try? JSONEncoder().encode(StoredCredentials(email: credentials.email, password: credentials.password)) else { return }
-        delete()
+    /// 先試更新、沒有才新增:新增失敗(例如沒設裝置密碼)時,原本可用的帳密不會被先刪掉。
+    @discardableResult
+    public func save(_ credentials: SavedCredentials) -> Bool {
+        guard let data = try? JSONEncoder().encode(StoredCredentials(email: credentials.email, password: credentials.password)) else { return false }
+        let update = SecItemUpdate(itemQuery as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if update == errSecSuccess { return true }
         var item = itemQuery
         item[kSecValueData as String] = data
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
-        // 寫入失敗(例如沒設裝置密碼)只是下次登入不能用 Face ID,這次照常進入。
-        SecItemAdd(item as CFDictionary, nil)
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
     }
 
     public func delete() {

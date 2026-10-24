@@ -68,8 +68,15 @@ public final class LoginModel {
 
     /// 按「使用 Face ID 登入」:驗證通過就用已存的帳密登入。
     public func signInWithBiometrics() async {
-        guard let biometric, let credentials = biometric.vault.load() else { return }
+        guard let biometric, !isSubmitting else { return }
+        guard let credentials = biometric.vault.load() else {
+            // Keychain 項目被系統移除了(例如拿掉裝置密碼):按鈕不該再出現。
+            canUseBiometricLogin = false
+            return
+        }
         errorMessage = nil
+        isSubmitting = true
+        defer { isSubmitting = false }
         switch await biometric.authenticator.authenticate(reason: "登入我的記帳本") {
         case .success:
             break
@@ -79,11 +86,9 @@ public final class LoginModel {
             errorMessage = "\(biometricMethodName) 驗證失敗，請改用密碼登入"
             return
         }
-        isSubmitting = true
-        defer { isSubmitting = false }
         do {
             session.start(try await auth.login(email: credentials.email, password: credentials.password))
-        } catch RepositoryError.rejected(let message) {
+        } catch RepositoryError.invalidCredentials(let message) {
             // 密碼已經在別處改掉:已存的帳密沒用了,清掉,請使用者用新密碼登入。
             biometric.vault.delete()
             canUseBiometricLogin = false
@@ -105,8 +110,7 @@ public final class LoginModel {
         pendingOffer = nil
         isOfferingBiometricLogin = false
         if save {
-            biometric.vault.save(pending.credentials)
-            canUseBiometricLogin = true
+            canUseBiometricLogin = biometric.vault.save(pending.credentials)
         } else {
             biometric.defaults.set(true, forKey: Self.declinedKey(pending.credentials.email))
         }
@@ -131,14 +135,15 @@ public final class LoginModel {
                 if biometric.vault.load()?.email == credentials.email {
                     // 已經存過這個帳號:密碼有改就靜默更新,不再詢問。
                     biometric.vault.save(credentials)
-                } else if !biometric.vault.hasSaved(),
-                    !biometric.defaults.bool(forKey: Self.declinedKey(credentials.email)),
-                    await biometric.authenticator.capability().isAvailable
-                {
-                    biometricMethodName = await biometric.authenticator.capability().methodName
-                    pendingOffer = (signedIn, credentials)
-                    isOfferingBiometricLogin = true
-                    return
+                } else if !biometric.defaults.bool(forKey: Self.declinedKey(credentials.email)) {
+                    // 裝置上沒存帳密、或存的是另一個帳號:問要不要(同意就換成這個帳號)。
+                    let capability = await biometric.authenticator.capability()
+                    if capability.isAvailable {
+                        biometricMethodName = capability.methodName
+                        pendingOffer = (signedIn, credentials)
+                        isOfferingBiometricLogin = true
+                        return
+                    }
                 }
             }
             session.start(signedIn)

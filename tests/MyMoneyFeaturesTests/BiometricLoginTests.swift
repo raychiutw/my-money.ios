@@ -8,18 +8,18 @@ import Testing
 @MainActor
 @Suite("Face ID 登入")
 struct BiometricLoginTests {
-    private let auth = InMemoryAuthRepository(members: [.sample])
+    private let auth: any AuthRepository = InMemoryAuthRepository(members: [.sample])
     private let saved = SavedCredentials(email: "family@example.com", password: "secret123")
 
     private func make(
-        vault: InMemoryCredentialVault = InMemoryCredentialVault(),
+        vault: InMemoryCredentialVault = InMemoryCredentialVault(), auth: (any AuthRepository)? = nil,
         capability: DeviceAuthCapability = .faceID, result: DeviceAuthResult = .success, suite: String = #function
     ) -> (model: LoginModel, session: AppSession, vault: InMemoryCredentialVault) {
         let defaults = UserDefaults(suiteName: "BiometricLoginTests.\(suite)")!
         defaults.removePersistentDomain(forName: "BiometricLoginTests.\(suite)")
         let session = AppSession(storage: InMemorySessionStorage())
         let model = LoginModel(
-            auth: auth, session: session,
+            auth: auth ?? self.auth, session: session,
             biometricLogin: BiometricLogin(
                 vault: vault, authenticator: FakeDeviceAuthenticator(capability: capability, result: result), defaults: defaults
             )
@@ -132,4 +132,55 @@ struct BiometricLoginTests {
         #expect(session.current != nil)
         #expect(vault.load() == saved)
     }
+
+    @Test("後端暫時出錯(不是密碼錯誤):不清掉已存帳密,按鈕還在")
+    func transientFailureKeepsSaved() async {
+        let (model, session, vault) = make(vault: InMemoryCredentialVault(saved: saved), auth: FailingAuth(error: RepositoryError.rejected("請求太頻繁")))
+        await model.refreshBiometricLogin()
+        await model.signInWithBiometrics()
+
+        #expect(session.current == nil)
+        #expect(vault.load() == saved)
+        #expect(model.canUseBiometricLogin)
+        #expect(model.errorMessage == "請求太頻繁")
+    }
+
+    @Test("裝置上已存另一個帳號:換帳號登入時詢問,同意就換成新帳號")
+    func offersWhenAnotherAccountIsSaved() async {
+        let other = SavedCredentials(email: "other@example.com", password: "x")
+        let (model, _, vault) = make(vault: InMemoryCredentialVault(saved: other))
+        await fillAndSubmit(model)
+
+        #expect(model.isOfferingBiometricLogin)
+        model.answerBiometricOffer(save: true)
+        #expect(vault.load() == saved)
+    }
+
+    @Test("存不進去(例如沒設裝置密碼):不顯示 Face ID 按鈕")
+    func failedSaveDoesNotEnableButton() async {
+        let (model, _, vault) = make(vault: InMemoryCredentialVault(failsToSave: true))
+        await fillAndSubmit(model)
+        model.answerBiometricOffer(save: true)
+
+        #expect(vault.load() == nil)
+        #expect(!model.canUseBiometricLogin)
+    }
+
+    @Test("按鈕出現後 Keychain 項目不見了:按下去不登入、按鈕消失")
+    func vanishedCredentialsHideButton() async {
+        let (model, session, vault) = make(vault: InMemoryCredentialVault(saved: saved))
+        await model.refreshBiometricLogin()
+        vault.delete()
+        await model.signInWithBiometrics()
+
+        #expect(session.current == nil)
+        #expect(!model.canUseBiometricLogin)
+    }
+}
+
+private struct FailingAuth: AuthRepository {
+    let error: RepositoryError
+    func login(email: String, password: String) async throws -> Session { throw error }
+    func register(name: String, email: String, password: String) async throws -> Session { throw error }
+    func deleteAccount() async throws { throw error }
 }

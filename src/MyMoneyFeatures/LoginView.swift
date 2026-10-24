@@ -114,7 +114,7 @@ struct LoginView: View {
         .task { await model.refreshBiometricLogin() }
         .alert(
             "要用 \(model.biometricMethodName) 登入嗎？",
-            isPresented: Binding(get: { model.isOfferingBiometricLogin }, set: { if !$0 { model.answerBiometricOffer(save: false) } })
+            isPresented: Binding(get: { model.isOfferingBiometricLogin }, set: { _ in })
         ) {
             Button("開啟") { model.answerBiometricOffer(save: true) }
             Button("暫時不要", role: .cancel) { model.answerBiometricOffer(save: false) }

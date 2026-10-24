@@ -391,11 +391,12 @@ private struct MemberRow: View {
     }
 
     private var avatar: some View {
-        Text(name.first.map { String($0).uppercased() } ?? "?")
+        let swatch = MemberAvatarColor.swatch(for: colorKey)
+        return Text(name.first.map { String($0).uppercased() } ?? "?")
             .font(.headline)
             .frame(width: avatarSize, height: avatarSize)
-            .foregroundStyle(MemberAvatarColor.swatch(for: colorKey).letter.color)
-            .background(Circle().fill(MemberAvatarColor.swatch(for: colorKey).fill.color))
+            .foregroundStyle(swatch.letter.color)
+            .background(Circle().fill(swatch.fill.color))
     }
 
     private var names: some View {

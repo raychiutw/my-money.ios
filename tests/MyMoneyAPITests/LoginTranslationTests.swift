@@ -46,7 +46,7 @@ struct LoginTranslationTests {
     func loginFailurePassesBackendMessage() async throws {
         try stub.reply(status: 401, fixture: "auth-login-wrong-password.json")
 
-        await #expect(throws: RepositoryError.rejected("Email 或密碼錯誤")) {
+        await #expect(throws: RepositoryError.invalidCredentials("Email 或密碼錯誤")) {
             try await auth.login(email: "mymoney-ios-test@example.com", password: "wrong-password")
         }
     }

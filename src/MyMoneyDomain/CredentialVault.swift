@@ -13,7 +13,9 @@ public struct SavedCredentials: Equatable, Sendable {
 /// 測試用 `MyMoneyTestSupport` 的記憶體版本。讀取前由呼叫端先驗證本人(`DeviceAuthenticator`)。
 public protocol CredentialVault: Sendable {
     func hasSaved() -> Bool
-    func save(_ credentials: SavedCredentials)
+    /// 回傳有沒有存成功(例如裝置沒設密碼就存不進去)。
+    @discardableResult
+    func save(_ credentials: SavedCredentials) -> Bool
     func load() -> SavedCredentials?
     func delete()
 }
