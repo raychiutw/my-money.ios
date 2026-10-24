@@ -1,43 +1,70 @@
 import XCTest
 
-/// 明細卡(#280,方案 B):金額固定在同一條右側欄位、垂直對齊——有 ⋯ 的列(可編輯)與沒有 ⋯ 的列(系統紀錄、家人記的)一樣;
-/// 時間、記帳人、帳戶各占一行,不連成一排。
+/// 明細卡第三版(#288,DESIGN.md「明細卡與輸入框」):三排——頭像｜標題｜⋯、膠囊｜金額、備註;⋯ 與金額同一個右欄、右緣對齊。
 final class EntryCardUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    /// 記帳頁每一列的金額右緣是同一個位置(以前有 ⋯ 的列被擠左,沒有 ⋯ 的列貼最右)。
+    /// 每一列的金額右緣是同一個位置,而且跟 ⋯ 的右緣一致(⋯ 與金額同一個右欄)。
     @MainActor
-    func testAmountsShareOneRightEdgeWhetherOrNotTheRowHasMoreMenu() throws {
+    func testAmountsAndMoreMenusShareOneRightEdge() throws {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingLongRows", "-uiTestingRowParts"], signedIn: true)
         app.tabBars.buttons["記帳"].tap()
         let window = app.windows.firstMatch.frame
-        var edges: [CGFloat] = []
-        for pass in 0..<4 {
+        var amountEdges: [CGFloat] = []
+        var menuEdges: [CGFloat] = []
+        for pass in 0..<5 {
             let amounts = app.descendants(matching: .any).matching(identifier: "row.amount").allElementsBoundByIndex
             for amount in amounts where amount.exists && amount.frame.minY > window.minY + 120 && amount.frame.maxY < window.maxY - 90 {
-                edges.append(amount.frame.maxX)
+                amountEdges.append(amount.frame.maxX)
             }
-            if pass < 3 { app.swipeUp() }
+            let menus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "transactions.more.")).allElementsBoundByIndex
+            for menu in menus where menu.exists && menu.frame.minY > window.minY + 120 && menu.frame.maxY < window.maxY - 90 {
+                menuEdges.append(menu.frame.maxX)
+            }
+            if pass < 4 { app.swipeUp() }
         }
-        XCTAssertGreaterThan(edges.count, 4, "沒有量到足夠的列")
-        let minEdge = try XCTUnwrap(edges.min()), maxEdge = try XCTUnwrap(edges.max())
-        XCTAssertLessThanOrEqual(maxEdge - minEdge, 1, "金額右緣不一致:\(Set(edges.map { Int($0) }).sorted())")
+        XCTAssertGreaterThan(amountEdges.count, 3, "沒有量到足夠的列")
+        XCTAssertGreaterThan(menuEdges.count, 1, "沒有量到 ⋯")
+        let minAmount = try XCTUnwrap(amountEdges.min()), maxAmount = try XCTUnwrap(amountEdges.max())
+        XCTAssertLessThanOrEqual(maxAmount - minAmount, 1, "金額右緣不一致:\(Set(amountEdges.map { Int($0) }).sorted())")
+        let menuEdge = try XCTUnwrap(menuEdges.min())
+        XCTAssertEqual(menuEdge, maxAmount, accuracy: 1, "⋯ 與金額要同一個右緣:⋯ \(Set(menuEdges.map { Int($0) }).sorted())、金額 \(maxAmount)")
     }
 
-    /// 時間、記帳人、帳戶各占一行(三個元素的垂直位置由上而下、互不重疊),不連成一排。
+    /// 三排由上而下:標題、膠囊、備註,各占一排、不重疊;膠囊整排在標題下面。
     @MainActor
-    func testTimeRecorderAndAccountAreSeparateLines() throws {
+    func testThreeRowsGoTopToBottom() throws {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingRowParts"], signedIn: true)
         app.tabBars.buttons["記帳"].tap()
-        let time = app.descendants(matching: .any).matching(identifier: "row.time").firstMatch
-        XCTAssertTrue(time.waitForExistence(timeout: 8), "沒有時間那一行")
-        let recorder = app.descendants(matching: .any).matching(identifier: "row.recorder").firstMatch
-        let account = app.descendants(matching: .any).matching(identifier: "row.account").firstMatch
-        XCTAssertTrue(recorder.exists && account.exists, "缺記帳人或帳戶那一行")
-        XCTAssertLessThanOrEqual(time.frame.maxY, recorder.frame.minY + 1, "時間與記帳人不在不同行:\(time.frame) \(recorder.frame)")
-        XCTAssertLessThanOrEqual(recorder.frame.maxY, account.frame.minY + 1, "記帳人與帳戶不在不同行:\(recorder.frame) \(account.frame)")
-        XCTAssertEqual(time.frame.minX, account.frame.minX, accuracy: 1, "三行的左緣要一致")
+        let title = app.descendants(matching: .any).matching(identifier: "row.title").firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 8), "沒有標題")
+        let all = { (id: String) in app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex.filter { $0.exists } }
+        let nextTitleY = all("row.title").map(\.frame.minY).filter { $0 > title.frame.minY + 1 }.min() ?? .greatestFiniteMagnitude
+        let chips = try XCTUnwrap(all("row.chips").first { $0.frame.minY > title.frame.minY && $0.frame.minY < nextTitleY }, "沒有膠囊那一排")
+        let note = try XCTUnwrap(all("row.note").first { $0.frame.minY > chips.frame.minY && $0.frame.minY < nextTitleY }, "沒有備註那一排")
+        XCTAssertLessThanOrEqual(title.frame.maxY, chips.frame.minY + 1, "標題與膠囊不在不同排:\(title.frame) \(chips.frame)")
+        XCTAssertLessThanOrEqual(chips.frame.maxY, note.frame.minY + 1, "膠囊與備註不在不同排:\(chips.frame) \(note.frame)")
+    }
+
+    /// 標題一行、備註一行(超過用「…」,不折行):長標題長備註的列,標題與備註的高度都只有一行。
+    @MainActor
+    func testTitleAndNoteStayOneLine() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingLongRows", "-uiTestingRowParts"], signedIn: true)
+        app.tabBars.buttons["記帳"].tap()
+        let window = app.windows.firstMatch.frame
+        var checked = 0
+        for pass in 0..<5 {
+            for id in ["row.title", "row.note"] {
+                for element in app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex
+                where element.exists && element.frame.minY > window.minY + 120 && element.frame.maxY < window.maxY - 90 {
+                    XCTAssertLessThan(element.frame.height, 30, "\(id) 超過一行:\(element.frame)")
+                    checked += 1
+                }
+            }
+            if pass < 4 { app.swipeUp() }
+        }
+        XCTAssertGreaterThan(checked, 6, "沒有量到足夠的標題與備註")
     }
 }
