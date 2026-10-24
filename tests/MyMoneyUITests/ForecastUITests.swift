@@ -162,3 +162,19 @@ final class ForecastUITests: XCTestCase {
     }
 
 }
+
+/// 預測頁的區塊順序(#292):風險與最低餘額摘要在上面,查詢區間在後面。
+extension ForecastUITests {
+    @MainActor
+    func testSummaryComesBeforeTheDateRange() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openHomeEntry("forecast")
+        let risk = app.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "現金流充裕安全", "存在透支風險")).firstMatch
+        XCTAssertTrue(risk.waitForExistence(timeout: 8), "預測頁沒有風險摘要")
+        // 打開時不捲動:查詢區間要嘛在摘要下面,要嘛還在畫面外(惰性清單還沒建立);不能在摘要上面。
+        let start = app.descendants(matching: .any)["forecast.rangeStart"]
+        if start.exists {
+            XCTAssertGreaterThan(start.frame.minY, risk.frame.maxY - 1, "查詢區間不該在風險摘要上面")
+        }
+    }
+}
