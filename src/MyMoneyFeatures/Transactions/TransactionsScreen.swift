@@ -192,7 +192,11 @@ struct TransactionsScreen: View {
                 TransactionRow(content: model.content(of: transaction))
             }
             .tint(.primary)
-            .trailingMoreMenu(label: "\(model.content(of: transaction).title)的更多動作", identifier: "transactions.more.\(transaction.id.rawValue)") {
+            // ⋯ 蓋在第一排右邊,跟金額同一個右欄、右緣對齊(#288)。
+            .overlayMoreMenu(
+                label: "\(model.content(of: transaction).title)的更多動作", identifier: "transactions.more.\(transaction.id.rawValue)",
+                alignment: .topTrailing, glyphAtTrailingEdge: true
+            ) {
                 Button("編輯", systemImage: "pencil") { openEditor(transaction) }
                 Button("刪除", systemImage: "trash", role: .destructive) { pendingDeletion = transaction }
             }
@@ -205,12 +209,10 @@ struct TransactionsScreen: View {
                 explained = transaction
             } label: {
                 TransactionRow(
-                    content: model.content(of: transaction), lockHint: model.lockHint(for: transaction)
+                    content: model.content(of: transaction), lockHint: model.lockHint(for: transaction), hasMenu: false
                 )
             }
             .tint(.primary)
-            // 沒有 ⋯ 的列也留 ⋯ 的位置:金額欄跟有 ⋯ 的列對齊(#280)。
-            .reservingMoreMenuSpace()
         }
     }
 }

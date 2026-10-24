@@ -54,7 +54,10 @@ final class ForecastUITests: XCTestCase {
         XCTAssertEqual(filter.value as? String, "全部")
         filter.tap()
         app.buttons["家庭公帳"].tap()
-        XCTAssertTrue(element(in: app, labelContaining: "最低餘額 18,000 元").waitForExistence(timeout: 5), "切到家庭公帳之後最低餘額沒有換成公帳的")
+        // 試算結果在頁面下面:切換視角時列表還停在下面,摘要(惰性)不在畫面附近;捲回最上面再看最低餘額。
+        let minBalance = element(in: app, labelContaining: "最低餘額 18,000 元")
+        for _ in 0..<8 where !minBalance.exists { app.swipeDown(velocity: .fast) }
+        XCTAssertTrue(minBalance.waitForExistence(timeout: 5), "切到家庭公帳之後最低餘額沒有換成公帳的")
         XCTAssertEqual(filter.value as? String, "家庭公帳")
         XCTAssertFalse(element(in: app, labelContaining: "放心購買").exists, "換了視角,上一個視角的試算結論還在")
     }
@@ -161,4 +164,20 @@ final class ForecastUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
+}
+
+/// 預測頁的區塊順序(#292):風險與最低餘額摘要在上面,查詢區間在後面。
+extension ForecastUITests {
+    @MainActor
+    func testSummaryComesBeforeTheDateRange() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openHomeEntry("forecast")
+        let risk = app.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "現金流充裕安全", "存在透支風險")).firstMatch
+        XCTAssertTrue(risk.waitForExistence(timeout: 8), "預測頁沒有風險摘要")
+        // 打開時不捲動:查詢區間要嘛在摘要下面,要嘛還在畫面外(惰性清單還沒建立);不能在摘要上面。
+        let start = app.descendants(matching: .any)["forecast.rangeStart"]
+        if start.exists {
+            XCTAssertGreaterThan(start.frame.minY, risk.frame.maxY - 1, "查詢區間不該在風險摘要上面")
+        }
+    }
 }

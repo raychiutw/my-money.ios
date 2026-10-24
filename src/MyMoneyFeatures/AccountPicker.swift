@@ -34,8 +34,9 @@ struct AccountPicker: View {
                     Text(valueText)
                         .foregroundStyle(Color.ciText)
                 } else if let placeholder, selection == nil {
+                    // 還沒做錯事,不用紅色系(HIG:紅色是錯誤與破壞性,#293):佔位文字用次要文字色。
                     Text(placeholder)
-                        .foregroundStyle(Color.ciText)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

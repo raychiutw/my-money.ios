@@ -8,6 +8,7 @@ struct MeSheet: View {
     @Environment(AppSession.self) private var session
     @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(AccountDeletionModel.self) private var deletion
+    @Environment(AppLockModel.self) private var appLock
     @State private var isDeleteConfirming = false
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
@@ -71,6 +72,27 @@ struct MeSheet: View {
         Section("外觀") {
             InlineChoiceRows(Appearance.allCases.map { ($0, $0.title) }, selection: appearance)
         }
+
+        // App 鎖(#299):開啟與關閉都要先驗證成功一次。裝置沒有生物辨識也沒有密碼時停用並說明。
+        Section {
+            Toggle(
+                "使用 \(appLock.unlockMethodName) 解鎖",
+                isOn: Binding(
+                    get: { appLock.isEnabled },
+                    set: { newValue in Task { await appLock.requestEnabled(newValue) } }
+                )
+            )
+            .tint(Color.ciFill)
+            .disabled(!appLock.canEnable && !appLock.isEnabled)
+            .accessibilityIdentifier("me.appLock")
+        } footer: {
+            if let message = appLock.settingMessage {
+                Text(message)
+            } else if !appLock.canEnable {
+                Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
+            }
+        }
+        .task { await appLock.refreshCapability() }
 
         Section {
             // 登出不跳確認、不打 API(parity.md「全域」)。

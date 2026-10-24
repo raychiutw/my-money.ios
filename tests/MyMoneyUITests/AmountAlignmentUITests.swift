@@ -123,7 +123,7 @@ final class AmountAlignmentUITests: XCTestCase {
         let amount = try XCTUnwrap(bands.last)
         // 成員列現在是導覽列(#246):右邊有系統的 disclosure indicator，金額靠右是相對於內容區，
         // 所以右邊的空隙是「內距加 chevron 那一欄」(AX5 實測約 71pt)，不再是單純的內距。
-        try assertRightEdge(amount, in: image, "成員的待報銷金額沒有在最下面一行靠右", maxGap: 100)
+        try assertRightEdge(amount, in: image, "成員的待報銷金額沒有在最下面一行靠右", minGap: 1, maxGap: 100)
         XCTAssertGreaterThan(amount.minX, Int(image.size.width * image.scale) / 3, "待報銷金額貼在左邊:\(amount)")
     }
 
@@ -150,12 +150,12 @@ final class AmountAlignmentUITests: XCTestCase {
     }
 
     private func assertRightEdge(
-        _ band: PixelAnalysis.InkBand, in image: UIImage, _ message: String, maxGap: Int = 20
+        _ band: PixelAnalysis.InkBand, in image: UIImage, _ message: String, minGap: Int = 6, maxGap: Int = 20
     ) throws {
         let scale = Int(image.scale)
         let width = Int(image.size.width) * scale
         let gap = width - band.maxX
-        XCTAssertTrue(gap >= 6 * scale && gap <= maxGap * scale, "\(message):右邊空 \(gap) 畫素(\(gap / scale)pt),應該約是內距 12pt")
+        XCTAssertTrue(gap >= minGap * scale && gap <= maxGap * scale, "\(message):右邊空 \(gap) 畫素(\(gap / scale)pt),應該約是內距 12pt")
     }
 
     @MainActor

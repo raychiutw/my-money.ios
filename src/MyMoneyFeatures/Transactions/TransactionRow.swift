@@ -1,40 +1,26 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 一筆交易記錄，交易頁用(DESIGN.md「明細卡與輸入框」方案 B,#72、#118、#145、#280)。內容由 `TransactionRowContent` 決定，
-/// 排版交給共用的 `EntryCard`:
-///
-/// - 前緣:分類圖示。標題:備註，沒有備註時用分類名稱，最多兩行。
-/// - 標題下方:狀態膠囊「歸屬(・帳單狀態)」，例如「家庭公帳・待報銷」。
-/// - 時間、記帳人、資產帳戶各占一行、不連成一排。金額固定在最右欄、單行，跟標題同一行。
-///
-/// **結構只跟字級走、不跟資料長短走**(#248):無障礙字級上下堆疊、金額最後一行靠右。VoiceOver 整列念成一句完整的話。
+/// 一筆交易記錄，交易頁用(DESIGN.md「明細卡與輸入框」第三版,#288)。內容由 `TransactionRowContent` 決定，排版交給共用的 `EntryCard`:
+/// 頭像(建檔人)｜標題(分類中文)｜⋯;膠囊(歸屬、銷帳或出帳狀態、帳戶)｜金額;備註一行。VoiceOver 整列念成一句完整的話。
 struct TransactionRow: View {
     let content: TransactionRowContent
     /// 點不開的列(系統紀錄，或沒有編輯權限的他人交易，#133)的 VoiceOver 提示，例如「點兩下查看為什麼不能編輯」(#146);
     /// 原因在點了之後的說明，不塞在整句裡。可以改的列是 `nil`。
     var lockHint: String?
+    /// 這一列右上角有沒有 ⋯(沒有編輯權限的列沒有):有才在第一排右邊讓出位置。
+    var hasMenu = true
 
     @Environment(\.exposesRowPartsToAccessibility) private var exposesParts
 
     var body: some View {
         EntryCard(
-            symbolName: content.symbolName, title: content.title, badge: content.subtitle.tail,
-            lines: lines, amount: content.amount
+            avatarInitial: content.avatarInitial, isSystemRecord: content.isSystemRecord, title: content.categoryTitle,
+            chips: content.chipItems, amount: content.amount, note: content.note, reservesMenuSpace: hasMenu
         )
         .accessibilityElement(children: exposesParts ? .contain : .ignore)
         .accessibilityLabel(content.spokenText)
         .accessibilityHint(lockHint ?? "")
-    }
-
-    /// 時間、記帳人、資產帳戶,沒有資料的不出現。
-    private var lines: [EntryCard.Line] {
-        let subtitle = content.subtitle
-        return [
-            subtitle.time.map { EntryCard.Line(kind: .time, text: $0) },
-            subtitle.recorder.map { EntryCard.Line(kind: .recorder, text: $0) },
-            content.accountName.map { EntryCard.Line(kind: .account, text: $0) },
-        ].compactMap { $0 }
     }
 }
 
@@ -54,6 +40,8 @@ struct WrappingUnits: View {
 
 /// 由左到右排，放不下換行;單一子視圖比一行寬時，只給它一行的寬度(它自己在內部折行)。
 struct FlowLayout: Layout {
+    /// 同一行相鄰兩個子視圖的水平間距。
+    var spacing: CGFloat = 0
     var lineSpacing: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -79,9 +67,9 @@ struct FlowLayout: Layout {
                 lineHeight = 0
             }
             frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
-            x += size.width
+            x += size.width + spacing
             lineHeight = max(lineHeight, size.height)
-            maxWidth = max(maxWidth, x)
+            maxWidth = max(maxWidth, x - spacing)
         }
         return (CGSize(width: maxWidth, height: y + lineHeight), frames)
     }

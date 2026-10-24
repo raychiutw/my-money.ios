@@ -54,7 +54,7 @@ struct MemberShareChart: View {
             Chart {
                 ForEach(shares, id: \.userID) { share in
                     BarMark(x: .value("成員", share.userName), y: .value("公帳代墊", share.total.chartValue))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(Color.ciFill)
                         // 金額標在長條上方、照系統字級不縮小(#156);字比長條寬也不會被切,加底色才不會被平均線壓住。
                         .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                             ShareAmountLabel(text: share.total.formatted())

@@ -141,12 +141,11 @@ struct StatementRolloverView: View {
     private func itemRow(_ item: StatementItem) -> some View {
         let isDeferred = model.isDeferred(item.id)
         return Toggle(isOn: Binding(get: { isDeferred }, set: { _ in model.toggleDeferral(item.id) })) {
-            // 共用的明細卡(#283，DESIGN.md「明細卡與輸入框」方案 B):狀態是膠囊，日期一行。
+            // 共用的明細卡(#289，DESIGN.md「明細卡與輸入框」第三版):標題用分類，備註在最下面一排,日期與狀態是膠囊。
             EntryCard(
-                title: item.note.isEmpty ? item.category.name : "\(item.category.name) · \(item.note)",
-                badge: model.itemBadgeText(item),
-                lines: [EntryCard.Line(kind: .time, text: model.itemDayText(item))],
-                amount: item.kind == .expense ? .outflow(item.amount) : .inflow(item.amount)
+                title: item.category.name, chips: [model.itemDayText(item), model.itemBadgeText(item)].compactMap { $0 }.map { CardChip($0) },
+                amount: item.kind == .expense ? .outflow(item.amount) : .inflow(item.amount),
+                note: item.note.isEmpty ? nil : item.note, reservesMenuSpace: false
             )
             .strikethrough(isDeferred)
         }

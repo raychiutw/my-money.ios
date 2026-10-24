@@ -41,7 +41,9 @@ final class MeSheetUITests: XCTestCase {
         app.openMe()
         XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5))
         let version = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "版本 ")).firstMatch
-        XCTAssertTrue(version.exists, "設定底部沒有版本文字")
+        // 設定多了 App 鎖一列(#299),版本在更下面(惰性清單):捲到它。
+        for _ in 0..<5 where !version.exists { app.swipeUp() }
+        XCTAssertTrue(version.waitForExistence(timeout: 3), "設定底部沒有版本文字")
         XCTAssertTrue(version.label.contains("（") && version.label.hasSuffix("）"), "版本文字沒有 build 號:\(version.label)")
     }
 

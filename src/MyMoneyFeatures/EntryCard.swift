@@ -1,101 +1,88 @@
 import SwiftUI
 
-/// 明細卡(DESIGN.md「明細卡與輸入框」方案 B,#280):記帳頁、成員代墊明細、撥款沖帳紀錄、信用卡與帳戶詳細頁的收支明細共用。
+/// 明細卡第三版(DESIGN.md「明細卡與輸入框」,#288):記帳頁、成員代墊明細、已結清明細、撥款沖帳紀錄、出帳預覽、報銷勾選明細共用。
 ///
-/// - 前緣:分類圖示(沒有圖示就不留位置)。
-/// - 標題:最多兩行(無障礙字級不限),長備註的全文看詳細頁。
-/// - 標題下方:狀態膠囊(例如「家庭公帳・待報銷」);沒有狀態就沒有。
-/// - 時間、記帳人、資產帳戶**各占一行、不連成一排**,每行前面一個小圖示(時鐘、人像、錢包),順序固定;沒有資料的整行不出現。
-/// - 金額:固定在最右欄、單行、等寬數字,跟標題同一行;⋯ 另外並排在列的右邊(見 `reservingMoreMenuSpace`),所以有沒有 ⋯ 都不影響金額欄。
+/// 三排,排與排之間有分隔線:
+/// 1. 頭像(建檔人名字第一個字;沒有就不放)｜標題(單行,超過用「…」;最大字級不限)｜右邊讓出 ⋯ 的位置。
+/// 2. 膠囊(歸屬、銷帳或出帳狀態、帳戶…;一行放得下並排,放不下**整顆**換行,膠囊裡的字不折行,單顆比一行寬才在裡面加「…」)｜金額。
+/// 3. 備註(單欄、整行、一行加「…」);沒有備註整排不出現。
 ///
-/// **結構只跟字級走、不跟資料長短走**(#248):無障礙字級上下堆疊——圖示加文字欄、金額最後一行靠右;其他字級一律兩欄。
-/// 圖示只是裝飾,VoiceOver 由呼叫端用一句完整的話念(含收支方向)。
+/// ⋯ 由呼叫端用 `overlayMoreMenu(alignment: .topTrailing)` 蓋在第一排右邊,**⋯ 與金額同一個右欄、右緣對齊**(沒有 ⋯ 的列金額照樣在最右)。
+/// 沒有圖示、沒有時間。結構只跟字級走、不跟資料長短走(#248):最大字級第二排改上下堆疊——膠囊整排、金額獨立一排(上面有分隔線、靠右)。
+/// VoiceOver 由呼叫端用一句完整的話念(含收支方向)。
 struct EntryCard: View {
-    /// 小圖示加文字的一行。
-    struct Line: Equatable {
-        enum Kind: String { case time, recorder, account }
-        let kind: Kind
-        let text: String
-
-        var symbolName: String {
-            switch kind {
-            case .time: "clock"
-            case .recorder: "person"
-            case .account: "wallet.bifold"
-            }
-        }
-    }
-
-    /// 前緣的分類圖示;沒有就不放。
-    var symbolName: String?
+    var avatarInitial: String?
+    var isSystemRecord = false
     let title: String
-    var badge: String?
-    var lines: [Line] = []
+    var chips: [CardChip] = []
     let amount: AmountPresentation
+    var note: String?
+    /// 第一排右邊留給 ⋯ 的位置(沒有 ⋯ 的列不留)。
+    var reservesMenuSpace = true
 
-    @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 28
-    @ScaledMetric(relativeTo: .subheadline) private var lineIconWidth: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var avatarSize: CGFloat = 30
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    private var isLarge: Bool { dynamicTypeSize.isAccessibilitySize }
+
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    icon
-                    texts
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            Divider()
+            if isLarge {
+                if !chips.isEmpty { chipRow }
+                if !chips.isEmpty { Divider() }
+                amountText.frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    chipRow
+                    Spacer(minLength: 8)
+                    amountText
                 }
-                amountText
-                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                icon
-                texts
-                Spacer(minLength: 8)
-                amountText
+            if let note, !note.isEmpty {
+                Divider()
+                Text(note)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("row.note")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private var icon: some View {
-        if let symbolName {
-            Image(systemName: symbolName)
-                .foregroundStyle(.tint)
-                .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : iconWidth)
-                .accessibilityIdentifier("row.icon")
-        }
-    }
-
-    private var texts: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private var header: some View {
+        HStack(alignment: isLarge ? .firstTextBaseline : .center, spacing: 10) {
+            if let avatarInitial {
+                Text(avatarInitial)
+                    .font(.subheadline.weight(.bold))
+                    .frame(width: avatarSize, height: avatarSize)
+                    .background(Circle().fill(isSystemRecord ? Color.secondary.opacity(0.2) : Color.ciFill.opacity(0.22)))
+                    .accessibilityHidden(true)
+                    .accessibilityIdentifier("row.avatar")
+            }
             Text(title)
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                .font(.headline)
+                .lineLimit(isLarge ? nil : 1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("row.title")
-            if let badge {
-                Text(badge)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("row.badge")
-            }
-            ForEach(lines, id: \.kind) { line in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: line.symbolName)
-                        .font(.caption)
-                        .frame(width: lineIconWidth)
-                        .accessibilityHidden(true)
-                    Text(line.text)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("row.\(line.kind.rawValue)")
+            if reservesMenuSpace {
+                Color.clear.frame(width: 44, height: 44)
             }
         }
+    }
+
+    private var chipRow: some View {
+        FlowLayout(spacing: 6, lineSpacing: 6) {
+            ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
+                EntryChip(chip: chip)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("row.chips")
     }
 
     /// 金額一律單行，不能被拆成多行(DESIGN.md「列與欄位」)。
@@ -108,9 +95,21 @@ struct EntryCard: View {
     }
 }
 
-extension View {
-    /// 沒有 ⋯ 的列也留 ⋯ 的位置(寬度跟 `MoreMenu` 一樣 44pt),同一個列表裡所有列的金額欄位置一致。
-    func reservingMoreMenuSpace() -> some View {
-        padding(.trailing, 44)
+/// 一顆膠囊:字不折行,單顆比一行寬就在裡面加「…」。「待報銷」用淡粉色,其他是中性灰。
+struct EntryChip: View {
+    let chip: CardChip
+
+    var body: some View {
+        Text(chip.text)
+            .font(.caption)
+            .foregroundStyle(chip.isHighlighted ? Color.ciText : Color.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(chip.isHighlighted ? Color.ciFill.opacity(0.16) : Color.secondary.opacity(0.14))
+            )
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

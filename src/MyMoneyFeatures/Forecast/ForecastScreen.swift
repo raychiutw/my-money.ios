@@ -56,8 +56,9 @@ struct ForecastScreen: View {
             }
         case (_, .some(let forecast)):
             List {
-                rangeSection(forecast)
                 summarySection(forecast)
+                // 風險與最低餘額先看到,查詢區間放在後面(HIG:重要資訊在最上面,#292)。
+                rangeSection(forecast)
                 chartSection(forecast)
                 eventsSection(forecast)
                 purchaseSection

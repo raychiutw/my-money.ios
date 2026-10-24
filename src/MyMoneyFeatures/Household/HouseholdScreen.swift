@@ -53,7 +53,7 @@ struct HouseholdScreen: View {
                 // 無法用文字說清楚的圖示動作:VoiceOver 念「離開家庭」。toolbar 最多 3 顆(邀請、離開、頭像)。
                 if model.household != nil {
                     ToolbarItem(placement: .primaryAction) {
-                        Button("離開家庭", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                        Button("離開家庭", systemImage: "figure.walk.departure", role: .destructive) {
                             isLeaveConfirming = true
                         }
                         .accessibilityIdentifier("household.leave")
@@ -327,9 +327,14 @@ extension HouseholdScreen {
         // ⋯ 蓋在右側:讓出 44pt 的位置，待報銷金額才不被壓到。
         let menuSpace: CGFloat = reservesMenuSpace ? 56 : 0
         if advance != nil {
-            NavigationLink(value: MemberRoute(memberID: id)) {
+            // 不用 NavigationLink:它會自己畫右邊的「>」,而這一列右側已經有 ⋯ 選單(#291)。點整列仍進明細。
+            Button {
+                path.append(MemberRoute(memberID: id))
+            } label: {
                 MemberRow(name: name, role: role, advance: advance, reservedTrailing: menuSpace)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("household.member.\(id.rawValue)")
             .accessibilityHint("查看代墊明細")
         } else {

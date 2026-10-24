@@ -41,6 +41,6 @@ public final class AccountDeletionModel {
             errorMessage = message.isEmpty ? "刪除帳號失敗" : message
             return
         }
-        session.signOut()
+        session.signOutAfterAccountDeletion()
     }
 }

@@ -5,6 +5,8 @@ import SwiftUI
 @MainActor
 public protocol TransactionForm: AnyObject, Observable {
     var title: String { get }
+    /// 建立時間(唯讀,#290):編輯才有,台灣時間的完整日期時間;記一筆與沒有資料的舊交易是 `nil`(不顯示這一列)。
+    var createdAtText: String? { get }
     var accounts: [Account] { get }
     var isShared: Bool { get set }
     var type: TransactionType { get set }
@@ -68,6 +70,17 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         placeholder: "請選擇扣款／存入帳戶"
                     )
                     DayPickerRow(title: "日期", day: $model.date)
+                    // 建立時間:唯讀的灰字,不能改(#290)。
+                    if let createdAt = model.createdAtText {
+                        LabeledContent("建立時間") {
+                            Text(createdAt)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("建立時間")
+                        .accessibilityValue(createdAt)
+                        .accessibilityIdentifier("form.createdAt")
+                    }
                     // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
                     if model.isCreditCardSelected {
                         Toggle("列入下期帳單", isOn: $model.defersToNextStatement)

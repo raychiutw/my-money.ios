@@ -1,4 +1,5 @@
 import MyMoneyAPI
+import MyMoneyDomain
 import MyMoneyFeatures
 import SwiftUI
 import UIKit
@@ -15,6 +16,8 @@ struct MyMoneyApp: App {
     private let register: RegisterModel
     private let accountDeletion: AccountDeletionModel
     private let signedIn: SignedInScreens
+    /// App 鎖(#298):生物辨識鎖,純本機。
+    private let appLock: AppLockModel
     /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
@@ -29,6 +32,8 @@ struct MyMoneyApp: App {
     /// UI 測試要量收支明細列裡每個部分的位置(#246)。一般使用者永遠是 `false`。
     private let exposesRowParts: Bool
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    /// 鎖畫面與隱私遮罩的獨立 window(蓋得住 sheet 與 alert)。
+    private let lockWindow = AppLockWindowPresenter()
 
     init() {
         #if DEBUG
@@ -46,6 +51,25 @@ struct MyMoneyApp: App {
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
             session = AppSession(storage: storage)
+            // `-uiTestingAppLock`:範例帳號開著 App 鎖(重啟讀回 session 就會鎖);`-uiTestingAuthResult cancel|fail|unavailable`:假驗證器的結果(預設成功)。
+            let fakeResult: DeviceAuthResult = switch UserDefaults.standard.string(forKey: "uiTestingAuthResult") {
+            case "cancel": .cancelled
+            case "fail": .failed
+            case "unavailable": .unavailable
+            default: .success
+            }
+            // 假驗證器預設「這支裝置不能驗證」:登入後不會跳出「要不要開啟 Face ID」的詢問,不干擾其他 UI 測試;
+            // `-uiTestingBiometry`(或 `-uiTestingAppLock`)才當作有 Face ID。
+            let hasBiometry = arguments.contains("-uiTestingBiometry") || arguments.contains("-uiTestingAppLock")
+            // `-uiTestingLockGrace N`:離開 app 滿 N 秒再回來就鎖(預設 60 秒,UI 測試縮短才測得到)。
+            let grace = UserDefaults.standard.string(forKey: "uiTestingLockGrace").flatMap(TimeInterval.init) ?? AppLockModel.gracePeriod
+            appLock = AppLockModel(
+                authenticator: FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult),
+                defaults: defaults, gracePeriod: grace
+            )
+            if arguments.contains("-uiTestingAppLock") {
+                appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
+            }
             appearance = AppearanceSetting(defaults: defaults)
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
@@ -135,6 +159,7 @@ struct MyMoneyApp: App {
         }
         #endif
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
+        appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
@@ -168,9 +193,11 @@ struct MyMoneyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(login: login, register: register, signedIn: signedIn)
+            RootView(login: login, register: register, signedIn: signedIn, appLock: appLock)
                 .environment(session)
                 .environment(appearance)
+                .environment(appLock)
+                .task { lockWindow.start(appLock: appLock) }
                 .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
                 .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)

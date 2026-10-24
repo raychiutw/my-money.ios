@@ -99,6 +99,8 @@ struct GlassCapsuleButton: View {
 struct MoreMenu<Content: View>: View {
     let label: String
     let identifier: String
+    /// 符號貼在 44pt 點擊範圍的右緣(明細卡:⋯ 與金額同一個右欄、右緣對齊,#288);預設置中。
+    var glyphAtTrailingEdge = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -106,7 +108,7 @@ struct MoreMenu<Content: View>: View {
             Image(systemName: "ellipsis")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44, alignment: glyphAtTrailingEdge ? .trailing : .center)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -132,13 +134,13 @@ extension View {
     /// 同上,但蓋在列的角落(卡片、帶 disclosure 的列用):內容要自己讓出位置。
     func overlayMoreMenu<Menu: View>(
         label: String, identifier: String, alignment: Alignment = .topTrailing, trailingInset: CGFloat = 0, isShown: Bool = true,
-        @ViewBuilder content: @escaping () -> Menu
+        glyphAtTrailingEdge: Bool = false, @ViewBuilder content: @escaping () -> Menu
     ) -> some View {
         // 用 ZStack 而不是 `.overlay`:蓋在按鈕上的 overlay 會被併進按鈕的 accessibility 元素，⋯ 就不是獨立的按鈕了。
         ZStack(alignment: alignment) {
             self
             if isShown {
-                MoreMenu(label: label, identifier: identifier, content: content)
+                MoreMenu(label: label, identifier: identifier, glyphAtTrailingEdge: glyphAtTrailingEdge, content: content)
                     .padding(.trailing, trailingInset)
             }
         }
