@@ -24,7 +24,8 @@ final class BiometricLoginUITests: XCTestCase {
         let remember = app.switches["login.rememberBiometric"]
         XCTAssertTrue(remember.waitForExistence(timeout: 8), "登入頁沒有「下次使用 Face ID 登入」")
         XCTAssertFalse(app.buttons["login.biometric"].exists, "還沒綁定不該有 Face ID 按鈕")
-        remember.tap()
+        remember.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(remember.value as? String, "1", "點了選項沒有打開")
         typeCredentials(app)
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8), "登入後沒有進入 app")
         XCTAssertFalse(app.alerts.firstMatch.exists, "登入後不該再跳出詢問框")
@@ -56,7 +57,7 @@ final class BiometricLoginUITests: XCTestCase {
         let toggle = app.switches["me.biometricLogin"]
         XCTAssertTrue(ScrollSupport.revealFully(toggle, in: app), "「我的」沒有 Face ID 登入開關")
         XCTAssertEqual(toggle.value as? String, "0")
-        toggle.tap()
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         let password = app.secureTextFields["biometricBind.password"]
         XCTAssertTrue(password.waitForExistence(timeout: 5), "沒有跳出輸入帳密的表單")
         password.tap()
@@ -65,7 +66,7 @@ final class BiometricLoginUITests: XCTestCase {
         XCTAssertTrue(password.waitForNonExistence(timeout: 5), "綁定成功後表單沒有關閉")
         XCTAssertEqual(toggle.value as? String, "1", "綁定成功後開關沒有打開")
 
-        toggle.tap()
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "0", "關閉後開關沒有關")
         app.buttons["me.signOut"].tap()
         XCTAssertTrue(app.switches["login.rememberBiometric"].waitForExistence(timeout: 8), "清掉後登入頁應提供勾選")
@@ -110,7 +111,7 @@ final class BiometricLoginUITests: XCTestCase {
         app.openMe()
         let toggle = app.switches["me.biometricLogin"]
         XCTAssertTrue(ScrollSupport.revealFully(toggle, in: app))
-        toggle.tap()
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         let password = app.secureTextFields["biometricBind.password"]
         XCTAssertTrue(password.waitForExistence(timeout: 5))
         password.tap()

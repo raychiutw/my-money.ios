@@ -27,6 +27,9 @@ struct MeSheet: View {
             .navigationTitle("我的")
             .inlineNavigationTitle()
             .errorAlert("無法刪除帳號", message: deletion.errorMessage) { deletion.clearError() }
+            .sheet(isPresented: $isBindingBiometric) {
+                BiometricBindingSheet(settings: biometricLogin)
+            }
             .toolbar {
                 // 不放 `.confirmationAction`:iOS 26 會把它畫成 accent 填滿的主要動作鈕(ADR-0008)。
                 ToolbarItem(placement: .primaryAction) {
@@ -87,17 +90,8 @@ struct MeSheet: View {
             .tint(Color.ciFill)
             .disabled(!appLock.canEnable && !appLock.isEnabled)
             .accessibilityIdentifier("me.appLock")
-        } footer: {
-            if let message = appLock.settingMessage {
-                Text(message)
-            } else if !appLock.canEnable {
-                Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
-            }
-        }
-        .task { await appLock.refreshCapability() }
 
-        // Face ID 登入(#310):開啟要重新輸入帳密綁定,關閉就清掉已存帳密。
-        Section {
+            // Face ID 登入(#310):開啟要重新輸入帳密綁定,關閉就清掉已存帳密。
             Toggle(
                 "使用 \(biometricLogin.methodName) 登入",
                 isOn: Binding(
@@ -116,14 +110,19 @@ struct MeSheet: View {
             .disabled(!biometricLogin.canEnable && !biometricLogin.isEnabled)
             .accessibilityIdentifier("me.biometricLogin")
         } footer: {
-            Text(biometricLogin.canEnable || biometricLogin.isEnabled
-                ? "開啟時要重新輸入這個帳號的密碼；關閉會刪除這支手機上存的帳號密碼。"
-                : "這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
+            if let message = appLock.settingMessage {
+                Text(message)
+            } else if !appLock.canEnable {
+                Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
+            } else {
+                Text("Face ID 登入:開啟時要重新輸入密碼，關閉會刪除這支手機上存的帳號密碼。")
+            }
         }
-        .task { await biometricLogin.refresh() }
-        .sheet(isPresented: $isBindingBiometric) {
-            BiometricBindingSheet(settings: biometricLogin)
+        .task {
+            await appLock.refreshCapability()
+            await biometricLogin.refresh()
         }
+
 
         Section {
             // 登出不跳確認、不打 API(parity.md「全域」)。
