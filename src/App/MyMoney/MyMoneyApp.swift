@@ -18,6 +18,7 @@ struct MyMoneyApp: App {
     private let signedIn: SignedInScreens
     /// App 鎖(#298):生物辨識鎖,純本機。
     private let appLock: AppLockModel
+    private let biometricSettings: BiometricLoginSettings
     /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
     /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
@@ -80,14 +81,12 @@ struct MyMoneyApp: App {
             let savedLogin = arguments.contains("-uiTestingSavedLogin")
                 ? SavedCredentials(email: InMemoryAuthRepository.Member.sample.email, password: InMemoryAuthRepository.Member.sample.password)
                 : nil
-            login = LoginModel(
-                auth: auth, session: session,
-                biometricLogin: BiometricLogin(
-                    vault: InMemoryCredentialVault(saved: savedLogin),
-                    authenticator: FakeDeviceAuthenticator(capability: hasLoginBiometry ? .faceID : .unavailable, result: fakeResult),
-                    defaults: defaults
-                )
+            let biometricLogin = BiometricLogin(
+                vault: InMemoryCredentialVault(saved: savedLogin),
+                authenticator: FakeDeviceAuthenticator(capability: hasLoginBiometry ? .faceID : .unavailable, result: fakeResult)
             )
+            login = LoginModel(auth: auth, session: session, biometricLogin: biometricLogin)
+            biometricSettings = BiometricLoginSettings(auth: auth, session: session, biometricLogin: biometricLogin)
             register = RegisterModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
@@ -177,13 +176,11 @@ struct MyMoneyApp: App {
         // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
         let client = APIClient(session: session)
         let auth = LiveAuthRepository(client: client)
-        login = LoginModel(
-            auth: auth, session: session,
-            biometricLogin: BiometricLogin(
-                vault: KeychainCredentialVault(service: "com.raychiu.mymoney.credentials"),
-                authenticator: LiveDeviceAuthenticator(), defaults: .standard
-            )
+        let biometricLogin = BiometricLogin(
+            vault: KeychainCredentialVault(service: "com.raychiu.mymoney.credentials"), authenticator: LiveDeviceAuthenticator()
         )
+        login = LoginModel(auth: auth, session: session, biometricLogin: biometricLogin)
+        biometricSettings = BiometricLoginSettings(auth: auth, session: session, biometricLogin: biometricLogin)
         register = RegisterModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)
         let accounts = LiveAccountRepository(client: client)
@@ -216,6 +213,7 @@ struct MyMoneyApp: App {
                 .environment(session)
                 .environment(appearance)
                 .environment(appLock)
+                .environment(biometricSettings)
                 .task { lockWindow.start(appLock: appLock) }
                 .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))

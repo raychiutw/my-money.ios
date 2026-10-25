@@ -76,6 +76,16 @@ struct LoginView: View {
                 }
             }
 
+            if model.canOfferBiometricLogin {
+                Section {
+                    Toggle("下次使用 \(model.biometricMethodName) 登入", isOn: $model.remembersBiometricLogin)
+                        .tint(Color.ciFill)
+                        .accessibilityIdentifier("login.rememberBiometric")
+                } footer: {
+                    Text("登入成功後，帳號密碼只存在這支手機的 Keychain，之後可以直接用 \(model.biometricMethodName) 登入。")
+                }
+            }
+
             Section {
                 // 單色填滿的玻璃膠囊(#134):淺色黑底白字、深色白底黑字;停用時系統會淡化。
                 PrimaryCapsuleButton(title: model.submitTitle, fillsWidth: true, action: submit)
@@ -112,15 +122,6 @@ struct LoginView: View {
             }
         }
         .task { await model.refreshBiometricLogin() }
-        .alert(
-            "要用 \(model.biometricMethodName) 登入嗎？",
-            isPresented: Binding(get: { model.isOfferingBiometricLogin }, set: { _ in })
-        ) {
-            Button("開啟") { model.answerBiometricOffer(save: true) }
-            Button("暫時不要", role: .cancel) { model.answerBiometricOffer(save: false) }
-        } message: {
-            Text("下次登入可以直接用 \(model.biometricMethodName),不用再輸入密碼。帳號密碼只存在這支裝置上。")
-        }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現在畫面下方，VoiceOver 使用者不一定會移過去，直接念出來。
             if let message {

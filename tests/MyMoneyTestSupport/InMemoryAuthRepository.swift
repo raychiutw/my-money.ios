@@ -37,7 +37,7 @@ public actor InMemoryAuthRepository: AuthRepository {
 
     public func login(email: String, password: String) async throws -> Session {
         await gate?.pass()
-        guard let member = members.first(where: { $0.email == email && $0.password == password }) else {
+        guard let member = members.first(where: { $0.email.lowercased() == email.lowercased() && $0.password == password }) else {
             throw RepositoryError.invalidCredentials("Email 或密碼錯誤")
         }
         return Self.session(for: member)

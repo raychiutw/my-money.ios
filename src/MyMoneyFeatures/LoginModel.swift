@@ -35,8 +35,11 @@ public final class LoginModel {
     /// 登入頁有沒有「使用 Face ID 登入」的按鈕:有存帳密、而且這支裝置現在還能驗證本人。
     public private(set) var canUseBiometricLogin = false
 
-    /// 登入成功、還沒進入 app:正在問「要不要用 Face ID 登入」(回答後才進入)。
-    public private(set) var isOfferingBiometricLogin = false
+    /// 登入頁有沒有「下次使用 Face ID 登入」的選項:裝置可驗證、而且還沒綁定帳密。
+    public private(set) var canOfferBiometricLogin = false
+
+    /// 使用者在登入頁勾了「下次使用 Face ID 登入」:這次登入成功才綁定帳密。
+    public var remembersBiometricLogin = false
 
     /// 按鈕與詢問裡的驗證方式名稱(Face ID、Touch ID、Optic ID、裝置密碼)。
     public private(set) var biometricMethodName = "Face ID"
@@ -46,8 +49,6 @@ public final class LoginModel {
     @ObservationIgnored private let auth: any AuthRepository
     @ObservationIgnored private let session: AppSession
     @ObservationIgnored private let biometric: BiometricLogin?
-    /// 詢問期間暫存:登入成功的 session 與剛輸入的帳密。
-    @ObservationIgnored private var pendingOffer: (session: Session, credentials: SavedCredentials)?
 
     public init(auth: any AuthRepository, session: AppSession, biometricLogin: BiometricLogin? = nil) {
         self.auth = auth
@@ -55,15 +56,19 @@ public final class LoginModel {
         biometric = biometricLogin
     }
 
-    /// 重新判斷要不要顯示 Face ID 登入按鈕(登入頁出現時呼叫)。
+    /// 重新判斷登入頁要顯示 Face ID 按鈕或「下次使用 Face ID 登入」選項(登入頁出現時呼叫)。
     public func refreshBiometricLogin() async {
-        guard let biometric, biometric.vault.hasSaved() else {
+        guard let biometric else {
             canUseBiometricLogin = false
+            canOfferBiometricLogin = false
             return
         }
         let capability = await biometric.authenticator.capability()
         biometricMethodName = capability.methodName
-        canUseBiometricLogin = capability.isAvailable
+        let hasSaved = biometric.vault.hasSaved()
+        canUseBiometricLogin = hasSaved && capability.isAvailable
+        canOfferBiometricLogin = !hasSaved && capability.isAvailable
+        if !canOfferBiometricLogin { remembersBiometricLogin = false }
     }
 
     /// 按「使用 Face ID 登入」:驗證通過就用已存的帳密登入。
@@ -104,21 +109,6 @@ public final class LoginModel {
         canUseBiometricLogin = false
     }
 
-    /// 回答「要不要用 Face ID 登入」:要就存帳密,然後進入 app。
-    public func answerBiometricOffer(save: Bool) {
-        guard let pending = pendingOffer, let biometric else { return }
-        pendingOffer = nil
-        isOfferingBiometricLogin = false
-        if save {
-            canUseBiometricLogin = biometric.vault.save(pending.credentials)
-        } else {
-            biometric.defaults.set(true, forKey: Self.declinedKey(pending.credentials.email))
-        }
-        session.start(pending.session)
-    }
-
-    private static func declinedKey(_ email: String) -> String { "biometricLogin.declined.\(email)" }
-
     /// 送出登入。
     public func submit() async {
         errorMessage = nil
@@ -132,19 +122,14 @@ public final class LoginModel {
             password = ""
             isPasswordVisible = false
             if let biometric {
-                if biometric.vault.load()?.email == credentials.email {
-                    // 已經存過這個帳號:密碼有改就靜默更新,不再詢問。
+                if biometric.vault.load()?.isAccount(email: credentials.email) == true {
+                    // 已經綁定這個帳號:密碼有改就靜默更新。
                     biometric.vault.save(credentials)
-                } else if !biometric.defaults.bool(forKey: Self.declinedKey(credentials.email)) {
-                    // 裝置上沒存帳密、或存的是另一個帳號:問要不要(同意就換成這個帳號)。
-                    let capability = await biometric.authenticator.capability()
-                    if capability.isAvailable {
-                        biometricMethodName = capability.methodName
-                        pendingOffer = (signedIn, credentials)
-                        isOfferingBiometricLogin = true
-                        return
-                    }
+                } else if remembersBiometricLogin, await biometric.authenticator.capability().isAvailable {
+                    // 使用者在登入頁選了 Face ID 登入:帳密驗證成功了才綁定。
+                    canUseBiometricLogin = biometric.vault.save(credentials)
                 }
+                remembersBiometricLogin = false
             }
             session.start(signedIn)
         } catch {
@@ -153,16 +138,14 @@ public final class LoginModel {
     }
 }
 
-/// Face ID 登入需要的三個協作者(#308):帳密保管箱、驗證本人、記錄「已經問過不要」的設定。
+/// Face ID 登入需要的兩個協作者(#308):帳密保管箱、驗證本人。登入頁與「我的」的開關共用同一份。
 public struct BiometricLogin {
     let vault: any CredentialVault
     let authenticator: any DeviceAuthenticator
-    let defaults: UserDefaults
 
-    public init(vault: any CredentialVault, authenticator: any DeviceAuthenticator, defaults: UserDefaults) {
+    public init(vault: any CredentialVault, authenticator: any DeviceAuthenticator) {
         self.vault = vault
         self.authenticator = authenticator
-        self.defaults = defaults
     }
 }
 

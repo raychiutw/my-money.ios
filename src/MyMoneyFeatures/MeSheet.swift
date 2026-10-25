@@ -9,6 +9,8 @@ struct MeSheet: View {
     @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(AccountDeletionModel.self) private var deletion
     @Environment(AppLockModel.self) private var appLock
+    @Environment(BiometricLoginSettings.self) private var biometricLogin
+    @State private var isBindingBiometric = false
     @State private var isDeleteConfirming = false
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
@@ -25,6 +27,9 @@ struct MeSheet: View {
             .navigationTitle("我的")
             .inlineNavigationTitle()
             .errorAlert("無法刪除帳號", message: deletion.errorMessage) { deletion.clearError() }
+            .sheet(isPresented: $isBindingBiometric) {
+                BiometricBindingSheet(settings: biometricLogin)
+            }
             .toolbar {
                 // 不放 `.confirmationAction`:iOS 26 會把它畫成 accent 填滿的主要動作鈕(ADR-0008)。
                 ToolbarItem(placement: .primaryAction) {
@@ -85,14 +90,39 @@ struct MeSheet: View {
             .tint(Color.ciFill)
             .disabled(!appLock.canEnable && !appLock.isEnabled)
             .accessibilityIdentifier("me.appLock")
+
+            // Face ID 登入(#310):開啟要重新輸入帳密綁定,關閉就清掉已存帳密。
+            Toggle(
+                "使用 \(biometricLogin.methodName) 登入",
+                isOn: Binding(
+                    get: { biometricLogin.isEnabled },
+                    set: { newValue in
+                        if newValue {
+                            biometricLogin.clearError()
+                            isBindingBiometric = true
+                        } else {
+                            biometricLogin.disable()
+                        }
+                    }
+                )
+            )
+            .tint(Color.ciFill)
+            .disabled(!biometricLogin.canEnable && !biometricLogin.isEnabled)
+            .accessibilityIdentifier("me.biometricLogin")
         } footer: {
             if let message = appLock.settingMessage {
                 Text(message)
             } else if !appLock.canEnable {
                 Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
+            } else {
+                Text("\(biometricLogin.methodName) 登入:開啟時要重新輸入密碼，關閉會刪除這支手機上存的帳號密碼。")
             }
         }
-        .task { await appLock.refreshCapability() }
+        .task {
+            await appLock.refreshCapability()
+            await biometricLogin.refresh()
+        }
+
 
         Section {
             // 登出不跳確認、不打 API(parity.md「全域」)。
