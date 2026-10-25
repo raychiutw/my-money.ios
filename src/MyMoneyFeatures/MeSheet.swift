@@ -9,6 +9,8 @@ struct MeSheet: View {
     @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(AccountDeletionModel.self) private var deletion
     @Environment(AppLockModel.self) private var appLock
+    @Environment(BiometricLoginSettings.self) private var biometricLogin
+    @State private var isBindingBiometric = false
     @State private var isDeleteConfirming = false
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
@@ -93,6 +95,35 @@ struct MeSheet: View {
             }
         }
         .task { await appLock.refreshCapability() }
+
+        // Face ID 登入(#310):開啟要重新輸入帳密綁定,關閉就清掉已存帳密。
+        Section {
+            Toggle(
+                "使用 \(biometricLogin.methodName) 登入",
+                isOn: Binding(
+                    get: { biometricLogin.isEnabled },
+                    set: { newValue in
+                        if newValue {
+                            biometricLogin.clearError()
+                            isBindingBiometric = true
+                        } else {
+                            biometricLogin.disable()
+                        }
+                    }
+                )
+            )
+            .tint(Color.ciFill)
+            .disabled(!biometricLogin.canEnable && !biometricLogin.isEnabled)
+            .accessibilityIdentifier("me.biometricLogin")
+        } footer: {
+            Text(biometricLogin.canEnable || biometricLogin.isEnabled
+                ? "開啟時要重新輸入這個帳號的密碼；關閉會刪除這支手機上存的帳號密碼。"
+                : "這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
+        }
+        .task { await biometricLogin.refresh() }
+        .sheet(isPresented: $isBindingBiometric) {
+            BiometricBindingSheet(settings: biometricLogin)
+        }
 
         Section {
             // 登出不跳確認、不打 API(parity.md「全域」)。

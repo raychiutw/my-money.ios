@@ -13,68 +13,23 @@ struct BiometricLoginTests {
 
     private func make(
         vault: InMemoryCredentialVault = InMemoryCredentialVault(), auth: (any AuthRepository)? = nil,
-        capability: DeviceAuthCapability = .faceID, result: DeviceAuthResult = .success, suite: String = #function
+        capability: DeviceAuthCapability = .faceID, result: DeviceAuthResult = .success
     ) -> (model: LoginModel, session: AppSession, vault: InMemoryCredentialVault) {
-        let defaults = UserDefaults(suiteName: "BiometricLoginTests.\(suite)")!
-        defaults.removePersistentDomain(forName: "BiometricLoginTests.\(suite)")
         let session = AppSession(storage: InMemorySessionStorage())
         let model = LoginModel(
             auth: auth ?? self.auth, session: session,
             biometricLogin: BiometricLogin(
-                vault: vault, authenticator: FakeDeviceAuthenticator(capability: capability, result: result), defaults: defaults
+                vault: vault, authenticator: FakeDeviceAuthenticator(capability: capability, result: result)
             )
         )
         return (model, session, vault)
     }
 
-    private func fillAndSubmit(_ model: LoginModel, password: String = "secret123") async {
+    private func fillAndSubmit(_ model: LoginModel, password: String = "secret123", remember: Bool = false) async {
+        model.remembersBiometricLogin = remember
         model.email = "family@example.com"
         model.password = password
         await model.submit()
-    }
-
-    @Test("第一次密碼登入成功:先問要不要用 Face ID 登入,回答前還沒進入")
-    func offersAfterFirstPasswordLogin() async {
-        let (model, session, _) = make()
-        await fillAndSubmit(model)
-
-        #expect(model.isOfferingBiometricLogin)
-        #expect(session.current == nil)
-    }
-
-    @Test("回答要:存帳密並進入")
-    func acceptingSavesAndSignsIn() async {
-        let (model, session, vault) = make()
-        await fillAndSubmit(model)
-        model.answerBiometricOffer(save: true)
-
-        #expect(vault.load() == saved)
-        #expect(session.current != nil)
-        #expect(!model.isOfferingBiometricLogin)
-    }
-
-    @Test("回答不要:不存、進入,下次登入不再問")
-    func decliningDoesNotSaveAndIsAskedOnce() async {
-        let (model, session, vault) = make()
-        await fillAndSubmit(model)
-        model.answerBiometricOffer(save: false)
-        #expect(vault.load() == nil)
-        #expect(session.current != nil)
-
-        session.signOut()
-        await fillAndSubmit(model)
-        #expect(!model.isOfferingBiometricLogin)
-        #expect(session.current != nil)
-    }
-
-    @Test("裝置不能驗證(沒設密碼):不詢問、直接進入")
-    func noOfferWhenUnavailable() async {
-        let (model, session, vault) = make(capability: .unavailable)
-        await fillAndSubmit(model)
-
-        #expect(!model.isOfferingBiometricLogin)
-        #expect(session.current != nil)
-        #expect(vault.load() == nil)
     }
 
     @Test("有存帳密:登入頁出現 Face ID 按鈕;沒存就沒有")
@@ -123,14 +78,73 @@ struct BiometricLoginTests {
         #expect(!model.canUseBiometricLogin)
     }
 
-    @Test("用密碼登入時已有存帳密:靜默更新成新的密碼(不再詢問)")
+    @Test("用密碼登入時已有存帳密:靜默更新成新的密碼")
     func passwordLoginRefreshesSaved() async {
         let (model, session, vault) = make(vault: InMemoryCredentialVault(saved: saved))
         await fillAndSubmit(model)
 
-        #expect(!model.isOfferingBiometricLogin)
         #expect(session.current != nil)
         #expect(vault.load() == saved)
+    }
+
+    @Test("登入頁勾選「下次使用 Face ID 登入」且登入成功:存帳密並進入")
+    func rememberOnLoginSaves() async {
+        let (model, session, vault) = make()
+        await fillAndSubmit(model, remember: true)
+
+        #expect(vault.load() == saved)
+        #expect(session.current != nil)
+        #expect(model.canUseBiometricLogin)
+        #expect(!model.remembersBiometricLogin)
+    }
+
+    @Test("沒勾選:不存")
+    func notRememberedByDefault() async {
+        let (model, session, vault) = make()
+        await fillAndSubmit(model)
+
+        #expect(vault.load() == nil)
+        #expect(session.current != nil)
+    }
+
+    @Test("勾了但登入失敗(密碼錯):不存")
+    func failedLoginDoesNotSave() async {
+        let (model, session, vault) = make()
+        await fillAndSubmit(model, password: "wrong", remember: true)
+
+        #expect(vault.load() == nil)
+        #expect(session.current == nil)
+    }
+
+    @Test("裝置不能驗證:不提供勾選,勾了也不存")
+    func unavailableDeviceNeverSaves() async {
+        let (model, session, vault) = make(capability: .unavailable)
+        await model.refreshBiometricLogin()
+        #expect(!model.canOfferBiometricLogin)
+        await fillAndSubmit(model, remember: true)
+
+        #expect(vault.load() == nil)
+        #expect(session.current != nil)
+    }
+
+    @Test("可驗證且還沒綁定:登入頁提供勾選;已綁定就改顯示按鈕、不提供勾選")
+    func offerOnlyWhenNotBound() async {
+        let fresh = make()
+        await fresh.model.refreshBiometricLogin()
+        #expect(fresh.model.canOfferBiometricLogin)
+
+        let bound = make(vault: InMemoryCredentialVault(saved: saved))
+        await bound.model.refreshBiometricLogin()
+        #expect(!bound.model.canOfferBiometricLogin)
+    }
+
+    @Test("存不進去(例如沒設裝置密碼):不顯示 Face ID 按鈕")
+    func failedSaveDoesNotEnableButton() async {
+        let (model, _, vault) = make(vault: InMemoryCredentialVault(failsToSave: true))
+        await fillAndSubmit(model, remember: true)
+
+        #expect(vault.load() == nil)
+        #expect(!model.canUseBiometricLogin)
     }
 
     @Test("後端暫時出錯(不是密碼錯誤):不清掉已存帳密,按鈕還在")
@@ -143,27 +157,6 @@ struct BiometricLoginTests {
         #expect(vault.load() == saved)
         #expect(model.canUseBiometricLogin)
         #expect(model.errorMessage == "請求太頻繁")
-    }
-
-    @Test("裝置上已存另一個帳號:換帳號登入時詢問,同意就換成新帳號")
-    func offersWhenAnotherAccountIsSaved() async {
-        let other = SavedCredentials(email: "other@example.com", password: "x")
-        let (model, _, vault) = make(vault: InMemoryCredentialVault(saved: other))
-        await fillAndSubmit(model)
-
-        #expect(model.isOfferingBiometricLogin)
-        model.answerBiometricOffer(save: true)
-        #expect(vault.load() == saved)
-    }
-
-    @Test("存不進去(例如沒設裝置密碼):不顯示 Face ID 按鈕")
-    func failedSaveDoesNotEnableButton() async {
-        let (model, _, vault) = make(vault: InMemoryCredentialVault(failsToSave: true))
-        await fillAndSubmit(model)
-        model.answerBiometricOffer(save: true)
-
-        #expect(vault.load() == nil)
-        #expect(!model.canUseBiometricLogin)
     }
 
     @Test("按鈕出現後 Keychain 項目不見了:按下去不登入、按鈕消失")
