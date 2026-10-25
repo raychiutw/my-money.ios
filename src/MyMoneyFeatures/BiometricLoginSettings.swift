@@ -27,10 +27,11 @@ public final class BiometricLoginSettings {
     public var currentEmail: String { session.current?.user.email ?? "" }
 
     public func refresh() async {
+        // 先同步算開關(換帳號、登出後不會先閃出上一個帳號的狀態);沒有目前帳號就不可能是開啟。
+        isEnabled = biometric.vault.load()?.isAccount(email: session.current?.user.email) == true
         let capability = await biometric.authenticator.capability()
         methodName = capability.methodName
         canEnable = capability.isAvailable
-        isEnabled = biometric.vault.load()?.email == session.current?.user.email
     }
 
     public func clearError() { errorMessage = nil }
@@ -43,6 +44,7 @@ public final class BiometricLoginSettings {
         let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let verified = try await auth.login(email: trimmed, password: password)
+            guard !Task.isCancelled else { return false }
             guard verified.user.id == session.current?.user.id else {
                 errorMessage = "請輸入目前登入的帳號"
                 return false

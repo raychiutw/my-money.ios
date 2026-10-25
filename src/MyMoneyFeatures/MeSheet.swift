@@ -115,7 +115,7 @@ struct MeSheet: View {
             } else if !appLock.canEnable {
                 Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
             } else {
-                Text("Face ID 登入:開啟時要重新輸入密碼，關閉會刪除這支手機上存的帳號密碼。")
+                Text("\(biometricLogin.methodName) 登入:開啟時要重新輸入密碼，關閉會刪除這支手機上存的帳號密碼。")
             }
         }
         .task {

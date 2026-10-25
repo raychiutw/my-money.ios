@@ -7,6 +7,7 @@ struct BiometricBindingSheet: View {
     @State private var email = ""
     @State private var password = ""
     @FocusState private var focused: Bool
+    @State private var task: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -54,12 +55,14 @@ struct BiometricBindingSheet: View {
                 }
             }
             .onAppear { email = settings.currentEmail }
+            // 關掉表單就取消還沒完成的綁定,不會在背景偷偷存起來。
+            .onDisappear { task?.cancel() }
         }
     }
 
     private func submit() {
         guard !settings.isWorking, !email.isEmpty, !password.isEmpty else { return }
-        Task {
+        task = Task {
             if await settings.enable(email: email, password: password) { dismiss() }
         }
     }

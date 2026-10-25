@@ -19,3 +19,10 @@ public protocol CredentialVault: Sendable {
     func load() -> SavedCredentials?
     func delete()
 }
+
+extension SavedCredentials {
+    /// 是不是同一個帳號:後端的 Email 不分大小寫,這裡也不分。
+    public func isAccount(email other: String?) -> Bool {
+        other.map { email.caseInsensitiveCompare($0) == .orderedSame } ?? false
+    }
+}

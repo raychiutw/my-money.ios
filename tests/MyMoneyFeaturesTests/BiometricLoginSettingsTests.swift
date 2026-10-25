@@ -90,4 +90,25 @@ struct BiometricLoginSettingsTests {
         let (settings, _) = await make(capability: .unavailable)
         #expect(!settings.canEnable)
     }
+
+    @Test("Email 大小寫不同也算同一個帳號(後端不分大小寫)")
+    func emailComparisonIgnoresCase() async {
+        let (settings, vault) = await make()
+        let ok = await settings.enable(email: "Family@Example.com", password: "secret123")
+        #expect(ok)
+        await settings.refresh()
+        #expect(settings.isEnabled)
+        #expect(vault.load()?.email == "Family@Example.com")
+    }
+
+    @Test("沒登入時(沒有目前帳號):空保管箱不會被判成已開啟")
+    func noSessionIsNotEnabled() async {
+        let session = AppSession(storage: InMemorySessionStorage())
+        let settings = BiometricLoginSettings(
+            auth: auth, session: session,
+            biometricLogin: BiometricLogin(vault: InMemoryCredentialVault(), authenticator: FakeDeviceAuthenticator())
+        )
+        await settings.refresh()
+        #expect(!settings.isEnabled)
+    }
 }

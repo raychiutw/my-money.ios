@@ -169,6 +169,17 @@ struct BiometricLoginTests {
         #expect(session.current == nil)
         #expect(!model.canUseBiometricLogin)
     }
+
+    @Test("已綁定、用不同大小寫的 Email 登入:當成同一個帳號,靜默更新")
+    func emailCaseDoesNotMakeAnotherAccount() async {
+        let (model, session, vault) = make(vault: InMemoryCredentialVault(saved: SavedCredentials(email: "Family@Example.com", password: "old")))
+        model.email = "family@example.com"
+        model.password = "secret123"
+        await model.submit()
+
+        #expect(session.current != nil)
+        #expect(vault.load()?.password == "secret123")
+    }
 }
 
 private struct FailingAuth: AuthRepository {

@@ -109,7 +109,6 @@ public final class LoginModel {
         canUseBiometricLogin = false
     }
 
-
     /// 送出登入。
     public func submit() async {
         errorMessage = nil
@@ -123,11 +122,11 @@ public final class LoginModel {
             password = ""
             isPasswordVisible = false
             if let biometric {
-                if biometric.vault.load()?.email == credentials.email {
+                if biometric.vault.load()?.isAccount(email: credentials.email) == true {
                     // 已經綁定這個帳號:密碼有改就靜默更新。
                     biometric.vault.save(credentials)
                 } else if remembersBiometricLogin, await biometric.authenticator.capability().isAvailable {
-                    // 使用者在登入頁選了 Face ID 登入:帳密驗證成功了才綁定(換帳號就換成這個)。
+                    // 使用者在登入頁選了 Face ID 登入:帳密驗證成功了才綁定。
                     canUseBiometricLogin = biometric.vault.save(credentials)
                 }
                 remembersBiometricLogin = false
