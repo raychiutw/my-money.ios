@@ -60,7 +60,7 @@ tests/MyMoneyUITests/          # XCUITest
 
 - **不在 client 端重算業務規則**。淨可用餘額、預測、購買力試算、超支判斷都用後端回傳的值。後端的錯我們也照舊顯示，只有 `docs/parity.md` 列出的偏離例外。
 - **wire format 只在 `MyMoneyAPI` 裡處理**,不設全域 `keyDecodingStrategy`。資料表欄位是 snake_case,計算型 endpoint(`/accounts/balance`、`/forecast`)是 camelCase,而且 camelCase 物件裡還包著 snake_case;資料庫旗標是 0/1(`is_shared`),計算出來的旗標是 true/false(`over`、`willOverdraft`)。回應 envelope 是 `{success, data}` 或 `{success:false, error}`,部分 DELETE 只回 `{success, message}`,沒有 `data`。
-- **「信用卡還款」是系統分類**:信用卡扣款還款(`POST /accounts/pay-credit-card`)產生的收支明細，活存帳戶一筆支出、信用卡一筆收入。後端禁止編輯和刪除(回 400);iOS 的列表不顯示編輯和刪除。**總額規則(上游 `a09e923`)**:`/transactions/summary/monthly` 與記帳頁本機算的總收入、總支出、每日淨額一律全量加總，系統分類也算;只有統計分類圓餅圖不含它。
+- **「信用卡還款」是系統分類**:信用卡扣款還款(`POST /accounts/pay-credit-card`)產生的收支明細，活存帳戶一筆支出、信用卡一筆收入。成對系統交易(還款、轉帳、ATM 提款、報銷)上游 `2fdc890`(ADR 0031)起可編輯(只改金額、日期、備註,帳戶與分類鎖定)與刪除(成對刪除),見 `docs/parity.md` 第 104 項;後端無法唯一配對的舊紀錄回 400,訊息照顯示。**總額規則(上游 `a09e923`)**:`/transactions/summary/monthly` 與記帳頁本機算的總收入、總支出、每日淨額一律全量加總，系統分類也算;只有統計分類圓餅圖不含它。
 - **`balance` 一詞兩義**:活存帳戶的 `balance` 是「餘額」,信用卡的 `balance` 是「已出帳待繳款」。翻譯層要把它拆成兩個不同的 domain 概念。
 - **金額用 `Decimal`**。顯示新台幣時設 0 位小數，並加上 `.rounded(rule: .toNearestOrAwayFromZero)`,才會跟 web 的 `Intl` 一樣(2.5 → `$3`)。
 - **日期**:「今天」和「本月」一律用台灣時間算。呼叫 API 時明確帶上月份，不依賴後端用 UTC 算的預設值。wire 上的日期維持 `YYYY-MM-DD` 字串。
