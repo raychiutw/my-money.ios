@@ -23,6 +23,10 @@ public protocol TransactionForm: AnyObject, Observable {
     var isSaving: Bool { get }
     /// 分類是依備註自動預選時的提示文字(記一筆才有);編輯既有交易一律沒有。
     var categoryHintText: String? { get }
+    /// 編輯成對系統紀錄(上游 ADR 0031):帳戶、分類、收支方向鎖定,只有金額、日期、備註能改。
+    var isStructureLocked: Bool { get }
+    var lockedNotice: String? { get }
+    var lockedAccountName: String? { get }
     func prepare() async
     /// 開始新的一筆:記一筆清空帳戶、重設分類鎖定;編輯什麼都不做。只在 sheet 打開時呼叫一次。
     func startNewEntry()
@@ -65,10 +69,19 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 // 帳戶與日期放在最上面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
                 // (上游 ADR 0011);金額欄仍然一打開就對焦。
                 Section {
-                    AccountPicker(
-                        title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
-                        placeholder: "請選擇扣款／存入帳戶"
-                    )
+                    if model.isStructureLocked {
+                        // 成對系統紀錄(ADR 0031):帳戶不能換,唯讀顯示。
+                        LabeledContent("帳戶") {
+                            Text(model.lockedAccountName ?? model.accounts.first { $0.id == model.accountID }?.name ?? "")
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityIdentifier("form.lockedAccount")
+                    } else {
+                        AccountPicker(
+                            title: "帳戶", selection: $model.accountID, options: model.accounts.map(AccountPicker.Option.init),
+                            placeholder: "請選擇扣款／存入帳戶"
+                        )
+                    }
                     DayPickerRow(title: "日期", day: $model.date)
                     // 建立時間:唯讀的灰字,不能改(#290)。
                     if let createdAt = model.createdAtText {
@@ -82,7 +95,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         .accessibilityIdentifier("form.createdAt")
                     }
                     // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
-                    if model.isCreditCardSelected {
+                    if model.isCreditCardSelected, !model.isStructureLocked {
                         Toggle("列入下期帳單", isOn: $model.defersToNextStatement)
                             .tint(Color.ciFill)
                             .accessibilityIdentifier("quickEntry.deferToNext")
@@ -90,8 +103,10 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 }
 
                 // 歸屬:2 個選項用內嵌選擇列，點一下就選，body 字級不縮小(ADR-0004、#90)。
-                Section("歸屬") {
-                    InlineChoiceRows([(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared)
+                if !model.isStructureLocked {
+                    Section("歸屬") {
+                        InlineChoiceRows([(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared)
+                    }
                 }
 
                 Section {
@@ -118,11 +133,26 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 }
 
                 // 分類攤開成格，點一下就選(ADR-0004、#89)。
-                Section("分類") {
-                    CategoryGrid(
-                        categories: model.categories,
-                        selection: Binding(get: { model.category }, set: { model.chooseCategory($0) })
-                    )
+                if model.isStructureLocked {
+                    Section {
+                        LabeledContent("分類") {
+                            Text(model.category.name)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityIdentifier("form.lockedCategory")
+                    } footer: {
+                        if let notice = model.lockedNotice {
+                            Text(notice)
+                                .accessibilityIdentifier("form.lockedNotice")
+                        }
+                    }
+                } else {
+                    Section("分類") {
+                        CategoryGrid(
+                            categories: model.categories,
+                            selection: Binding(get: { model.category }, set: { model.chooseCategory($0) })
+                        )
+                    }
                 }
             }
             .navigationTitle(model.title)
@@ -131,7 +161,12 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 SheetCloseButton { dismiss() }
                 // 支出／收入放在導覽列中間(#65,HIG 分段控制一節舉的行事曆「新增事件」),不另外佔表單一列。
                 ToolbarItem(placement: .principal) {
-                    SegmentedPicker("類型", options: [(TransactionType.expense, "支出"), (.income, "收入")], selection: $model.type)
+                    if model.isStructureLocked {
+                        Text(model.type == .expense ? "支出" : "收入")
+                            .font(.headline)
+                    } else {
+                        SegmentedPicker("類型", options: [(TransactionType.expense, "支出"), (.income, "收入")], selection: $model.type)
+                    }
                 }
                 SheetConfirmButton("儲存", isDisabled: model.isSaving, identifier: "quickEntry.save") {
                     Task {

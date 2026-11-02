@@ -42,6 +42,11 @@ public final class QuickEntryModel: Submitting {
     /// 分類旁邊的提示文字:歷史命中是「依歷史習慣推薦【分類】」,詞庫命中是「智慧推薦為【分類】」。
     public var categoryHintText: String? { recommendation?.hintText }
 
+    /// 記一筆沒有鎖定的欄位(只有編輯成對系統紀錄才鎖)。
+    public var isStructureLocked: Bool { false }
+    public var lockedNotice: String? { nil }
+    public var lockedAccountName: String? { nil }
+
     /// 使用者這次打開之後手動選過分類:鎖定，之後不論備註怎麼改，都不再覆蓋他的選擇。
     public private(set) var isCategoryChosen = false
     public var date: CalendarDay
@@ -129,12 +134,12 @@ public final class QuickEntryModel: Submitting {
         recommendation = nil
     }
 
-    /// 載入近 3 個月的備註當歷史(智慧推薦的第一層)。失敗或很慢都不擋記帳:沒有歷史就只走詞庫。
+    /// 載入近 3 個月內最近 200 筆(後端一頁的上限,一次請求)的備註當歷史(智慧推薦的第一層,#318)。失敗或很慢都不擋記帳:沒有歷史就只走詞庫。
     /// 載完時如果已經有備註、而且還沒手動選過分類，照新的歷史重新推薦一次。
     public func loadNoteHistory() async {
         let end = today()
         do {
-            let recent = try await transactions.allTransactions(from: end.addingMonths(-3), to: end, scope: .all)
+            let recent = try await transactions.transactions(from: end.addingMonths(-3), to: end, scope: .all, limit: 200, offset: 0)
             noteHistory = NoteHistory(transactions: recent)
         } catch {
             noteHistory = .empty

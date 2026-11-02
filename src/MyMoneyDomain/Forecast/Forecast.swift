@@ -32,11 +32,15 @@ public struct ForecastEvent: Hashable, Sendable {
     public let isSettled: Bool
     /// 目前登入者能不能勾選(後端 `can_settle`):私帳事件只有本人，公帳事件是本人或家庭管理員;舊回應沒有，當成不能。
     public let canSettle: Bool
+    /// 這筆事件發生後的累計結餘(後端 `running_balance`,上游 `a68a231`):同日多筆收入優先於支出逐筆加減;已繳的事件不加減、維持當下結餘。
+    /// 舊回應沒有時是 `nil`。
+    public let runningBalance: Money?
 
     public init(
         date: CalendarDay, name: String, type: TransactionType, amount: Money, isShared: Bool = false, accountName: String? = nil,
-        key: String? = nil, isSettled: Bool = false, canSettle: Bool = false
+        key: String? = nil, isSettled: Bool = false, canSettle: Bool = false, runningBalance: Money? = nil
     ) {
+        self.runningBalance = runningBalance
         self.date = date
         self.name = name
         self.type = type

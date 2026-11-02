@@ -237,18 +237,17 @@ struct TransactionFilterTests {
         #expect(dataVersion.value == 1)
     }
 
-    @Test("「信用卡還款」不能編輯也不能刪除")
-    func repaymentIsLocked() async {
+    @Test("「信用卡還款」(成對系統紀錄)可以編輯但帳戶、分類、收支方向鎖定,也可以刪除(上游 ADR 0031、#313)")
+    func repaymentIsEditableButStructureLocked() async {
         let dataVersion = DataVersion()
         let (list, repository) = await loadedList(dataVersion: dataVersion)
         let repayment = list.days.flatMap(\.transactions).first { $0.category == .creditCardRepayment }!
 
-        #expect(!list.canModify(repayment))
-        #expect(list.makeEditor(for: repayment) == nil)
+        #expect(list.canModify(repayment))
         await list.delete(repayment)
 
-        #expect(await repository.deletedIDs.isEmpty)
-        #expect(dataVersion.value == 0)
+        #expect(await repository.deletedIDs == [repayment.id])
+        #expect(dataVersion.value == 1)
     }
 
     @Test("刪除前的確認文字")

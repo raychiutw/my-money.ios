@@ -99,6 +99,35 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertTrue(restored.waitForExistence(timeout: 3), "解除報銷後明細沒有回到待報銷")
     }
 
+    /// 撥款沖帳紀錄的編輯與刪除(上游 ADR 0031、#314):⋯ 選單的「編輯」改金額,「刪除」要先確認。
+    @MainActor
+    func testEditAndDeleteReimbursementRecord() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingJoinedHousehold", "-uiTestingAdvanceStates"], signedIn: true)
+        app.tabBars.buttons["家庭"].tap()
+        app.openMemberDetail("in-memory-member-1")
+        XCTAssertTrue(app.navigationBars["小明"].waitForExistence(timeout: 5), "沒有進到成員詳細頁")
+        let row = app.descendants(matching: .any)["advance.reimbursement.sample-reimb-1"]
+        let more = app.buttons["advance.reimbursement.more.sample-reimb-1"]
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: app), "撥款沖帳紀錄沒有 ⋯")
+        more.tap()
+        app.buttons["編輯"].tap()
+        let amount = app.textFields["reimbursementEdit.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5), "沒有打開編輯報銷紀錄")
+        amount.tap()
+        amount.typeText("700")
+        app.buttons["reimbursementEdit.save"].tap()
+        XCTAssertTrue(amount.waitForNonExistence(timeout: 5), "儲存後表單沒有關閉")
+        XCTAssertTrue(ScrollSupport.revealFully(row, in: app))
+        XCTAssertTrue(row.label.contains("700"), "編輯後金額沒有更新:\(row.label)")
+
+        XCTAssertTrue(ScrollSupport.revealFully(more, in: app))
+        more.tap()
+        app.buttons["刪除"].tap()
+        XCTAssertTrue(app.staticTexts["刪除報銷紀錄"].waitForExistence(timeout: 3), "刪除沒有先確認")
+        app.buttons["刪除"].firstMatch.tap()
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5), "刪除後紀錄還在")
+    }
+
     /// 成員列的 ⋯ 靠到列的右緣(#306),而且不壓到待報銷金額。
     @MainActor
     func testMemberMoreMenuSitsAtTheRowTrailingEdge() throws {

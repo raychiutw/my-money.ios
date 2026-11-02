@@ -147,6 +147,17 @@ struct CategoryPreselectionTests {
         #expect(entry.categoryHintText == "智慧推薦為【汽機車輛】", "系統分類不進歷史，改走詞庫")
     }
 
+    @Test("備註歷史只抓最近一頁 200 筆(#318):一次請求,不逐頁抓完近 3 個月")
+    func historyLoadsOnlyTheLatestPage() async {
+        let history = (0..<250).map { transaction("備註\($0)", "餐飲", daysAgo: 1 + $0 % 20) }
+        let (_, repository) = await entry(history: history)
+
+        let queries = await repository.queries
+        #expect(queries.count == 1, "備註歷史應該只送一次請求:\(queries.count)")
+        #expect(queries.first?.limit == 200)
+        #expect(queries.first?.offset == 0)
+    }
+
     @Test("歷史載入失敗時記一筆照常可用:少了歷史推薦，仍有詞庫推薦")
     func historyFailureFallsBackToLexicon() async {
         let repository = InMemoryTransactionRepository(transactions: [transaction("全聯", "餐飲")])

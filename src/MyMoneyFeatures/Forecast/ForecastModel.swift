@@ -132,6 +132,9 @@ public final class ForecastModel {
         if let account = event.accountName { parts.append("帳戶 \(account)") }
         parts.append("\(event.type == .income ? "收入" : "支出") \(event.amount.spokenText)")
         if event.isSettled { parts.append("已繳，不計入預測") }
+        if let balance = event.runningBalance {
+            parts.append("事件後結餘 \(balance.spokenText)" + (balance < .zero ? ",透支" : ""))
+        }
         return parts.joined(separator: ",")
     }
 

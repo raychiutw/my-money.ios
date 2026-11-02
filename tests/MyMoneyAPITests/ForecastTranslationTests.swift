@@ -23,6 +23,23 @@ struct ForecastTranslationTests {
         #expect(forecast.dailyBalances.count == ForecastHorizon.days)
     }
 
+    /// 上游 `a68a231`(#168、#169)起:每筆事件多 `running_balance`(事件發生後的累計結餘);逾期卡款歸入今天(ADR 0032)事件名稱帶「原訂 MM/DD 扣款」。
+    @Test("事件的累計結餘 running_balance 解得出來(2026-11-02 從 prod 錄的);舊回應沒有時是 nil")
+    func decodesRunningBalance() async throws {
+        try stub.reply(status: 200, fixture: "forecast-running-balance.json")
+
+        let forecast = try await repository.forecast(scope: .all)
+
+        let first = try #require(forecast.events.first)
+        #expect(first.name.contains("原訂"), "逾期卡款事件名稱照後端(ADR 0032):\(first.name)")
+        #expect(first.runningBalance == Money(89950))
+        #expect(forecast.events.allSatisfy { $0.runningBalance != nil })
+
+        try stub.reply(status: 200, fixture: "forecast.json")
+        let old = try await repository.forecast(scope: .all)
+        #expect(old.events.allSatisfy { $0.runningBalance == nil })
+    }
+
     @Test("逐日餘額(舊回應是 30 天)、最低餘額與日期、透支風險、預定收支")
     func forecast() async throws {
         try stub.reply(status: 200, fixture: "forecast.json")

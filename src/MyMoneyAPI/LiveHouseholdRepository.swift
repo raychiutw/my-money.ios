@@ -57,6 +57,16 @@ public struct LiveHouseholdRepository: HouseholdRepository {
         try await client.sendForMessage("POST", "/households/advances/\(id.rawValue)/unlink") ?? "已解除報銷，該筆明細已退回待報銷"
     }
 
+    public func updateReimbursement(_ id: TransactionID, accountID: AccountID, amount: Money, date: CalendarDay, note: String) async throws {
+        try await client.send("PUT", "/transactions/\(id.rawValue)", body: ReimbursementUpdateBody(
+            accountID: accountID.rawValue, amount: amount.amount, note: note, date: date.iso
+        ))
+    }
+
+    public func deleteReimbursement(_ id: TransactionID) async throws {
+        try await client.send("DELETE", "/transactions/\(id.rawValue)")
+    }
+
     public func markAdvancesSettled(for memberID: UserID, ids: [TransactionID]) async throws -> String {
         let dto: MessageDTO = try await client.send(
             "POST", "/households/advances/mark-settled", body: MarkSettledBody(targetUserID: memberID.rawValue, ids: ids)
@@ -109,11 +119,14 @@ private struct AdvanceDTO: Decodable {
         let note: String?
         let accountName: String
         let createdAt: String?
+        /// 上游 `2fdc890` 起的欄位;舊的回應沒有。
+        let accountID: String?
 
         enum CodingKeys: String, CodingKey {
             case id, date, amount, note
             case accountName = "account_name"
             case createdAt = "created_at"
+            case accountID = "account_id"
         }
     }
 
@@ -157,7 +170,8 @@ private struct AdvanceDTO: Decodable {
                 guard let date = CalendarDay(iso: item.date) else { throw RepositoryError.unreadableResponse }
                 return ReimbursementItem(
                     id: TransactionID(item.id), date: date, amount: Money(item.amount), note: item.note ?? "",
-                    accountName: item.accountName, recordedAt: RecordedTime.date(fromBackend: item.createdAt)
+                    accountName: item.accountName, recordedAt: RecordedTime.date(fromBackend: item.createdAt),
+                    accountID: item.accountID.map(AccountID.init)
                 )
             },
             // 可收款帳戶只有銀行存款帳戶和現金錢包;其他類型(信用卡或不認得的)略過那一筆。
@@ -294,5 +308,22 @@ private struct InvitationDTO: Decodable {
     enum CodingKeys: String, CodingKey {
         case code
         case expiresAt = "expires_at"
+    }
+}
+
+/// 修改撥款沖帳紀錄的 `PUT /transactions/:id`:類型、分類、歸屬固定(成對系統紀錄不接受改這些,上游 ADR 0031)。
+private struct ReimbursementUpdateBody: Encodable {
+    let accountID: String
+    let amount: Decimal
+    let note: String
+    let date: String
+    let type = "income"
+    let category = "公帳代墊報銷"
+    let isShared = 0
+
+    enum CodingKeys: String, CodingKey {
+        case type, category, amount, note, date
+        case accountID = "account_id"
+        case isShared = "is_shared"
     }
 }

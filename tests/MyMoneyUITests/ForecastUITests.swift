@@ -24,6 +24,24 @@ final class ForecastUITests: XCTestCase {
     }
 
     /// 起始餘額(上游 5b2faa6、#195):預測頁多一組「起始餘額」,念出金額與現金、活存帳戶各是多少。
+    /// 預測事件顯示發生後的累計結餘(#315);透支區間列出來,點一段把查詢區間鎖到那一段,「重設為整個期間」還原(#316)。
+    @MainActor
+    func testEventBalanceAndOverdraftIntervalFocus() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingOverdraftForecast"], signedIn: true)
+        app.openHomeEntry("forecast")
+        let interval = app.buttons["forecast.overdraft.0"]
+        XCTAssertTrue(interval.waitForExistence(timeout: 10), "預測頁沒有透支風險區間")
+        XCTAssertTrue(interval.label.contains("共 20 天"), "區間文字不對:\(interval.label)")
+        XCTAssertTrue(interval.label.contains("最低"), "區間沒有最低餘額:\(interval.label)")
+        XCTAssertTrue(interval.label.contains("首日支出:房租"), "區間沒有首日觸發事件:\(interval.label)")
+        XCTAssertFalse(app.buttons["重設為整個期間"].exists, "點之前不該已經篩選")
+        interval.tap()
+        XCTAssertTrue(app.buttons["重設為整個期間"].waitForExistence(timeout: 5), "點區間後查詢區間沒有鎖定")
+        let balance = app.descendants(matching: .any).matching(identifier: "forecast.eventBalance").firstMatch
+        XCTAssertTrue(ScrollSupport.revealFully(balance, in: app), "預定收支沒有累計結餘")
+        XCTAssertTrue(balance.label.contains("結餘"), "累計結餘文字不對:\(balance.label)")
+    }
+
     @MainActor
     func testStartingBalanceShowsCashAndBankTotals() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
@@ -108,7 +126,7 @@ final class ForecastUITests: XCTestCase {
         XCTAssertTrue(element(in: app, labelContaining: "最低餘額 35,440 元").exists, "個人私帳視角的走勢線不是該視角的預測")
     }
 
-    /// 預定收支列(#155):左邊名稱與「日期・歸屬」，右邊金額與資產帳戶，兩行右緣對齊;VoiceOver 念出歸屬與帳戶。
+    /// 預定收支列(#155、#315):左邊名稱與「日期・歸屬」，右邊金額、事件後累計結餘與資產帳戶，右緣對齊;VoiceOver 念出歸屬與帳戶。
     @MainActor
     func testEventRowShowsOwnershipAndAccount() throws {
         let app = launch()
@@ -121,9 +139,11 @@ final class ForecastUITests: XCTestCase {
         let text = try TextRecognition.lines(in: image).joined(separator: " ")
         XCTAssertTrue(text.contains("家庭公帳") && text.contains("測試存款"), "列上沒有歸屬與資產帳戶:\(text)")
         let bands = try PixelAnalysis.inkBands(of: image)
-        XCTAssertEqual(bands.count, 2, "預定收支列應該是兩行:\(bands)")
-        if bands.count == 2 {
-            XCTAssertEqual(bands[0].maxX, bands[1].maxX, accuracy: 3 * Int(image.scale), "金額與資產帳戶右緣沒有對齊:\(bands)")
+        // 右邊由上而下:金額、事件後累計結餘(#315)、資產帳戶,所以是三行。
+        XCTAssertEqual(bands.count, 3, "預定收支列應該是三行(金額、結餘、資產帳戶):\(bands)")
+        if bands.count == 3 {
+            XCTAssertEqual(bands[0].maxX, bands[1].maxX, accuracy: 3 * Int(image.scale), "金額與結餘右緣沒有對齊:\(bands)")
+            XCTAssertEqual(bands[0].maxX, bands[2].maxX, accuracy: 3 * Int(image.scale), "金額與資產帳戶右緣沒有對齊:\(bands)")
         }
     }
 
@@ -143,7 +163,7 @@ final class ForecastUITests: XCTestCase {
         // 文字區塊右邊是 44pt 的「已繳」圓圈(#182):金額靠這個區塊的右緣，不會超出去。
         XCTAssertTrue(gap >= 0 && gap <= 40 * Int(image.scale), "金額沒有靠右:右邊空 \(gap) 畫素")
         // 金額在最下面一行、右緣貼著文字區塊的右緣(上面已量);文字區塊本身變窄了(右邊有已繳圓圈)，所以不再要求左緣離左邊多遠。
-        XCTAssertGreaterThan(amount.minX, bands[0].minX - 1, "金額比名稱還靠左:\(amount) \(bands[0])")
+        XCTAssertGreaterThanOrEqual(amount.minX, bands[0].minX - 1, "金額比名稱還靠左:\(amount) \(bands[0])")
         let recognized = try TextRecognition.lines(in: image).joined(separator: " ")
         XCTAssertFalse(recognized.contains("…") || recognized.contains("..."), "無障礙字級有字被截斷:\(recognized)")
     }

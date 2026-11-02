@@ -84,4 +84,11 @@ public protocol HouseholdRepository: Sendable {
     /// 標記已額外處理(上游 `fe90634`):把這位成員的幾筆公帳代墊直接移出待報銷，不動共同基金、不產生撥款流水。
     /// 家庭管理員可以替任何成員做，一般成員只能做自己的(其他人回 403)。回傳後端的訊息。
     func markAdvancesSettled(for memberID: UserID, ids: [TransactionID]) async throws -> String
+
+    /// 修改撥款沖帳紀錄(上游 ADR 0031、`2fdc890`):只改金額、日期、備註,收款帳戶與類型不變;後端同步更新共同基金那一端與雙邊餘額。
+    /// 金額低於已結清代墊明細合計時後端回 400。家庭管理員或被報銷成員本人才行(其他人回 403)。
+    func updateReimbursement(_ id: TransactionID, accountID: AccountID, amount: Money, date: CalendarDay, note: String) async throws
+
+    /// 刪除撥款沖帳紀錄:成對刪除兩端、回滾餘額,被它結清的代墊退回待報銷。
+    func deleteReimbursement(_ id: TransactionID) async throws
 }

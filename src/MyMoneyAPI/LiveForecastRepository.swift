@@ -79,6 +79,8 @@ private struct EventDTO: Decodable {
     let eventKey: String?
     let isSettled: Bool?
     let canSettle: Bool?
+    /// 上游 `a68a231` 起的欄位:事件發生後的累計結餘;舊的回應沒有。
+    let runningBalance: Decimal?
 
     enum CodingKeys: String, CodingKey {
         case date, name, type, amount
@@ -87,6 +89,7 @@ private struct EventDTO: Decodable {
         case eventKey = "event_key"
         case isSettled = "is_settled"
         case canSettle = "can_settle"
+        case runningBalance = "running_balance"
     }
 
     func event() throws -> ForecastEvent {
@@ -94,7 +97,7 @@ private struct EventDTO: Decodable {
         return ForecastEvent(
             date: try LiveForecastRepository.day(date), name: name, type: type, amount: Money(amount),
             isShared: (isShared ?? 0) != 0, accountName: accountName,
-            key: eventKey, isSettled: isSettled ?? false, canSettle: canSettle ?? false
+            key: eventKey, isSettled: isSettled ?? false, canSettle: canSettle ?? false, runningBalance: runningBalance.map(Money.init)
         )
     }
 }
