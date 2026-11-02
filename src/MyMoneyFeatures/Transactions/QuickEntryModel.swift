@@ -129,12 +129,12 @@ public final class QuickEntryModel: Submitting {
         recommendation = nil
     }
 
-    /// 載入近 3 個月的備註當歷史(智慧推薦的第一層)。失敗或很慢都不擋記帳:沒有歷史就只走詞庫。
+    /// 載入近 3 個月內最近 200 筆(後端一頁的上限,一次請求)的備註當歷史(智慧推薦的第一層,#318)。失敗或很慢都不擋記帳:沒有歷史就只走詞庫。
     /// 載完時如果已經有備註、而且還沒手動選過分類，照新的歷史重新推薦一次。
     public func loadNoteHistory() async {
         let end = today()
         do {
-            let recent = try await transactions.allTransactions(from: end.addingMonths(-3), to: end, scope: .all)
+            let recent = try await transactions.transactions(from: end.addingMonths(-3), to: end, scope: .all, limit: 200, offset: 0)
             noteHistory = NoteHistory(transactions: recent)
         } catch {
             noteHistory = .empty
