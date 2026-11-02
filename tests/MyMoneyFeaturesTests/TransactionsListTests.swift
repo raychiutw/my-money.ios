@@ -110,7 +110,7 @@ struct TransactionsListTests {
         // 收入 45,000 + ATM 500 + 報銷 300;支出 1,000 + 還款 5,000 + ATM 500 + 轉帳 2,000。
         #expect(list.totalIncome == Money(45800))
         #expect(list.totalExpense == Money(8500))
-        #expect(systemRecords.allSatisfy { !list.canModify($0) })
+        #expect(systemRecords.allSatisfy { list.canModify($0) }, "成對系統紀錄可以編輯與刪除(上游 ADR 0031);權限由 EditingPermissions 判斷")
     }
 
     private func systemRecord(_ id: String, _ type: TransactionType, _ category: TransactionCategory, _ amount: Money) -> Transaction {

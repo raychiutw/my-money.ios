@@ -524,7 +524,7 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有私帳的收入 250 元")
     }
 
-    /// 點一筆收支明細編輯歸屬;左滑刪除(先確認);信用卡還款只有鎖定標記;搜尋只留下符合的紀錄。
+    /// 點一筆收支明細編輯歸屬;左滑刪除(先確認);信用卡還款(成對系統紀錄)可編輯但帳戶、分類鎖定;搜尋只留下符合的紀錄。
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
     func testEditDeleteRepaymentLockAndSearch() throws {
@@ -554,17 +554,18 @@ final class TransactionsUITests: XCTestCase {
         app.buttons["刪除"].firstMatch.tap()
         XCTAssertTrue(lunch.waitForNonExistence(timeout: 5), "刪除後還在列表上")
 
-        // 系統分類的收支明細點不開(#63、#146):點一下說明「系統紀錄，不能編輯或刪除」,列上沒有鎖定標記或說明文字。
-        let locked = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "信用卡還款")).firstMatch
-        for _ in 0..<5 where !locked.exists { app.swipeUp() }
-        XCTAssertTrue(locked.exists, "信用卡還款的列不見了")
-        XCTAssertFalse(locked.label.contains("系統紀錄"), "整句不該再有說明:\(locked.label)")
-        locked.tap()
-        let alert = app.alerts["不能編輯這筆收支明細"]
-        XCTAssertTrue(alert.waitForExistence(timeout: 3), "點信用卡還款沒有說明")
-        XCTAssertTrue(alert.staticTexts["系統紀錄，不能編輯或刪除。"].exists, "說明文字不對:\(alert.debugDescription)")
-        alert.buttons["好"].tap()
-        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
+        // 成對系統紀錄(上游 ADR 0031、#313):信用卡還款點得開,編輯器鎖住帳戶、分類、收支方向並說明,金額與備註可以改。
+        let paired = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "信用卡還款")).firstMatch
+        for _ in 0..<5 where !paired.exists { app.swipeUp() }
+        XCTAssertTrue(paired.exists, "信用卡還款的列不見了")
+        XCTAssertFalse(paired.label.contains("系統紀錄"), "整句不該有說明:\(paired.label)")
+        paired.tap()
+        XCTAssertTrue(app.staticTexts["form.lockedNotice"].waitForExistence(timeout: 5), "編輯系統紀錄沒有鎖定說明")
+        XCTAssertTrue(app.descendants(matching: .any)["form.lockedAccount"].exists, "帳戶沒有鎖定")
+        XCTAssertTrue(app.descendants(matching: .any)["form.lockedCategory"].exists, "分類沒有鎖定")
+        XCTAssertTrue(app.textFields["quickEntry.amount"].exists, "金額應該可以改")
+        app.buttons["關閉"].tap()
+        XCTAssertTrue(app.staticTexts["form.lockedNotice"].waitForNonExistence(timeout: 3))
 
         // 搜尋欄在最上面，捲回去才點得到。
         let search = app.searchFields.firstMatch

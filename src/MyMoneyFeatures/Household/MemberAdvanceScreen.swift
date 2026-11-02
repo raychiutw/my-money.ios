@@ -18,6 +18,9 @@ struct MemberAdvanceScreen: View {
     @State private var selectedIDs: Set<TransactionID> = []
     @State private var isConfirmingMarkSettled = false
     @State private var settledToUnlink: SettledAdvanceItem?
+    /// 撥款沖帳紀錄的編輯與刪除(上游 ADR 0031,#314)。
+    @State private var reimbursementEditor: ReimbursementEditModel?
+    @State private var reimbursementToDelete: ReimbursementItem?
     /// 解除報銷、標記已額外處理成功時留在這一頁(報銷成功才回到家庭頁)。
     @State private var staysAfterNotice = false
     @Environment(\.dismiss) private var dismiss
@@ -128,10 +131,7 @@ struct MemberAdvanceScreen: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(advance.reimbursementItems) { item in
-                    detailRow(
-                        date: item.date, time: item.recordedAt, title: item.note.isEmpty ? "撥款報銷代墊款" : item.note,
-                        account: item.accountName, extra: nil, amount: item.amount, isIncome: true
-                    )
+                    reimbursementRow(item, in: advance)
                 }
             }
         }
@@ -158,6 +158,45 @@ struct MemberAdvanceScreen: View {
             Button("取消", role: .cancel) {}
         } message: { _ in
             Text("這筆明細會退回待報銷。")
+        }
+        .confirmationDialog(
+            "刪除報銷紀錄", isPresented: Binding(get: { reimbursementToDelete != nil }, set: { if !$0 { reimbursementToDelete = nil } }),
+            titleVisibility: .visible, presenting: reimbursementToDelete
+        ) { item in
+            Button("刪除", role: .destructive) {
+                Task { await model.deleteReimbursement(item, in: advance) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: { _ in
+            Text("會同時刪除共同基金與收款帳戶兩邊的流水、退回帳戶餘額，被它結清的代墊明細會退回待報銷。")
+        }
+        .sheet(item: $reimbursementEditor) { editor in
+            ReimbursementEditView(model: editor)
+        }
+    }
+
+    /// 一筆撥款沖帳紀錄:有權限(家庭管理員或被報銷成員本人)才有 ⋯ 的「編輯／刪除」與左滑刪除。
+    private func reimbursementRow(_ item: ReimbursementItem, in advance: HouseholdAdvance) -> some View {
+        let canModify = model.canModifyReimbursement(in: advance)
+        let title = item.note.isEmpty ? "撥款報銷代墊款" : item.note
+        return detailRow(
+            date: item.date, time: item.recordedAt, title: title, account: item.accountName, extra: nil, amount: item.amount,
+            isIncome: true, hasMenu: canModify
+        )
+        .accessibilityIdentifier("advance.reimbursement.\(item.id.rawValue)")
+        .overlayMoreMenu(
+            label: "\(title)的更多動作", identifier: "advance.reimbursement.more.\(item.id.rawValue)",
+            alignment: .topTrailing, isShown: canModify, glyphAtTrailingEdge: true
+        ) {
+            if item.accountID != nil {
+                Button("編輯", systemImage: "pencil") { reimbursementEditor = model.makeReimbursementEditor(for: item, in: advance) }
+            }
+            Button("刪除", systemImage: "trash", role: .destructive) { reimbursementToDelete = item }
+        }
+        .swipeActions {
+            if canModify {
+                DestructiveSwipeButton("刪除", systemImage: "trash") { reimbursementToDelete = item }
+            }
         }
     }
 
