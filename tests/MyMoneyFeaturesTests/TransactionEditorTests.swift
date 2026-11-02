@@ -26,6 +26,58 @@ struct TransactionEditorTests {
         SampleTransactions.make(today: today).first { $0.note == "耳機" }!
     }
 
+    // MARK: 成對系統交易(上游 ADR 0031,#313)
+
+    private var transfer: Transaction {
+        Transaction(
+            id: TransactionID("t-transfer"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, type: .expense,
+            category: .internalTransfer, amount: Money(5000), note: "轉到現金", date: today, isShared: false, recorderName: "小明"
+        )
+    }
+
+    @Test("系統紀錄的編輯器鎖定帳戶、分類、收支方向,並說明原因;一般交易沒有鎖")
+    func systemRecordIsStructureLocked() async {
+        let locked = await editor(for: transfer)
+        #expect(locked.isStructureLocked)
+        #expect(locked.lockedNotice == "帳戶與收支方向不能更改，選錯請刪除這筆後重新記帳")
+        let normal = await editor(for: headphones)
+        #expect(!normal.isStructureLocked)
+        #expect(normal.lockedNotice == nil)
+    }
+
+    @Test("儲存系統紀錄:帳戶、分類、收支方向原樣送出,只有金額、日期、備註改")
+    func systemRecordSavesOnlyAmountDateNote() async {
+        let editor = await editor(for: transfer)
+        editor.amountText = "6000"
+        editor.note = "改過"
+        editor.date = today.addingDays(-1)
+
+        #expect(await editor.save())
+
+        let draft = await repository.updatedDrafts[transfer.id]
+        #expect(draft?.accountID == transfer.accountID)
+        #expect(draft?.category == .internalTransfer)
+        #expect(draft?.type == .expense)
+        #expect(draft?.amount == Money(6000))
+        #expect(draft?.note == "改過")
+        #expect(draft?.date == today.addingDays(-1))
+    }
+
+    @Test("鎖定的欄位即使被改也不會送出新值(防呆)")
+    func lockedFieldsIgnoreChanges() async {
+        let editor = await editor(for: transfer)
+        editor.type = .income
+        editor.chooseCategory(.dining)
+        editor.accountID = SampleAccounts.card.id
+
+        #expect(await editor.save())
+
+        let draft = await repository.updatedDrafts[transfer.id]
+        #expect(draft?.type == .expense)
+        #expect(draft?.category == .internalTransfer)
+        #expect(draft?.accountID == transfer.accountID)
+    }
+
     @Test("帶入原值，家人記的也能編輯")
     func prefillsOriginalValues() async {
         let editor = await editor(for: headphones)

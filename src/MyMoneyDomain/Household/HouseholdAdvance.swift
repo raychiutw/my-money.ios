@@ -153,8 +153,14 @@ public struct ReimbursementItem: Hashable, Sendable, Identifiable {
     public let accountName: String
     /// 記錄時間(後端 `created_at`,#207);舊回應沒有時是 `nil`。
     public let recordedAt: Date?
+    /// 收款帳戶的識別碼(後端 `account_id`,上游 `2fdc890`):編輯這筆紀錄要帶;舊回應沒有時是 `nil`(不能編輯,只能刪除)。
+    public let accountID: AccountID?
 
-    public init(id: TransactionID, date: CalendarDay, amount: Money, note: String, accountName: String, recordedAt: Date? = nil) {
+    public init(
+        id: TransactionID, date: CalendarDay, amount: Money, note: String, accountName: String, recordedAt: Date? = nil,
+        accountID: AccountID? = nil
+    ) {
+        self.accountID = accountID
         self.recordedAt = recordedAt
         self.id = id
         self.date = date

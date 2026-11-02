@@ -44,7 +44,12 @@ public struct EditingPermissions: Hashable, Sendable {
     }
 
     /// 交易的編輯與刪除:個人私帳只有記錄者，家庭管理員也不行;家庭公帳是記錄者或家庭管理員。
+    /// 成對系統紀錄(上游 ADR 0031):內部轉帳、ATM 提款、信用卡還款是記錄者或家庭管理員;公帳代墊報銷限家庭管理員或被報銷成員,
+    /// 另一端是誰 client 不知道,所以放行、交給後端判斷(403 的訊息照顯示)。
     public func canModify(_ transaction: Transaction) -> Bool {
-        transaction.isShared ? (isMine(transaction.recorderID) || isAdmin) : isMine(transaction.recorderID)
+        if transaction.isSystemRecord {
+            return transaction.category == .advanceReimbursement || isMine(transaction.recorderID) || isAdmin
+        }
+        return transaction.isShared ? (isMine(transaction.recorderID) || isAdmin) : isMine(transaction.recorderID)
     }
 }

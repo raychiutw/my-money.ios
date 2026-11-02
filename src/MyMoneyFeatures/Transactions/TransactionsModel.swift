@@ -332,16 +332,16 @@ public final class TransactionsModel: Alerting {
         await load()
     }
 
-    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統內部平帳或轉帳的紀錄，不能編輯也不能刪除(後端也會拒絕);
-    /// 再跟權限取交集(上游 ADR 0013、#133):個人私帳只有記錄者，家庭公帳是記錄者或家庭管理員。
+    /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統成對產生的紀錄:上游 ADR 0031 起可以編輯(只改金額、日期、備註)與刪除(成對刪除);
+    /// 後端沒辦法唯一配對的舊紀錄會拒絕(400,訊息照顯示)。權限見 `EditingPermissions.canModify`(上游 ADR 0013、#133)。
     public func canModify(_ transaction: Transaction) -> Bool {
-        !transaction.isSystemRecord && (permissions?.current.canModify(transaction) ?? true)
+        permissions?.current.canModify(transaction) ?? true
     }
 
     /// 點不開的列為什麼不能編輯(點一下跳出的說明);可以改的是 `nil`。
     public func lockReason(for transaction: Transaction) -> String? {
-        if transaction.isSystemRecord { return "系統紀錄，不能編輯或刪除" }
         if canModify(transaction) { return nil }
+        if transaction.isSystemRecord { return "系統紀錄，僅記錄者本人或家庭管理員可以編輯、刪除" }
         return transaction.isShared ? "他人記錄的\(OwnershipName.household)，僅記錄者或家庭管理員可以編輯、刪除" : "他人的\(OwnershipName.personal)，僅記錄者本人可以編輯、刪除"
     }
 

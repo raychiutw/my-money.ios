@@ -57,6 +57,7 @@ struct ForecastScreen: View {
         case (_, .some(let forecast)):
             List {
                 summarySection(forecast)
+                overdraftSection
                 // 風險與最低餘額先看到,查詢區間放在後面(HIG:重要資訊在最上面,#292)。
                 rangeSection(forecast)
                 chartSection(forecast)
@@ -192,6 +193,42 @@ struct ForecastScreen: View {
         return calendar
     }
 
+    /// 透支風險區間(#316):沒有透支整塊不出現;點一段把查詢區間鎖到那一段,再點一次(或「重設為整個期間」)還原。
+    @ViewBuilder
+    private var overdraftSection: some View {
+        let intervals = model.overdraftIntervals
+        if !intervals.isEmpty {
+            Section {
+                ForEach(Array(intervals.enumerated()), id: \.offset) { index, interval in
+                    overdraftRow(interval, index: index)
+                }
+            } header: {
+                Text("透支風險區間")
+            } footer: {
+                if let summary = model.overdraftSummary { Text(summary) }
+            }
+        }
+    }
+
+    private func overdraftRow(_ interval: OverdraftInterval, index: Int) -> some View {
+        let isFocused = model.focusedInterval == interval
+        let title = model.overdraftTitle(of: interval)
+        let detail = model.overdraftDetail(of: interval)
+        let trigger = model.overdraftTrigger(of: interval)
+        return Button {
+            if isFocused { model.resetRange() } else { model.focus(on: interval) }
+        } label: {
+            OverdraftIntervalRow(title: title, detail: detail, trigger: trigger)
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(isFocused ? Color.red.opacity(0.12) : nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel([title, detail, trigger].compactMap { $0 }.joined(separator: ","))
+        .accessibilityHint(isFocused ? "點兩下還原整個期間" : "點兩下只看這一段")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("forecast.overdraft.\(index)")
+    }
+
     private func eventsSection(_ forecast: CashFlowForecast) -> some View {
         Section("預定收支") {
             if model.visibleEvents.isEmpty {
@@ -202,7 +239,8 @@ struct ForecastScreen: View {
                 HStack(alignment: .top, spacing: 4) {
                     ForecastEventRow(
                         event: event, subtitle: model.subtitle(of: event), account: model.accountText(of: event),
-                        settledNote: model.settledNote(of: event), spokenText: model.spokenText(of: event)
+                        settledNote: model.settledNote(of: event), balanceText: model.balanceAfterText(of: event),
+                        isOverdrawn: model.isOverdrawn(event), spokenText: model.spokenText(of: event)
                     )
                     if let key = event.key, event.canSettle {
                         SettleButton(isSettled: event.isSettled, isBusy: model.settlingKeys.contains(key)) {
@@ -275,6 +313,9 @@ private struct ForecastEventRow: View {
     let account: String?
     /// 已繳的事件多一行說明「已繳(不計入預測)」，不只靠變淡與刪除線(#182)。
     let settledNote: String?
+    /// 事件發生後的累計結餘(#315);舊回應沒有就是 `nil`。負的用警示色。
+    let balanceText: String?
+    let isOverdrawn: Bool
     let spokenText: String
 
     @ScaledMetric(relativeTo: .subheadline) private var accountMaxWidth: CGFloat = 120
@@ -290,6 +331,8 @@ private struct ForecastEventRow: View {
                     accountText
                     amount
                         .frame(maxWidth: .infinity, alignment: .trailing)
+                    balance
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             } else {
                 HStack(alignment: .top, spacing: 12) {
@@ -301,6 +344,7 @@ private struct ForecastEventRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .trailing, spacing: 2) {
                         amount
+                        balance
                         accountText
                     }
                 }
@@ -318,6 +362,19 @@ private struct ForecastEventRow: View {
             Text(settledNote)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var balance: some View {
+        if let balanceText {
+            Text(balanceText)
+                .font(.subheadline)
+                .foregroundStyle(isOverdrawn ? Color.red : Color.secondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityIdentifier("forecast.eventBalance")
         }
     }
 
@@ -373,5 +430,31 @@ struct SettleButton: View {
         .buttonStyle(.plain)
         .disabled(isBusy)
         .accessibilityLabel(isSettled ? "取消已繳" : "標示為已繳")
+    }
+}
+
+/// 一段透支風險區間:紅色標題(起訖與天數)、區間最低餘額、首日觸發的原因。
+private struct OverdraftIntervalRow: View {
+    let title: String
+    let detail: String
+    let trigger: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Color.red)
+            Text(detail)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            if let trigger {
+                Text(trigger)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(.rect)
     }
 }

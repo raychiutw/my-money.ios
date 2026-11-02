@@ -77,6 +77,16 @@ public actor InMemoryForecastRepository: ForecastRepository {
                     canSettle: event.canSettle
                 )
             }
+            // 跟後端一樣(上游 `a68a231`):每筆事件帶發生後的累計結餘,已繳的事件不加減、維持當下結餘。
+            var running = Money(Decimal(start))
+            let withBalance = marked.map { event in
+                if !event.isSettled { running = event.type == .income ? running + event.amount : running - event.amount }
+                return ForecastEvent(
+                    date: event.date, name: event.name, type: event.type, amount: event.amount, isShared: event.isShared,
+                    accountName: event.accountName, key: event.key, isSettled: event.isSettled, canSettle: event.canSettle,
+                    runningBalance: running
+                )
+            }
             var balance = Money(Decimal(start))
             let dailyBalances = (0..<ForecastHorizon.days).map { offset in
                 let date = day(today, plus: offset)
@@ -89,7 +99,7 @@ public actor InMemoryForecastRepository: ForecastRepository {
             return CashFlowForecast(
                 dailyBalances: dailyBalances, minBalance: low?.balance ?? .zero,
                 minDate: dailyBalances.first { $0.balance == low?.balance }?.date,
-                willOverdraft: (low?.balance ?? .zero) < .zero, events: marked,
+                willOverdraft: (low?.balance ?? .zero) < .zero, events: withBalance,
                 startingBalance: Money(Decimal(start)), cashTotal: Money(Decimal(min(start, 1500))),
                 bankTotal: Money(Decimal(start - min(start, 1500)))
             )
@@ -124,8 +134,8 @@ public actor InMemoryForecastRepository: ForecastRepository {
     /// 走勢圖才看得到跨過零線的紅色段落(#116)。
     public static func overdraftSampleForToday() -> InMemoryForecastRepository {
         let today = CalendarDay.today()
-        let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(35000))
-        let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000))
+        let rent = ForecastEvent(date: day(today, plus: 7), name: "房租", type: .expense, amount: Money(35000), runningBalance: Money(-15000))
+        let salary = ForecastEvent(date: day(today, plus: 27), name: "薪水", type: .income, amount: Money(45000), runningBalance: Money(30000))
         var balance = Money(20000)
         let dailyBalances = (0..<ForecastHorizon.days).map { offset in
             let date = day(today, plus: offset)

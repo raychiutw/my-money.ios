@@ -51,6 +51,14 @@ public final class TransactionEditorModel: Submitting {
         return fixed.contains(category) ? fixed : fixed + [category]
     }
 
+    /// 成對系統紀錄(上游 ADR 0031):帳戶、分類、收支方向鎖定,只有金額、日期、備註能改;一般交易沒有鎖。
+    public var isStructureLocked: Bool { locked != nil }
+
+    /// 鎖定時畫面上的說明;沒鎖是 `nil`。
+    public var lockedNotice: String? {
+        isStructureLocked ? "帳戶與收支方向不能更改，選錯請刪除這筆後重新記帳" : nil
+    }
+
     /// 編輯既有交易時分類一開始就是鎖定的，不依備註推薦，所以沒有提示(上游的 `handleOpenEdit` 也一樣)。
     public var categoryHintText: String? { nil }
 
@@ -66,6 +74,8 @@ public final class TransactionEditorModel: Submitting {
     public func loadNoteHistory() async {}
 
     @ObservationIgnored private let recordedAt: Date?
+    /// 成對系統紀錄原本的帳戶、收支方向與分類:儲存時原樣送出(後端不接受改這三項)。
+    @ObservationIgnored private let locked: (accountID: AccountID, type: TransactionType, category: TransactionCategory)?
     @ObservationIgnored private let locale: Locale
     @ObservationIgnored private let id: TransactionID
     @ObservationIgnored private let transactions: any TransactionRepository
@@ -80,6 +90,7 @@ public final class TransactionEditorModel: Submitting {
         locale: Locale = .autoupdatingCurrent
     ) {
         recordedAt = transaction.recordedAt
+        locked = transaction.isSystemRecord ? (transaction.accountID, transaction.type, transaction.category) : nil
         self.locale = locale
         id = transaction.id
         isShared = transaction.isShared
@@ -114,9 +125,9 @@ public final class TransactionEditorModel: Submitting {
         guard let amount = positiveAmount(amountText, label: "金額") else { return false }
         guard await submitting(failure: "操作失敗", {
             try await transactions.update(id, with: TransactionDraft(
-                accountID: accountID,
-                type: type,
-                category: category,
+                accountID: locked?.accountID ?? accountID,
+                type: locked?.type ?? type,
+                category: locked?.category ?? category,
                 amount: amount,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 date: date,

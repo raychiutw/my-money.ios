@@ -150,6 +150,35 @@ public final class HouseholdModel {
         !advance.advanceItems.isEmpty && (household?.myRole == .admin || advance.memberID == currentUser)
     }
 
+    /// 撥款沖帳紀錄的編輯與刪除(上游 ADR 0031):家庭管理員或被報銷成員本人;後端對其他人回 403,所以不顯示入口。
+    public func canModifyReimbursement(in advance: HouseholdAdvance) -> Bool {
+        household?.myRole == .admin || advance.memberID == currentUser
+    }
+
+    /// 編輯一筆撥款沖帳紀錄的表單;沒有權限或舊回應沒有收款帳戶識別碼(送不出去)時是 `nil`。
+    /// 儲存成功後資料版本遞增並重新載入。
+    public func makeReimbursementEditor(for item: ReimbursementItem, in advance: HouseholdAdvance) -> ReimbursementEditModel? {
+        guard canModifyReimbursement(in: advance), let accountID = item.accountID else { return nil }
+        return ReimbursementEditModel(item: item, memberName: advance.memberName) { [weak self, repository] amount, date, note in
+            try await repository.updateReimbursement(item.id, accountID: accountID, amount: amount, date: date, note: note)
+            self?.dataVersion.bump()
+            await self?.load()
+        }
+    }
+
+    /// 刪除撥款沖帳紀錄(成對刪除、回滾餘額、被結清的代墊退回待報銷);失敗顯示後端的訊息。
+    public func deleteReimbursement(_ item: ReimbursementItem, in advance: HouseholdAdvance) async {
+        guard canModifyReimbursement(in: advance) else { return }
+        do {
+            try await repository.deleteReimbursement(item.id)
+        } catch {
+            alertMessage = error.localizedDescription
+            return
+        }
+        dataVersion.bump()
+        await load()
+    }
+
     /// 把已結清的代墊明細退回待報銷;成功顯示後端的訊息，資料版本遞增並重新載入。
     public func unlink(_ settled: SettledAdvanceItem) async {
         await commitAdvanceChange { [repository] in try await repository.unlinkAdvance(settled.id) }

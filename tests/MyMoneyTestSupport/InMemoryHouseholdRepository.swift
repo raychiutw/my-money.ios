@@ -23,6 +23,8 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
 
     /// 解除報銷過的明細,依順序。
     public private(set) var unlinkedIDs: [TransactionID] = []
+    public private(set) var updatedReimbursements: [(id: TransactionID, accountID: AccountID, amount: Money, date: CalendarDay, note: String)] = []
+    public private(set) var deletedReimbursementIDs: [TransactionID] = []
 
     /// 標記已額外處理送出過的內容(目標成員與明細),依順序。
     public private(set) var markedSettled: [(memberID: UserID, ids: [TransactionID])] = []
@@ -87,7 +89,7 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         ],
         reimbursementItems: [ReimbursementItem(
             id: TransactionID("sample-reimb-1"), date: CalendarDay(year: 2026, month: 9, day: 25), amount: Money(600),
-            note: "撥款報銷家庭晚餐", accountName: "iOS 測試存款"
+            note: "撥款報銷家庭晚餐", accountName: "iOS 測試存款", accountID: SampleAccounts.savings.id
         )],
         receivingAccounts: [ReceivingAccount(id: SampleAccounts.savings.id, name: SampleAccounts.savings.name, kind: .bank)],
         settledItems: [
@@ -171,6 +173,42 @@ public actor InMemoryHouseholdRepository: HouseholdRepository {
         }
         // 後端 `f32ff6c` 的原文(B:handlers/households.ts@f32ff6c:345)。
         return "成功從共同基金撥款報銷 NT$ \(reimbursement.amount.backendText) 給 \(name)！"
+    }
+
+    public func updateReimbursement(_ id: TransactionID, accountID: AccountID, amount: Money, date: CalendarDay, note: String) async throws {
+        await gate?.pass()
+        if let failure { throw failure }
+        updatedReimbursements.append((id, accountID, amount, date, note))
+        storedAdvances = storedAdvances.map { advance in
+            guard advance.reimbursementItems.contains(where: { $0.id == id }) else { return advance }
+            let items = advance.reimbursementItems.map { old in
+                old.id == id
+                    ? ReimbursementItem(
+                        id: id, date: date, amount: amount, note: note, accountName: old.accountName, recordedAt: old.recordedAt,
+                        accountID: old.accountID
+                    )
+                    : old
+            }
+            return Self.rebuilt(
+                advance, pending: advance.advanceItems, settled: advance.settledItems,
+                reimbursed: advance.totalReimbursed - (advance.reimbursementItems.first { $0.id == id }?.amount ?? .zero) + amount,
+                reimbursementItems: items
+            )
+        }
+    }
+
+    public func deleteReimbursement(_ id: TransactionID) async throws {
+        await gate?.pass()
+        if let failure { throw failure }
+        deletedReimbursementIDs.append(id)
+        storedAdvances = storedAdvances.map { advance in
+            guard let removed = advance.reimbursementItems.first(where: { $0.id == id }) else { return advance }
+            return Self.rebuilt(
+                advance, pending: advance.advanceItems, settled: advance.settledItems,
+                reimbursed: advance.totalReimbursed - removed.amount,
+                reimbursementItems: advance.reimbursementItems.filter { $0.id != id }
+            )
+        }
     }
 
     /// 跟後端一樣(上游 ADR 0027):已結清的明細退回待報銷;沒有這筆已結清的明細時拒絕。

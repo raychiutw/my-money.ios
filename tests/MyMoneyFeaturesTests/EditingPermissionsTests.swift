@@ -124,19 +124,21 @@ struct EditingPermissionsFeatureTests {
         return (model, repository)
     }
 
-    @Test("交易:個人私帳只有記錄者;家庭公帳是記錄者或家庭管理員;系統紀錄一律不行(取交集)")
+    @Test("交易:個人私帳只有記錄者;家庭公帳是記錄者或家庭管理員;成對系統紀錄也是記錄者或家庭管理員,報銷交給後端判斷(ADR 0031、#313)")
     func transactionModification() async {
         let mineShared = transaction("mine-shared", recorder: me, shared: true)
         let meiShared = transaction("mei-shared", recorder: mei, shared: true)
         let meiPrivate = transaction("mei-private", recorder: mei, shared: false)
         let mineSystem = transaction("mine-system", recorder: me, shared: true, category: .creditCardRepayment)
-        let all = [mineShared, meiShared, meiPrivate, mineSystem]
+        let meiSystem = transaction("mei-system", recorder: mei, shared: false, category: .internalTransfer)
+        let meiReimbursement = transaction("mei-reimburse", recorder: mei, shared: false, category: .advanceReimbursement)
+        let all = [mineShared, meiShared, meiPrivate, mineSystem, meiSystem, meiReimbursement]
 
         let (member, _) = await transactionsModel(.member, all)
-        #expect(all.map(member.canModify) == [true, false, false, false])
+        #expect(all.map(member.canModify) == [true, false, false, true, false, true], "報銷的另一端是誰 client 不知道,放行讓後端判斷(403 照顯示)")
 
         let (admin, _) = await transactionsModel(.admin, all)
-        #expect(all.map(admin.canModify) == [true, true, false, false], "家庭管理員改得了別人的公帳，改不了別人的私帳，也改不了系統紀錄")
+        #expect(all.map(admin.canModify) == [true, true, false, true, true, true], "家庭管理員改得了別人的公帳與別人記的系統紀錄,改不了別人的私帳")
     }
 
     @Test("沒有權限的交易不會打開編輯器，也不會送出刪除")
@@ -163,7 +165,10 @@ struct EditingPermissionsFeatureTests {
         let (member, _) = await transactionsModel(.member, [mineShared, meiShared, meiPrivate, mineSystem])
 
         #expect(member.lockReason(for: mineShared) == nil)
-        #expect(member.lockReason(for: mineSystem) == "系統紀錄，不能編輯或刪除")
+        #expect(member.lockReason(for: mineSystem) == nil, "自己記的成對系統紀錄可以改(ADR 0031)")
+        let meiSystem = transaction("mei-system", recorder: mei, shared: false, category: .internalTransfer)
+        let (other, _) = await transactionsModel(.member, [meiSystem])
+        #expect(other.lockReason(for: meiSystem) == "系統紀錄，僅記錄者本人或家庭管理員可以編輯、刪除")
         #expect(member.lockReason(for: meiShared) == "他人記錄的家庭公帳，僅記錄者或家庭管理員可以編輯、刪除")
         #expect(member.lockReason(for: meiPrivate) == "他人的個人私帳，僅記錄者本人可以編輯、刪除")
     }
@@ -179,9 +184,9 @@ struct EditingPermissionsFeatureTests {
 
         #expect(member.lockHint(for: mineShared) == nil)
         #expect(member.lockHint(for: meiShared) == "點兩下查看為什麼不能編輯")
-        #expect(member.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯")
+        #expect(member.lockHint(for: mineSystem) == nil)
         #expect(admin.lockHint(for: meiShared) == nil, "家庭管理員改得了家人的家庭公帳")
-        #expect(admin.lockHint(for: mineSystem) == "點兩下查看為什麼不能編輯", "系統紀錄連家庭管理員也不能改")
+        #expect(admin.lockHint(for: mineSystem) == nil)
         #expect(member.lockAlertTitle == "不能編輯這筆收支明細")
     }
 

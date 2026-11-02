@@ -42,6 +42,10 @@ public final class QuickEntryModel: Submitting {
     /// 分類旁邊的提示文字:歷史命中是「依歷史習慣推薦【分類】」,詞庫命中是「智慧推薦為【分類】」。
     public var categoryHintText: String? { recommendation?.hintText }
 
+    /// 記一筆沒有鎖定的欄位(只有編輯成對系統紀錄才鎖)。
+    public var isStructureLocked: Bool { false }
+    public var lockedNotice: String? { nil }
+
     /// 使用者這次打開之後手動選過分類:鎖定，之後不論備註怎麼改，都不再覆蓋他的選擇。
     public private(set) var isCategoryChosen = false
     public var date: CalendarDay
