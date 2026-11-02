@@ -1,7 +1,7 @@
 /// 誰能改什麼(上游 ADR 0013、#133):以登入的人與他在家庭裡的角色，決定帳戶、信用卡、交易的編輯與刪除入口要不要顯示。
 ///
 /// 後端是最後一道防線(403);這裡只決定畫面上要不要給入口，跟 web 的 `canModifyAccount`、`canOperateCard`、`canModifyTx` 一樣。
-/// 不知道登入的是誰、或資料沒有擁有者時不擅自擋，交給後端判斷。系統紀錄不能編輯另有規則(`Transaction.isSystemRecord`)，不在這裡。
+/// 不知道登入的是誰、或資料沒有擁有者時不擅自擋，交給後端判斷。成對系統紀錄(`Transaction.isSystemRecord`,上游 ADR 0031)的權限規則見 `canModify(_ transaction:)`。
 public struct EditingPermissions: Hashable, Sendable {
     /// 登入的人;不知道時是 `nil`。
     public let userID: UserID?

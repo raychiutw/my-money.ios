@@ -26,7 +26,7 @@ public struct TransactionCategory: Hashable, Sendable {
     public static let dining = TransactionCategory("餐飲")
     public static let salary = TransactionCategory("薪資")
 
-    /// 信用卡扣款還款產生的交易記錄(銀行存款帳戶一筆支出、信用卡一筆收入);不能編輯或刪除，也不算進收支統計。
+    /// 信用卡扣款還款產生的交易記錄(銀行存款帳戶一筆支出、信用卡一筆收入);上游 ADR 0031 起可編輯(只改金額、日期、備註)與刪除(成對);統計的分類圓餅圖不含它。
     public static let creditCardRepayment = TransactionCategory("信用卡還款")
 
     /// 帳戶互轉(ATM 提款以外)產生的交易記錄，一筆支出一筆收入(`POST /accounts/transfer`)。
@@ -161,7 +161,7 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         self.billing = billing
     }
 
-    /// 系統內部平帳或轉帳的紀錄(4 種系統分類):後端禁止編輯和刪除，統計也都排除。
+    /// 系統內部成對產生的平帳或轉帳紀錄(4 種系統分類):上游 ADR 0031 起可編輯(帳戶、分類、收支方向鎖定)與刪除;後端無法配對的舊紀錄回 400。分類圓餅圖排除它。
     public var isSystemRecord: Bool {
         TransactionCategory.systemCategories.contains(category)
     }

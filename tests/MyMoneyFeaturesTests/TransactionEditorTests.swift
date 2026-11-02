@@ -63,6 +63,24 @@ struct TransactionEditorTests {
         #expect(draft?.date == today.addingDays(-1))
     }
 
+    @Test("鎖定的系統紀錄:「列入下期帳單」維持原值送出(不能被改),帳戶名稱載入前就有")
+    func lockedRecordKeepsDeferralAndShowsAccountName() async {
+        let repayment = Transaction(
+            id: TransactionID("t-repay"), accountID: SampleAccounts.card.id, accountName: SampleAccounts.card.name, type: .income,
+            category: .creditCardRepayment, amount: Money(5000), note: "", date: today, isShared: false, recorderName: "小明"
+        )
+        let editor = TransactionEditorModel(
+            editing: repayment, transactions: repository, accounts: InMemoryAccountRepository.sample(), dataVersion: dataVersion
+        )
+        #expect(editor.lockedAccountName == SampleAccounts.card.name, "還沒 prepare 也要有帳戶名稱")
+        await editor.prepare()
+        editor.defersToNextStatement = true
+
+        #expect(await editor.save())
+
+        #expect(await repository.updatedDrafts[repayment.id]?.defersToNextStatement == false)
+    }
+
     @Test("鎖定的欄位即使被改也不會送出新值(防呆)")
     func lockedFieldsIgnoreChanges() async {
         let editor = await editor(for: transfer)

@@ -26,6 +26,7 @@ public protocol TransactionForm: AnyObject, Observable {
     /// 編輯成對系統紀錄(上游 ADR 0031):帳戶、分類、收支方向鎖定,只有金額、日期、備註能改。
     var isStructureLocked: Bool { get }
     var lockedNotice: String? { get }
+    var lockedAccountName: String? { get }
     func prepare() async
     /// 開始新的一筆:記一筆清空帳戶、重設分類鎖定;編輯什麼都不做。只在 sheet 打開時呼叫一次。
     func startNewEntry()
@@ -71,7 +72,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     if model.isStructureLocked {
                         // 成對系統紀錄(ADR 0031):帳戶不能換,唯讀顯示。
                         LabeledContent("帳戶") {
-                            Text(model.accounts.first { $0.id == model.accountID }?.name ?? "")
+                            Text(model.lockedAccountName ?? model.accounts.first { $0.id == model.accountID }?.name ?? "")
                                 .foregroundStyle(.secondary)
                         }
                         .accessibilityIdentifier("form.lockedAccount")
@@ -94,7 +95,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         .accessibilityIdentifier("form.createdAt")
                     }
                     // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
-                    if model.isCreditCardSelected {
+                    if model.isCreditCardSelected, !model.isStructureLocked {
                         Toggle("列入下期帳單", isOn: $model.defersToNextStatement)
                             .tint(Color.ciFill)
                             .accessibilityIdentifier("quickEntry.deferToNext")

@@ -45,6 +45,7 @@ public final class QuickEntryModel: Submitting {
     /// 記一筆沒有鎖定的欄位(只有編輯成對系統紀錄才鎖)。
     public var isStructureLocked: Bool { false }
     public var lockedNotice: String? { nil }
+    public var lockedAccountName: String? { nil }
 
     /// 使用者這次打開之後手動選過分類:鎖定，之後不論備註怎麼改，都不再覆蓋他的選擇。
     public private(set) var isCategoryChosen = false

@@ -74,6 +74,11 @@ extension ForecastModel {
         overdraftIntervals.first { $0.start == rangeStart && $0.end == rangeEnd }
     }
 
+    /// 查詢區間剛好等於這一段(畫面逐列判斷用,不必重算所有區間)。
+    public func isFocused(_ interval: OverdraftInterval) -> Bool {
+        rangeStart == interval.start && rangeEnd == interval.end
+    }
+
     /// 把查詢區間鎖到這一段透支區間。
     public func focus(on interval: OverdraftInterval) {
         rangeStart = interval.start

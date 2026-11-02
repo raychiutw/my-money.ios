@@ -20,6 +20,8 @@ public final class HouseholdModel {
     /// 操作成功時顯示的訊息(例如撥款報銷的結果)。
     public var noticeMessage: String?
     public private(set) var isWorking = false
+    /// 撥款沖帳紀錄正在刪除:這段期間再按不會多送一次(第二次會得到 404)。
+    @ObservationIgnored private var isDeletingReimbursement = false
     /// 邀請碼還在產生中;這段期間再按「邀請」不會多產生一組。
     public private(set) var isInviting = false
 
@@ -168,7 +170,9 @@ public final class HouseholdModel {
 
     /// 刪除撥款沖帳紀錄(成對刪除、回滾餘額、被結清的代墊退回待報銷);失敗顯示後端的訊息。
     public func deleteReimbursement(_ item: ReimbursementItem, in advance: HouseholdAdvance) async {
-        guard canModifyReimbursement(in: advance) else { return }
+        guard canModifyReimbursement(in: advance), !isDeletingReimbursement else { return }
+        isDeletingReimbursement = true
+        defer { isDeletingReimbursement = false }
         do {
             try await repository.deleteReimbursement(item.id)
         } catch {

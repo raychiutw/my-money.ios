@@ -211,7 +211,7 @@ struct ForecastScreen: View {
     }
 
     private func overdraftRow(_ interval: OverdraftInterval, index: Int) -> some View {
-        let isFocused = model.focusedInterval == interval
+        let isFocused = model.isFocused(interval)
         let title = model.overdraftTitle(of: interval)
         let detail = model.overdraftDetail(of: interval)
         let trigger = model.overdraftTrigger(of: interval)
@@ -372,8 +372,10 @@ private struct ForecastEventRow: View {
                 .font(.subheadline)
                 .foregroundStyle(isOverdrawn ? Color.red : Color.secondary)
                 .monospacedDigit()
-                .lineLimit(1)
-                .fixedSize()
+                // 無障礙字級可以換行,不被截斷;其他字級單行。
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
+                .multilineTextAlignment(.trailing)
                 .accessibilityIdentifier("forecast.eventBalance")
         }
     }

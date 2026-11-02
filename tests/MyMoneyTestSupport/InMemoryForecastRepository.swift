@@ -79,7 +79,13 @@ public actor InMemoryForecastRepository: ForecastRepository {
             }
             // 跟後端一樣(上游 `a68a231`):每筆事件帶發生後的累計結餘,已繳的事件不加減、維持當下結餘。
             var running = Money(Decimal(start))
-            let withBalance = marked.map { event in
+            // 跟後端一樣:依日期排,同一天收入先於支出(`running_balance` 逐筆累計的順序)。
+            let ordered = marked.enumerated().sorted { lhs, rhs in
+                if lhs.element.date != rhs.element.date { return lhs.element.date < rhs.element.date }
+                let (l, r) = (lhs.element.type == .income, rhs.element.type == .income)
+                return l != r ? l : lhs.offset < rhs.offset
+            }.map(\.element)
+            let withBalance = ordered.map { event in
                 if !event.isSettled { running = event.type == .income ? running + event.amount : running - event.amount }
                 return ForecastEvent(
                     date: event.date, name: event.name, type: event.type, amount: event.amount, isShared: event.isShared,
