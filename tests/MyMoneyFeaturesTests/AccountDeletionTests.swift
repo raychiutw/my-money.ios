@@ -37,11 +37,11 @@ struct AccountDeletionTests {
         #expect(model.errorMessage == "帳號不存在")
     }
 
-    @Test("確認訊息說明資料全部刪除且無法復原，並提醒家庭管理員:建立家庭的人刪除帳號會連整個家庭一起刪除")
-    func confirmationWarnsAboutHousehold() {
+    @Test("確認訊息說明資料全部刪除且無法復原;家庭的管理權會自動移交,只有最後一位成員才會連家庭一起刪除(上游 ADR 0035,#324)")
+    func confirmationDescribesHouseholdSuccession() {
         let model = AccountDeletionModel(auth: InMemoryAuthRepository(members: [.sample]), session: signedInSession())
 
-        #expect(model.confirmation.contains("無法復原"))
-        #expect(model.confirmation.contains("家庭"))
+        #expect(model.confirmation == "刪除帳號會永久刪除你的帳戶、收支明細、儲蓄目標等所有個人資料，無法復原。如果家庭裡還有其他成員，管理權會自動交給下一位成員；如果你是最後一位成員，家庭也會一併刪除。")
+        #expect(!model.confirmation.contains("成員關係也會一併刪除"), "舊的說法(整個家庭連帶刪除)已經不對")
     }
 }
