@@ -223,8 +223,17 @@ public final class HouseholdModel {
 
     /// 離開與移除成員的確認訊息帶家庭名稱:「離開家庭」在中文裡像離開真正的家人，語氣比較重，
     /// 有名稱才看得出是 app 裡的家庭(ADR-0005)。家庭還沒載入時退回「這個家庭」。
+    /// 上游 ADR 0035(#121)起:管理員離開時管理權自動交給下一位成員;最後一位成員離開時家庭會被刪除(#324)。
     public var leaveConfirmation: String {
-        "確定要退出\(familyNameForConfirmation)嗎？退出後將無法查看這個家庭的家庭公帳。"
+        var text = "確定要退出\(familyNameForConfirmation)嗎？退出後將無法查看這個家庭的家庭公帳。"
+        if let household {
+            if household.members.count <= 1 {
+                text += "你是最後一位成員，退出後這個家庭會被刪除。"
+            } else if household.myRole == .admin {
+                text += "你的管理權會自動交給下一位成員。"
+            }
+        }
+        return text
     }
 
     public func removeConfirmation(for member: HouseholdMember) -> String {

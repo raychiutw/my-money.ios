@@ -359,7 +359,17 @@ struct HouseholdTests {
         let model = await loaded(InMemoryHouseholdRepository.sample())
 
         #expect(model.removeConfirmation(for: member("小美", .member)) == "確定要將「小美」移出「我們家」嗎？")
-        #expect(model.leaveConfirmation == "確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。")
+        #expect(model.leaveConfirmation == "確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。你的管理權會自動交給下一位成員。")
+    }
+
+    @Test("離開確認依身分補一句(上游 ADR 0035,#324):一般成員沒有補充;最後一位成員會連家庭一起刪除")
+    func leaveConfirmationDependsOnRole() async {
+        let member = await loaded(InMemoryHouseholdRepository.sample(myRole: .member))
+        #expect(member.leaveConfirmation == "確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。")
+
+        let only = HouseholdMember(userID: UserID("solo"), name: "我", email: "solo@example.com", role: .admin, joinedAt: .now)
+        let last = await loaded(InMemoryHouseholdRepository(household: Household(name: "我們家", myRole: .admin, members: [only])))
+        #expect(last.leaveConfirmation == "確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。你是最後一位成員，退出後這個家庭會被刪除。")
     }
 
     @Test("家庭還沒載入時，確認文字退回「這個家庭」，不留下空的引號")

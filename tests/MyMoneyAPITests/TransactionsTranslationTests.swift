@@ -15,6 +15,92 @@ struct TransactionsTranslationTests {
     private let september1 = CalendarDay(year: 2026, month: 9, day: 1)
     private let september30 = CalendarDay(year: 2026, month: 9, day: 30)
 
+    // MARK: 後端篩選與分頁(上游 `b06d17c`、ADR 0035、#184,#317)
+
+    private func queryItems(of request: URLRequest?) throws -> [String: String] {
+        let url = try #require(request?.url)
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+    }
+
+    @Test("一頁:送 scope、起迄日、limit,沒有的篩選與游標整個不送;回傳 next_cursor(2026-11-03 從 prod 錄的)")
+    func firstPage() async throws {
+        try stub.reply(status: 200, fixture: "transactions-page-cursor.json")
+        let query = TransactionQuery(scope: .all, from: september1, to: CalendarDay(year: 2026, month: 11, day: 3))
+
+        let page = try await repository.page(query, cursor: nil, limit: 2)
+
+        #expect(try queryItems(of: stub.requests.first) == ["scope": "all", "from": "2026-09-01", "to": "2026-11-03", "limit": "2"])
+        #expect(page.transactions.count == 2)
+        #expect(page.nextCursor?.isEmpty == false)
+    }
+
+    @Test("下一頁:游標原樣帶回(後端回的 next_cursor 已是編碼過的字串,再經 URLQueryItem 編碼一次,後端解兩次還原)")
+    func nextPage() async throws {
+        try stub.reply(status: 200, fixture: "transactions-page-cursor.json")
+        let first = try await repository.page(TransactionQuery(scope: .all), cursor: nil, limit: 2)
+        try stub.reply(status: 200, fixture: "transactions-page-cursor-next.json")
+
+        let second = try await repository.page(TransactionQuery(scope: .all), cursor: first.nextCursor, limit: 2)
+
+        #expect(try queryItems(of: stub.requests.last)["cursor"] == first.nextCursor)
+        let url = try #require(stub.requests.last?.url?.absoluteString)
+        #expect(url.contains("cursor=2026-10-17%257C"), "游標裡的 % 要再編碼成 %25:\(url)")
+        #expect(second.transactions.map(\.id) != first.transactions.map(\.id))
+    }
+
+    @Test("篩選全部交給後端:分類、類型、帳戶、關鍵字(去前後空白);空白關鍵字不送")
+    func filtersAreSentToTheBackend() async throws {
+        try stub.reply(status: 200, fixture: "transactions-page-cursor.json")
+        let query = TransactionQuery(
+            scope: .household, from: september1, to: september30, accountID: AccountID("acc-1"), category: TransactionCategory("餐飲"),
+            type: .expense, keyword: "  午餐 "
+        )
+
+        _ = try await repository.page(query, cursor: nil, limit: 20)
+
+        #expect(try queryItems(of: stub.requests.first) == [
+            "scope": "household", "from": "2026-09-01", "to": "2026-09-30", "account_id": "acc-1", "category": "餐飲",
+            "type": "expense", "q": "午餐", "limit": "20",
+        ])
+        _ = try await repository.page(TransactionQuery(keyword: "   "), cursor: nil, limit: 20)
+        #expect(try queryItems(of: stub.requests.last)["q"] == nil)
+    }
+
+    @Test("區間統計:GET /transactions/summary/range 帶同樣的篩選(沒有 limit、cursor);總額、筆數與每日小計(系統分類也算)")
+    func rangeSummary() async throws {
+        try stub.reply(status: 200, fixture: "transactions-summary-range.json")
+        let query = TransactionQuery(scope: .all, from: september1, to: CalendarDay(year: 2026, month: 11, day: 3), type: .expense)
+
+        let summary = try await repository.rangeSummary(query)
+
+        let request = try #require(stub.requests.first)
+        #expect(request.url?.path() == "/transactions/summary/range")
+        #expect(try queryItems(of: request) == ["scope": "all", "from": "2026-09-01", "to": "2026-11-03", "type": "expense"])
+        #expect(summary.totalIncome == Money(2320))
+        #expect(summary.totalExpense == Money(3070))
+        #expect(summary.count == 14)
+        #expect(summary.byDay.first == RangeSummary.Day(date: CalendarDay(year: 2026, month: 10, day: 17), income: Money(600), expense: Money(1100)))
+    }
+
+    /// 上游 `b06d17c`(ADR 0035,#163)起:收支多 `updated_at`(UTC;新建與歷史資料是 null,PUT 時寫入)。
+    /// 錄自 prod 的回應都是 null(測試帳號的資料沒改過);有值的情況是把真實 fixture 的第一筆改成有值。
+    @Test("updated_at:null 解成 nil;有值解成時間(修改時間,#326)")
+    func decodesUpdatedAt() async throws {
+        try stub.reply(status: 200, fixture: "transactions-updated-at.json")
+        let untouched = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 5, offset: 0)
+        #expect(untouched.allSatisfy { $0.updatedAt == nil })
+
+        var json = try #require(try JSONSerialization.jsonObject(with: Fixture.data("transactions-updated-at.json")) as? [String: Any])
+        var rows = try #require(json["data"] as? [[String: Any]])
+        rows[0]["updated_at"] = "2026-11-02 19:30:00"
+        json["data"] = rows
+        stub.reply(status: 200, json: try JSONSerialization.data(withJSONObject: json))
+        let edited = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 5, offset: 0)
+        #expect(edited.first?.updatedAt == RecordedTime.date(fromBackend: "2026-11-02 19:30:00"))
+        #expect(edited.dropFirst().allSatisfy { $0.updatedAt == nil })
+    }
+
     @Test("最近的收支明細不限日期：不送 from / to(跟 web 的總覽一樣)")
     func recentOmitsDates() async throws {
         try stub.reply(status: 200, fixture: "transactions-recent.json")

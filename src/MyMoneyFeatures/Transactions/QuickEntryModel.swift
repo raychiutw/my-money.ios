@@ -38,6 +38,7 @@ public final class QuickEntryModel: Submitting {
 
     /// 記一筆還沒有建立時間(建立之後才有)。
     public var createdAtText: String? { nil }
+    public var updatedAtText: String? { nil }
 
     /// 分類旁邊的提示文字:歷史命中是「依歷史習慣推薦【分類】」,詞庫命中是「智慧推薦為【分類】」。
     public var categoryHintText: String? { recommendation?.hintText }

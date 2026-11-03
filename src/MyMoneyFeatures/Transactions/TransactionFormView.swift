@@ -7,6 +7,8 @@ public protocol TransactionForm: AnyObject, Observable {
     var title: String { get }
     /// 建立時間(唯讀,#290):編輯才有,台灣時間的完整日期時間;記一筆與沒有資料的舊交易是 `nil`(不顯示這一列)。
     var createdAtText: String? { get }
+    /// 修改時間(唯讀,#326):編輯且後端有記錄才有;其他是 `nil`(不顯示這一列)。
+    var updatedAtText: String? { get }
     var accounts: [Account] { get }
     var isShared: Bool { get set }
     var type: TransactionType { get set }
@@ -93,6 +95,17 @@ struct TransactionFormView<Model: TransactionForm>: View {
                         .accessibilityLabel("建立時間")
                         .accessibilityValue(createdAt)
                         .accessibilityIdentifier("form.createdAt")
+                    }
+                    // 修改時間:同樣唯讀灰字;沒改過就沒有這一列(#326)。
+                    if let updatedAt = model.updatedAtText {
+                        LabeledContent("修改時間") {
+                            Text(updatedAt)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("修改時間")
+                        .accessibilityValue(updatedAt)
+                        .accessibilityIdentifier("form.updatedAt")
                     }
                     // 信用卡專屬(上游 ADR 0020):商家延遲請款、跨結帳日刷卡或跨期退款，列入下期帳單;選了別的帳戶就收起。
                     if model.isCreditCardSelected, !model.isStructureLocked {

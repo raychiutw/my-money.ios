@@ -36,6 +36,11 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     public private(set) var queries: [Query] = []
+    /// 後端篩選的分頁與統計(#317):記下每一次的查詢條件、游標與 limit,測試用來確認送出的內容。
+    public private(set) var pageRequests: [(query: TransactionQuery, cursor: String?, limit: Int)] = []
+    public private(set) var summaryRequests: [TransactionQuery] = []
+    /// 每次後端篩選分頁的查詢條件(第一頁與下一頁都算)。
+    public var pageQueries: [TransactionQuery] { pageRequests.map(\.query) }
     public private(set) var createdDrafts: [TransactionDraft] = []
     public private(set) var updatedDrafts: [TransactionID: TransactionDraft] = [:]
     public private(set) var deletedIDs: [TransactionID] = []
@@ -51,6 +56,57 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     /// 下一次查詢停在 `gate`,直到測試放行;之後的查詢照常回應。用來重現「舊的查詢比新的晚回來」。
     public func holdNextQuery(at gate: Gate) {
         nextQueryGate = gate
+    }
+
+    /// 跟後端一樣(上游 ADR 0035):視角不模擬;起迄日、帳戶、分類、類型、關鍵字(不分大小寫比對備註、分類、帳戶名稱、記帳人名稱)篩選,
+    /// 日期由新到舊、同一天後記的在前;游標是下一頁起點的位置。
+    private func matching(_ query: TransactionQuery) -> [Transaction] {
+        let needle = query.keyword?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        return stored.enumerated()
+            .filter { item in
+                let transaction = item.element
+                guard (query.from.map { $0 <= transaction.date } ?? true), (query.to.map { transaction.date <= $0 } ?? true) else { return false }
+                guard query.accountID.map({ $0 == transaction.accountID }) ?? true else { return false }
+                guard query.category.map({ $0 == transaction.category }) ?? true else { return false }
+                guard query.type.map({ $0 == transaction.type }) ?? true else { return false }
+                guard !needle.isEmpty else { return true }
+                return [transaction.note, transaction.category.name, transaction.accountName ?? "", transaction.recorderName ?? ""]
+                    .contains { $0.lowercased().contains(needle) }
+            }
+            .sorted { ($0.element.date, $0.offset) > ($1.element.date, $1.offset) }
+            .map(\.element)
+    }
+
+    public func page(_ query: TransactionQuery, cursor: String?, limit: Int) async throws -> TransactionPage {
+        if let loadDelay { try await Task.sleep(for: loadDelay) }
+        pageRequests.append((query, cursor, limit))
+        if let gate = nextQueryGate {
+            nextQueryGate = nil
+            await gate.pass()
+        }
+        if let failure { throw failure }
+        let all = matching(query)
+        let start = cursor.flatMap(Int.init) ?? 0
+        let end = min(start + limit, all.count)
+        let rows = start < end ? Array(all[start..<end]) : []
+        return TransactionPage(transactions: rows, nextCursor: end < all.count ? String(end) : nil)
+    }
+
+    public func rangeSummary(_ query: TransactionQuery) async throws -> RangeSummary {
+        summaryRequests.append(query)
+        if let failure { throw failure }
+        let all = matching(query)
+        var byDay: [CalendarDay: (income: Money, expense: Money)] = [:]
+        for transaction in all {
+            var day = byDay[transaction.date] ?? (.zero, .zero)
+            if transaction.type == .income { day.income = day.income + transaction.amount } else { day.expense = day.expense + transaction.amount }
+            byDay[transaction.date] = day
+        }
+        return RangeSummary(
+            totalIncome: byDay.values.reduce(.zero) { $0 + $1.income }, totalExpense: byDay.values.reduce(.zero) { $0 + $1.expense },
+            count: all.count,
+            byDay: byDay.keys.sorted(by: >).map { RangeSummary.Day(date: $0, income: byDay[$0]!.income, expense: byDay[$0]!.expense) }
+        )
     }
 
     public func transactions(
@@ -147,6 +203,11 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     /// 之後的請求都以這個錯誤失敗。
+    /// 之後的查詢恢復正常。
+    public func clearFailure() {
+        failure = nil
+    }
+
     public func fail(with error: RepositoryError) {
         failure = error
     }

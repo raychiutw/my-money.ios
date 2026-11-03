@@ -18,6 +18,12 @@ struct TransactionPagingTests {
             calls.withLock { $0 }
         }
 
+        func page(_ query: TransactionQuery, cursor: String?, limit: Int) async throws -> TransactionPage {
+            TransactionPage(transactions: [], nextCursor: nil)
+        }
+
+        func rangeSummary(_ query: TransactionQuery) async throws -> RangeSummary { .empty }
+
         func transactions(
             from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int
         ) async throws -> [Transaction] {

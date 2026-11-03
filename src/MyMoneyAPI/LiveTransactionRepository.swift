@@ -24,6 +24,47 @@ public struct LiveTransactionRepository: TransactionRepository {
         return try dtos.map { try $0.transaction() }
     }
 
+    public func page(_ query: TransactionQuery, cursor: String?, limit: Int) async throws -> TransactionPage {
+        var items = Self.filterItems(query)
+        items.append(URLQueryItem(name: "limit", value: String(limit)))
+        // 游標原樣帶回:後端回的 `next_cursor` 已是編碼過的字串,後端收到時會解碼。
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        // `next_cursor` 在 envelope 的最外層(跟 `data` 同層),所以自己解整個回應。
+        let data = try await client.getRaw("/transactions", query: items)
+        let envelope: PageEnvelope
+        do {
+            envelope = try JSONDecoder().decode(PageEnvelope.self, from: data)
+        } catch {
+            throw RepositoryError.unreadableResponse
+        }
+        return TransactionPage(transactions: try envelope.data.map { try $0.transaction() }, nextCursor: envelope.nextCursor)
+    }
+
+    public func rangeSummary(_ query: TransactionQuery) async throws -> RangeSummary {
+        let dto: RangeSummaryDTO = try await client.get("/transactions/summary/range", query: Self.filterItems(query))
+        return RangeSummary(
+            totalIncome: Money(dto.totalIncome), totalExpense: Money(dto.totalExpense), count: dto.count,
+            byDay: try dto.byDay.map { day in
+                guard let date = CalendarDay(iso: day.date) else { throw RepositoryError.unreadableResponse }
+                return RangeSummary.Day(date: date, income: Money(day.income), expense: Money(day.expense))
+            }
+        )
+    }
+
+    /// 篩選條件轉成查詢參數:沒有的整個不送;關鍵字去前後空白、空白不送(`GET /transactions` 與 `summary/range` 共用)。
+    private static func filterItems(_ query: TransactionQuery) -> [URLQueryItem] {
+        var items = [URLQueryItem(name: "scope", value: query.scope.rawValue)]
+        if let from = query.from { items.append(URLQueryItem(name: "from", value: from.iso)) }
+        if let to = query.to { items.append(URLQueryItem(name: "to", value: to.iso)) }
+        if let account = query.accountID { items.append(URLQueryItem(name: "account_id", value: account.rawValue)) }
+        if let category = query.category { items.append(URLQueryItem(name: "category", value: category.name)) }
+        if let type = query.type { items.append(URLQueryItem(name: "type", value: type.rawValue)) }
+        if let keyword = query.keyword?.trimmingCharacters(in: .whitespacesAndNewlines), !keyword.isEmpty {
+            items.append(URLQueryItem(name: "q", value: keyword))
+        }
+        return items
+    }
+
     public func create(_ draft: TransactionDraft) async throws {
         try await client.send("POST", "/transactions", body: TransactionBody(draft))
     }
@@ -42,6 +83,38 @@ public struct LiveTransactionRepository: TransactionRepository {
             URLQueryItem(name: "from", value: from.iso),
             URLQueryItem(name: "to", value: to.iso),
         ])
+    }
+}
+
+/// `GET /transactions` 的 envelope:`{success, data, next_cursor}`。
+private struct PageEnvelope: Decodable {
+    let data: [TransactionDTO]
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case data
+        case nextCursor = "next_cursor"
+    }
+}
+
+/// `GET /transactions/summary/range` 的 data(snake_case)。
+private struct RangeSummaryDTO: Decodable {
+    struct Day: Decodable {
+        let date: String
+        let income: Decimal
+        let expense: Decimal
+    }
+
+    let totalIncome: Decimal
+    let totalExpense: Decimal
+    let count: Int
+    let byDay: [Day]
+
+    enum CodingKeys: String, CodingKey {
+        case count
+        case totalIncome = "total_income"
+        case totalExpense = "total_expense"
+        case byDay = "by_day"
     }
 }
 
@@ -65,6 +138,8 @@ private struct TransactionDTO: Decodable {
     let defersToNextStatement: Int?
     /// 後端自動記下的建立時間(UTC,`YYYY-MM-DD HH:mm:ss`,#207)。
     let createdAt: String?
+    /// 上游 `b06d17c` 起的欄位(UTC,同 `created_at` 格式);新建與沒改過是 null,舊的回應沒有。
+    let updatedAt: String?
     /// 上游 `d0424df` 起的欄位:扣款帳戶是不是家庭共同帳戶(0/1)與報銷關聯;舊的回應沒有。
     let accountIsJoint: Int?
     let reimbursementID: String?
@@ -72,6 +147,7 @@ private struct TransactionDTO: Decodable {
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
         case accountIsJoint = "account_is_joint"
         case reimbursementID = "reimbursement_id"
         case accountID = "account_id"
@@ -108,7 +184,8 @@ private struct TransactionDTO: Decodable {
             recorderID: userID.map(UserID.init),
             billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0),
             recordedAt: RecordedTime.date(fromBackend: createdAt),
-            householdPayment: householdPayment
+            householdPayment: householdPayment,
+            updatedAt: RecordedTime.date(fromBackend: updatedAt)
         )
     }
 }

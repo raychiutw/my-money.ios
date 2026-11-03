@@ -52,7 +52,12 @@ struct TransactionsScreen: View {
                 }
                 // 資料版本改變就重抓。篩選改了由 sheet 的「完成」查詢(只查詢一次),這裡不跟著篩選重抓。
                 .task(id: model.reloadKey) {
-                    await model.load()
+                    await model.load(keepingLoaded: true)
+                }
+                // 關鍵字停手 0.4 秒才送給後端查詢(後端篩選,#317);一路打字會取消前一次的等待。
+                .task(id: model.keyword) {
+                    do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+                    await model.search()
                 }
                 .sheet(isPresented: $model.isEditingFilter) {
                     TransactionFilterView(model: model)
@@ -86,6 +91,12 @@ struct TransactionsScreen: View {
                 }
                 .errorAlert("無法刪除", message: model.alertMessage) { model.alertMessage = nil }
         }
+    }
+
+    /// 「載入更多」重新觸發的條件:已載入筆數或重載次數變了就再跑。
+    private struct LoadMoreTrigger: Hashable {
+        let count: Int
+        let generation: Int
     }
 
     /// 編輯 sheet 需要 `Identifiable`。
@@ -153,6 +164,30 @@ struct TransactionsScreen: View {
                             }
                         } else {
                             DayHeader(day: day)
+                        }
+                    }
+                }
+                // 每頁 20 筆:這一列出現在畫面上就載入下一頁;載完還在畫面上(頁太短)就接著載(`.task(id:)` 隨已載入筆數與重載次數重跑,#317)。
+                // 載入失敗就改顯示「重試」,不再自動重載。
+                if model.canLoadMore {
+                    Section {
+                        if model.loadMoreFailed {
+                            Button("載入失敗，點一下重試", systemImage: "arrow.clockwise") {
+                                Task { await model.loadMore() }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("transactions.loadMoreRetry")
+                        } else {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("載入更多")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .task(id: LoadMoreTrigger(count: model.loadedCount, generation: model.loadGeneration)) { await model.loadMore() }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("載入更多")
+                            .accessibilityIdentifier("transactions.loadMore")
                         }
                     }
                 }

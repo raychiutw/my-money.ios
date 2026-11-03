@@ -95,6 +95,18 @@ struct AccountMutationTranslationTests {
         #expect(try body(of: try #require(stub.requests.last))["payment_account_id"] as? String == "c70d655c-0238-4bd7-ba83-92e165437e87")
     }
 
+    /// 上游 `b06d17c`(ADR 0035,#156)起:綁定的預設扣款帳戶要存在、是活存帳戶、且是本人的或家庭共同帳戶,否則 400。2026-11-03 從 prod 錄的(綁不存在的帳戶)。
+    @Test("綁定不合格的預設扣款帳戶:後端的 400 訊息原樣丟出(#327)")
+    func invalidPaymentAccountPassesMessage() async throws {
+        try stub.reply(status: 400, fixture: "accounts-update-payment-account-invalid.json")
+
+        await #expect(throws: RepositoryError.rejected("預設扣款帳戶不存在")) {
+            try await repository.update(
+                AccountID("70b75089-3652-40a3-8c47-c23d04aab28c"), with: card(.bank(AccountID("no-such-account-for-fixture")))
+            )
+        }
+    }
+
     @Test("沒動過預設扣款帳戶(.unchanged,預設值)就完全不送這個欄位——PUT 省略欄位後端保留原值，看不到、沒打算改的綁定不會被清掉")
     func unchangedPaymentAccountIsOmitted() async throws {
         let id = AccountID("27638439-d433-460f-b179-acdb8b513f93")

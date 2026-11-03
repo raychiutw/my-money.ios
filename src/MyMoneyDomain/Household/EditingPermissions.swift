@@ -27,6 +27,11 @@ public struct EditingPermissions: Hashable, Sendable {
         return account.isJointFund ? (isMine(account.ownerID) || isAdmin) : isMine(account.ownerID)
     }
 
+    /// 能不能當信用卡的預設扣款帳戶(上游 `b06d17c`、#156):活存帳戶必須是本人的或家庭共同帳戶,否則後端回 400;管理員也不能綁他人的私人帳戶。
+    public func canUseAsPaymentAccount(_ bank: BankAccount) -> Bool {
+        bank.isJointFund || isMine(bank.ownerID)
+    }
+
     /// 信用卡的還款沖銷、出帳作業、校準:個人信用卡只有持卡人;家庭信用卡全員都可以。
     public func canOperate(_ card: CreditCard) -> Bool {
         !card.isMasked && (card.isJointFund || isMine(card.ownerID))

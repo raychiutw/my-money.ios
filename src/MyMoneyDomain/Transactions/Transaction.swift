@@ -126,6 +126,9 @@ public struct Transaction: Hashable, Sendable, Identifiable {
     /// 記錄時間(後端 `created_at`,上游 718ace9、#207):建立當下由後端自動記下;沒有或看不懂時是 `nil`。顯示成台灣時間的 HH:mm。
     public let recordedAt: Date?
 
+    /// 修改時間(後端 `updated_at`,上游 `b06d17c`、ADR 0035、#163):PUT 時由後端寫入;新建與歷史資料是 `nil`。
+    public let updatedAt: Date?
+
     /// 家庭公帳的支付來源與報銷狀態(上游 `d0424df`);私帳或後端沒有給時是 `nil`。
     public let householdPayment: HouseholdPayment?
 
@@ -143,8 +146,10 @@ public struct Transaction: Hashable, Sendable, Identifiable {
         recorderID: UserID? = nil,
         billing: BillingStatus = .unbilled,
         recordedAt: Date? = nil,
-        householdPayment: HouseholdPayment? = nil
+        householdPayment: HouseholdPayment? = nil,
+        updatedAt: Date? = nil
     ) {
+        self.updatedAt = updatedAt
         self.recordedAt = recordedAt
         self.householdPayment = householdPayment
         self.id = id

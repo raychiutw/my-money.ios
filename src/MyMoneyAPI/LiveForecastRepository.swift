@@ -23,7 +23,8 @@ public struct LiveForecastRepository: ForecastRepository {
             events: try dto.events.map { try $0.event() },
             startingBalance: dto.startingBalance.map(Money.init),
             cashTotal: dto.cashTotal.map(Money.init),
-            bankTotal: dto.bankTotal.map(Money.init)
+            bankTotal: dto.bankTotal.map(Money.init),
+            cardDeduction: dto.cardDeduction.map(Money.init)
         )
     }
 
@@ -65,6 +66,8 @@ private struct ForecastDTO: Decodable {
     let startingBalance: Decimal?
     let cashTotal: Decimal?
     let bankTotal: Decimal?
+    /// 上游 `b06d17c` 起的欄位;舊的回應沒有。
+    let cardDeduction: Decimal?
 }
 
 private struct EventDTO: Decodable {

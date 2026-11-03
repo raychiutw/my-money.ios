@@ -8,7 +8,7 @@ public struct StartingBalance: Equatable, Sendable {
     public let amount: Money
     /// 「現金 $1,750・活存帳戶 $101,200」。
     public let detail: String
-    /// 起始餘額比現金加活存帳戶少時的說明;相等時是 `nil`。
+    /// 舊回應(沒有 `cardDeduction`)起始餘額比現金加活存帳戶少時的說明;其他情況是 `nil`。
     public let note: String?
 }
 
@@ -143,16 +143,20 @@ public final class ForecastModel {
         event.isSettled ? "已繳(不計入預測)" : nil
     }
 
-    /// 預測頁的「起始餘額」:主數字加「現金」「活存帳戶」兩個數字(都是後端的值,不寫成算式,因為先扣掉的信用卡待繳款讓三者不成加總)。
-    /// 舊回應或缺少任何一個數字時是 `nil`,畫面不顯示這一組。
+    /// 預測頁的「起始餘額」:主數字加「現金」「活存帳戶」兩個數字,有預扣卡款(後端 `cardDeduction`,上游 #98)時再加「預扣卡款」,
+    /// 讓現金 + 活存 − 預扣卡款 = 起始餘額成立;三個數字都是後端的值,不寫成算式(#325)。
+    /// 舊回應沒有 `cardDeduction` 而起始餘額又比現金加活存少時,退回一般性說明。舊回應或缺少現金、活存帳戶時是 `nil`,畫面不顯示這一組。
     public func startingBalance(of forecast: CashFlowForecast) -> StartingBalance? {
         guard let start = forecast.startingBalance, let cash = forecast.cashTotal, let bank = forecast.bankTotal else { return nil }
-        return StartingBalance(
-            amount: start,
-            detail: "\(Terms.cash) \(cash.formatted())・\(Terms.bankAccount) \(bank.formatted())",
-            // 後端已把繳款日不在未來 \(ForecastHorizon.label)內(或沒設繳款日)的信用卡待繳款先扣掉;兩者不相等才需要說明。
-            note: start == cash + bank ? nil : "已先扣掉繳款日不在未來 \(ForecastHorizon.label)內的信用卡待繳款"
-        )
+        var detail = "\(Terms.cash) \(cash.formatted())・\(Terms.bankAccount) \(bank.formatted())"
+        var note: String?
+        if let deduction = forecast.cardDeduction {
+            if deduction > .zero { detail += "・預扣卡款 \(deduction.formatted())" }
+        } else if start != cash + bank {
+            // 後端已把繳款日不在未來 \(ForecastHorizon.label)內(或沒設繳款日)的信用卡待繳款先扣掉;沒有 `cardDeduction` 的舊回應用這句說明。
+            note = "已先扣掉繳款日不在未來 \(ForecastHorizon.label)內的信用卡待繳款"
+        }
+        return StartingBalance(amount: start, detail: detail, note: note)
     }
 
     /// 最低餘額發生的日期;沒有變動時是「無變動」。

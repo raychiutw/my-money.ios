@@ -225,6 +225,19 @@ struct CreatedAtTests {
         #expect(editor(transaction(recordedAt: nil)).createdAtText == nil)
     }
 
+    @Test("修改時間(上游 #163,#326):用台灣時間的完整日期時間;沒修改過(null)不顯示")
+    func updatedAtText() throws {
+        let updated = try #require(RecordedTime.date(fromBackend: "2026-11-02 19:30:00"))
+        let edited = Transaction(
+            id: TransactionID("u"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, type: .expense,
+            category: .dining, amount: Money(120), note: "午餐", date: CalendarDay(year: 2026, month: 9, day: 28), isShared: false,
+            recorderName: "小明", updatedAt: updated
+        )
+        // UTC 11/2 19:30 = 台灣 11/3 03:30。
+        #expect(editor(edited).updatedAtText == "2026年11月3日 03:30")
+        #expect(editor(transaction(recordedAt: nil)).updatedAtText == nil)
+    }
+
     @Test("記一筆沒有建立時間(還沒建立)")
     func quickEntryHasNone() {
         let model = QuickEntryModel(

@@ -48,6 +48,33 @@ struct EditingPermissionsFeatureTests {
         #expect([mineJoint, meiJoint, meiPrivate].map(admin.canModify) == [true, true, false])
     }
 
+    @Test("信用卡預設扣款帳戶選項:只列本人的或家庭共同的活存帳戶,他人私人活存帳戶不列(上游 #156,#327)")
+    func paymentAccountOptionsExcludeOthersPrivateBanks() async {
+        let mine = bank("mine-private", owner: me, joint: false)
+        let meiJoint = bank("mei-joint", owner: mei, joint: true)
+        let meiPrivate = bank("mei-private", owner: mei, joint: false)
+        let creditCard = card("card", owner: me, joint: false)
+        let (model, _) = await accountsModel(.member, accounts: [.bank(mine), .bank(meiJoint), .bank(meiPrivate), .creditCard(creditCard)])
+
+        let adding = model.makeEditor(adding: .creditCard)
+        #expect(adding.paymentAccountOptions.map(\.name) == ["mine-private", "mei-joint"])
+        let editing = model.makeEditor(editing: .creditCard(creditCard))
+        #expect(editing.paymentAccountOptions.map(\.name) == ["mine-private", "mei-joint"])
+
+        let (admin, _) = await accountsModel(.admin, accounts: [.bank(mine), .bank(meiJoint), .bank(meiPrivate)])
+        #expect(admin.makeEditor(adding: .creditCard).paymentAccountOptions.map(\.name) == ["mine-private", "mei-joint"], "管理員也不能綁他人的私人活存帳戶")
+    }
+
+    @Test("沒有設定權限時(預覽):選項不過濾,交給後端")
+    func paymentAccountOptionsWithoutPermissions() async {
+        let model = AccountsModel(
+            repository: InMemoryAccountRepository(accounts: [.bank(bank("x", owner: mei, joint: false))], summary: SampleAccounts.summary),
+            dataVersion: DataVersion()
+        )
+        await model.load()
+        #expect(model.makeEditor(adding: .creditCard).paymentAccountOptions.map(\.name) == ["x"])
+    }
+
     @Test("沒有設定權限時(例如還沒登入的預覽)不擋，交給後端")
     func withoutPermissionsNothingIsHidden() async {
         let model = AccountsModel(

@@ -51,7 +51,7 @@ final class HouseholdUITests: XCTestCase {
         XCTAssertLessThan(leave.frame.midY, 120, "「離開家庭」不在畫面上方的 toolbar:\(leave.frame)")
         leave.tap()
         XCTAssertTrue(
-            app.staticTexts["確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。"].waitForExistence(timeout: 3),
+            app.staticTexts["確定要退出「我們家」嗎？退出後將無法查看這個家庭的家庭公帳。你是最後一位成員，退出後這個家庭會被刪除。"].waitForExistence(timeout: 3),
             "沒有先確認就離開"
         )
         app.buttons["離開"].firstMatch.tap()
