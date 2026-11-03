@@ -242,12 +242,17 @@ public final class AccountsModel: Alerting {
         )
     }
 
+    /// 預設扣款帳戶的選項(上游 #156,#327):只列本人的或家庭共同的活存帳戶,後端對其他的回 400。
+    private var paymentAccountChoices: [BankAccount] {
+        bankAccounts.filter { permissions?.current.canUseAsPaymentAccount($0) ?? true }
+    }
+
     public func makeEditor(adding kind: AccountKind) -> AccountEditorModel {
-        AccountEditorModel(adding: kind, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(adding: kind, bankAccounts: paymentAccountChoices, repository: repository, dataVersion: dataVersion)
     }
 
     public func makeEditor(editing account: Account) -> AccountEditorModel {
-        AccountEditorModel(editing: account, bankAccounts: bankAccounts, repository: repository, dataVersion: dataVersion)
+        AccountEditorModel(editing: account, bankAccounts: paymentAccountChoices, repository: repository, dataVersion: dataVersion)
     }
 
     /// 現金錢包的餘額合計;還沒載入時是 `nil`。
