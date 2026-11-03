@@ -39,6 +39,8 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     /// 後端篩選的分頁與統計(#317):記下每一次的查詢條件、游標與 limit,測試用來確認送出的內容。
     public private(set) var pageRequests: [(query: TransactionQuery, cursor: String?, limit: Int)] = []
     public private(set) var summaryRequests: [TransactionQuery] = []
+    /// 每次後端篩選分頁的查詢條件(第一頁與下一頁都算)。
+    public var pageQueries: [TransactionQuery] { pageRequests.map(\.query) }
     public private(set) var createdDrafts: [TransactionDraft] = []
     public private(set) var updatedDrafts: [TransactionID: TransactionDraft] = [:]
     public private(set) var deletedIDs: [TransactionID] = []

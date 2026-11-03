@@ -23,7 +23,7 @@ struct TransactionFilterTests {
     @Test("篩選草稿按「完成」才套用，而且只查詢一次")
     func draftAppliesOnDoneWithOneQuery() async {
         let (list, repository) = await loadedList()
-        let queriesBeforeEditing = await repository.queries.count
+        let queriesBeforeEditing = await repository.pageQueries.count
 
         list.editFilter()
         list.filterDraft.scope = .household
@@ -35,16 +35,18 @@ struct TransactionFilterTests {
         #expect(list.filter.scope == .all, "還沒按完成，視角就變了")
         #expect(list.filter.to == today, "還沒按完成，迄日就變了")
         #expect(list.count == 4, "還沒按完成，清單就被篩選了")
-        #expect(await repository.queries.count == queriesBeforeEditing, "還沒按完成就查詢了")
+        #expect(await repository.pageQueries.count == queriesBeforeEditing, "還沒按完成就查詢了")
 
         await list.applyFilter()
 
         #expect(!list.isEditingFilter)
-        let queries = await repository.queries.dropFirst(queriesBeforeEditing)
+        let queries = await repository.pageQueries.dropFirst(queriesBeforeEditing)
         #expect(queries.count == 1, "按完成後查詢了 \(queries.count) 次")
         #expect(queries.first?.scope == .household)
         #expect(queries.first?.from == CalendarDay(year: 2026, month: 9, day: 1))
         #expect(queries.first?.to == CalendarDay(year: 2026, month: 9, day: 30))
+        #expect(queries.first?.type == .expense, "類型也送到後端(#317)")
+        #expect(queries.first?.category == .dining, "分類也送到後端(#317)")
         #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
     }
 
@@ -70,17 +72,22 @@ struct TransactionFilterTests {
         #expect(list.days.flatMap(\.transactions).map(\.id) == applied, "本月的舊查詢蓋掉了只查今天的結果")
     }
 
-    @Test("只改類型或分類時，按「完成」不重新查詢(只在本機過濾)")
-    func applyingLocalFilterDoesNotQuery() async {
+    @Test("只改類型或分類時，按「完成」也重新查詢一次(篩選全部由後端做,#317);沒改任何東西就不查詢")
+    func applyingTypeAndCategoryQueriesBackend() async {
         let (list, repository) = await loadedList()
-        let queriesBeforeEditing = await repository.queries.count
+        let queriesBeforeEditing = await repository.pageQueries.count
+
+        list.editFilter()
+        await list.applyFilter()
+        #expect(await repository.pageQueries.count == queriesBeforeEditing, "沒改任何篩選卻查詢了")
 
         list.editFilter()
         list.filterDraft.type = .expense
         list.filterDraft.category = .dining
         await list.applyFilter()
 
-        #expect(await repository.queries.count == queriesBeforeEditing, "只改類型和分類也重新查詢了")
+        #expect(await repository.pageQueries.count == queriesBeforeEditing + 1)
+        #expect(await repository.pageQueries.last?.type == .expense)
         #expect(list.days.flatMap(\.transactions).map(\.note) == ["午餐"])
     }
 
@@ -121,7 +128,7 @@ struct TransactionFilterTests {
     func cancellingKeepsFilter() async {
         let (list, repository) = await loadedList()
         let applied = list.filter
-        let queriesBeforeEditing = await repository.queries.count
+        let queriesBeforeEditing = await repository.pageQueries.count
 
         list.editFilter()
         list.filterDraft.scope = .personal
@@ -131,7 +138,7 @@ struct TransactionFilterTests {
         #expect(!list.isEditingFilter, "按取消後篩選 sheet 沒有關閉")
         #expect(list.filter == applied)
         #expect(list.count == 4)
-        #expect(await repository.queries.count == queriesBeforeEditing, "按取消後查詢了")
+        #expect(await repository.pageQueries.count == queriesBeforeEditing, "按取消後查詢了")
 
         list.editFilter()
         #expect(list.filterDraft == applied, "再打開時還留著取消掉的草稿")
@@ -221,6 +228,7 @@ struct TransactionFilterTests {
         let (list, _) = await loadedList()
 
         list.keyword = keyword
+        await list.search()
 
         #expect(list.days.flatMap(\.transactions).map(\.note) == notes)
     }
@@ -335,20 +343,20 @@ struct TransactionFilterTests {
     @Test("按「完成」才送帳戶篩選，查詢帶 accountID;取消不變;「全部帳戶」不帶")
     func accountFilterIsAppliedOnDone() async throws {
         let (list, repository) = await listWithAccounts()
-        let before = await repository.queries.count
+        let before = await repository.pageQueries.count
         list.editFilter()
         await list.refreshFilterAccountOptions()
         let savings = try #require(list.filterAccountOptions.first { $0.name == "iOS 測試存款" })
 
         list.filterDraft.account = savings
-        #expect(await repository.queries.count == before, "還沒按完成就查詢了")
+        #expect(await repository.pageQueries.count == before, "還沒按完成就查詢了")
         list.cancelFilter()
         #expect(list.filter.account == nil)
 
         list.editFilter()
         list.filterDraft.account = savings
         await list.applyFilter()
-        let queries = await repository.queries.dropFirst(before)
+        let queries = await repository.pageQueries.dropFirst(before)
         #expect(queries.count == 1)
         #expect(queries.first?.accountID == savings.id)
         #expect(list.filter.account == savings)
@@ -359,7 +367,7 @@ struct TransactionFilterTests {
         list.editFilter()
         list.filterDraft.account = nil
         await list.applyFilter()
-        #expect(await repository.queries.last?.accountID == nil)
+        #expect(await repository.pageQueries.last?.accountID == nil)
         #expect(!list.isFilterActive)
     }
 
@@ -378,7 +386,7 @@ struct TransactionFilterTests {
         #expect(list.filter.scope == .all)
         #expect(list.filter.type == .all)
         #expect(list.filter.from == today.firstOfMonth && list.filter.to == today)
-        #expect(await repository.queries.last?.accountID == card.id)
+        #expect(await repository.pageQueries.last?.accountID == card.id)
         #expect(list.isFilterActive)
     }
 }

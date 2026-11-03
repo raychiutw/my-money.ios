@@ -54,6 +54,11 @@ struct TransactionsScreen: View {
                 .task(id: model.reloadKey) {
                     await model.load()
                 }
+                // 關鍵字停手 0.4 秒才送給後端查詢(後端篩選,#317);一路打字會取消前一次的等待。
+                .task(id: model.keyword) {
+                    do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+                    await model.search()
+                }
                 .sheet(isPresented: $model.isEditingFilter) {
                     TransactionFilterView(model: model)
                 }
@@ -154,6 +159,21 @@ struct TransactionsScreen: View {
                         } else {
                             DayHeader(day: day)
                         }
+                    }
+                }
+                // 每頁 20 筆:這一列出現在畫面上就載入下一頁;載完還在畫面上(頁太短)就接著載(`.task(id:)` 隨已載入筆數重跑,#317)。
+                if model.canLoadMore {
+                    Section {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("載入更多")
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .task(id: model.loadedCount) { await model.loadMore() }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("載入更多")
+                        .accessibilityIdentifier("transactions.loadMore")
                     }
                 }
                 exportSection

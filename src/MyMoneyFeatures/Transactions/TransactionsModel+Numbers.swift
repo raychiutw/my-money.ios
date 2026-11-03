@@ -1,7 +1,7 @@
 import Foundation
 import MyMoneyDomain
 
-/// 交易頁長條圖的一天:當日支出(不含系統分類，沒花錢的天是 0)。
+/// 交易頁長條圖的一天:當日支出(後端的每日小計,全量加總,沒花錢的天是 0)。
 public struct DailyExpense: Identifiable, Sendable {
     public let date: CalendarDay
     public let amount: Money
@@ -12,7 +12,7 @@ public struct DailyExpense: Identifiable, Sendable {
 }
 
 /// 交易頁的數字優先主視覺(#118):支出佔收入的比例條與每日支出長條圖。
-/// 資料都來自目前篩選之後的交易記錄，跟總收入、總支出同一個範圍(系統分類排除)。
+/// 資料都來自後端的區間統計,跟總收入、總支出同一個範圍(全量加總,系統分類也算)。
 extension TransactionsModel {
     /// 支出佔收入的比例(1 是 100%,可以超過);收入是 0 時是 `nil`，不顯示比例條。
     public var expenseRatio: Double? {
@@ -26,12 +26,10 @@ extension TransactionsModel {
         return "支出佔收入百分之 \((ratio * 100).rounded(.toNearestOrAwayFromZero).formatted(.number.precision(.fractionLength(0))))"
     }
 
-    /// 篩選區間(起日到迄日)每一天的支出。
+    /// 篩選區間(起日到迄日)每一天的支出:後端的每日小計(`by_day`,全量加總,系統分類也算;沒花錢的天是 0)。
     public var dailyExpenses: [DailyExpense] {
         var totals: [CalendarDay: Money] = [:]
-        for transaction in filtered where transaction.type == .expense && !transaction.isSystemRecord {
-            totals[transaction.date, default: .zero] = (totals[transaction.date] ?? .zero) + transaction.amount
-        }
+        for day in dailySummary { totals[day.date] = day.expense }
         var days: [(CalendarDay, Money)] = []
         var day = filter.from
         while day <= filter.to {

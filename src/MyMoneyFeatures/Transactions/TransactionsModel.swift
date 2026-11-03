@@ -25,14 +25,15 @@ public struct TransactionDay: Identifiable, Sendable {
 
 /// 交易頁的 model(parity.md「交易」)。
 ///
-/// 起迄日與視角送到後端查詢;類型、分類、關鍵字只在本機過濾(跟 web 一樣)。
-/// 視角、起迄日、類型、分類在篩選 sheet 裡改一份草稿，按「完成」才套用(#74);關鍵字照舊即時過濾。
+/// 每頁 20 筆,捲到底載入下一頁(上游 `b06d17c`、ADR 0035、#184,#317);視角、起迄日、帳戶、類型、分類、關鍵字全部送到後端查詢,
+/// 總收入、總支出、筆數與每日小計也是後端的區間統計(全量加總),手機上不再對整個月重算。
+/// 視角、起迄日、類型、分類在篩選 sheet 裡改一份草稿，按「完成」才套用(#74);關鍵字停手之後才查詢(`search()`)。
 @MainActor
 @Observable
 public final class TransactionsModel: Alerting {
     public typealias Phase = LoadPhase
 
-    /// 類型篩選(只在本機過濾)。
+    /// 類型篩選(送到後端)。
     public enum TypeFilter: Hashable, Sendable {
         case all
         case expense
@@ -62,8 +63,26 @@ public final class TransactionsModel: Alerting {
 
     public let deleteConfirmation = "確定要刪除這筆\(Terms.transactions)嗎？"
 
-    /// 從後端載入的區間內所有交易記錄(篩選前)。
+    /// 每頁筆數。
+    static let pageSize = 20
+
+    /// 已載入的頁(後端已依篩選過濾,日期由新到舊)。
     private var loaded: [Transaction] = []
+
+    /// 目前篩選下的全量統計(後端 `summary/range`):總額、筆數、每日小計。
+    private var summary: RangeSummary = .empty
+
+    /// 下一頁的游標;沒有下一頁是 `nil`。
+    private var nextCursor: String?
+
+    /// 正在載入下一頁。
+    public private(set) var isLoadingMore = false
+
+    /// 最近一次載入成功的查詢條件;`search()` 用它判斷關鍵字有沒有變。
+    @ObservationIgnored private var loadedQuery: TransactionQuery?
+
+    /// 每次重新載入遞增:舊的查詢或下一頁比較晚回來時丟掉。
+    @ObservationIgnored private var loadToken = 0
 
     @ObservationIgnored private let repository: any TransactionRepository
     @ObservationIgnored private let accountRepository: (any AccountRepository)?
@@ -155,10 +174,10 @@ public final class TransactionsModel: Alerting {
         await load()
     }
 
-    /// 按「完成」:套用草稿。視角、起迄日或帳戶改了才重新查詢，而且只查詢一次;類型、分類只在本機過濾。
+    /// 按「完成」:套用草稿。任何一項篩選改了才重新查詢(從第一頁重來),而且只查詢一次。
     public func applyFilter() async {
         isEditingFilter = false
-        let needsQuery = filterDraft.query != filter.query
+        let needsQuery = filterDraft != filter
         filter = filterDraft
         if needsQuery {
             await load()
@@ -265,65 +284,101 @@ public final class TransactionsModel: Alerting {
     public var days: [TransactionDay] {
         var order: [CalendarDay] = []
         var byDay: [CalendarDay: [Transaction]] = [:]
-        for transaction in filtered {
+        let totals = Dictionary(summary.byDay.map { ($0.date, $0) }, uniquingKeysWith: { first, _ in first })
+        for transaction in loaded {
             if byDay[transaction.date] == nil { order.append(transaction.date) }
             byDay[transaction.date, default: []].append(transaction)
         }
         let today = today()
         return order.sorted(by: >).map { date in
             let items = byDay[date] ?? []
+            // 當日小計用後端的整天統計:最底下那一天只載入一半時也是準確的;沒有統計時退回已載入的列。
+            let total = totals[date]
             return TransactionDay(
                 date: date, title: date.headerText(today: today, locale: locale), transactions: items,
-                income: Self.income(of: items), expense: Self.expense(of: items)
+                income: total?.income ?? Self.income(of: items), expense: total?.expense ?? Self.expense(of: items)
             )
         }
     }
 
-    public var count: Int { filtered.count }
-    public var totalIncome: Money { Self.income(of: filtered) }
+    /// 總筆數、總收入、總支出:後端的區間統計(符合目前篩選的整個範圍,不是已載入的頁)。
+    public var count: Int { summary.count }
+    public var totalIncome: Money { summary.totalIncome }
     /// 總收入、總支出、每日小計全量加總(上游 a09e923「收支正負號全量直觀加總」，parity 第 26 項已與上游對齊，#238)。
-    public var totalExpense: Money { Self.expense(of: filtered) }
+    public var totalExpense: Money { summary.totalExpense }
     public var net: Money { totalIncome - totalExpense }
 
     /// 今天(台灣時間)與地區:`TransactionsModel+Numbers` 的日期文字用。
     var todayValue: CalendarDay { today() }
     var localeValue: Locale { locale }
 
-    /// 套用類型、分類與關鍵字之後的交易記錄;摘要、比例條和長條圖都用它。
-    var filtered: [Transaction] {
-        let needle = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return loaded.filter { transaction in
-            switch filter.type {
-            case .all: break
-            case .expense: if transaction.type != .expense { return false }
-            case .income: if transaction.type != .income { return false }
-            }
-            if let category = filter.category, transaction.category != category { return false }
-            guard !needle.isEmpty else { return true }
-            return [transaction.note, transaction.category.name, transaction.accountName ?? "", transaction.recorderName ?? ""]
-                .contains { $0.lowercased().contains(needle) }
-        }
+    /// 每日統計(後端 `by_day`):長條圖用。
+    var dailySummary: [RangeSummary.Day] { summary.byDay }
+
+    /// 送到後端的篩選條件:關鍵字去前後空白,空白當作沒有。
+    private var currentQuery: TransactionQuery {
+        let word = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TransactionQuery(
+            scope: filter.scope, from: filter.from, to: filter.to, accountID: filter.account?.id, category: filter.category,
+            type: { switch filter.type { case .all: nil; case .expense: .expense; case .income: .income } }(),
+            keyword: word.isEmpty ? nil : word
+        )
     }
 
-    /// 依目前套用的起迄日與視角，抓齊區間內的所有交易記錄。
+    /// 依目前套用的篩選從第一頁重新載入:第一頁 20 筆與整個範圍的統計同時查詢。
     public func load() async {
         let key = reloadKey
-        let query = filter.query
+        let query = currentQuery
+        loadToken += 1
+        let token = loadToken
         do {
-            let transactions = try await repository.allTransactions(
-                from: query.from, to: query.to, scope: query.scope, accountID: query.accountID
-            )
-            // 套用篩選和第一次載入各自是一個 Task,舊的查詢可能比較晚回來：篩選已經改了就丟掉。
-            guard query == filter.query else { return }
-            loaded = transactions
+            async let first = repository.page(query, cursor: nil, limit: Self.pageSize)
+            async let totals = repository.rangeSummary(query)
+            let (page, range) = try await (first, totals)
+            // 篩選、關鍵字和第一次載入各自是一個 Task,舊的查詢可能比較晚回來:已經重新載入過就丟掉。
+            guard token == loadToken else { return }
+            loaded = page.transactions
+            summary = range
+            nextCursor = page.nextCursor
+            loadedQuery = query
             freshness.markLoaded(key)
             defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
             await permissions?.loadIfNeeded()
         } catch {
-            guard query == filter.query else { return }
+            guard token == loadToken else { return }
             phase = .failure(error)
         }
+    }
+
+    /// 已載入的筆數(畫面用它判斷「載入更多」那一列是不是還在畫面上要接著載)。
+    public var loadedCount: Int { loaded.count }
+
+    /// 還有下一頁(捲到底會載入)。
+    public var canLoadMore: Bool { nextCursor != nil }
+
+    /// 載入下一頁,接在已載入的後面。失敗顯示訊息、已載入的留著,可以再試;條件改了(重新載入過)的舊回應丟掉。
+    public func loadMore() async {
+        guard let cursor = nextCursor, let query = loadedQuery, !isLoadingMore else { return }
+        let token = loadToken
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let page = try await repository.page(query, cursor: cursor, limit: Self.pageSize)
+            guard token == loadToken else { return }
+            let known = Set(loaded.map(\.id))
+            loaded += page.transactions.filter { !known.contains($0.id) }
+            nextCursor = page.nextCursor
+        } catch {
+            guard token == loadToken else { return }
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    /// 關鍵字改了(畫面停手之後呼叫):送給後端、從第一頁重載;跟上一次載入的關鍵字相同(包含都是空白)就不查詢。
+    public func search() async {
+        guard currentQuery.keyword != loadedQuery?.keyword else { return }
+        await load()
     }
 
     /// 資料版本在上一次載入之後改變過，才重新載入。
@@ -392,7 +447,7 @@ public final class TransactionsModel: Alerting {
 }
 
 extension TransactionsModel {
-    /// 交易頁的篩選，也是篩選 sheet 的草稿。視角與起迄日送到後端查詢;類型、分類只在本機過濾(跟 web 一樣)。
+    /// 交易頁的篩選，也是篩選 sheet 的草稿。全部送到後端查詢(上游 ADR 0035)。
     public struct Filter: Equatable, Sendable {
         public var scope: ViewScope = .all
 
@@ -440,17 +495,6 @@ extension TransactionsModel {
             }
         }
 
-        /// 送到後端查詢的部分。
-        var query: Query {
-            Query(scope: scope, from: from, to: to, accountID: account?.id)
-        }
-
-        struct Query: Equatable {
-            let scope: ViewScope
-            let from: CalendarDay
-            let to: CalendarDay
-            let accountID: AccountID?
-        }
     }
 }
 

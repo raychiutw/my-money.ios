@@ -40,7 +40,7 @@ struct TransactionsMonthSwitchTests {
         #expect(list.selectedMonth == CalendarMonth(year: 2026, month: 8))
         #expect(list.monthTitle == "2026年8月")
         #expect(list.canGoToNextMonth)
-        let query = try #require(await repository.queries.last)
+        let query = try #require(await repository.pageQueries.last)
         #expect(query.from == CalendarDay(year: 2026, month: 8, day: 1) && query.to == CalendarDay(year: 2026, month: 8, day: 31))
     }
 
@@ -93,13 +93,13 @@ struct TransactionsMonthSwitchTests {
         let (list, repository) = model()
         let before = list.filter
         await list.load()
-        let queries = await repository.queries.count
+        let queries = await repository.pageQueries.count
 
         await list.selectMonth(CalendarMonth(year: 2026, month: 10))
         await list.goToNextMonth()
 
         #expect(list.filter == before)
-        #expect(await repository.queries.count == queries)
+        #expect(await repository.pageQueries.count == queries)
     }
 
     @Test("跟篩選 sheet 一致:快速切月後打開 sheet，草稿就是同一個範圍;sheet 裡「重設為本月」套用後也是本月")

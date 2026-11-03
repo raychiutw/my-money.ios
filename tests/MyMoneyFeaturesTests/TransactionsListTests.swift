@@ -36,7 +36,7 @@ struct TransactionsListTests {
 
         await list.applyFilter()
 
-        let query = await repository.queries.last
+        let query = await repository.pageQueries.last
         #expect(query?.from == CalendarDay(year: 2026, month: 9, day: 1))
         #expect(query?.to == today)
         #expect(query?.scope == .personal)
@@ -233,14 +233,14 @@ struct TransactionsListTests {
         let dataVersion = DataVersion()
         let list = model(repository, dataVersion: dataVersion)
         await list.load()
-        let queriesAfterLoad = await repository.queries.count
+        let queriesAfterLoad = await repository.pageQueries.count
 
         await list.refreshIfStale()
-        #expect(await repository.queries.count == queriesAfterLoad)
+        #expect(await repository.pageQueries.count == queriesAfterLoad)
 
         dataVersion.bump()
         await list.refreshIfStale()
-        #expect(await repository.queries.count > queriesAfterLoad)
+        #expect(await repository.pageQueries.count > queriesAfterLoad)
     }
 
     @Test("載入失敗時顯示後端的訊息")

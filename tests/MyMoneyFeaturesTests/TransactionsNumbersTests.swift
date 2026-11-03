@@ -73,7 +73,7 @@ struct TransactionsNumbersTests {
 
     // MARK: 每日支出長條圖
 
-    @Test("每日支出涵蓋篩選區間的每一天(沒花錢的天是 0)，只算支出、不含系統分類")
+    @Test("每日支出涵蓋篩選區間的每一天(沒花錢的天是 0),用後端的每日小計:系統分類的支出也算(全量加總,#317)")
     func dailyExpensesCoverTheRange() async {
         let list = await loaded()
 
@@ -82,8 +82,8 @@ struct TransactionsNumbersTests {
         #expect(days.first?.date == CalendarDay(year: 2026, month: 9, day: 1))
         #expect(days.last?.date == today)
         #expect(days.last?.amount == Money(1000))
-        // 9/10 只有信用卡還款(系統分類)，不算支出;9/1 的收入也不算。
-        #expect(days.filter { $0.amount > .zero }.map(\.date) == [today])
+        // 9/10 只有信用卡還款(系統分類):後端的每日小計全量加總,算支出;9/1 只有收入,不算。
+        #expect(days.filter { $0.amount > .zero }.map(\.date) == [CalendarDay(year: 2026, month: 9, day: 10), today])
     }
 
     @Test("突顯最大的一天:最大的一天標記為 peak，金額相同時取較早的一天")
