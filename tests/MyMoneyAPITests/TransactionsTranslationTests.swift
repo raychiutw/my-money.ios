@@ -15,6 +15,24 @@ struct TransactionsTranslationTests {
     private let september1 = CalendarDay(year: 2026, month: 9, day: 1)
     private let september30 = CalendarDay(year: 2026, month: 9, day: 30)
 
+    /// 上游 `b06d17c`(ADR 0035,#163)起:收支多 `updated_at`(UTC;新建與歷史資料是 null,PUT 時寫入)。
+    /// 錄自 prod 的回應都是 null(測試帳號的資料沒改過);有值的情況是把真實 fixture 的第一筆改成有值。
+    @Test("updated_at:null 解成 nil;有值解成時間(修改時間,#326)")
+    func decodesUpdatedAt() async throws {
+        try stub.reply(status: 200, fixture: "transactions-updated-at.json")
+        let untouched = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 5, offset: 0)
+        #expect(untouched.allSatisfy { $0.updatedAt == nil })
+
+        var json = try #require(try JSONSerialization.jsonObject(with: Fixture.data("transactions-updated-at.json")) as? [String: Any])
+        var rows = try #require(json["data"] as? [[String: Any]])
+        rows[0]["updated_at"] = "2026-11-02 19:30:00"
+        json["data"] = rows
+        stub.reply(status: 200, json: try JSONSerialization.data(withJSONObject: json))
+        let edited = try await repository.transactions(from: nil, to: nil, scope: .all, limit: 5, offset: 0)
+        #expect(edited.first?.updatedAt == RecordedTime.date(fromBackend: "2026-11-02 19:30:00"))
+        #expect(edited.dropFirst().allSatisfy { $0.updatedAt == nil })
+    }
+
     @Test("最近的收支明細不限日期：不送 from / to(跟 web 的總覽一樣)")
     func recentOmitsDates() async throws {
         try stub.reply(status: 200, fixture: "transactions-recent.json")

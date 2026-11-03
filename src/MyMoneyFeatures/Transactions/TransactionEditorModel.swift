@@ -40,9 +40,14 @@ public final class TransactionEditorModel: Submitting {
 
     public let title = "編輯\(Terms.transactions)"
 
-    /// 建立時間(後端的 `created_at`,台灣時間):唯讀,不能改;沒有資料不顯示(#290)。後端沒有修改時間欄位,所以沒有「修改時間」。
+    /// 建立時間(後端的 `created_at`,台灣時間):唯讀,不能改;沒有資料不顯示(#290)。修改時間見 `updatedAtText`(上游 #163)。
     public var createdAtText: String? {
         recordedAt.map { "\($0.formatted(Date.FormatStyle.taipei(locale).year().month().day())) \(RecordedTime.clockText(of: $0))" }
+    }
+
+    /// 修改時間(後端的 `updated_at`,台灣時間,#326):唯讀;沒修改過(或舊回應)不顯示。
+    public var updatedAtText: String? {
+        updatedAt.map { "\($0.formatted(Date.FormatStyle.taipei(locale).year().month().day())) \(RecordedTime.clockText(of: $0))" }
     }
 
     public var categories: [TransactionCategory] {
@@ -77,6 +82,7 @@ public final class TransactionEditorModel: Submitting {
     public func loadNoteHistory() async {}
 
     @ObservationIgnored private let recordedAt: Date?
+    @ObservationIgnored private let updatedAt: Date?
     @ObservationIgnored private let lockedAccountDisplay: String?
     /// 原本是不是「列入下期帳單」:鎖定的系統紀錄一律原樣送出。
     @ObservationIgnored private let originalDefers: Bool
@@ -96,6 +102,7 @@ public final class TransactionEditorModel: Submitting {
         locale: Locale = .autoupdatingCurrent
     ) {
         recordedAt = transaction.recordedAt
+        updatedAt = transaction.updatedAt
         lockedAccountDisplay = transaction.accountName
         originalDefers = transaction.billing == .deferred
         locked = transaction.isSystemRecord ? (transaction.accountID, transaction.type, transaction.category) : nil

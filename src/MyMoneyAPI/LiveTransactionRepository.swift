@@ -65,6 +65,8 @@ private struct TransactionDTO: Decodable {
     let defersToNextStatement: Int?
     /// 後端自動記下的建立時間(UTC,`YYYY-MM-DD HH:mm:ss`,#207)。
     let createdAt: String?
+    /// 上游 `b06d17c` 起的欄位(UTC,同 `created_at` 格式);新建與沒改過是 null,舊的回應沒有。
+    let updatedAt: String?
     /// 上游 `d0424df` 起的欄位:扣款帳戶是不是家庭共同帳戶(0/1)與報銷關聯;舊的回應沒有。
     let accountIsJoint: Int?
     let reimbursementID: String?
@@ -72,6 +74,7 @@ private struct TransactionDTO: Decodable {
     enum CodingKeys: String, CodingKey {
         case id, type, category, amount, note, date
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
         case accountIsJoint = "account_is_joint"
         case reimbursementID = "reimbursement_id"
         case accountID = "account_id"
@@ -108,7 +111,8 @@ private struct TransactionDTO: Decodable {
             recorderID: userID.map(UserID.init),
             billing: BillingStatus(isBilled: (isBilled ?? 0) != 0, defersToNextStatement: (defersToNextStatement ?? 0) != 0),
             recordedAt: RecordedTime.date(fromBackend: createdAt),
-            householdPayment: householdPayment
+            householdPayment: householdPayment,
+            updatedAt: RecordedTime.date(fromBackend: updatedAt)
         )
     }
 }
