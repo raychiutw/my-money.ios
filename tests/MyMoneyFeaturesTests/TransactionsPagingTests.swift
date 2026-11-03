@@ -166,4 +166,78 @@ struct TransactionsPagingTests {
         #expect(request?.query.from == CalendarDay(year: 2026, month: 8, day: 1))
         #expect(model.count == 0)
     }
+
+    @Test("資料變更後重新載入(新增、編輯、刪除):載入已載入的筆數那麼多,不跳回第一頁(code review)")
+    func reloadAfterChangeKeepsLoadedPages() async {
+        let (model, repository) = make()
+        await model.load()
+        await model.loadMore()
+        #expect(model.days.flatMap(\.transactions).count == 40)
+
+        await model.load(keepingLoaded: true)
+
+        #expect(await repository.pageRequests.last?.limit == 40)
+        #expect(model.days.flatMap(\.transactions).count == 40)
+        #expect(model.canLoadMore)
+        await model.load()
+        #expect(model.days.flatMap(\.transactions).count == 20, "換篩選或月份那種重載照常從第一頁")
+    }
+
+    @Test("載入下一頁失敗:標記失敗(畫面改顯示「重試」,不再自動重載),重試成功就清掉")
+    func loadMoreFailureCanRetry() async {
+        let (model, repository) = make()
+        await model.load()
+        await repository.fail(with: .rejected("伺服器忙碌"))
+        await model.loadMore()
+        #expect(model.loadMoreFailed)
+
+        await repository.clearFailure()
+        await model.loadMore()
+        #expect(!model.loadMoreFailed)
+        #expect(model.days.flatMap(\.transactions).count == 40)
+    }
+
+    @Test("重新載入(換條件)時,舊的下一頁載入中的狀態一併重設,新的下一頁可以載")
+    func reloadResetsLoadingMore() async {
+        let (model, _) = make()
+        await model.load()
+        let before = model.loadGeneration
+
+        await model.load()
+
+        #expect(model.loadGeneration == before + 1)
+        #expect(!model.isLoadingMore)
+        await model.loadMore()
+        #expect(model.days.flatMap(\.transactions).count == 40)
+    }
+
+    @Test("後端的每日統計沒有那一天:當日小計不用已載入的列湊(不重算,不顯示半天的數字)")
+    func dayTotalDoesNotFallBackToLoadedRows() async {
+        let day = CalendarDay(year: 2026, month: 9, day: 5)
+        let transaction = Transaction(
+            id: TransactionID("orphan"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name, type: .expense,
+            category: .dining, amount: Money(100), note: "x", date: day, isShared: false, recorderName: "小明"
+        )
+        let repository = StaleSummaryRepository(transactions: [transaction])
+        let model = TransactionsModel(repository: repository, dataVersion: DataVersion(), today: { today })
+        await model.load()
+
+        #expect(model.days.first?.expense == .zero)
+        #expect(model.days.first?.hasNet == false)
+    }
+}
+
+/// 統計沒有任何每日小計的替身:分頁照常,`rangeSummary` 回空的 `byDay`。
+private actor StaleSummaryRepository: TransactionRepository {
+    private let inner: InMemoryTransactionRepository
+    init(transactions: [Transaction]) { inner = InMemoryTransactionRepository(transactions: transactions) }
+    func transactions(from: CalendarDay?, to: CalendarDay?, scope: ViewScope, accountID: AccountID?, limit: Int, offset: Int) async throws -> [Transaction] {
+        try await inner.transactions(from: from, to: to, scope: scope, accountID: accountID, limit: limit, offset: offset)
+    }
+    func page(_ query: TransactionQuery, cursor: String?, limit: Int) async throws -> TransactionPage { try await inner.page(query, cursor: cursor, limit: limit) }
+    func rangeSummary(_ query: TransactionQuery) async throws -> RangeSummary { .empty }
+    func create(_ draft: TransactionDraft) async throws { try await inner.create(draft) }
+    func update(_ id: TransactionID, with draft: TransactionDraft) async throws { try await inner.update(id, with: draft) }
+    func delete(_ id: TransactionID) async throws { try await inner.delete(id) }
+    func exportCSV(from: CalendarDay, to: CalendarDay) async throws -> Data { try await inner.exportCSV(from: from, to: to) }
 }

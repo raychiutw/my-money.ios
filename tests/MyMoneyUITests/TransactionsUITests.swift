@@ -532,13 +532,15 @@ final class TransactionsUITests: XCTestCase {
         let oldest = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "分頁測試0，")).firstMatch
         let export = app.buttons["transactions.export"]
         // 惰性清單:最底下的「載入更多」捲到才在畫面上,所以不先斷言它;直接一路捲,載完最後一頁才會出現匯出列。
-        XCTAssertTrue(app.descendants(matching: .any)["overview.composition"].exists || app.tabBars.firstMatch.waitForExistence(timeout: 10))
+        let newest = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "分頁測試44，")).firstMatch
+        XCTAssertTrue(newest.waitForExistence(timeout: 10), "第一頁(最新的)沒有載入")
         for _ in 0..<25 where !export.exists { app.swipeUp() }
         XCTAssertTrue(export.exists, "一路捲到底都沒有載完所有頁")
         for _ in 0..<3 where !oldest.exists { app.swipeUp() }
         XCTAssertTrue(oldest.exists, "捲到底之後最舊的那一筆(最後一頁)沒有載入")
 
         // 搜尋是後端查整個月:換一個乾淨的畫面搜尋最舊的一筆,不必先捲到最後一頁。
+        app.terminate()
         let fresh = XCUIApplication.launchUITesting(flags: ["-uiTestingManyTransactions"], signedIn: true)
         fresh.tabBars.buttons["記帳"].tap()
         let search = fresh.searchFields.firstMatch

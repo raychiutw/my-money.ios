@@ -203,6 +203,11 @@ public actor InMemoryTransactionRepository: TransactionRepository {
     }
 
     /// 之後的請求都以這個錯誤失敗。
+    /// 之後的查詢恢復正常。
+    public func clearFailure() {
+        failure = nil
+    }
+
     public func fail(with error: RepositoryError) {
         failure = error
     }

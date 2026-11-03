@@ -81,8 +81,15 @@ public final class TransactionsModel: Alerting {
     /// 最近一次載入成功的查詢條件;`search()` 用它判斷關鍵字有沒有變。
     @ObservationIgnored private var loadedQuery: TransactionQuery?
 
-    /// 每次重新載入遞增:舊的查詢或下一頁比較晚回來時丟掉。
-    @ObservationIgnored private var loadToken = 0
+    /// 載入下一頁失敗過:畫面的最後一列改顯示「重試」,不再自動重載(重載成功或重試成功才清掉)。
+    public private(set) var loadMoreFailed = false
+
+    /// 每次重新載入遞增:舊的查詢或下一頁比較晚回來時丟掉;畫面的「載入更多」用它重新觸發(筆數沒變也會重跑)。
+    public private(set) var loadGeneration = 0
+    @ObservationIgnored private var loadToken: Int {
+        get { loadGeneration }
+        set { loadGeneration = newValue }
+    }
 
     @ObservationIgnored private let repository: any TransactionRepository
     @ObservationIgnored private let accountRepository: (any AccountRepository)?
@@ -293,10 +300,11 @@ public final class TransactionsModel: Alerting {
         return order.sorted(by: >).map { date in
             let items = byDay[date] ?? []
             // 當日小計用後端的整天統計:最底下那一天只載入一半時也是準確的;沒有統計時退回已載入的列。
+            // 後端統計沒有那一天就是 0(不顯示淨額),不用已載入的半天湊數字:不在 client 重算。
             let total = totals[date]
             return TransactionDay(
                 date: date, title: date.headerText(today: today, locale: locale), transactions: items,
-                income: total?.income ?? Self.income(of: items), expense: total?.expense ?? Self.expense(of: items)
+                income: total?.income ?? .zero, expense: total?.expense ?? .zero
             )
         }
     }
@@ -325,14 +333,16 @@ public final class TransactionsModel: Alerting {
         )
     }
 
-    /// 依目前套用的篩選從第一頁重新載入:第一頁 20 筆與整個範圍的統計同時查詢。
-    public func load() async {
+    /// 依目前套用的篩選重新載入:第一頁 20 筆與整個範圍的統計同時查詢。
+    /// `keepingLoaded`:資料變更後(新增、編輯、刪除)重載,一次載入已載入的那麼多筆(後端上限 200),不跳回第一頁;換條件的重載照常是 20 筆。
+    public func load(keepingLoaded: Bool = false) async {
         let key = reloadKey
         let query = currentQuery
         loadToken += 1
         let token = loadToken
+        let limit = keepingLoaded ? min(max(loaded.count, Self.pageSize), 200) : Self.pageSize
         do {
-            async let first = repository.page(query, cursor: nil, limit: Self.pageSize)
+            async let first = repository.page(query, cursor: nil, limit: limit)
             async let totals = repository.rangeSummary(query)
             let (page, range) = try await (first, totals)
             // 篩選、關鍵字和第一次載入各自是一個 Task,舊的查詢可能比較晚回來:已經重新載入過就丟掉。
@@ -341,6 +351,8 @@ public final class TransactionsModel: Alerting {
             summary = range
             nextCursor = page.nextCursor
             loadedQuery = query
+            isLoadingMore = false
+            loadMoreFailed = false
             freshness.markLoaded(key)
             defaults.set(days.prefix(3).map { min($0.transactions.count, 4) }, forKey: "skeleton.transactions.dayRows")
             phase = .loaded
@@ -369,8 +381,10 @@ public final class TransactionsModel: Alerting {
             let known = Set(loaded.map(\.id))
             loaded += page.transactions.filter { !known.contains($0.id) }
             nextCursor = page.nextCursor
+            loadMoreFailed = false
         } catch {
             guard token == loadToken else { return }
+            loadMoreFailed = true
             alertMessage = error.localizedDescription
         }
     }
@@ -384,7 +398,7 @@ public final class TransactionsModel: Alerting {
     /// 資料版本在上一次載入之後改變過，才重新載入。
     public func refreshIfStale() async {
         guard freshness.isStale(reloadKey) else { return }
-        await load()
+        await load(keepingLoaded: true)
     }
 
     /// 4 種系統分類(信用卡還款、內部轉帳、ATM提款、公帳代墊報銷)是系統成對產生的紀錄:上游 ADR 0031 起可以編輯(只改金額、日期、備註)與刪除(成對刪除);
