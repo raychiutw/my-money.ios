@@ -108,7 +108,8 @@ struct OverviewScreen: View {
             Section {
                 OverviewHero(
                     balance: summary.availableBalance, compositionParts: model.compositionParts,
-                    compositionSpoken: model.compositionSpokenText, trend: model.forecastTrend, trendSummary: model.forecastSummary
+                    compositionSpoken: model.compositionSpokenText, trend: model.forecastTrend, trendSummary: model.forecastSummary,
+                    trendNote: model.forecastTrendNote
                 )
                 .clearListRow()
             }

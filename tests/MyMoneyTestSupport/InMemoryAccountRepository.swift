@@ -522,6 +522,12 @@ public enum SampleAccounts {
         id: AccountID("sample-wallet"), name: "iOS 測試皮夾", colorHex: "#10B981", balance: Money(1500), isJointFund: false, ownerID: me
     )
 
+    /// 淨可用餘額是負的(信用卡待繳比現金加活存多):`-uiTestingNegativeAvailable`,首頁走勢線說明的 UI 測試(#321)。
+    public static let negativeAvailableSummary = BalanceSummary(
+        cashTotal: Money(1500), bankBalanceTotal: Money(5000), billedDebtTotal: Money(20000), unbilledDebtTotal: Money(8000),
+        availableBalance: Money(-21500), monthlyAmortization: .zero, monthlySavingsReserve: .zero, disposableCash: Money(-21500)
+    )
+
     /// 含現金的資金指標：淨可用餘額 = 1,500 + 50,000 − 28,500(後端算好的值)。
     public static let summaryWithCash = BalanceSummary(
         cashTotal: Money(1500),
