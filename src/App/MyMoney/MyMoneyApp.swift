@@ -118,10 +118,21 @@ struct MyMoneyApp: App {
                 )
             // `-uiTestingCardBilling`:信用卡的「已出帳」「延至下期」兩筆消費(收支明細列的帳單狀態標籤)。
             // `-uiTestingLongRows`:列版面最長的內容組合(公帳三態、長帳戶名稱、長記帳人、長標題的系統紀錄,#246)。
+            // `-uiTestingManyTransactions`:本月再多 45 筆(每頁 20 筆要分三頁載入,#317);越舊的編號越小,「分頁測試0」在最後一頁。
+            let manyToday = CalendarDay.today()
+            let manyTransactions: [MyMoneyDomain.Transaction] = arguments.contains("-uiTestingManyTransactions")
+                ? (0..<45).map { index in
+                    MyMoneyDomain.Transaction(
+                        id: TransactionID("many-\(index)"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+                        type: .expense, category: .dining, amount: Money(10), note: "分頁測試\(index)",
+                        date: manyToday.firstOfMonth.addingDays(index * manyToday.day / 45), isShared: false, recorderName: "小明"
+                    )
+                }
+                : []
             let transactions = InMemoryTransactionRepository(transactions: SampleTransactions.makeForToday(
                 includeFamilyEntries: includesFamily, includeCardBilling: arguments.contains("-uiTestingCardBilling"),
                 includeLongRows: arguments.contains("-uiTestingLongRows")
-            ))
+            ) + manyTransactions)
             let recurring = InMemoryRecurringRepository.sample(includesFamilyEntries: includesFamily)
             let goals = InMemorySavingsGoalRepository.sample()
             // 截圖巡覽要看 16 種分類的圓餅圖，其他 UI 測試用預設的 3 種。

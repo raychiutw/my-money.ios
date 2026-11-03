@@ -524,6 +524,34 @@ final class TransactionsUITests: XCTestCase {
         XCTAssertTrue(added.waitForExistence(timeout: 5), "記一筆後列表上沒有私帳的收入 250 元")
     }
 
+    /// 每頁 20 筆(#317):捲到底自動載入下一頁,最舊的那一筆在最後一頁;搜尋找的是整個月(含還沒載入的)。
+    @MainActor
+    func testPagesLoadWhileScrollingAndSearchReachesUnloadedRows() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingManyTransactions"], signedIn: true)
+        app.tabBars.buttons["記帳"].tap()
+        let oldest = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "分頁測試0，")).firstMatch
+        let export = app.buttons["transactions.export"]
+        // 惰性清單:最底下的「載入更多」捲到才在畫面上,所以不先斷言它;直接一路捲,載完最後一頁才會出現匯出列。
+        XCTAssertTrue(app.descendants(matching: .any)["overview.composition"].exists || app.tabBars.firstMatch.waitForExistence(timeout: 10))
+        for _ in 0..<25 where !export.exists { app.swipeUp() }
+        XCTAssertTrue(export.exists, "一路捲到底都沒有載完所有頁")
+        for _ in 0..<3 where !oldest.exists { app.swipeUp() }
+        XCTAssertTrue(oldest.exists, "捲到底之後最舊的那一筆(最後一頁)沒有載入")
+
+        // 搜尋是後端查整個月:換一個乾淨的畫面搜尋最舊的一筆,不必先捲到最後一頁。
+        let fresh = XCUIApplication.launchUITesting(flags: ["-uiTestingManyTransactions"], signedIn: true)
+        fresh.tabBars.buttons["記帳"].tap()
+        let search = fresh.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("分頁測試0")
+        XCTAssertTrue(
+            fresh.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "分頁測試0，")).firstMatch
+                .waitForExistence(timeout: 8),
+            "搜尋沒有找到還沒載入的那一筆"
+        )
+    }
+
     /// 點一筆收支明細編輯歸屬;左滑刪除(先確認);信用卡還款(成對系統紀錄)可編輯但帳戶、分類鎖定;搜尋只留下符合的紀錄。
     /// 編輯金額見 `testEditingAmountReplacesOriginalValue`。
     @MainActor
