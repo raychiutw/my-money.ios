@@ -69,11 +69,15 @@ public struct CashFlowForecast: Hashable, Sendable {
     public let cashTotal: Money?
     /// 活存帳戶總額(後端 `bankTotal`);舊回應沒有時是 `nil`。
     public let bankTotal: Money?
+    /// 第 0 天預扣的信用卡待繳款(後端 `cardDeduction`,上游 `b06d17c`、ADR 0035、#98):現金 + 活存 − 預扣卡款 = 起始餘額。
+    /// 舊回應沒有時是 `nil`。
+    public let cardDeduction: Money?
 
     public init(
         dailyBalances: [DailyBalance], minBalance: Money, minDate: CalendarDay?, willOverdraft: Bool, events: [ForecastEvent],
-        startingBalance: Money? = nil, cashTotal: Money? = nil, bankTotal: Money? = nil
+        startingBalance: Money? = nil, cashTotal: Money? = nil, bankTotal: Money? = nil, cardDeduction: Money? = nil
     ) {
+        self.cardDeduction = cardDeduction
         self.startingBalance = startingBalance
         self.cashTotal = cashTotal
         self.bankTotal = bankTotal

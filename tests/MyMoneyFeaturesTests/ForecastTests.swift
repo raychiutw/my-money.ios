@@ -293,11 +293,11 @@ struct ForecastTests {
 
     // MARK: 起始餘額(上游 5b2faa6，#195)
 
-    private func startingForecast(start: Int?, cash: Int?, bank: Int?) -> CashFlowForecast {
+    private func startingForecast(start: Int?, cash: Int?, bank: Int?, cardDeduction: Int? = nil) -> CashFlowForecast {
         CashFlowForecast(
             dailyBalances: [], minBalance: .zero, minDate: nil, willOverdraft: false, events: [],
             startingBalance: start.map { Money(Decimal($0)) }, cashTotal: cash.map { Money(Decimal($0)) },
-            bankTotal: bank.map { Money(Decimal($0)) }
+            bankTotal: bank.map { Money(Decimal($0)) }, cardDeduction: cardDeduction.map { Money(Decimal($0)) }
         )
     }
 
@@ -319,6 +319,26 @@ struct ForecastTests {
         let summary = try #require(model.startingBalance(of: startingForecast(start: 86570, cash: 1750, bank: 101200)))
 
         #expect(summary.note == "已先扣掉繳款日不在未來 12 個月內的信用卡待繳款")
+    }
+
+    @Test("後端有預扣卡款(cardDeduction,上游 #98):明列在現金與活存帳戶後面,算式成立,不再需要一般性說明(#325)")
+    func startingBalanceListsCardDeduction() throws {
+        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
+
+        let summary = try #require(model.startingBalance(of: startingForecast(start: 86570, cash: 1750, bank: 101200, cardDeduction: 16380)))
+
+        #expect(summary.detail == "現金 $1,750・活存帳戶 $101,200・預扣卡款 $16,380")
+        #expect(summary.note == nil)
+    }
+
+    @Test("預扣卡款是 0:不列;一樣不加說明")
+    func startingBalanceHidesZeroDeduction() throws {
+        let model = ForecastModel(repository: InMemoryForecastRepository.sample(today: today), dataVersion: DataVersion())
+
+        let summary = try #require(model.startingBalance(of: startingForecast(start: 102950, cash: 1750, bank: 101200, cardDeduction: 0)))
+
+        #expect(summary.detail == "現金 $1,750・活存帳戶 $101,200")
+        #expect(summary.note == nil)
     }
 
     @Test("舊回應沒有起始餘額,或缺少現金、活存帳戶其中一個:不顯示這一組")

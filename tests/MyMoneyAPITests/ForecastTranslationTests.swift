@@ -40,6 +40,19 @@ struct ForecastTranslationTests {
         #expect(old.events.allSatisfy { $0.runningBalance == nil })
     }
 
+    /// 上游 `b06d17c`(ADR 0035,#98)起:`/forecast` 多 `cardDeduction`(第 0 天預扣的信用卡待繳款)。2026-11-03 從 prod 錄的測試帳號回應是 0。
+    @Test("cardDeduction 解得出來;舊回應沒有時是 nil")
+    func decodesCardDeduction() async throws {
+        try stub.reply(status: 200, fixture: "forecast-card-deduction.json")
+        let forecast = try await repository.forecast(scope: .all)
+        #expect(forecast.cardDeduction == .zero)
+        #expect(forecast.startingBalance == forecast.cashTotal.flatMap { cash in forecast.bankTotal.map { cash + $0 } })
+
+        try stub.reply(status: 200, fixture: "forecast-scope-all.json")
+        let old = try await repository.forecast(scope: .all)
+        #expect(old.cardDeduction == nil)
+    }
+
     @Test("逐日餘額(舊回應是 30 天)、最低餘額與日期、透支風險、預定收支")
     func forecast() async throws {
         try stub.reply(status: 200, fixture: "forecast.json")
