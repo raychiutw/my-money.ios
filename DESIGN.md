@@ -74,7 +74,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
 
 ## 說明文字
 
-依 HIG Writing:「Check each word to be sure it needs to be there. If you can use fewer words, do so.」,以及「small screens require brevity」。畫面上只留下面 7 類文字，其餘解釋名詞、計算方式、功能用途的說明文字和宣傳句一律不寫，也不做資訊按鈕(ⓘ)把說明收起來再點開(#60)。
+依 HIG Writing:「Check each word to be sure it needs to be there. If you can use fewer words, do so.」,以及「small screens require brevity」。畫面上只留下面 8 類文字，其餘解釋名詞、計算方式、功能用途的說明文字和宣傳句一律不寫，也不做資訊按鈕(ⓘ)把說明收起來再點開(#60)。
 
 1. 確認對話框的訊息。
 2. 警告：一句話說明會造成不可逆或意外的後果。例如預算額度設定後無法刪除、模擬對話會寫入真的收支明細、預測餘額會跌破 0、有 N 個分類超支。
@@ -86,6 +86,7 @@ my-money.ios 的 UI 與 UX 規範。依據是 Apple HIG(研究見 `docs/research
    - 聊天內容。
 6. 完成流程必要的指示：機器人的「傳送：綁定 驗證碼」。
 7. 登入、註冊頁的標語和「還沒有帳號？」這類連結前導。
+8. 兩個後端數字看起來互相矛盾時的一句原因(#321):總覽走勢線下面,只在淨可用餘額是負的、預測的最低餘額卻不是負的時出現:「預測已含未來收入與信用卡繳款日，所以和上面的淨可用餘額不同」。次要文字(`footnote`),其他情況不寫。
 
 - 需要讓人知道「不能操作」的地方，用 symbol 加 accessibility label,不另外寫說明。例如系統分類收支明細點不開、VoiceOver 念原因(見「分類圖示」)。
 - 刪掉 footer 之後，空的 `Section` 一併整理，不留空白。

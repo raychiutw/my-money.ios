@@ -103,14 +103,16 @@ struct MyMoneyApp: App {
             let extraCards = SampleAccounts.extraAccounts(noStatementDayCard: arguments.contains("-uiTestingCardNoStatementDay"))
             // `-uiTestingCardBoundBank`:範例信用卡綁定「iOS 測試存款」為預設扣款帳戶(上游 `3d09060`)。
             let baseAccounts = SampleAccounts.all(withBoundCard: arguments.contains("-uiTestingCardBoundBank"))
+            // `-uiTestingNegativeAvailable`:淨可用餘額是負的(預測的最低餘額仍不是負的),首頁走勢線的說明(#321)。
+            let balanceSummary = arguments.contains("-uiTestingNegativeAvailable") ? SampleAccounts.negativeAvailableSummary : SampleAccounts.summary
             let accounts = includesFamily
                 ? InMemoryAccountRepository(
                     accounts: baseAccounts + extraCards + [.bank(SampleAccounts.meiJointFund), .creditCard(SampleAccounts.meiCardAdvance)],
-                    summary: SampleAccounts.summary, statementPreviews: SampleAccounts.statementPreviews,
+                    summary: balanceSummary, statementPreviews: SampleAccounts.statementPreviews,
                     loadDelay: holdsAccounts ? hold : nil, loadDelayStartsAfter: holdAfter ?? 0
                 )
                 : InMemoryAccountRepository(
-                    accounts: baseAccounts + extraCards, summary: SampleAccounts.summary,
+                    accounts: baseAccounts + extraCards, summary: balanceSummary,
                     statementPreviews: SampleAccounts.statementPreviews, loadDelay: holdsAccounts ? hold : nil,
                     loadDelayStartsAfter: holdAfter ?? 0
                 )

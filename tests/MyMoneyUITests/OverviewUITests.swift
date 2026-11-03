@@ -25,6 +25,20 @@ final class OverviewUITests: XCTestCase {
         XCTAssertTrue(row("當月淨收支", value: "38,750 元", in: app).waitForExistence(timeout: 5), "記一筆後當月淨收支沒有更新")
     }
 
+    /// 淨可用餘額是負的、預測最低餘額不是負的:走勢線下面有一行說明(#321);平常(淨可用為正)沒有。
+    @MainActor
+    func testTrendNoteOnlyWhenAvailableBalanceIsNegativeButForecastIsNot() throws {
+        let negative = XCUIApplication.launchUITesting(flags: ["-uiTestingNegativeAvailable"], signedIn: true)
+        let note = negative.staticTexts["overview.trendNote"]
+        XCTAssertTrue(note.waitForExistence(timeout: 10), "淨可用為負、預測不為負時沒有說明")
+        XCTAssertTrue(note.label.contains("所以和上面的淨可用餘額不同"), "說明文字不對:\(note.label)")
+        negative.terminate()
+
+        let normal = XCUIApplication.launchUITesting(signedIn: true)
+        XCTAssertTrue(normal.descendants(matching: .any)["overview.composition"].waitForExistence(timeout: 10))
+        XCTAssertFalse(normal.staticTexts["overview.trendNote"].exists, "平常不該有說明")
+    }
+
     /// 主視覺(#116):超大的淨可用餘額在最上面，下面是 12 個月走勢圖，再下面是三格數字磚(#117):
     /// 真實可支配現金、當月淨收支、信用卡待繳;沒有公式明細。
     @MainActor

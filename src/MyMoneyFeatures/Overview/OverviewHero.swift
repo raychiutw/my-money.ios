@@ -13,6 +13,8 @@ struct OverviewHero: View {
     let trend: ForecastTrend?
     /// 走勢線的 VoiceOver 摘要(最低餘額、日期、會不會透支)。
     let trendSummary: String?
+    /// 走勢線下面的說明(#321):淨可用餘額為負、預測卻不為負時才有。
+    var trendNote: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -34,6 +36,13 @@ struct OverviewHero: View {
             }
             if let trend, !trend.points.isEmpty {
                 ForecastTrendChart(trend: trend, summary: trendSummary)
+                if let trendNote {
+                    Text(trendNote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("overview.trendNote")
+                }
             }
         }
         .padding(.horizontal, 8)

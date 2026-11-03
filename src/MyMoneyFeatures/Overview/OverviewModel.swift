@@ -63,6 +63,14 @@ public final class OverviewModel {
     /// 走勢圖的呈現資料:零線位置、紅色切換點等。
     public var forecastTrend: ForecastTrend? { forecast.map(ForecastTrend.init(forecast:)) }
 
+    /// 走勢線下面的說明(#321):淨可用餘額是負的、預測的最低餘額卻不是負的,兩邊正負不同容易被當成錯誤,才說明原因;其他情況沒有。
+    /// 兩個數字都是後端的值(淨可用餘額與預測的 `minBalance`),不在 client 重算;沒有逐日餘額(走勢線不會畫)時也不顯示。
+    public var forecastTrendNote: String? {
+        guard let summary, let forecast, !forecast.dailyBalances.isEmpty, summary.availableBalance < .zero, forecast.minBalance >= .zero
+        else { return nil }
+        return "預測已含未來收入與信用卡繳款日，所以和上面的淨可用餘額不同"
+    }
+
     /// 走勢圖的 VoiceOver 摘要，例如「未來 12 個月預測餘額，最低餘額 53,440 元，10月5日，不會透支」。
     public var forecastSummary: String? {
         forecastTrend?.spokenSummary(today: today(), locale: locale)
