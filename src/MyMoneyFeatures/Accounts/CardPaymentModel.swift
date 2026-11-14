@@ -20,10 +20,10 @@ public final class CardPaymentModel: Submitting {
 
     public var bankAccountID: AccountID? {
         didSet {
-            // 全額結清:換扣款帳戶時歸屬跟著它的公私性質,直到使用者手動選過歸屬(CONTEXT.md 的「尚未手動鎖定」;web 用備註結尾判斷,上游 #191)。
-            guard isFullPayment, !isSharedChosenByUser, !Self.onlyPersonalDebt(card),
-                  let bank = bankAccounts.first(where: { $0.id == bankAccountID }) else { return }
-            storedIsShared = bank.isJointFund
+            // 全額結清:換扣款帳戶時歸屬依同一套規則重算,直到使用者手動選過歸屬(上游 CONTEXT.md 的「尚未手動鎖定」;
+            // web 用備註結尾判斷,上游 #191)。選回空白時不動。
+            guard isFullPayment, !isSharedChosenByUser, let bank = bankAccounts.first(where: { $0.id == bankAccountID }) else { return }
+            storedIsShared = Self.fullPaymentIsShared(card, bank: bank)
         }
     }
     /// 可用餘額：扣款帳戶的餘額，另起一列顯示(#78)。

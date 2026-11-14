@@ -14,19 +14,24 @@ struct FullPaymentOwnershipTests {
         id: AccountID("joint-fund"), name: "家庭共同基金", colorHex: "#A8D8EA", balance: Money(8000), isJointFund: true
     )
 
-    private func card(shared: Decimal, personal: Decimal, bound: BankAccount? = nil, isJointFund: Bool = false) -> CreditCard {
+    private func card(
+        shared: Decimal, personal: Decimal, bound: BankAccount? = nil, isJointFund: Bool = false, masked: Bool = false
+    ) -> CreditCard {
         CreditCard(
             id: AccountID("card"), name: "iOS 暫存卡", colorHex: "#FFD4A0", billedDebt: Money(shared + personal), unbilledDebt: .zero,
-            creditLimit: Money(50000), statementDay: 15, paymentDueDay: 5, sharedDebt: Money(shared), personalDebt: Money(personal),
-            isJointFund: isJointFund, ownerID: InMemoryAuthRepository.Member.sample.user.id,
+            creditLimit: masked ? nil : Money(50000), statementDay: 15, paymentDueDay: 5, sharedDebt: Money(shared), personalDebt: Money(personal),
+            isJointFund: isJointFund, ownerID: masked ? UserID("sample-mei") : InMemoryAuthRepository.Member.sample.user.id, isMasked: masked,
             paymentAccountID: bound?.id, paymentAccountName: bound?.name
         )
     }
 
-    private func payment(_ card: CreditCard, preset: CardPaymentModel.Preset = .full) -> CardPaymentModel {
+    private func payment(
+        _ card: CreditCard, preset: CardPaymentModel.Preset = .full, isMaskedCard: Bool = false, memory: AccountMemory? = nil
+    ) -> CardPaymentModel {
         CardPaymentModel(
             card: card, preset: preset, bankAccounts: [savings, jointFund], repository: InMemoryAccountRepository.sample(),
-            dataVersion: dataVersion, today: { CalendarDay(year: 2026, month: 11, day: 14) }
+            dataVersion: dataVersion, isMaskedCard: isMaskedCard, accountMemory: memory,
+            today: { CalendarDay(year: 2026, month: 11, day: 14) }
         )
     }
 
@@ -103,5 +108,29 @@ struct FullPaymentOwnershipTests {
         model.bankAccountID = expected ? savings.id : jointFund.id
 
         #expect(model.isShared == expected)
+    }
+
+    @Test("帶入的是上次繳款用的扣款帳戶(#278)時,同樣由它決定歸屬")
+    func rememberedBankDecides() {
+        let memory = AccountMemory(
+            defaults: UserDefaults(suiteName: "FullPaymentOwnership-\(UUID().uuidString)")!,
+            userID: InMemoryAuthRepository.Member.sample.user.id, purpose: .cardPaymentBank
+        )
+        memory.remember(jointFund.id)
+
+        let model = payment(card(shared: 1000, personal: 2500), memory: memory)
+
+        #expect(model.bankAccountID == jointFund.id)
+        #expect(model.isShared == true)
+    }
+
+    @Test("他人私卡從「全額結清」打開:仍只繳家庭代墊、家庭公帳,換扣款帳戶也不連動")
+    func maskedCardStaysShared() {
+        let model = payment(card(shared: 1000, personal: 0, masked: true), isMaskedCard: true)
+        #expect(model.isShared == true)
+
+        model.bankAccountID = savings.id
+
+        #expect(model.isShared == true)
     }
 }
