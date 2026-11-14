@@ -175,7 +175,8 @@ struct CardPaymentTests {
     @Test("從「繳款」的三個項目打開，帶入不同的金額、歸屬與備註(web 的 handleOpenPay,備註照上游 97f4789 的寫法:半形括號、括號前有空格)", arguments: [
         (CardPaymentModel.Preset.shared, "3000", true, "扣繳【iOS 測試信用卡】卡費 (家庭公帳代墊)"),
         (CardPaymentModel.Preset.personal, "16380", false, "扣繳【iOS 測試信用卡】卡費 (個人私帳)"),
-        (CardPaymentModel.Preset.full, "19380", true, "扣繳【iOS 測試信用卡】卡費 (全額)"),
+        // 全額結清:公私都有欠款、沒帶入扣款帳戶、個人卡 → 個人私帳(上游 `b3e0c92`,規則見 FullPaymentOwnershipTests)。
+        (CardPaymentModel.Preset.full, "19380", false, "扣繳【iOS 測試信用卡】卡費 (全額)"),
     ])
     func presets(preset: CardPaymentModel.Preset, amount: String, isShared: Bool, note: String) {
         let model = payment(card(), preset: preset)

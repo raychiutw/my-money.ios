@@ -18,7 +18,14 @@ public final class CardPaymentModel: Submitting {
     /// 扣款帳戶只列出銀行存款帳戶。
     public let bankAccounts: [BankAccount]
 
-    public var bankAccountID: AccountID?
+    public var bankAccountID: AccountID? {
+        didSet {
+            // 全額結清:換扣款帳戶時歸屬跟著它的公私性質,直到使用者手動選過歸屬(CONTEXT.md 的「尚未手動鎖定」;web 用備註結尾判斷,上游 #191)。
+            guard isFullPayment, !isSharedChosenByUser, !Self.onlyPersonalDebt(card),
+                  let bank = bankAccounts.first(where: { $0.id == bankAccountID }) else { return }
+            storedIsShared = bank.isJointFund
+        }
+    }
     /// 可用餘額：扣款帳戶的餘額，另起一列顯示(#78)。
     public var availableBalance: Money? {
         bankAccounts.first { $0.id == bankAccountID }?.balance
@@ -51,9 +58,30 @@ public final class CardPaymentModel: Submitting {
 
     private static func amountText(_ amount: Money) -> String { amount > .zero ? "\(amount.amount)" : "" }
 
+    private static func onlyPersonalDebt(_ card: CreditCard) -> Bool { card.sharedDebt <= .zero && card.personalDebt > .zero }
+
+    /// 「全額結清」的預設歸屬(上游 `b3e0c92`、ADR 0037 決策 3,W:Accounts.tsx `handleOpenPay`):
+    /// 只有私帳欠款 → 私帳;有帶入扣款帳戶 → 依它是不是家庭共同帳戶;只有公帳欠款 → 公帳;其餘依卡片本身。
+    private static func fullPaymentIsShared(_ card: CreditCard, bank: BankAccount?) -> Bool {
+        if onlyPersonalDebt(card) { return false }
+        if let bank { return bank.isJointFund }
+        if card.personalDebt <= .zero, card.sharedDebt > .zero { return true }
+        return card.isJointFund
+    }
+
     public var date: CalendarDay
     public var note: String
-    public var isShared: Bool
+    /// 歸屬;畫面設定它就算使用者手動選過(之後換扣款帳戶不再連動)。
+    public var isShared: Bool {
+        get { storedIsShared }
+        set {
+            storedIsShared = newValue
+            isSharedChosenByUser = true
+        }
+    }
+    private var storedIsShared: Bool
+    @ObservationIgnored private var isSharedChosenByUser = false
+    @ObservationIgnored private let isFullPayment: Bool
 
     /// 繳的是他人的個人信用卡(上游 ADR 0015、#140):只能從共同基金繳家庭代墊，歸屬固定公帳，金額上限是家庭代墊待繳額。
     public let isMaskedCard: Bool
@@ -73,7 +101,7 @@ public final class CardPaymentModel: Submitting {
         case shared
         /// 「繳個人私帳」:欠款裡個人私帳的部分，個人私帳。
         case personal
-        /// 「全額結清」:信用卡待繳總額，家庭公帳。
+        /// 「全額結清」:信用卡待繳總額;歸屬依欠款組成與扣款帳戶(上游 `b3e0c92`、ADR 0037,#330)。
         case full
     }
 
@@ -100,20 +128,22 @@ public final class CardPaymentModel: Submitting {
         // 帶入使用者自己的設定不算擅自預選。他人的私卡(脫敏)不帶入(綁定是對方的私人設定);綁定的帳戶看不到、已刪除也維持空白。
         let bound = isMaskedCard ? nil : card.paymentAccountID.flatMap { id in bankAccounts.contains { $0.id == id } ? id : nil }
         // 優先序:卡片綁定的預設扣款帳戶 ＞ 使用者上次繳款選的帳戶(#278,偏離 ADR 0011，見 `AccountMemory`)＞ 空白。
-        bankAccountID = bound ?? accountMemory?.recall(among: bankAccounts.map(Account.bank))
+        let prefilled = bound ?? accountMemory?.recall(among: bankAccounts.map(Account.bank))
+        bankAccountID = prefilled
         // 他人的私卡不管從哪個入口打開，都只繳家庭代墊。
         let preset = isMaskedCard ? Preset.shared : preset
         let (amount, isShared, kind): (Money, Bool, String) = switch preset {
         case .shared: (card.defaultSharedPayment, true, "家庭公帳代墊")
         case .personal: (card.personalDebt, false, "個人私帳")
-        case .full: (card.totalDue, true, "全額")
+        case .full: (card.totalDue, Self.fullPaymentIsShared(card, bank: bankAccounts.first { $0.id == prefilled }), "全額")
         }
         amountText = Self.amountText(amount)
         sharedChoices = preset == .shared && card.hasSharedPaymentChoice ? [.billedOnly, .all] : []
         date = today()
         // 照上游 `97f4789` 的預設備註(W:Accounts.tsx@97f4789:226):半形括號，括號前有一個空格。
         note = "扣繳【\(card.name)】卡費 (\(kind))"
-        self.isShared = isShared
+        storedIsShared = isShared
+        isFullPayment = preset == .full
     }
 
     /// 送出。扣款帳戶的餘額小於繳款金額時先回 `.needsConfirmation`,確認後帶 `confirmedLowBalance: true` 再送一次。
