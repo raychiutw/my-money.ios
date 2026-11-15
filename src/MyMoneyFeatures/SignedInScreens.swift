@@ -29,6 +29,9 @@ public struct MainScreens {
     /// 「我的」 → 機器人記帳。
     public let bot: BotModel
 
+    /// 「我的」 → 帳號安全(#338)。
+    public let accountSecurity: AccountSecurityModel
+
     /// 用同一份資料版本組出這個 session 的所有畫面 model。
     /// `currentUser` 是登入的人(交易頁自己記的交易記錄不顯示記帳人);`defaults` 存總覽選過的視角。
     public init(
@@ -41,6 +44,7 @@ public struct MainScreens {
         forecastRepository: any ForecastRepository,
         householdRepository: any HouseholdRepository,
         botRepository: any BotRepository,
+        accountSecurityRepository: any AccountSecurityRepository,
         defaults: UserDefaults = .standard
     ) {
         let dataVersion = DataVersion()
@@ -75,6 +79,7 @@ public struct MainScreens {
             currentUser: currentUser, permissions: permissions, context: context
         )
         bot = BotModel(repository: botRepository, dataVersion: dataVersion)
+        accountSecurity = AccountSecurityModel(repository: accountSecurityRepository)
     }
 }
 

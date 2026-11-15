@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「我的」sheet:姓名與 email,下面只有設定:機器人記帳、外觀(三列打勾)、登出、版本(ADR-0004、CONTEXT.md)。
+/// 「我的」sheet:姓名與 email,下面只有設定:機器人記帳、帳號安全、外觀(三列打勾)、登出、版本(ADR-0004、CONTEXT.md)。
 /// 週期收支、儲蓄目標、現金流預測原本在「規劃」分頁,#178 起搬到總覽的功能入口。
 struct MeSheet: View {
     let screens: MainScreens
@@ -67,6 +67,10 @@ struct MeSheet: View {
                 BotScreen(model: screens.bot)
             }
             .accessibilityIdentifier("me.bot")
+            NavigationLink("帳號安全") {
+                AccountSecurityScreen(model: screens.accountSecurity)
+            }
+            .accessibilityIdentifier("me.accountSecurity")
         }
 
         // 三列打勾，點一下就生效;字級是 body,不縮小(ADR-0004)。

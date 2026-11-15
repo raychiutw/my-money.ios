@@ -60,8 +60,8 @@ public struct APIClient: Sendable {
     }
 
     /// 送出不需要回傳內容的請求，例如只回 `{success, message}` 的 DELETE。
-    package func send(_ method: String, _ path: String) async throws {
-        _ = try await perform(method, path, body: nil)
+    package func send(_ method: String, _ path: String, query: [URLQueryItem] = []) async throws {
+        _ = try await perform(method, path, query: query, body: nil)
     }
 
     /// 送出沒有 body 的請求,回傳最上層的 `message`(`{success, message}`,沒有 `data`,例如解除報銷);沒有訊息時是 `nil`。
