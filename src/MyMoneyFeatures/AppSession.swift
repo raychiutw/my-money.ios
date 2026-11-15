@@ -55,7 +55,7 @@ extension AppSession: SessionProvider {
         endedByDeletion = true
     }
 
-    /// 任何非 `/auth/*` 的請求回應 401 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
+    /// 任何請求回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
     public func sessionDidExpire() async {
         signOut()
         endedByExpiry = true

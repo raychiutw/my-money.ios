@@ -186,7 +186,7 @@ struct MyMoneyApp: App {
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
-        // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
+        // APIClient 透過 session 取得 token,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         let client = APIClient(session: session)
         let auth = LiveAuthRepository(client: client)
         let biometricLogin = BiometricLogin(

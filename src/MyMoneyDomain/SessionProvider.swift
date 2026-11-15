@@ -5,6 +5,6 @@ public protocol SessionProvider: Sendable {
     /// 目前登入中的 JWT;未登入時是 `nil`。
     func currentToken() async -> String?
 
-    /// 非 `/auth/*` 的請求回應 401 時呼叫:app 要清掉 session、回到登入頁。
+    /// 請求回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時呼叫:app 要清掉 session、回到登入頁。
     func sessionDidExpire() async
 }

@@ -25,6 +25,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
    - body 裡寫 `__EMAIL__`、`__PASSWORD__`,腳本會換成測試帳號的 email 與密碼，所以密碼不會出現在指令列或 shell history。
    - 腳本會把回應裡所有 JWT 換成假值 `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ZmFrZS1maXh0dXJlLXRva2Vu.ZmFrZS1zaWduYXR1cmU`,並在回應含有密碼時拒絕存檔。
    - 腳本會印出 HTTP 狀態碼與 Content-Type,把它填進下表。
+   - 回應有 `WWW-Authenticate` 時，腳本另存成 `<fixture>.headers`,`HTTPStub.reply(status:fixture:)` 會一起回應(401 的判斷靠它，#333)。
 3. 用 `git diff` 看一次存下來的內容：不能有真的 token、密碼或其他人的資料。
 4. 在下表補一列，再寫測試。
 
@@ -37,9 +38,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `auth-login-success.json` | `POST /auth/login`,正確的密碼 | 200 | `{success, data}` 解碼成 session |
-| `auth-login-wrong-password.json` | `POST /auth/login`,錯誤的密碼 | 401 | `/auth/*` 的 401 原樣傳遞「Email 或密碼錯誤」,不算 session 過期 |
+| `auth-login-wrong-password.json` | `POST /auth/login`,錯誤的密碼 | 401 | 沒有 `WWW-Authenticate` 的 401 原樣傳遞「Email 或密碼錯誤」,不算 session 過期(2026-11-15 重錄，後端 `c899f01`,確認沒有這個標頭) |
 | `auth-login-malformed-body.txt` | `POST /auth/login`,body 是 `not-json` | 500,`text/plain` | 回應不是 JSON 時顯示「伺服器無回應」 |
-| `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 非 `/auth/*` 的 401 是 session 過期 |
+| `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 401 帶 `WWW-Authenticate: Bearer error="invalid_token"`(另存在 `accounts-invalid-token.json.headers`)是 session 過期,不看路徑(2026-11-15 重錄，後端 `c899f01`) |
 | `bot-bindings-delete.json` | `DELETE /bot/bindings/fixture-nonexistent-binding` | 200 | 只有 `{success, message}` 的 envelope 視為成功(這個 id 不存在，不會刪到任何資料) |
 | `auth-register-email-taken.json` | `POST /auth/register`,用測試帳號已經註冊過的 email | 409 | 「此 Email 已被使用」原樣傳遞(不會建立任何資料) |
 | `accounts-list-empty.json` | `GET /accounts`,測試帳號還沒有任何資產帳戶時 | 200 | 空清單 |

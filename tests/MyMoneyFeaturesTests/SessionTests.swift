@@ -21,7 +21,7 @@ struct SessionTests {
         #expect(AppSession(storage: storage).current == nil)
     }
 
-    @Test("翻譯層通知 session 過期(非 /auth/* 回應 401)時清掉 session,回到登入頁")
+    @Test("翻譯層通知 session 過期(401 帶 invalid_token)時清掉 session,回到登入頁")
     func expiredSessionReturnsToLogin() async {
         let session = AppSession(storage: storage)
         let seenByTranslationLayer: any SessionProvider = session

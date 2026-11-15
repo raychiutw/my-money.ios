@@ -86,20 +86,16 @@ public struct APIClient: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // 後端用 User-Agent 產生「工作階段」的裝置名稱(上游 parseDeviceName)。
+        request.setValue("MyMoney-iOS", forHTTPHeaderField: "User-Agent")
         request.httpBody = body
         if let token = await session.currentToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let (data, response) = try await urlSession.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        // 跟 web 一樣:/auth/* 的 401 是「Email 或密碼錯誤」,其餘的 401 代表 token 失效。
-        if statusCode == 401, !path.hasPrefix("/auth/") {
-            await session.sessionDidExpire()
-            throw RepositoryError.sessionExpired
-        }
-        if statusCode == 401, path.hasPrefix("/auth/") {
-            let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)
-            throw RepositoryError.invalidCredentials(status?.error ?? "Email 或密碼錯誤")
+        if statusCode == 401 {
+            try await handleUnauthorized(response, data: data)
         }
         if !expectsEnvelope {
             guard (200..<300).contains(statusCode) else {
@@ -116,6 +112,22 @@ public struct APIClient: Sendable {
             throw RepositoryError.rejected(status.error ?? "請求失敗")
         }
         return data
+    }
+
+    /// 401 依 `WWW-Authenticate` 判斷，不看路徑(上游 c899f01:`/auth/sessions` 等也走權杖驗證)。
+    /// `invalid_token` 是權杖失效;`invalid_dpop_proof` 只是這次的 proof 不對，不登出;
+    /// 沒有 challenge 的 401 是帳密錯誤或「目前密碼錯誤」,照顯示後端訊息。
+    private func handleUnauthorized(_ response: URLResponse, data: Data) async throws -> Never {
+        let challenge = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "WWW-Authenticate")
+        let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)
+        guard let challenge else {
+            throw RepositoryError.invalidCredentials(status?.error ?? "Email 或密碼錯誤")
+        }
+        if challenge.contains("invalid_token") {
+            await session.sessionDidExpire()
+            throw RepositoryError.sessionExpired
+        }
+        throw RepositoryError.rejected(status?.error ?? "請求失敗")
     }
 }
 

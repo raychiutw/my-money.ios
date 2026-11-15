@@ -51,7 +51,7 @@ struct LoginTranslationTests {
         }
     }
 
-    @Test("/auth/* 回應 401 不算 session 過期")
+    @Test("帳密錯誤的 401 沒有 WWW-Authenticate,不算 session 過期")
     func loginFailureDoesNotExpireSession() async throws {
         try stub.reply(status: 401, fixture: "auth-login-wrong-password.json")
 

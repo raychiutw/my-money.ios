@@ -10,6 +10,7 @@ final class HTTPStub: Sendable {
         let status: Int
         let contentType: String
         let body: Data
+        var headers: [String: String] = [:]
     }
 
     let baseURL: URL
@@ -24,11 +25,13 @@ final class HTTPStub: Sendable {
         StubURLProtocol.register(self, host: baseURL.host()!)
     }
 
-    /// 之後的每個請求都回應這份 fixture。
-    func reply(status: Int, fixture name: String) throws {
+    /// 之後的每個請求都回應這份 fixture,連同錄下的回應標頭(`<fixture>.headers`,有的話)。
+    /// `headers` 只用在 prod 錄不到的標頭(例如還沒有 DPoP 權杖時的 `invalid_dpop_proof`),會蓋過錄下的值。
+    func reply(status: Int, fixture name: String, headers overrides: [String: String] = [:]) throws {
         let body = try Fixture.data(name)
         let contentType = name.hasSuffix(".json") ? "application/json" : "text/plain; charset=UTF-8"
-        state.withLock { $0.reply = Reply(status: status, contentType: contentType, body: body) }
+        let headers = Fixture.headers(name).merging(overrides) { _, override in override }
+        state.withLock { $0.reply = Reply(status: status, contentType: contentType, body: body, headers: headers) }
     }
 
     /// 之後的每個請求都回應這份 JSON。只用在「把真實 fixture 改一個欄位」的測試，例如後端將來新增的帳戶類型。
@@ -76,7 +79,7 @@ private final class StubURLProtocol: URLProtocol {
                 url: url,
                 statusCode: reply.status,
                 httpVersion: "HTTP/2",
-                headerFields: ["Content-Type": reply.contentType]
+                headerFields: reply.headers.merging(["Content-Type": reply.contentType]) { _, type in type }
             )
         else {
             client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
@@ -114,5 +117,19 @@ enum Fixture {
             "找不到 fixture \(name)"
         )
         return try Data(contentsOf: url)
+    }
+
+    /// `scripts/record-fixture.sh` 另存的回應標頭(每行 `Name: value`);沒有這個檔就是空的。
+    static func headers(_ name: String) -> [String: String] {
+        guard
+            let url = Bundle.module.url(forResource: name + ".headers", withExtension: nil, subdirectory: "Fixtures"),
+            let text = try? String(contentsOf: url, encoding: .utf8)
+        else { return [:] }
+        var headers: [String: String] = [:]
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            headers[String(line[..<colon])] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        }
+        return headers
     }
 }

@@ -40,6 +40,8 @@ output="$fixtures_dir/$name"
 # 先確定寫得進去再打 API:有些請求(例如註冊)只能成功一次，回應寫檔失敗就再也錄不到。
 mkdir -p "$fixtures_dir"
 touch "$output.raw"
+headers_raw="$(mktemp)"
+trap 'rm -f "$headers_raw"' EXIT
 
 # 密碼優先讀環境變數，否則讀本機 Keychain;兩者都不會印出來。
 password="${MYMONEY_TEST_PASSWORD:-}"
@@ -72,7 +74,7 @@ case "$mode" in
 esac
 
 curl_args=(-sS -X "$method" "$BASE_URL$path" -H 'Content-Type: application/json'
-  -o "$output.raw" -w '%{http_code} %{content_type}\n')
+  -o "$output.raw" -D "$headers_raw" -w '%{http_code} %{content_type}\n')
 if [[ -n "$token" ]]; then
   curl_args+=(-H "Authorization: Bearer $token")
 fi
@@ -90,6 +92,14 @@ if grep -qF -- "$password" "$output"; then
   rm -f "$output"
   echo "回應裡出現了測試帳號的密碼，已刪除 fixture,請改用別的 endpoint 錄製。" >&2
   exit 1
+fi
+
+# 401 的 WWW-Authenticate 決定要不要清掉登入狀態(#333),另存成 <fixture>.headers 給 HTTPStub。
+challenge="$(grep -i '^www-authenticate:' "$headers_raw" | tr -d '\r' | sed -E 's/^[^:]+:[[:space:]]*//' || true)"
+if [[ -n "$challenge" ]]; then
+  printf 'WWW-Authenticate: %s\n' "$challenge" > "$output.headers"
+else
+  rm -f "$output.headers"
 fi
 
 echo "$name ← $method $path → HTTP $status_line"
