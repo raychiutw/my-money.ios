@@ -49,9 +49,10 @@ extension AppSession: SessionProvider {
         current?.tokens
     }
 
-    /// refresh 輪替後換成新的權杖並存回裝置;已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入。
-    public func sessionDidRefresh(_ tokens: SessionTokens) async {
-        guard let current else { return }
+    /// refresh 輪替後換成新的權杖並存回裝置;已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
+    /// 登出後又登入了(目前的更新權杖不是這次送出的那個)也不理會,不會用舊 session 的權杖蓋掉新的。
+    public func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
+        guard let current, current.tokens.refresh == previousRefresh else { return }
         let refreshed = Session(user: current.user, tokens: tokens)
         storage.save(refreshed)
         self.current = refreshed

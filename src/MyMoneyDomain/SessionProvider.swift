@@ -6,7 +6,8 @@ public protocol SessionProvider: Sendable {
     func currentTokens() async -> SessionTokens?
 
     /// refresh 成功(更新權杖已輪替):換成新的權杖並存到裝置上(#335)。
-    func sessionDidRefresh(_ tokens: SessionTokens) async
+    /// `previousRefresh` 是這次 refresh 送出的更新權杖;目前的 session 已經不是它(登出後又登入)時不理會。
+    func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async
 
     /// 登入工作階段失效時呼叫(refresh 回 `invalid_grant`,或 refresh 後重送仍 401 `invalid_token`):app 要清掉 session、回到登入頁。
     func sessionDidExpire() async

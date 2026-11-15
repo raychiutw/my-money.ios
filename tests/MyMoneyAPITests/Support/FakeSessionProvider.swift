@@ -28,7 +28,7 @@ final class FakeSessionProvider: SessionProvider {
         tokens
     }
 
-    func sessionDidRefresh(_ tokens: SessionTokens) async {
+    func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
         state.withLock { $0.tokens = tokens }
     }
 

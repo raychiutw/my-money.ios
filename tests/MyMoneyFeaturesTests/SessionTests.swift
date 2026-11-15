@@ -48,7 +48,7 @@ struct SessionTests {
         let seenByTranslationLayer: any SessionProvider = session
         let rotated = SessionTokens(access: "new-access", refresh: "rotated-refresh", accessExpiresAt: nil)
 
-        await seenByTranslationLayer.sessionDidRefresh(rotated)
+        await seenByTranslationLayer.sessionDidRefresh(rotated, replacing: "stored-refresh")
 
         #expect(session.current?.tokens == rotated)
         #expect(session.current?.user == InMemoryAuthRepository.Member.sample.user)
@@ -62,11 +62,32 @@ struct SessionTests {
         session.signOut()
 
         await seenByTranslationLayer.sessionDidRefresh(
-            SessionTokens(access: "new-access", refresh: "rotated-refresh", accessExpiresAt: nil)
+            SessionTokens(access: "new-access", refresh: "rotated-refresh", accessExpiresAt: nil),
+            replacing: "stored-refresh"
         )
 
         #expect(session.current == nil)
         #expect(AppSession(storage: storage).current == nil)
+    }
+
+    @Test("登出後重新登入,舊 session 進行中的 refresh 才回來:不覆蓋新的 session(code review)")
+    func staleRefreshDoesNotOverwriteNewSession() async {
+        let session = AppSession(storage: storage)
+        let seenByTranslationLayer: any SessionProvider = session
+        session.signOut()
+        let newSession = Session(
+            user: InMemoryAuthRepository.Member.sample.user,
+            tokens: SessionTokens(access: "second-access", refresh: "second-refresh", accessExpiresAt: nil)
+        )
+        session.start(newSession)
+
+        await seenByTranslationLayer.sessionDidRefresh(
+            SessionTokens(access: "stale-access", refresh: "stale-rotated", accessExpiresAt: nil),
+            replacing: "stored-refresh"
+        )
+
+        #expect(session.current == newSession)
+        #expect(AppSession(storage: storage).current == newSession)
     }
 
     @Test("結束原因旗標:過期後換人登入,旗標回到預設(不會把上一次的原因帶到下一個 session,code review)")

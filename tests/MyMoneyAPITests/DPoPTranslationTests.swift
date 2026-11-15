@@ -216,6 +216,35 @@ struct DPoPTranslationTests {
         #expect(keys.publicKey != nil)
     }
 
+    @Test("本機金鑰不見了(例如 Secure Enclave 金鑰遺失),refresh 回 invalid_dpop_proof:當成 invalid_grant 回登入頁(code review)", .timeLimit(.minutes(1)))
+    func refreshWithoutLocalKeyRejectedSignsOut() async throws {
+        try stub.reply(status: 200, fixture: "bot-bindings-delete.json")
+        try stub.route("/oauth/token", [(400, "oauth-token-invalid-dpop-proof.json")])
+        let session = FakeSessionProvider(tokens: SessionTokens(access: nil, refresh: "stored-refresh", accessExpiresAt: nil))
+
+        await #expect(throws: RepositoryError.sessionExpired) {
+            try await client(session, keys: InMemoryDPoPKeyStore(hasKey: false)).send("DELETE", "/bot/bindings/a")
+        }
+
+        #expect(session.expirationCount == 1)
+        #expect(stub.requests(to: "/bot/bindings/a").isEmpty)
+    }
+
+    @Test("有金鑰時 refresh 重送仍是 invalid_dpop_proof(時鐘問題):顯示錯誤,不登出", .timeLimit(.minutes(1)))
+    func refreshWithKeyRejectedTwiceDoesNotSignOut() async throws {
+        try stub.reply(status: 200, fixture: "bot-bindings-delete.json")
+        try stub.route("/oauth/token", [(400, "oauth-token-invalid-dpop-proof.json")])
+        let session = FakeSessionProvider(tokens: SessionTokens(access: nil, refresh: "stored-refresh", accessExpiresAt: nil))
+
+        await #expect(throws: RepositoryError.rejected("DPoP proof htu 不符")) {
+            try await client(session).send("DELETE", "/bot/bindings/a")
+        }
+
+        #expect(stub.requests(to: "/oauth/token").count == 2)
+        #expect(session.expirationCount == 0)
+        #expect(keys.publicKey != nil)
+    }
+
     @Test("沒有金鑰時照舊用 Bearer、不帶 proof")
     func withoutKeyFallsBackToBearer() async throws {
         try stub.reply(status: 200, fixture: "bot-bindings-delete.json")
@@ -237,6 +266,20 @@ struct DPoPTranslationTests {
             try await client(session).send("DELETE", "/bot/bindings/a")
         }
 
+        #expect(keys.publicKey == nil)
+    }
+
+    @Test("refresh 後重送仍 401 invalid_token(登出):也刪掉金鑰(code review)")
+    func invalidTokenSignOutDeletesKey() async throws {
+        try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
+        let session = FakeSessionProvider(tokens: Self.valid)
+
+        await #expect(throws: RepositoryError.sessionExpired) {
+            try await client(session).send("DELETE", "/bot/bindings/a")
+        }
+
+        #expect(session.expirationCount == 1)
         #expect(keys.publicKey == nil)
     }
 

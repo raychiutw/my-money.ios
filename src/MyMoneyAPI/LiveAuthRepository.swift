@@ -5,7 +5,6 @@ import MyMoneyDomain
 /// 登入、登出與刪除帳號的 URLSession 實作。登入走上游的 OAuth 2.1 授權碼 + PKCE(ADR 0038,#334):
 /// client `ios` 與 redirect URI 是上游寫死的。
 public struct LiveAuthRepository: AuthRepository {
-    private static let clientID = "ios"
     private static let callbackScheme = "com.raychiu.mymoney"
     private static let redirectURI = "com.raychiu.mymoney:/oauth/callback"
 
@@ -24,7 +23,7 @@ public struct LiveAuthRepository: AuthRepository {
         let state = Self.randomBase64URL(byteCount: 16)
         var authorize = URLComponents(url: client.url(for: "/oauth/authorize"), resolvingAgainstBaseURL: false)!
         authorize.queryItems = [
-            URLQueryItem(name: "client_id", value: Self.clientID),
+            URLQueryItem(name: "client_id", value: APIClient.oauthClientID),
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "scope", value: "full"),
@@ -62,7 +61,7 @@ public struct LiveAuthRepository: AuthRepository {
                 signature: assertion.signature.base64URLEncodedString(),
                 userHandle: assertion.userHandle?.base64URLEncodedString()
             )),
-            clientID: Self.clientID, redirectURI: Self.redirectURI, codeChallenge: Self.codeChallenge(verifier),
+            clientID: APIClient.oauthClientID, redirectURI: Self.redirectURI, codeChallenge: Self.codeChallenge(verifier),
             codeChallengeMethod: "S256", state: Self.randomBase64URL(byteCount: 16), scope: "full"
         ))
         return try await exchange(code: grant.code, verifier: verifier)
@@ -76,7 +75,7 @@ public struct LiveAuthRepository: AuthRepository {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": Self.redirectURI,
-            "client_id": Self.clientID,
+            "client_id": APIClient.oauthClientID,
             "code_verifier": verifier,
         ])
         guard

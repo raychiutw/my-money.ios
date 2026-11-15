@@ -317,6 +317,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金鑰(放暫存目錄,結束時刪掉),換碼與 refresh 都帶 proof,所以 `oauth-token-authorization-code.json`、`oauth-token-refresh.json` 是 `token_type: "DPoP"`。`invalid_dpop_proof` 回應另帶 `Date`,不存進 `.headers`(每次不同),測試用 `HTTPStub.setHeaders(_:forFirstReplyOf:)` 指定。
 
+**注意**:`oauth-token-*.json` 的存取權杖保留測試帳號真實的 JWT payload(`sub`、`sid`、`cnf.jkt`,以及 `email`、`name`),只有簽章是假的;錄完腳本已撤銷那些工作階段,`cnf.jkt` 對應的暫時金鑰也已刪掉,這些值不能再拿來呼叫 API。
+
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `oauth-token-authorization-code.json` | `POST /oauth/token`,`grant_type=authorization_code`(PKCE) | 200 | `{access_token, token_type, expires_in: 900, refresh_token, scope}`;使用者取自存取權杖的 payload(`sub`、`email`、`name`) |

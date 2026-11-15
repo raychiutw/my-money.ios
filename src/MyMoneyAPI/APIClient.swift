@@ -8,6 +8,9 @@ public struct APIClient: Sendable {
     /// prod 後端;Debug 與 Release 相同(後端不歸我們管，見 ADR-0001)。
     public static let productionBaseURL = URL(string: "https://my-money-api.onion523.workers.dev")!
 
+    /// 上游寫死的 OAuth client(換碼、refresh 共用)。
+    package static let oauthClientID = "ios"
+
     private let baseURL: URL
     private let urlSession: URLSession
     private let session: any SessionProvider
@@ -200,22 +203,16 @@ public struct APIClient: Sendable {
         htu?.query = nil
         htu?.fragment = nil
         let point = key.publicKey.rawRepresentation  // x || y
-        let header = DPoPHeader(jwk: .init(x: Self.base64URL(point.prefix(32)), y: Self.base64URL(point.suffix(32))))
+        let header = DPoPHeader(jwk: .init(x: point.prefix(32).base64URLEncodedString(), y: point.suffix(32).base64URLEncodedString()))
         let payload = DPoPPayload(
             jti: UUID().uuidString, htm: method, htu: htu?.url?.absoluteString ?? url.absoluteString,
             iat: Int(Date().timeIntervalSince1970 + clockOffset.seconds),
-            ath: accessToken.map { Self.base64URL(SHA256.hash(data: Data($0.utf8))) }
+            ath: accessToken.map { Data(SHA256.hash(data: Data($0.utf8))).base64URLEncodedString() }
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = .withoutEscapingSlashes
-        let signingInput = "\(Self.base64URL(try encoder.encode(header))).\(Self.base64URL(try encoder.encode(payload)))"
-        return "\(signingInput).\(Self.base64URL(try key.sign(Data(signingInput.utf8))))"
-    }
-
-    private static func base64URL(_ bytes: some Sequence<UInt8>) -> String {
-        Data(bytes).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        let signingInput = "\(try encoder.encode(header).base64URLEncodedString()).\(try encoder.encode(payload).base64URLEncodedString())"
+        return "\(signingInput).\(try key.sign(Data(signingInput.utf8)).base64URLEncodedString())"
     }
 
     private static func oauthError(_ data: Data) -> RepositoryError {
@@ -234,20 +231,21 @@ public struct APIClient: Sendable {
         return try await refresher.run { try await refresh() }
     }
 
-    /// `grant_type=refresh_token`:成功時改存輪替後的新更新權杖。只有 `invalid_grant` 才登出;
+    /// `grant_type=refresh_token`:成功時改存輪替後的新更新權杖。只有 `invalid_grant`(或沒有本機金鑰時的 `invalid_dpop_proof`)才登出;
     /// 網路錯誤與 5xx 照一般錯誤丟出,保留更新權杖(上游 #208)。
     private func refresh() async throws -> String {
         guard let tokens = await session.currentTokens() else { throw RepositoryError.sessionExpired }
         let (data, status) = try await sendForm("/oauth/token", [
             "grant_type": "refresh_token",
             "refresh_token": tokens.refresh,
-            "client_id": "ios",  // 上游寫死的 client,跟 LiveAuthRepository 相同
+            "client_id": Self.oauthClientID,
         ])
         guard (200..<300).contains(status) else {
-            if (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error == "invalid_grant" {
-                deleteDPoPKey()
-                await session.sessionDidExpire()
-                throw RepositoryError.sessionExpired
+            let error = (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error
+            // 本機沒有金鑰卻被要求 DPoP proof(session 已綁定、金鑰遺失):再試也不會過,跟 invalid_grant 一樣回登入頁。
+            // 有金鑰時的 invalid_dpop_proof 是時鐘問題,sendForm 已重簽一次,照一般錯誤顯示、不登出。
+            if error == "invalid_grant" || (error == "invalid_dpop_proof" && dpopKeys?.load() == nil) {
+                try await expireSession()
             }
             throw Self.oauthError(data)
         }
@@ -257,8 +255,15 @@ public struct APIClient: Sendable {
         await session.sessionDidRefresh(SessionTokens(
             access: token.accessToken, refresh: token.refreshToken,
             accessExpiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn))
-        ))
+        ), replacing: tokens.refresh)
         return token.accessToken
+    }
+
+    /// 登入工作階段失效(所有登出路徑都經過這裡):刪掉 DPoP 金鑰、通知 app 回登入頁。
+    private func expireSession() async throws -> Never {
+        deleteDPoPKey()
+        await session.sessionDidExpire()
+        throw RepositoryError.sessionExpired
     }
 
     /// form-urlencoded 只保留 RFC 3986 的 unreserved 字元,其餘(包括 `+`、`/`、`=`、`&`)都百分比編碼。
@@ -278,8 +283,7 @@ public struct APIClient: Sendable {
             throw RepositoryError.invalidCredentials(status?.error ?? "Email 或密碼錯誤")
         }
         if challenge.contains("invalid_token") {
-            await session.sessionDidExpire()
-            throw RepositoryError.sessionExpired
+            try await expireSession()
         }
         throw RepositoryError.rejected(status?.error ?? "請求失敗")
     }
