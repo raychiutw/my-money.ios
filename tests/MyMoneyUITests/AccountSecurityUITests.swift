@@ -36,9 +36,10 @@ final class AccountSecurityUITests: XCTestCase {
         XCTAssertFalse(app.buttons["security.changePassword"].isEnabled, "新密碼不到 6 個字元不能送出")
         new.typeText("6")
         app.buttons["security.changePassword"].tap()
-        XCTAssertTrue(
-            element(in: app, labelContaining: "其他裝置已登出").waitForExistence(timeout: 5), "修改密碼後沒有提示其他裝置已登出"
-        )
+        // 提示在清單最底的 footer,收起鍵盤後可能在畫面外、還沒建立,先捲出來。
+        let changed = app.staticTexts["security.passwordChanged"]
+        XCTAssertTrue(ScrollSupport.revealFully(changed, in: app, inSheet: true), "修改密碼後沒有出現提示")
+        XCTAssertTrue(changed.label.contains("其他裝置已登出"), "提示沒說其他裝置已登出:\(changed.label)")
     }
 
     @MainActor
