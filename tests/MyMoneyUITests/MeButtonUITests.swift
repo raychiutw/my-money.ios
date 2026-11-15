@@ -37,7 +37,7 @@ final class MeButtonUITests: XCTestCase {
         delete.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "無法復原")).firstMatch.waitForExistence(timeout: 5), "沒有先確認就刪除")
         app.buttons["刪除"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 10) || app.textFields["login.email"].waitForExistence(timeout: 10), "刪除後沒有回到登入頁")
+        XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 10), "刪除後沒有回到登入頁")
     }
 
     /// 五個 tab 的首頁沒有標題與副標題(#108):導覽列裡不再有大標題，tab bar 已經說明目前在哪個 tab。

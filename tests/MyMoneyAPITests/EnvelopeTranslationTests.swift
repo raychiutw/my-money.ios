@@ -18,7 +18,7 @@ struct EnvelopeTranslationTests {
         try stub.reply(status: 500, fixture: "auth-login-malformed-body.txt")
 
         await #expect(throws: RepositoryError.unreadableResponse) {
-            try await LiveAuthRepository(client: client).login(email: "mymoney-ios-test@example.com", password: "irrelevant")
+            try await client.send("DELETE", "/bot/bindings/fixture-nonexistent-binding")
         }
     }
 
@@ -86,6 +86,17 @@ struct EnvelopeTranslationTests {
         #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("MyMoney-iOS") == true)
     }
 
+    @Test("User-Agent 帶裝置型號:後端看到 iPad 才顯示「iPad · My Money App」(上游 parseDeviceName)")
+    func userAgentCarriesDeviceModel() async throws {
+        try stub.reply(status: 200, fixture: "bot-bindings-delete.json")
+        let iPad = APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session, deviceModel: "iPad")
+
+        try await iPad.send("DELETE", "/bot/bindings/fixture-nonexistent-binding")
+
+        let userAgent = stub.requests.first?.value(forHTTPHeaderField: "User-Agent") ?? ""
+        #expect(userAgent.contains("MyMoney-iOS") && userAgent.contains("iPad"))
+    }
+
     @Test("401 帶 invalid_token(prod 錄下的標頭)時是 session 過期")
     func unauthorizedIsSessionExpired() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
@@ -116,10 +127,10 @@ struct EnvelopeTranslationTests {
 
     @Test("未登入時不帶 Authorization")
     func signedOutRequestHasNoAuthorization() async throws {
-        try stub.reply(status: 200, fixture: "auth-login-success.json")
+        try stub.reply(status: 200, fixture: "bot-bindings-delete.json")
         let signedOut = APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: FakeSessionProvider(token: nil))
 
-        _ = try await LiveAuthRepository(client: signedOut).login(email: "mymoney-ios-test@example.com", password: "irrelevant")
+        try await signedOut.send("DELETE", "/bot/bindings/fixture-nonexistent-binding")
 
         let request = try #require(stub.requests.first)
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)

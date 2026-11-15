@@ -9,15 +9,19 @@ public struct APIClient: Sendable {
     private let baseURL: URL
     private let urlSession: URLSession
     private let session: any SessionProvider
+    private let userAgent: String
 
+    /// - Parameter deviceModel: `UIDevice.current.model`(iPhone／iPad),放進 User-Agent。
     public init(
         baseURL: URL = APIClient.productionBaseURL,
         urlSession: URLSession = .shared,
-        session: any SessionProvider
+        session: any SessionProvider,
+        deviceModel: String = "iPhone"
     ) {
         self.baseURL = baseURL
         self.urlSession = urlSession
         self.session = session
+        userAgent = "MyMoney-iOS (\(deviceModel))"
     }
 
     /// 送出請求，並取出 `{success, data}` 裡的 `data`。
@@ -86,8 +90,8 @@ public struct APIClient: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // 後端用 User-Agent 產生「工作階段」的裝置名稱(上游 parseDeviceName)。
-        request.setValue("MyMoney-iOS", forHTTPHeaderField: "User-Agent")
+        // 後端用 User-Agent 產生「工作階段」的裝置名稱(上游 parseDeviceName:含 MyMoney-iOS,再看有沒有 iPad)。
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.httpBody = body
         if let token = await session.currentToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -114,6 +118,34 @@ public struct APIClient: Sendable {
         return data
     }
 
+    /// 後端某個路徑的完整網址(例如給系統登入視窗開的 `/oauth/authorize`)。
+    package func url(for path: String) -> URL {
+        baseURL.appending(path: path)
+    }
+
+    /// OAuth 端點(`/oauth/token`、`/oauth/revoke`):body 是 form-urlencoded、不帶權杖,回應不是 `{success, data}` envelope。
+    /// 非 2xx 時照顯示 `{error, error_description}` 的 `error_description`。
+    package func postForm(_ path: String, _ form: [String: String]) async throws -> Data {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.httpBody = Data(form.map { "\(Self.formEncode($0))=\(Self.formEncode($1))" }.joined(separator: "&").utf8)
+        let (data, response) = try await urlSession.data(for: request)
+        guard let status = (response as? HTTPURLResponse)?.statusCode, (200..<300).contains(status) else {
+            let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data)
+            throw error.map { RepositoryError.rejected($0.errorDescription ?? $0.error) } ?? RepositoryError.unreadableResponse
+        }
+        return data
+    }
+
+    /// form-urlencoded 只保留 RFC 3986 的 unreserved 字元,其餘(包括 `+`、`/`、`=`、`&`)都百分比編碼。
+    private static func formEncode(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
+    }
+
+    private static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+
     /// 401 依 `WWW-Authenticate` 判斷，不看路徑(上游 c899f01:`/auth/sessions` 等也走權杖驗證)。
     /// `invalid_token` 是權杖失效;`invalid_dpop_proof` 只是這次的 proof 不對，不登出;
     /// 沒有 challenge 的 401 是帳密錯誤或「目前密碼錯誤」,照顯示後端訊息。
@@ -135,6 +167,17 @@ public struct APIClient: Sendable {
 private struct StatusEnvelope: Decodable {
     let success: Bool
     let error: String?
+}
+
+/// OAuth 端點的錯誤(RFC 6749 §5.2):`{error, error_description}`。
+private struct OAuthErrorResponse: Decodable {
+    let error: String
+    let errorDescription: String?
+
+    enum CodingKeys: String, CodingKey {
+        case error
+        case errorDescription = "error_description"
+    }
 }
 
 /// 最上層有 `message` 的回應:`{success, message}`。

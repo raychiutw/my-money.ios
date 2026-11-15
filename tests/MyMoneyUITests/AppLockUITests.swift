@@ -29,7 +29,7 @@ final class AppLockUITests: XCTestCase {
         XCTAssertTrue(unlock.isHittable)
         XCTAssertTrue(app.staticTexts["appLock.error"].waitForExistence(timeout: 5), "驗證失敗沒有說明")
         XCTAssertFalse(app.tabBars.buttons["總覽"].isHittable, "鎖著時背後的內容還點得到")
-        XCTAssertFalse(app.textFields["login.email"].exists, "驗證失敗不該登出")
+        XCTAssertFalse(app.buttons["login.submit"].exists, "驗證失敗不該登出")
     }
 
     /// 重啟 + 驗證成功:自動解鎖,進到 app。

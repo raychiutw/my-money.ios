@@ -21,7 +21,7 @@ final class BrandColorUITests: XCTestCase {
         try assertLoginPage(appearance: .dark)
     }
 
-    /// 登入頁:標題與文字不是系統藍;「登入」是 CI 填色的膠囊(#176);沒填資料時停用，看得出來。
+    /// 登入頁:標題與文字不是系統藍;「登入」是 CI 填色的膠囊(#176)。登入頁沒有帳密欄位(#334),「登入」一直可以按。
     @MainActor
     private func assertLoginPage(appearance: XCUIDevice.Appearance) throws {
         XCUIDevice.shared.appearance = appearance
@@ -36,23 +36,12 @@ final class BrandColorUITests: XCTestCase {
 
         let submit = app.buttons["login.submit"]
         XCTAssertTrue(submit.exists, "沒有「登入」按鈕")
-        XCTAssertFalse(submit.isEnabled, "\(name):還沒填資料，「登入」應該停用")
-        let disabled = try PixelAnalysis.statistics(of: submit.screenshot().image, region: PixelAnalysis.center)
-
-        let email = app.textFields["login.email"]
-        email.tap()
-        email.typeText("someone@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        if app.keyboards.firstMatch.exists { app.swipeDown() }
-        XCTAssertTrue(submit.isEnabled, "\(name):填了資料，「登入」應該啟用")
+        XCTAssertTrue(submit.isEnabled, "\(name):「登入」應該可以按")
 
         let enabled = try PixelAnalysis.statistics(of: submit.screenshot().image, region: PixelAnalysis.center)
         // 主要按鈕填 CI 色(ADR-0009、#176):啟用時中央大部分是 CI 填色、字是反白粗體;停用時淡化(不再是 CI 色)。
         XCTAssertGreaterThan(enabled.ciFraction, 0.5, "\(name):「登入」沒有填 CI 色(CI 色只占 \(enabled.ciFraction))")
         XCTAssertGreaterThan(enabled.lightFraction, 0.003, "\(name):「登入」的反白字看不到(亮色只占 \(enabled.lightFraction))")
-        XCTAssertLessThan(disabled.ciFraction, enabled.ciFraction, "\(name):停用與啟用的「登入」看不出差別(啟用 \(enabled.ciFraction)、停用 \(disabled.ciFraction))")
 
         let page = try PixelAnalysis.statistics(of: XCUIScreen.main.screenshot().image)
         XCTAssertEqual(page.bluish, 0, "\(name):登入頁有系統藍")

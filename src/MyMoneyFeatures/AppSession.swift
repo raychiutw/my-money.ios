@@ -46,7 +46,7 @@ public final class AppSession {
 
 extension AppSession: SessionProvider {
     public func currentToken() async -> String? {
-        current?.token
+        current?.tokens.access
     }
 
     /// 帳號刪除成功之後:跟登出一樣清掉 session,並記下是刪除帳號。

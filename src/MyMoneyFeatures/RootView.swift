@@ -1,20 +1,18 @@
 import SwiftUI
 
-/// app 的根畫面：未登入時是全螢幕的登入頁(可以 push 到註冊頁),登入後是 tab 外殼(DESIGN.md「導覽」)。
+/// app 的根畫面：未登入時是全螢幕的登入頁(登入與註冊都在系統的登入視窗,#334),登入後是 tab 外殼(DESIGN.md「導覽」)。
 ///
 /// 登入後的畫面 model 由 `SignedInScreens` 跟著 session 建立，換人登入時不會看到上一個人的資料。
 /// 需要在 `Environment` 放入 `AppSession` 和 `AppearanceSetting`(「我的」的外觀設定)。
 public struct RootView: View {
     @Environment(AppSession.self) private var session
     private let login: LoginModel
-    private let register: RegisterModel
     private let signedIn: SignedInScreens
     private let appLock: AppLockModel
     @Environment(\.scenePhase) private var scenePhase
 
-    public init(login: LoginModel, register: RegisterModel, signedIn: SignedInScreens, appLock: AppLockModel) {
+    public init(login: LoginModel, signedIn: SignedInScreens, appLock: AppLockModel) {
         self.login = login
-        self.register = register
         self.signedIn = signedIn
         self.appLock = appLock
     }
@@ -23,9 +21,9 @@ public struct RootView: View {
         Group {
             if session.current == nil {
                 NavigationStack {
-                    LoginView(model: login, register: register)
+                    LoginView(model: login)
                 }
-                // iPad:登入與註冊的欄位和按鈕限制在可讀寬度(#173)。
+                // iPad:登入頁的按鈕限制在可讀寬度(#173)。
                 .readableContentWidth()
             } else if let screens = signedIn.current {
                 MainTabView(screens: screens)
@@ -45,7 +43,6 @@ public struct RootView: View {
                 Task { await appLock.evaluateOffer() }
             } else {
                 appLock.sessionEnded(clearingSetting: !session.endedByExpiry, forgettingUser: session.endedByDeletion)
-                if session.endedByDeletion { login.forgetSavedLogin() }
             }
         }
         // 離開 app 滿寬限時間再回來才鎖(#298)。

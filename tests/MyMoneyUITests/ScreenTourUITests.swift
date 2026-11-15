@@ -25,10 +25,9 @@ final class ScreenTourUITests: XCTestCase {
         app.launch()
         let tour = Tour(app: app, testCase: self)
 
-        // 登入頁、註冊頁。
-        XCTAssertTrue(app.textFields["login.email"].waitForExistence(timeout: 10), "沒有看到登入頁")
+        // 登入頁(註冊在系統登入視窗,#334)。
+        XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 10), "沒有看到登入頁")
         tour.captureScrolling("login")
-        tour.push(app.buttons["login.register"], capturing: "register")
         tour.signIn()
 
         // 總覽，以及從總覽打開的記一筆、「我的」sheet(機器人記帳、模擬對話)。
@@ -156,14 +155,7 @@ private struct Tour {
 
     /// 登入 in-memory 的範例帳號(`InMemoryAuthRepository.Member.sample`)。
     func signIn() {
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        // 用登入鈕送出，不用 Return(Return 會讓系統偶爾彈出「要儲存密碼嗎？」);大字級時登入鈕可能被鍵盤擋住，先往上捲。
+        // `-uiTesting` 的登入鈕直接以範例帳號登入(#334);大字級時登入鈕可能在畫面外，先往上捲。
         let submit = app.buttons["login.submit"]
         for _ in 0..<4 where !(submit.exists && submit.isHittable) { app.swipeUp() }
         submit.tap()

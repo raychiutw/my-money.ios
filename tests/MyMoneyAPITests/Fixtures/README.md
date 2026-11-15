@@ -310,3 +310,13 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-bank-ignores-payment-account.json` | `POST /accounts`,**活存帳戶**也帶 `payment_account_id` | 201 | 後端忽略(存成 null),只有信用卡會寫入 |
 | `accounts-list-payment-account-dangling.json` | 綁定的活存帳戶被刪除之後的 `GET /accounts` | 200 | 卡上還留著 `payment_account_id`、`payment_account_name` 是 null(懸空) |
 | `forecast-365-days.json` | `GET /forecast`(2026-10-23,上游 `aecab6b`) | 200 | 預測延長到 12 個月:365 筆逐日餘額(#276);其他預測 fixture 是 60 天或更舊的期程,形狀相同,不重錄 |
+
+### OAuth(#334,2026-11-15,後端 `c899f01`)
+
+`/oauth/*` 不是 `{success, data}` envelope,也不是 JSON body:用 `scripts/record-oauth-fixtures.sh` 一次錄完(不用 `record-fixture.sh`)。腳本用測試帳號走一次授權碼流程:`GET /oauth/authorize` 從 Worker 登入頁取 `csrf_token` → `POST /oauth/authorize`(form)拿到 302 callback 的 `code` → 換權杖 → 同一個 code 再換一次 → 撤銷剛建立的工作階段(測試帳號不留下多餘的登入裝置)。存檔前存取權杖(JWT)**只換掉簽章**(header 與 payload 保留,測試要從 payload 解出使用者;沒有簽章的權杖不能用),更新權杖換成 `fake-fixture-refresh-token`;回應含有密碼或真的更新權杖時不存檔。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `oauth-token-authorization-code.json` | `POST /oauth/token`,`grant_type=authorization_code`(PKCE) | 200 | `{access_token, token_type, expires_in: 900, refresh_token, scope}`;使用者取自存取權杖的 payload(`sub`、`email`、`name`) |
+| `oauth-token-invalid-grant.json` | 同一個 code 再換一次 | 400 | `{error: "invalid_grant", error_description: "授權碼無效或已被使用"}`,照顯示 `error_description` |
+| `oauth-revoke.json` | `POST /oauth/revoke`,`token=<更新權杖>` | 200 | `{success: true}`(RFC 7009:不論權杖是否有效都回 200) |

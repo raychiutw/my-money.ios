@@ -7,8 +7,8 @@ import Testing
 @Suite("登出與 session 過期")
 struct SessionTests {
     private let storage = InMemorySessionStorage(session: Session(
-        token: "stored-token",
-        user: InMemoryAuthRepository.Member.sample.user
+        user: InMemoryAuthRepository.Member.sample.user,
+        tokens: SessionTokens(access: "stored-token", refresh: "stored-refresh", accessExpiresAt: nil)
     ))
 
     @Test("登出後清掉 session,回到登入頁;重開 app 也要重新登入")
@@ -32,7 +32,7 @@ struct SessionTests {
         #expect(AppSession(storage: storage).current == nil)
     }
 
-    @Test("翻譯層拿到的是目前 session 的 token")
+    @Test("翻譯層拿到的是目前 session 的存取權杖")
     func translationLayerGetsCurrentToken() async {
         let session = AppSession(storage: storage)
         let seenByTranslationLayer: any SessionProvider = session
@@ -45,7 +45,7 @@ struct SessionTests {
     @Test("結束原因旗標:過期後換人登入,旗標回到預設(不會把上一次的原因帶到下一個 session,code review)")
     func endReasonFlagsResetOnStart() async {
         let session = AppSession(storage: InMemorySessionStorage(session: nil))
-        let sample = Session(token: "t", user: InMemoryAuthRepository.Member.sample.user)
+        let sample = InMemoryAuthRepository.Member.sample.session
         session.start(sample)
 
         await session.sessionDidExpire()

@@ -10,7 +10,7 @@ struct AccountDeletionTests {
 
     private func signedInSession() -> AppSession {
         let session = AppSession(storage: storage)
-        session.start(Session(token: "t", user: InMemoryAuthRepository.Member.sample.user))
+        session.start(InMemoryAuthRepository.Member.sample.session)
         return session
     }
 
