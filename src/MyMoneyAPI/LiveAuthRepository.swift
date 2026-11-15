@@ -43,7 +43,7 @@ public struct LiveAuthRepository: AuthRepository {
         let params = Dictionary(
             (URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }
         ) { first, _ in first }
-        // 登入頁的「用 Face ID 登入」:Worker 頁不能做 WebAuthn(RP ID 不同網域),導回來改走原生 passkey(上游 ADR 0042)。
+        // 登入頁要求 passkey(上游按鈕文字「用 Face ID 登入」):Worker 頁不能做 WebAuthn(RP ID 不同網域),導回來改走原生 passkey(上游 ADR 0042)。
         if params["error"] == "passkey_requested" {
             guard params["state"] == state else { throw RepositoryError.rejected("登入失敗，請再試一次") }
             return try await signInWithPasskey()
@@ -139,7 +139,7 @@ public struct LiveAuthRepository: AuthRepository {
 
 /// 上游登入頁(`GET /oauth/authorize`)的純外觀參數(上游 ADR 0042,#344)。
 public struct LoginPageAppearance: Sendable {
-    /// 這台裝置的生物辨識種類:有生物辨識時登入頁才顯示「用 Face ID 登入」。
+    /// 這台裝置的生物辨識種類:有生物辨識時登入頁才顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」)。
     public var biometry: DeviceAuthCapability
     /// Dynamic Type 的 body 字級相對預設 17pt 的倍數。
     public var fontScale: Double
