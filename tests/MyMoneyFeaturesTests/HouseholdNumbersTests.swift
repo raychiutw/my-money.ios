@@ -87,7 +87,7 @@ struct HouseholdNumbersTests {
         #expect(model.myAdvance == nil)
     }
 
-    @Test("成員列顯示身分:家庭管理員或一般成員(CONTEXT.md 的詞彙)")
+    @Test("成員列顯示身分:家庭管理員或一般成員(GLOSSARY.md 的詞彙)")
     func roleTitles() async throws {
         let model = await loaded()
 

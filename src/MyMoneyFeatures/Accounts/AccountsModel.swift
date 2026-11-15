@@ -322,7 +322,7 @@ public final class AccountsModel: Alerting {
 }
 
 extension AccountKind {
-    /// 資產帳戶類型的名稱(CONTEXT.md)。
+    /// 資產帳戶類型的名稱(GLOSSARY.md)。
     public var title: String {
         switch self {
         case .cash: Terms.cash
