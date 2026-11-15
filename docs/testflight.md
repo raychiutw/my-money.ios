@@ -64,6 +64,7 @@ workflow 會依序做這幾件事:
 - **簽章**:
   - 自動簽章，Distribution 憑證由 Apple 雲端管理(固定的一張，不隨 runner 重建)。
   - **archive 不簽章，只在匯出時簽章**:archive 帶 `CODE_SIGNING_ALLOWED=NO`，匯出設定在執行時加上 `teamID`。這樣不需要 Apple Development 憑證。以前 archive 也自動簽章，每次都在全新的 runner 上建一張「Created via API」的 Apple Development 憑證;這把 key 跟 vocaby 共用，兩個專案累積到 Apple 帳號的憑證上限就失敗(「Your account has reached the maximum number of certificates」，2026-10-02)。遇到這個錯誤，要到 Certificates, Identifiers & Profiles 撤銷用不到的舊憑證。
+  - **entitlements 要先補 ad-hoc 簽章**(#346):不簽章的 archive 執行檔裡沒有 entitlements,匯出重簽也不會補，真機的 passkey 會出現「not associated with domain」。所以 archive 後先 `codesign --sign - --entitlements src/App/MyMoney.entitlements`;上傳前另外匯出一份 IPA 檢查 `associated-domains`,沒有就讓 CI 失敗(App ID 沒開 Associated Domains capability 也會在這裡擋下)。
   - 建立雲端管理的 Distribution 憑證只有 Account Holder 或 Admin 能做，所以 API key 要用 **Admin** 角色的 team key。
   - 目前和 vocaby 共用「Vocaby GitHub Admin」這把 key。
 - **GitHub environment `testflight`**:

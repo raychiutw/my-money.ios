@@ -104,10 +104,35 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_ID"
 
+          # entitlements 是簽章時才寫進執行檔的:不簽章的 archive 沒有 associated-domains,匯出重簽也不會補,
+          # 真機的 passkey 就會「not associated with domain」(#346)。先用 ad-hoc 簽章寫進去,匯出時再換成正式簽章。
+          app_path="$(echo "$archive_path"/Products/Applications/*.app)"
+          codesign --force --sign - --entitlements src/App/MyMoney.entitlements --timestamp=none --generate-entitlement-der "$app_path"
+
           # 不簽章的 archive 裡沒有團隊資訊:匯出設定要帶 teamID(Team ID 在 environment 變數裡，不進 repo)。
           export_options="$RUNNER_TEMP/ExportOptions.plist"
           cp .github/ExportOptions.plist "$export_options"
           /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$export_options"
+
+          # 上傳前先匯出一份 IPA,確認正式簽章後仍有 associated-domains(App ID 沒開這個 capability 也會在這裡被擋下),沒有就不上傳。
+          check_options="$RUNNER_TEMP/ExportOptions-check.plist"
+          cp "$export_options" "$check_options"
+          /usr/libexec/PlistBuddy -c "Set :destination export" "$check_options"
+          xcodebuild -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath "$RUNNER_TEMP/EntitlementsCheck" \
+            -exportOptionsPlist "$check_options" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          unzip -q "$RUNNER_TEMP"/EntitlementsCheck/*.ipa -d "$RUNNER_TEMP/EntitlementsCheck/ipa"
+          if ! codesign -d --entitlements - --xml "$RUNNER_TEMP"/EntitlementsCheck/ipa/Payload/*.app 2>/dev/null \
+            | grep -q "webcredentials:my-money-onion.pages.dev"; then
+            echo "::error::匯出的 App 沒有 associated-domains(webcredentials),passkey 會失敗;檢查 App ID 的 Associated Domains capability(#346)"
+            exit 1
+          fi
+          echo "匯出的 App 有 associated-domains"
 
           xcodebuild -exportArchive \
             -archivePath "$archive_path" \
