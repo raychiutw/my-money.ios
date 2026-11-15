@@ -84,7 +84,7 @@ extension EnvironmentValues {
 struct NumberTile: View {
     let title: String
     let amount: AmountPresentation
-    /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 CONTEXT.md 的正名(例如「信用卡待繳總額」)。
+    /// VoiceOver 念的標籤，預設跟畫面上的標題一樣;畫面上用簡稱時，這裡用 GLOSSARY.md 的正名(例如「信用卡待繳總額」)。
     var spokenTitle: String?
     /// 金額底下的組成明細(總覽的三格數字,#178):小字、靠右、放不下就折行(不截斷)。
     var details: [String] = []

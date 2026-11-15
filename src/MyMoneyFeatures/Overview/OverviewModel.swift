@@ -158,7 +158,7 @@ public final class OverviewModel {
     /// 信用卡待繳磚(#117):所有信用卡的已出帳待繳款加未出帳款，用後端的合計(跟帳戶頁的信用卡待繳總額同一個算法)。
     public var totalCardDue: Money? { summary.map { $0.billedDebtTotal + $0.unbilledDebtTotal } }
 
-    /// 三格數字磚(#127):畫面標籤用簡稱，VoiceOver 念 `CONTEXT.md` 的正名(視角也只寫在 VoiceOver，畫面上的標籤才不會被截斷)。
+    /// 三格數字磚(#127):畫面標籤用簡稱，VoiceOver 念 `GLOSSARY.md` 的正名(視角也只寫在 VoiceOver，畫面上的標籤才不會被截斷)。
     /// 還沒載入時是空的。
     public var summaryTiles: [SummaryTile] {
         guard let summary else { return [] }

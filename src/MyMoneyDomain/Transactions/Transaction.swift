@@ -55,7 +55,7 @@ public struct TransactionCategory: Hashable, Sendable {
     ].map(TransactionCategory.init)
 }
 
-/// 視角：瀏覽交易記錄與統計時的範圍(CONTEXT.md)。raw value 是後端的 `scope`。
+/// 視角：瀏覽交易記錄與統計時的範圍(GLOSSARY.md)。raw value 是後端的 `scope`。
 public enum ViewScope: String, CaseIterable, Hashable, Sendable {
     /// 我的家庭公帳與個人私帳，加上家人的家庭公帳。
     case all

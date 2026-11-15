@@ -16,7 +16,8 @@ final class LoginFlowUITests: XCTestCase {
         let app = launch(resettingSession: true)
         XCTAssertTrue(app.staticTexts["我的記帳本"].exists)
         XCTAssertTrue(app.staticTexts["家庭財務，輕鬆掌握"].exists)
-        XCTAssertTrue(app.buttons["login.register"].exists, "登入頁沒有「立即註冊」")
+        XCTAssertFalse(app.buttons["login.register"].exists, "註冊在系統登入視窗裡,登入頁不該有「立即註冊」(#348)")
+        XCTAssertFalse(app.buttons["login.passkey"].exists, "通行金鑰登入在系統登入視窗裡,登入頁不該有通行金鑰按鈕(#348)")
         XCTAssertFalse(app.textFields["login.email"].exists, "登入頁不該再有帳密欄位(在系統登入視窗輸入)")
 
         signIn(app)
@@ -54,22 +55,18 @@ final class LoginFlowUITests: XCTestCase {
         XCTAssertFalse(relaunched.buttons["login.submit"].exists)
     }
 
-    /// 「立即註冊」開同一個登入視窗的註冊模式;`-uiTesting` 直接以範例帳號進入。
+    /// 沒有 session 時,登入頁一出現就自動開登入視窗(#348);`-uiTesting` 加 `-uiTestingAutoSignIn` 才自動,直接以範例帳號進入。
     @MainActor
-    func testRegisterSignsIn() throws {
-        let app = launch(resettingSession: true)
-        let register = app.buttons["login.register"]
-        XCTAssertTrue(register.waitForExistence(timeout: 5), "沒有看到登入頁")
+    func testLoginPageOpensSignInAutomatically() throws {
+        let app = launch(resettingSession: true, flags: ["-uiTestingAutoSignIn"])
 
-        register.tap()
-
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "註冊後沒有進入 tab 外殼")
+        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "沒按「登入」就該自動登入並進入 tab 外殼")
     }
 
     @MainActor
-    private func launch(resettingSession: Bool) -> XCUIApplication {
+    private func launch(resettingSession: Bool, flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting"] + (resettingSession ? ["-resetSession"] : [])
+        app.launchArguments = ["-uiTesting"] + flags + (resettingSession ? ["-resetSession"] : [])
         app.launch()
         return app
     }

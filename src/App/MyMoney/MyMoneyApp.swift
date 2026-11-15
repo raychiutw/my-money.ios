@@ -74,8 +74,9 @@ struct MyMoneyApp: App {
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
             // 登入鈕不開登入視窗，直接以範例帳號登入(#334)。
+            // 登入頁出現時預設不自動登入(既有測試自己按「登入」);`-uiTestingAutoSignIn` 才自動開(#348)。
             let auth = InMemoryAuthRepository(members: [.sample])
-            login = LoginModel(auth: auth, session: session)
+            login = LoginModel(auth: auth, session: session, opensSignInOnAppear: arguments.contains("-uiTestingAutoSignIn"))
             signOut = SignOutModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。

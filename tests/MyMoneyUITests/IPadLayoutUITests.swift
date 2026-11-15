@@ -1,7 +1,7 @@
 import UIKit
 import XCTest
 
-/// iPad 的內容寬度(#173、HIG Layout):登入、註冊與五個 tab 的內容限制在可讀寬度(約 700pt)並置中,
+/// iPad 的內容寬度(#173、HIG Layout):登入與五個 tab 的內容限制在可讀寬度(約 700pt)並置中,
 /// 不隨視窗拉伸(以前直向 820pt 寬的登入欄位有 800pt,清單的名稱和金額隔七百多 pt)。
 /// 只在 iPad 模擬器跑(`-destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'`),iPhone 直接略過。
 final class IPadLayoutUITests: XCTestCase {
@@ -25,7 +25,6 @@ final class IPadLayoutUITests: XCTestCase {
             let submit = app.buttons["login.submit"]
             XCTAssertTrue(submit.waitForExistence(timeout: 10), "沒有登入頁")
             assertLimited(submit, in: app, "登入鈕(\(orientation.rawValue))")
-            assertLimited(app.buttons["login.register"], in: app, "立即註冊(\(orientation.rawValue))")
             app.terminate()
         }
     }

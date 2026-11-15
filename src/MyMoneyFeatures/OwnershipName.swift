@@ -1,5 +1,5 @@
 import MyMoneyDomain
-/// 歸屬與範圍的名稱：全 app 只有這一套說法(CONTEXT.md「家庭公帳／個人私帳」，#150)。
+/// 歸屬與範圍的名稱：全 app 只有這一套說法(GLOSSARY.md「家庭公帳／個人私帳」，#150)。
 /// 上游 ADR 0014 用短名「公帳」「私帳」,iOS 依使用者要求一律寫完整名稱(`docs/parity.md` 偏離表)。
 public enum OwnershipName {
     public static let household = "家庭公帳"

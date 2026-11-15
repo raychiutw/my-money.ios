@@ -39,7 +39,7 @@ struct FilterIconImage: View {
 }
 
 extension ViewScope: ScopeFilterOption {
-    /// 視角的名稱:全部、家庭公帳、個人私帳(CONTEXT.md、#150;上游 ADR 0014 的短名不採用)。
+    /// 視角的名稱:全部、家庭公帳、個人私帳(GLOSSARY.md、#150;上游 ADR 0014 的短名不採用)。
     var title: String {
         switch self {
         case .all: "全部"
@@ -59,7 +59,7 @@ extension ViewScope: ScopeFilterOption {
 }
 
 extension AccountScope: ScopeFilterOption {
-    /// 帳戶檢視範圍的名稱:全部、家庭公帳、個人私帳(CONTEXT.md、#150)。
+    /// 帳戶檢視範圍的名稱:全部、家庭公帳、個人私帳(GLOSSARY.md、#150)。
     public var title: String {
         switch self {
         case .all: "全部"
