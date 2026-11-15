@@ -17,7 +17,7 @@ swift test --filter MyMoneyAPITests                             # 單一 test ta
 xcodebuild test -project src/App/MyMoney.xcodeproj -scheme MyMoney \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
   -derivedDataPath .derivedData -parallel-testing-enabled NO -disable-concurrent-destination-testing \
-  -only-testing:MyMoneyUITests/TransactionsUITests              # UI 測試:本機跑，只跑有修改到的類別(CI 不做);不加 -only-testing 是全部(不平行，避免複製模擬器)。**模擬器固定一台**:本機只用一台「iPhone 17」，不要另外建立或讓 Xcode 複製(clone);`xcrun simctl list devices` 應該只看到它，多出來的 Clone 刪掉
+  -only-testing:MyMoneyUITests/TransactionsUITests              # UI 測試:本機跑，只跑有修改到的類別(CI 不做);不加 -only-testing 是全部(不平行，避免複製模擬器)。**模擬器固定一台**:本機只用一台「iPhone 17」，不要另外建立或讓 Xcode 複製(clone);`xcrun simctl list devices` 應該只看到它，多出來的 Clone 刪掉。**軟體鍵盤要開著**:模擬器記得接過硬體鍵盤時鍵盤會縮到畫面外，鍵盤相關測試會失敗(#341);關掉的方法是模擬器關機後 `plutil -replace AutomaticMinimizationEnabled -bool false` 與 `-replace HardwareKeyboardLastSeen -bool false` 改 `~/Library/Developer/CoreSimulator/Devices/<UDID>/data/Library/Preferences/com.apple.keyboard.preferences.plist`
 xcodebuild build -scheme MyMoney-Package -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .derivedData/package SWIFT_TREAT_WARNINGS_AS_ERRORS=YES  # 以 iOS 編譯 package
 scripts/record-fixture.sh <檔名> <METHOD> <path> [body]         # 從 prod 錄 fixture,見 Fixtures/README.md

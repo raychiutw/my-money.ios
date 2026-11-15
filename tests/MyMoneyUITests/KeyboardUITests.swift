@@ -187,6 +187,12 @@ final class KeyboardUITests: XCTestCase {
             XCTFail("[\(orientationName)・\(sizeName)] \(field.identifier) 點了沒有鍵盤,欄位 \(field.frame)", line: line)
             return
         }
+        // 模擬器記得接過硬體鍵盤時,軟體鍵盤縮到畫面外、只剩「完成」鈕浮在底部,量到的不是真實情況(#341)。
+        guard keyboard.frame.minY < app.windows.firstMatch.frame.maxY else {
+            return XCTFail(
+                "[\(orientationName)・\(sizeName)] 軟體鍵盤不在畫面上(\(keyboard.frame)):模擬器的鍵盤自動縮小沒關,見 CLAUDE.md 的 UI 測試指令", line: line
+            )
+        }
         // 工具列的「完成」鈕有進場動畫;等它出現且位置穩定。
         let done = app.buttons["完成"].firstMatch
         _ = done.waitForExistence(timeout: 2)
