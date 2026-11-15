@@ -9,6 +9,7 @@ status: accepted
 ## Decision
 
 - **登入與註冊都開系統的安全登入視窗**(`ASWebAuthenticationSession`,`prefersEphemeralWebBrowserSession = true`)載入上游的 `/oauth/authorize`,授權碼 + PKCE(`S256`)、比對 `state`;client `ios` 與 redirect URI `com.raychiu.mymoney:/oauth/callback` 是上游寫死的。app 不再接觸密碼,原生的帳密表單與註冊頁移除。「瀏覽器授權」是 Domain 的 seam(`BrowserAuthorizer`),App 層實作,測試用假物件;UI 測試(`-uiTesting`)的登入鈕直接以範例帳號登入。
+- **登入頁外觀與切換到 passkey(#344,上游 ADR 0042)**:授權網址多帶兩個純外觀參數。`biometry`:這台有 Face ID／Touch ID／Optic ID 時帶 `faceid`／`touchid`／`opticid`,登入頁才顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」);只有裝置密碼或都沒有就不帶。`font_scale`:Dynamic Type 的 body 字級除以預設 17pt,夾在 1～3.1、最多兩位小數、小數點固定用「.」(不跟語系),大於 1 才帶。兩者由 composition root 在每次開登入視窗時提供(`LoginPageAppearance`)。登入頁要求 passkey(按下上游的「用 Face ID 登入」按鈕)時 Worker 頁不做 WebAuthn(RP ID 是別的網域),而是導回 `error=passkey_requested`:`state` 相符就關掉登入視窗、直接走原生 passkey 登入(#339),使用者取消一樣留在登入頁、不顯示錯誤;`state` 不符照一般的 state 不符處理。
 - **存取權杖只放記憶體;更新權杖與顯示用的使用者資料存 Keychain**(`WhenUnlockedThisDeviceOnly`:只限這支裝置、不進備份)。使用者資料從存取權杖的 JWT payload(`sub`、`email`、`name`)取得,只用於顯示,不驗章(後端驗)。
 - `Session` 是「使用者 + 權杖(`SessionTokens`)」的持有者:冷啟動讀回時沒有存取權杖,由更新權杖換新(#335);refresh 輪替後整份 `Session` 重新存一次。畫面 model 只看 `user`。
 - **登出**:先清掉本機,再 `POST /oauth/revoke`(帶更新權杖);撤銷失敗也一樣已經登出。

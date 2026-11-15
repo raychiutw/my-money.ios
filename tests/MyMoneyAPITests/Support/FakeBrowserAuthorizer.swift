@@ -9,6 +9,8 @@ final class FakeBrowserAuthorizer: BrowserAuthorizer {
         case code(String)
         /// 導回固定的 callback(例如帶 `error`,或 `state` 不符)。
         case callback(String)
+        /// 按了登入頁的「用 Face ID 登入」:導回 `callback?error=passkey_requested&…&state=<授權網址的 state>`(上游 ADR 0042)。
+        case passkeyRequested
         case cancelled
     }
 
@@ -34,6 +36,10 @@ final class FakeBrowserAuthorizer: BrowserAuthorizer {
             let state = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first { $0.name == "state" }?.value ?? ""
             return URL(string: "com.raychiu.mymoney:/oauth/callback?code=\(code)&state=\(state)")!
+        case .passkeyRequested:
+            let state = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "state" }?.value ?? ""
+            return URL(string: "com.raychiu.mymoney:/oauth/callback?error=passkey_requested&error_description=x&state=\(state)")!
         case .callback(let callback):
             return URL(string: callback)!
         case .cancelled:

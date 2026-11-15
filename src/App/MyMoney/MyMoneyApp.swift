@@ -32,6 +32,8 @@ struct MyMoneyApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     /// 鎖畫面與隱私遮罩的獨立 window(蓋得住 sheet 與 alert)。
     private let lockWindow = AppLockWindowPresenter()
+    /// body 文字樣式在預設 Dynamic Type 字級(Large)的點數,算登入頁 `font_scale` 的分母。
+    private static let bodyDefaultPointSize: CGFloat = 17
 
     init() {
         #if DEBUG
@@ -175,7 +177,8 @@ struct MyMoneyApp: App {
         // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
         LegacyCredentials.delete()
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
-        appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
+        let deviceAuthenticator = LiveDeviceAuthenticator()
+        appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
@@ -185,7 +188,16 @@ struct MyMoneyApp: App {
             dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
         )
         let passkeyAuthenticator = LivePasskeyAuthenticator()
-        let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator)
+        // 登入頁跟著這台的生物辨識種類顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」),字級跟著 Dynamic Type 放大(#344)。
+        let auth = LiveAuthRepository(
+            client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator,
+            loginPage: { @MainActor in
+                LoginPageAppearance(
+                    biometry: await deviceAuthenticator.capability(),
+                    fontScale: UIFontMetrics(forTextStyle: .body).scaledValue(for: Self.bodyDefaultPointSize) / Self.bodyDefaultPointSize
+                )
+            }
+        )
         login = LoginModel(auth: auth, session: session)
         signOut = SignOutModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)

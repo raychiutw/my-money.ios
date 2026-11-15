@@ -11,10 +11,13 @@ struct OAuthTranslationTests {
     private let stub = HTTPStub()
     private let session = FakeSessionProvider()
 
-    private func auth(_ browser: FakeBrowserAuthorizer) -> LiveAuthRepository {
+    private func auth(
+        _ browser: FakeBrowserAuthorizer, loginPage: LoginPageAppearance = LoginPageAppearance(),
+        passkeys: FakePasskeyAuthenticator = FakePasskeyAuthenticator()
+    ) -> LiveAuthRepository {
         LiveAuthRepository(
             client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session),
-            browser: browser, passkeys: FakePasskeyAuthenticator()
+            browser: browser, passkeys: passkeys, loginPage: { loginPage }
         )
     }
 
@@ -62,6 +65,37 @@ struct OAuthTranslationTests {
         _ = try await auth(browser).signIn(registering: true)
 
         #expect(query(browser.openedURLs.first)["mode"] == "register")
+    }
+
+    @Test(
+        "登入頁外觀:有生物辨識時帶 biometry(faceid/touchid/opticid),只有裝置密碼或都沒有就不帶",
+        arguments: [
+            (DeviceAuthCapability.faceID, "faceid"), (.touchID, "touchid"), (.opticID, "opticid"),
+            (.passcodeOnly, nil), (.unavailable, nil),
+        ] as [(DeviceAuthCapability, String?)]
+    )
+    func authorizeURLBiometry(capability: DeviceAuthCapability, expected: String?) async throws {
+        try stub.reply(status: 200, fixture: "oauth-token-authorization-code.json")
+        let browser = FakeBrowserAuthorizer(.code("the-code"))
+
+        _ = try await auth(browser, loginPage: LoginPageAppearance(biometry: capability)).signIn(registering: false)
+
+        #expect(query(browser.openedURLs.first)["biometry"] == expected)
+    }
+
+    @Test(
+        "登入頁外觀:font_scale 夾在 1～3.1、最多兩位小數,大於 1 才帶",
+        arguments: [
+            (1.0, nil), (0.82, nil), (1.5, "1.5"), (1.2353, "1.24"), (3.1, "3.1"), (3.65, "3.1"),
+        ] as [(Double, String?)]
+    )
+    func authorizeURLFontScale(scale: Double, expected: String?) async throws {
+        try stub.reply(status: 200, fixture: "oauth-token-authorization-code.json")
+        let browser = FakeBrowserAuthorizer(.code("the-code"))
+
+        _ = try await auth(browser, loginPage: LoginPageAppearance(fontScale: scale)).signIn(registering: false)
+
+        #expect(query(browser.openedURLs.first)["font_scale"] == expected)
     }
 
     @Test("用授權碼換權杖:form-urlencoded,code_verifier 的 S256 等於授權網址的 code_challenge")

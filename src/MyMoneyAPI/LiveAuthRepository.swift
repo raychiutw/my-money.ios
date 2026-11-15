@@ -11,11 +11,17 @@ public struct LiveAuthRepository: AuthRepository {
     private let client: APIClient
     private let browser: any BrowserAuthorizer
     private let passkeys: any PasskeyAuthenticator
+    private let loginPage: @Sendable () async -> LoginPageAppearance
 
-    public init(client: APIClient, browser: any BrowserAuthorizer, passkeys: any PasskeyAuthenticator) {
+    /// `loginPage`:每次開登入視窗時取一次登入頁的外觀(生物辨識種類、字級倍數),由 composition root 提供(#344)。
+    public init(
+        client: APIClient, browser: any BrowserAuthorizer, passkeys: any PasskeyAuthenticator,
+        loginPage: @escaping @Sendable () async -> LoginPageAppearance = { LoginPageAppearance() }
+    ) {
         self.client = client
         self.browser = browser
         self.passkeys = passkeys
+        self.loginPage = loginPage
     }
 
     public func signIn(registering: Bool) async throws -> Session {
@@ -31,11 +37,17 @@ public struct LiveAuthRepository: AuthRepository {
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state),
         ] + (registering ? [URLQueryItem(name: "mode", value: "register")] : [])
+            + (await loginPage()).queryItems
 
         let callback = try await browser.authorize(url: authorize.url!, callbackScheme: Self.callbackScheme)
         let params = Dictionary(
             (URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }
         ) { first, _ in first }
+        // 登入頁要求 passkey(上游按鈕文字「用 Face ID 登入」):Worker 頁不能做 WebAuthn(RP ID 不同網域),導回來改走原生 passkey(上游 ADR 0042)。
+        if params["error"] == "passkey_requested" {
+            guard params["state"] == state else { throw RepositoryError.rejected("登入失敗，請再試一次") }
+            return try await signInWithPasskey()
+        }
         if let error = params["error"] {
             throw RepositoryError.rejected(params["error_description"] ?? error)
         }
@@ -122,6 +134,37 @@ public struct LiveAuthRepository: AuthRepository {
 
     private static func codeChallenge(_ verifier: String) -> String {
         Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncodedString()
+    }
+}
+
+/// 上游登入頁(`GET /oauth/authorize`)的純外觀參數(上游 ADR 0042,#344)。
+public struct LoginPageAppearance: Sendable {
+    /// 這台裝置的生物辨識種類:有生物辨識時登入頁才顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」)。
+    public var biometry: DeviceAuthCapability
+    /// Dynamic Type 的 body 字級相對預設 17pt 的倍數。
+    public var fontScale: Double
+
+    public init(biometry: DeviceAuthCapability = .unavailable, fontScale: Double = 1) {
+        self.biometry = biometry
+        self.fontScale = fontScale
+    }
+
+    /// 只有生物辨識才帶 `biometry`;上游只接受 faceid/touchid/opticid。
+    var queryItems: [URLQueryItem] {
+        let biometry: String? = switch self.biometry {
+        case .faceID: "faceid"
+        case .touchID: "touchid"
+        case .opticID: "opticid"
+        case .passcodeOnly, .unavailable: nil
+        }
+        // 上游夾在 1～3.1,不合法或沒帶視為 1;小數點固定用「.」,不跟著使用者語系。
+        let scale = (min(max(fontScale, 1), 3.1) * 100).rounded() / 100
+        let fontScale = scale > 1
+            ? scale.formatted(.number.precision(.fractionLength(0...2)).grouping(.never).locale(Locale(identifier: "en_US_POSIX")))
+            : nil
+        return [("biometry", biometry), ("font_scale", fontScale)].compactMap { name, value in
+            value.map { URLQueryItem(name: name, value: $0) }
+        }
     }
 }
 
