@@ -36,7 +36,7 @@ warning 當 error 有三道：`Package.swift` 的 `treatAllWarnings`(只對 macO
 - **完成定義**:`swift test` 和 `xcodebuild test` 全部通過，而且零 warning(`-warnings-as-errors`)。**CI 不做 UI 測試**(太久);UI 測試在本機跑，**只跑有修改到的**(用 `-only-testing:MyMoneyUITests/類別名`),不必每次跑全部。CI 只編譯 app、跑 package 測試。
 - **不直接 commit 到 `master`**:開 feature branch,push 後開 PR,合併時用 **merge commit**,不用 squash。
 - 文件、註解、commit message 一律用繁體中文(台灣用語),技術名詞保留英文。
-- 詞彙在 `CONTEXT.md`,UI 規範在 `DESIGN.md`,功能對等清單在 `docs/parity.md`,難以逆轉的決策在 `docs/adr/`,一手來源研究在 `docs/research/`。
+- 詞彙在 `GLOSSARY.md`,UI 規範在 `DESIGN.md`,功能對等清單在 `docs/parity.md`,難以逆轉的決策在 `docs/adr/`,一手來源研究在 `docs/research/`。
 
 ## 架構
 
@@ -76,7 +76,7 @@ tests/MyMoneyUITests/          # XCUITest
 - **UI 測試一律用 `XCUIApplication.launchUITesting(flags:contentSize:resettingSession:signedIn:)` 啟動、`app.signInWithSampleAccount()` 登入**(`tests/MyMoneyUITests/SignInHelper.swift`),不在測試檔裡自己拼 `launchArguments` 或手寫登入:`-uiTesting` 的登入鈕不開系統登入視窗、直接以範例帳號登入(#334);共用登入處理了大字級時登入鈕在畫面外(先上捲)、iPad 的 tab 不在 `tabBars`(多個候選)。`resettingSession: false` 的 relaunch 不會自動登入。例外有意保留自己的啟動:`BrandColorUITests`(不帶 `-uiTesting`,走正式路徑)、`LoginFlowUITests`(測登入頁本身)、`ScreenTourUITests`(截圖巡覽自己的環境變數)、`IPadLayoutUITests`/`KeyboardUITests`(控制方向與逐字級重啟)。
 - UI 測試不連網路：啟動參數帶 `-uiTesting` 時，由 composition root 換成 `MyMoneyTestSupport` 的 in-memory repository(登入帳密是 `InMemoryAuthRepository.Member.sample`)。session 仍存在模擬器的 Keychain(UI 測試專用的 service),再加 `-resetSession` 會在啟動時清掉。唯一的例外是 `BrandColorUITests`:它不帶 `-uiTesting`,驗證 TestFlight 走的正式路徑，只停在登入頁(不連網路);模擬器裡有正式 session 時會 skip。
 - 畫面 model 測試要觀察「送出期間」的狀態時，用 `MyMoneyTestSupport` 的 `Gate` 讓 in-memory repository 停住，不用 `sleep`。
-- 測試名稱使用 `CONTEXT.md` 的詞彙。
+- 測試名稱使用 `GLOSSARY.md` 的詞彙。
 
 ## Agent skills
 
@@ -90,4 +90,4 @@ Issues 和 PRD 用 GitHub Issues(`raychiutw/my-money.ios`),透過 `gh` CLI 操�
 
 ### Domain docs
 
-採 single-context。根目錄的 `CONTEXT.md` 是**詞彙表**;web 日後若建立自己的 `CONTEXT.md`,以它為 source of truth。詳見 `docs/agents/domain.md`。
+採 single-context。根目錄的 `GLOSSARY.md` 是**詞彙表**,source of truth 是上游 web 的 `CONTEXT.md`(上游仍用舊檔名)。詳見 `docs/agents/domain.md`。

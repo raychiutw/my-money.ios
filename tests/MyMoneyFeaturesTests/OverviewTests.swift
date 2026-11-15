@@ -213,7 +213,7 @@ struct OverviewTests {
     }
 }
 
-@Suite("帳戶檢視範圍的名稱(CONTEXT.md「帳戶歸屬」)")
+@Suite("帳戶檢視範圍的名稱(GLOSSARY.md「帳戶歸屬」)")
 struct AccountScopeTitleTests {
     @Test("帳戶檢視範圍是「全部」「公帳」「私帳」(上游 ADR 0014，#138)")
     func titles() {

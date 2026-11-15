@@ -317,7 +317,7 @@ struct HouseholdTests {
         #expect(await repository.inviteCount == 2)
     }
 
-    @Test("成員的身分叫「家庭管理員」「一般成員」(CONTEXT.md、上游 ADR 0013)")
+    @Test("成員的身分叫「家庭管理員」「一般成員」(GLOSSARY.md、上游 ADR 0013)")
     func roleTitles() {
         #expect(HouseholdRole.admin.title == "家庭管理員")
         #expect(HouseholdRole.member.title == "一般成員")

@@ -17,7 +17,7 @@ final class LoginFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["我的記帳本"].exists)
         XCTAssertTrue(app.staticTexts["家庭財務，輕鬆掌握"].exists)
         XCTAssertFalse(app.buttons["login.register"].exists, "註冊在系統登入視窗裡,登入頁不該有「立即註冊」(#348)")
-        XCTAssertFalse(app.buttons["login.passkey"].exists, "Face ID 登入在系統登入視窗裡,登入頁不該有通行金鑰按鈕(#348)")
+        XCTAssertFalse(app.buttons["login.passkey"].exists, "通行金鑰登入在系統登入視窗裡,登入頁不該有通行金鑰按鈕(#348)")
         XCTAssertFalse(app.textFields["login.email"].exists, "登入頁不該再有帳密欄位(在系統登入視窗輸入)")
 
         signIn(app)

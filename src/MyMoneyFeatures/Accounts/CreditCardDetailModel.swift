@@ -117,7 +117,7 @@ public final class CreditCardDetailModel: Alerting {
     }
 
     /// 「設定」區塊的信用額度與剩餘額度;脫敏的卡不顯示(他人的額度不揭露)。
-    /// 沒有設定信用額度時沒有剩餘額度(CONTEXT.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
+    /// 沒有設定信用額度時沒有剩餘額度(GLOSSARY.md);最小是 0,web 在 82d9124 拿掉了「額度不足」的警示。
     public var limitRows: [CardDetailRow] {
         guard !isMasked else { return [] }
         var rows = [CardDetailRow("信用額度", card.creditLimit?.formatted() ?? "未設定")]

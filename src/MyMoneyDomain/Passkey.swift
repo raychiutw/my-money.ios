@@ -49,7 +49,7 @@ public struct PasskeyID: Hashable, Sendable {
     }
 }
 
-/// 帳號底下的一個通行金鑰(passkey,CONTEXT.md)。
+/// 帳號底下的一個通行金鑰(passkey,GLOSSARY.md)。
 public struct Passkey: Hashable, Sendable, Identifiable {
     public let id: PasskeyID
     public let name: String

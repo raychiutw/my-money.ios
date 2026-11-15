@@ -2,7 +2,7 @@ import Foundation
 import MyMoneyFeatures
 import Testing
 
-/// 使用者看得見的詞只有一套(#181、`docs/parity.md` 用詞偏離、CONTEXT.md):
+/// 使用者看得見的詞只有一套(#181、`docs/parity.md` 用詞偏離、GLOSSARY.md):
 /// 掃描 `src/` 的**字串常值**(註解不算，註解常引用上游原文)，出現舊詞就失敗。
 /// 用詞更名分三張票逐步套用(expand–contract，#185～#187):當時沒套用到的地方先列在例外清單，清完就刪;現在例外是空的。
 @Suite("用詞規則:字串常值裡沒有舊詞")

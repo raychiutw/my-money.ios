@@ -9,7 +9,7 @@ public struct LoginSessionID: Hashable, Sendable {
     }
 }
 
-/// 「帳號安全」裡的一個登入工作階段(登入裝置,CONTEXT.md「登入工作階段」)。裝置名稱由後端依 User-Agent 產生。
+/// 「帳號安全」裡的一個登入工作階段(登入裝置,GLOSSARY.md「登入工作階段」)。裝置名稱由後端依 User-Agent 產生。
 public struct LoginSession: Hashable, Sendable, Identifiable {
     public let id: LoginSessionID
     /// 後端的 `client_id`,例如 `ios`、`web`。
