@@ -326,3 +326,17 @@ DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金�
 | `oauth-revoke.json` | `POST /oauth/revoke`,`token=<更新權杖>` | 200 | `{success: true}`(RFC 7009:不論權杖是否有效都回 200) |
 | `oauth-token-invalid-dpop-proof.json` | 換碼帶 htu 錯誤的 DPoP proof(#337) | 400 | `{error: "invalid_dpop_proof", error_description}`:依 `Date` 校正時鐘、重簽送一次(proof 驗證失敗不會消費授權碼) |
 | `accounts-invalid-dpop-proof.json` | `GET /accounts`,DPoP 權杖配 htu 錯誤的 proof(#337) | 401 | `WWW-Authenticate: DPoP error="invalid_dpop_proof"`(`.headers`):重簽重送一次,仍失敗照顯示、不登出 |
+
+### 帳號安全(#338,2026-11-15,後端 `c899f01`)
+
+`/auth/sessions` 與 `/auth/password` 要 OAuth 的存取權杖(舊版權杖沒有工作階段,`current` 全是 false):用 `scripts/record-oauth-fixtures.sh account-security` 錄。腳本登入兩次(iPhone 與 iPad 的 User-Agent),錄完刪掉 iPad 那個、撤銷 iPhone 那個,測試帳號不留下多餘的登入裝置。**沒有改到密碼**:「目前密碼錯誤」用錯的目前密碼,「新密碼太短」在驗證目前密碼之前就擋下;第二次登入成功會清掉那次累計的失敗次數。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `auth-sessions.json` | `GET /auth/sessions` | 200 | snake_case,`created_at`、`last_used_at` 是 Unix 秒;`current` 標示這台;裝置名稱「iPhone · My Money App」「iPad · My Money App」 |
+| `auth-session-delete.json` | `DELETE /auth/sessions/:id`,刪 iPad 那個 | 200 | `{success, data: {id}}` |
+| `auth-session-delete-not-found.json` | 同一個 id 再刪一次 | 404 | 「找不到此裝置工作階段」原樣傳遞 |
+| `auth-password-wrong-current.json` | `POST /auth/password`,目前密碼錯誤 | 401 | **沒有** `WWW-Authenticate`(腳本有檢查):照顯示「目前密碼錯誤」、不登出 |
+| `auth-password-too-short.json` | `POST /auth/password`,新密碼 5 個字元 | 400 | 「新密碼至少 6 個字元」原樣傳遞 |
+| `auth-sessions-revoke-others.json` | **手寫**:`DELETE /auth/sessions?scope=others`,依上游 `c899f01` `handlers/auth.ts` 的回應 `{success, data: {revoked_count}}`。不錄:會撤銷測試帳號其他所有工作階段(別的開發環境可能正在用) | 200 | 成功 |
+| `auth-password-changed.json` | **手寫**:`POST /auth/password` 成功,依同一支原始碼的 `{success, data: {message: "密碼已更新，其他裝置已登出"}}`。不錄:會改到測試帳號的密碼並撤銷其他工作階段 | 200 | 顯示後端的成功訊息 |

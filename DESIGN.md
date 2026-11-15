@@ -258,7 +258,7 @@ Tab bar(iPad 用 .sidebarAdaptable)
   帳戶   creditcard
   家庭   person.2
   統計   chart.bar            ← 含預算
-每個 tab 主頁面 toolbar 最右  頭像 → 「我的」sheet(自帶 NavigationStack):機器人記帳、外觀、登出、版本
+每個 tab 主頁面 toolbar 最右  頭像 → 「我的」sheet(自帶 NavigationStack):機器人記帳、帳號安全、外觀、登出、版本
 總覽 功能入口格     週期收支 / 儲蓄目標 / 現金流預測 → 在總覽的導覽堆疊 push(ADR-0010;原本在「我的」的「規劃」分頁)
 總覽 toolbar        line.3.horizontal.decrease → 視角選單(全部、家庭公帳、個人);plus → 「記一筆」sheet
 記帳 toolbar        line.3.horizontal.decrease → 「篩選」sheet(視角、起日、迄日、類型、分類);plus → 「記一筆」sheet
