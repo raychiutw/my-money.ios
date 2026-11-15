@@ -630,9 +630,10 @@ struct AccountsTranslationTests {
         #expect(summary.availableBalance == Money(73820))
     }
 
-    @Test("token 失效時是 session 過期")
+    @Test("token 失效且 refresh 後重送仍被拒時是 session 過期")
     func invalidTokenExpiresSession() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
 
         await #expect(throws: RepositoryError.sessionExpired) {
             try await repository.accounts()

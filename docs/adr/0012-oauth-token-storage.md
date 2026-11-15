@@ -13,10 +13,10 @@ status: accepted
 - `Session` 是「使用者 + 權杖(`SessionTokens`)」的持有者:冷啟動讀回時沒有存取權杖,由更新權杖換新(#335);refresh 輪替後整份 `Session` 重新存一次。畫面 model 只看 `user`。
 - **登出**:先清掉本機,再 `POST /oauth/revoke`(帶更新權杖);撤銷失敗也一樣已經登出。
 - **舊版權杖遷移**:Keychain 裡解不出更新權杖的舊格式一律清掉、回登入頁重新登入一次(上游不提供把舊版權杖換成新工作階段的端點)。
+- **自動續期(#335)**:`APIClient` 送出前若沒有存取權杖(冷啟動)或一分鐘內到期,先用 `grant_type=refresh_token` 換新;收到 401 `invalid_token` 則 refresh 後重送一次,重送仍 401 才登出。同一時間只送一個 refresh(其他請求等同一個結果)。只有 `invalid_grant` 清掉登入狀態;網路錯誤與 5xx 保留更新權杖,原請求照一般錯誤顯示(上游 #208)。冷啟動不另設啟動畫面:第一批請求共用同一次 refresh。
 - OAuth 端點的格式(form-urlencoded、`{access_token, …}`、`{error, error_description}`,都不是 `{success, data}` envelope)只在 `MyMoneyAPI` 處理。
 
 ## Consequences
 
-- 這張單獨上線時,存取權杖 15 分鐘後過期就會被登出,也無法在冷啟動恢復登入:必須與 #335(更新權杖輪替與自動續期)一起發佈。
 - 「Face ID 登入」(把密碼存 Keychain)失去用途,登入頁與「我的」的開關一併移除;刪除裝置上已存的帳密與相關文件由 #336 處理。
 - 每台裝置都是後端的一個登入工作階段,User-Agent 帶 `MyMoney-iOS (iPhone|iPad)`,後端據此顯示裝置名稱。

@@ -8,7 +8,9 @@
 # 2. POST /oauth/authorize(form:csrf_token、mode=login、email、password)→ 302 到 callback,取出 code
 # 3. POST /oauth/token(grant_type=authorization_code)→ oauth-token-authorization-code.json
 # 4. 同一個 code 再換一次 → oauth-token-invalid-grant.json(400,授權碼已被使用)
-# 5. POST /oauth/revoke 撤銷剛建立的工作階段 → oauth-revoke.json(測試帳號不留下多餘的登入裝置)
+# 5. POST /oauth/token(grant_type=refresh_token)→ oauth-token-refresh.json(輪替後的新更新權杖,#335)
+# 6. 用不存在的更新權杖 refresh → oauth-token-refresh-invalid-grant.json(400)
+# 7. POST /oauth/revoke 撤銷剛建立的工作階段 → oauth-revoke.json(測試帳號不留下多餘的登入裝置)
 #
 # 加上 account-security 時改錄「帳號安全」(#338)的 /auth/sessions 與 /auth/password,
 # 見 README「帳號安全(#338)」;錄完撤銷建立的兩個工作階段。
@@ -37,6 +39,7 @@ UA = "MyMoney-iOS (iPhone) fixture-recorder"
 IPAD_UA = "MyMoney-iOS (iPad) fixture-recorder"
 FAKE_SIGNATURE = "ZmFrZS1zaWduYXR1cmU"
 FAKE_REFRESH = "fake-fixture-refresh-token"
+FAKE_ROTATED = "fake-fixture-rotated-refresh-token"
 out_dir = sys.argv[1]
 mode = sys.argv[2]
 password = os.environ["MYMONEY_TEST_PASSWORD"]
@@ -92,15 +95,16 @@ def authorize(ua=UA):
     return {"grant_type": "authorization_code", "code": params["code"][0], "redirect_uri": REDIRECT,
             "client_id": "ios", "code_verifier": verifier}
 
-# 真的權杖:回應裡出現任何一支就不存檔。
+real_refreshes = {}  # 真的更新權杖 → 假值
+# 帳號安全模式的存取權杖:回應裡出現任何一支就不存檔。
 real_tokens = []
 
-def sanitize(raw, real_refresh=None):
+def sanitize(raw):
     text = raw.decode()
     text = re.sub(r"(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)[A-Za-z0-9_-]+", r"\1" + FAKE_SIGNATURE, text)
-    if real_refresh:
-        text = text.replace(real_refresh, FAKE_REFRESH)
-    if password in text or any(token in text for token in real_tokens):
+    for real, fake in real_refreshes.items():
+        text = text.replace(real, fake)
+    if password in text or any(real in text for real in [*real_refreshes, *real_tokens]):
         sys.exit("回應裡還有密碼或真的權杖,不存檔")
     return text
 
@@ -115,7 +119,8 @@ def sign_in(ua=UA):
     if status != 200:
         sys.exit(f"換碼失敗(HTTP {status})")
     token = json.loads(body)
-    real_tokens.extend([token["access_token"], token["refresh_token"]])
+    real_tokens.append(token["access_token"])
+    real_refreshes[token["refresh_token"]] = FAKE_REFRESH
     payload = token["access_token"].split(".")[1]
     claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     return token["access_token"], token["refresh_token"], claims["sid"]
@@ -150,11 +155,26 @@ status, _, body = call("POST", "/oauth/token", exchange)
 if status != 200:
     sys.exit(f"換碼失敗(HTTP {status})")
 refresh = json.loads(body)["refresh_token"]
-save("oauth-token-authorization-code.json", status, sanitize(body, refresh))
+real_refreshes[refresh] = FAKE_REFRESH
+save("oauth-token-authorization-code.json", status, sanitize(body))
 
 status, _, body = call("POST", "/oauth/token", exchange)
-save("oauth-token-invalid-grant.json", status, sanitize(body, refresh))
+save("oauth-token-invalid-grant.json", status, sanitize(body))
+
+status, _, body = call("POST", "/oauth/token", {"grant_type": "refresh_token", "refresh_token": refresh, "client_id": "ios"})
+if status == 200:
+    rotated = json.loads(body)["refresh_token"]
+    real_refreshes[rotated] = FAKE_ROTATED
+    save("oauth-token-refresh.json", status, sanitize(body))
+    refresh = rotated
+else:
+    print(f"refresh 失敗(HTTP {status}),不存 oauth-token-refresh.json")
+
+status, _, body = call("POST", "/oauth/token", {
+    "grant_type": "refresh_token", "refresh_token": b64url(secrets.token_bytes(32)), "client_id": "ios",
+})
+save("oauth-token-refresh-invalid-grant.json", status, sanitize(body))
 
 status, _, body = call("POST", "/oauth/revoke", {"token": refresh})
-save("oauth-revoke.json", status, sanitize(body, refresh))
+save("oauth-revoke.json", status, sanitize(body))
 PY

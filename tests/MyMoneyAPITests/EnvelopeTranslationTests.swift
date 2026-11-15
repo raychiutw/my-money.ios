@@ -40,9 +40,10 @@ struct EnvelopeTranslationTests {
         }
     }
 
-    @Test("401 帶 invalid_token 時是 session 過期，不看路徑(/auth/sessions 也走權杖驗證)")
+    @Test("401 帶 invalid_token(refresh 後重送仍被拒)時是 session 過期，不看路徑(/auth/sessions 也走權杖驗證)")
     func invalidTokenOnAuthPathIsSessionExpired() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
 
         await #expect(throws: RepositoryError.sessionExpired) {
             try await client.send("GET", "/auth/sessions")
@@ -97,18 +98,20 @@ struct EnvelopeTranslationTests {
         #expect(userAgent.contains("MyMoney-iOS") && userAgent.contains("iPad"))
     }
 
-    @Test("401 帶 invalid_token(prod 錄下的標頭)時是 session 過期")
+    @Test("401 帶 invalid_token(prod 錄下的標頭,refresh 後重送仍被拒)時是 session 過期")
     func unauthorizedIsSessionExpired() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
 
         await #expect(throws: RepositoryError.sessionExpired) {
             try await client.send("GET", "/accounts")
         }
     }
 
-    @Test("401 帶 invalid_token 時通知 app 清掉 session")
+    @Test("401 帶 invalid_token(refresh 後重送仍被拒)時通知 app 清掉 session")
     func unauthorizedNotifiesApp() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
 
         _ = try? await client.send("GET", "/accounts")
 

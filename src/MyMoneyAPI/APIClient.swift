@@ -10,6 +10,8 @@ public struct APIClient: Sendable {
     private let urlSession: URLSession
     private let session: any SessionProvider
     private let userAgent: String
+    /// 同一時間只送一個 refresh;複製出去的 `APIClient` 共用同一個(#335)。
+    private let refresher = SingleFlight()
 
     /// - Parameter deviceModel: `UIDevice.current.model`(iPhone／iPad),放進 User-Agent。
     public init(
@@ -81,7 +83,8 @@ public struct APIClient: Sendable {
         _ path: String,
         query: [URLQueryItem] = [],
         body: Data?,
-        expectsEnvelope: Bool = true
+        expectsEnvelope: Bool = true,
+        retried: Bool = false
     ) async throws -> Data {
         var url = baseURL.appending(path: path)
         if !query.isEmpty {
@@ -93,12 +96,19 @@ public struct APIClient: Sendable {
         // 後端用 User-Agent 產生「工作階段」的裝置名稱(上游 parseDeviceName:含 MyMoney-iOS,再看有沒有 iPad)。
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.httpBody = body
-        if let token = await session.currentToken() {
+        let token = try await accessToken()
+        if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let (data, response) = try await urlSession.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         if statusCode == 401 {
+            // invalid_token:refresh 後重送一次;重送仍 401 才登出(handleUnauthorized)。
+            let challenge = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "WWW-Authenticate") ?? ""
+            if !retried, let token, challenge.contains("invalid_token") {
+                _ = try await accessToken(rejecting: token)
+                return try await perform(method, path, query: query, body: body, expectsEnvelope: expectsEnvelope, retried: true)
+            }
             try await handleUnauthorized(response, data: data)
         }
         if !expectsEnvelope {
@@ -126,17 +136,61 @@ public struct APIClient: Sendable {
     /// OAuth 端點(`/oauth/token`、`/oauth/revoke`):body 是 form-urlencoded、不帶權杖,回應不是 `{success, data}` envelope。
     /// 非 2xx 時照顯示 `{error, error_description}` 的 `error_description`。
     package func postForm(_ path: String, _ form: [String: String]) async throws -> Data {
+        let (data, status) = try await sendForm(path, form)
+        guard (200..<300).contains(status) else { throw Self.oauthError(data) }
+        return data
+    }
+
+    private func sendForm(_ path: String, _ form: [String: String]) async throws -> (Data, Int) {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.httpBody = Data(form.map { "\(Self.formEncode($0))=\(Self.formEncode($1))" }.joined(separator: "&").utf8)
         let (data, response) = try await urlSession.data(for: request)
-        guard let status = (response as? HTTPURLResponse)?.statusCode, (200..<300).contains(status) else {
-            let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data)
-            throw error.map { RepositoryError.rejected($0.errorDescription ?? $0.error) } ?? RepositoryError.unreadableResponse
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    private static func oauthError(_ data: Data) -> RepositoryError {
+        let error = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data)
+        return error.map { RepositoryError.rejected($0.errorDescription ?? $0.error) } ?? RepositoryError.unreadableResponse
+    }
+
+    /// 送出前取得可用的存取權杖(#335):沒有(冷啟動)、一分鐘內到期,或剛被 401 拒絕(`rejecting`)時先 refresh。
+    /// 別的請求已經換到新的就直接用,不再 refresh。
+    private func accessToken(rejecting rejected: String? = nil) async throws -> String? {
+        guard let tokens = await session.currentTokens() else { return nil }
+        if let access = tokens.access, access != rejected,
+           (tokens.accessExpiresAt ?? .distantFuture) > Date().addingTimeInterval(60) {
+            return access
         }
-        return data
+        return try await refresher.run { try await refresh() }
+    }
+
+    /// `grant_type=refresh_token`:成功時改存輪替後的新更新權杖。只有 `invalid_grant` 才登出;
+    /// 網路錯誤與 5xx 照一般錯誤丟出,保留更新權杖(上游 #208)。
+    private func refresh() async throws -> String {
+        guard let tokens = await session.currentTokens() else { throw RepositoryError.sessionExpired }
+        let (data, status) = try await sendForm("/oauth/token", [
+            "grant_type": "refresh_token",
+            "refresh_token": tokens.refresh,
+            "client_id": "ios",  // 上游寫死的 client,跟 LiveAuthRepository 相同
+        ])
+        guard (200..<300).contains(status) else {
+            if (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error == "invalid_grant" {
+                await session.sessionDidExpire()
+                throw RepositoryError.sessionExpired
+            }
+            throw Self.oauthError(data)
+        }
+        guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
+            throw RepositoryError.unreadableResponse
+        }
+        await session.sessionDidRefresh(SessionTokens(
+            access: token.accessToken, refresh: token.refreshToken,
+            accessExpiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn))
+        ))
+        return token.accessToken
     }
 
     /// form-urlencoded 只保留 RFC 3986 的 unreserved 字元,其餘(包括 `+`、`/`、`=`、`&`)都百分比編碼。
@@ -147,7 +201,7 @@ public struct APIClient: Sendable {
     private static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
     /// 401 依 `WWW-Authenticate` 判斷，不看路徑(上游 c899f01:`/auth/sessions` 等也走權杖驗證)。
-    /// `invalid_token` 是權杖失效;`invalid_dpop_proof` 只是這次的 proof 不對，不登出;
+    /// `invalid_token`(refresh 後重送仍被拒)是登入工作階段失效;`invalid_dpop_proof` 只是這次的 proof 不對，不登出;
     /// 沒有 challenge 的 401 是帳密錯誤或「目前密碼錯誤」,照顯示後端訊息。
     private func handleUnauthorized(_ response: URLResponse, data: Data) async throws -> Never {
         let challenge = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "WWW-Authenticate")
@@ -160,6 +214,19 @@ public struct APIClient: Sendable {
             throw RepositoryError.sessionExpired
         }
         throw RepositoryError.rejected(status?.error ?? "請求失敗")
+    }
+}
+
+/// 同一時間只執行一個(refresh):進行中再呼叫的人等同一個結果。
+private actor SingleFlight {
+    private var inFlight: Task<String, any Error>?
+
+    func run(_ operation: @escaping @Sendable () async throws -> String) async throws -> String {
+        if let inFlight { return try await inFlight.value }
+        let task = Task { try await operation() }
+        inFlight = task
+        defer { inFlight = nil }
+        return try await task.value
     }
 }
 

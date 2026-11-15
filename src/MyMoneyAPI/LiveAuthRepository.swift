@@ -99,7 +99,7 @@ public struct LiveAuthRepository: AuthRepository {
 }
 
 /// `POST /oauth/token` 成功的回應(不是 envelope):`{access_token, token_type, expires_in, refresh_token, scope}`。
-private struct TokenResponse: Decodable {
+struct TokenResponse: Decodable {
     let accessToken: String
     let refreshToken: String
     let expiresIn: Int

@@ -171,6 +171,8 @@ struct MyMoneyApp: App {
             return
         }
         #endif
+        // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
+        LegacyCredentials.delete()
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
