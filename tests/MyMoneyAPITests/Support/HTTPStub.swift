@@ -46,6 +46,15 @@ final class HTTPStub: Sendable {
         state.withLock { $0.routes[path] = built }
     }
 
+    /// 這個路徑的第一個回應另外加上標頭(例如 prod 錄不到固定值的 `Date`)。
+    func setHeaders(_ headers: [String: String], forFirstReplyOf path: String) {
+        state.withLock { state in
+            guard var first = state.routes[path]?.first ?? nil else { return }
+            first.headers.merge(headers) { _, new in new }
+            state.routes[path]?[0] = first
+        }
+    }
+
     private static func reply(status: Int, fixture name: String, headers overrides: [String: String]) throws -> Reply {
         let body = try Fixture.data(name)
         let contentType = name.hasSuffix(".json") ? "application/json" : "text/plain; charset=UTF-8"

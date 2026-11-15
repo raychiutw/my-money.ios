@@ -315,6 +315,8 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 `/oauth/*` 不是 `{success, data}` envelope,也不是 JSON body:用 `scripts/record-oauth-fixtures.sh` 一次錄完(不用 `record-fixture.sh`)。腳本用測試帳號走一次授權碼流程:`GET /oauth/authorize` 從 Worker 登入頁取 `csrf_token` → `POST /oauth/authorize`(form)拿到 302 callback 的 `code` → 換權杖 → 同一個 code 再換一次 → 用更新權杖 refresh(#335)→ 用不存在的更新權杖 refresh → 撤銷剛建立的工作階段(測試帳號不留下多餘的登入裝置)。存檔前存取權杖(JWT)**只換掉簽章**(header 與 payload 保留,測試要從 payload 解出使用者;沒有簽章的權杖不能用),更新權杖換成 `fake-fixture-refresh-token`(輪替後的換成 `fake-fixture-rotated-refresh-token`);回應含有密碼或真的更新權杖時不存檔。
 
+DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金鑰(放暫存目錄,結束時刪掉),換碼與 refresh 都帶 proof,所以 `oauth-token-authorization-code.json`、`oauth-token-refresh.json` 是 `token_type: "DPoP"`。`invalid_dpop_proof` 回應另帶 `Date`,不存進 `.headers`(每次不同),測試用 `HTTPStub.setHeaders(_:forFirstReplyOf:)` 指定。
+
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `oauth-token-authorization-code.json` | `POST /oauth/token`,`grant_type=authorization_code`(PKCE) | 200 | `{access_token, token_type, expires_in: 900, refresh_token, scope}`;使用者取自存取權杖的 payload(`sub`、`email`、`name`) |
@@ -322,3 +324,5 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `oauth-token-refresh.json` | `POST /oauth/token`,`grant_type=refresh_token`、`client_id=ios`(#335) | 200 | 同換碼的格式;`refresh_token` 是輪替後的新權杖,要改存它 |
 | `oauth-token-refresh-invalid-grant.json` | 用不存在的更新權杖 refresh | 400 | `{error: "invalid_grant", error_description: "Refresh Token 無效或已過期"}`:清掉登入狀態回登入頁 |
 | `oauth-revoke.json` | `POST /oauth/revoke`,`token=<更新權杖>` | 200 | `{success: true}`(RFC 7009:不論權杖是否有效都回 200) |
+| `oauth-token-invalid-dpop-proof.json` | 換碼帶 htu 錯誤的 DPoP proof(#337) | 400 | `{error: "invalid_dpop_proof", error_description}`:依 `Date` 校正時鐘、重簽送一次(proof 驗證失敗不會消費授權碼) |
+| `accounts-invalid-dpop-proof.json` | `GET /accounts`,DPoP 權杖配 htu 錯誤的 proof(#337) | 401 | `WWW-Authenticate: DPoP error="invalid_dpop_proof"`(`.headers`):重簽重送一次,仍失敗照顯示、不登出 |

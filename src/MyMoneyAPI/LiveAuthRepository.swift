@@ -42,6 +42,8 @@ public struct LiveAuthRepository: AuthRepository {
             throw RepositoryError.rejected("登入失敗，請再試一次")
         }
 
+        // 每次登入換一把新的 DPoP 金鑰,換碼時用它綁定這個登入工作階段(#337)。
+        client.createDPoPKey()
         let data = try await client.postForm("/oauth/token", [
             "grant_type": "authorization_code",
             "code": code,
@@ -67,11 +69,13 @@ public struct LiveAuthRepository: AuthRepository {
     /// 撤銷這台的登入工作階段;失敗也不丟錯(呼叫端已經清掉本機的登入狀態)。
     public func signOut(_ session: Session) async {
         _ = try? await client.postForm("/oauth/revoke", ["token": session.tokens.refresh])
+        client.deleteDPoPKey()
     }
 
     /// 後端只回 `{success, message}`,沒有 `data`。
     public func deleteAccount() async throws {
         try await client.send("DELETE", "/auth/account")
+        client.deleteDPoPKey()
     }
 
     /// token 回應沒有使用者資料:從存取權杖(JWT)的 payload 取 `sub`、`email`、`name`,只用於顯示,不驗章(後端驗)。
