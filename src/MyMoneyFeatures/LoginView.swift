@@ -4,6 +4,7 @@ import SwiftUI
 /// 錯誤訊息放在 Section footer(DESIGN.md「元件對照」)。
 struct LoginView: View {
     let model: LoginModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Form {
@@ -39,7 +40,10 @@ struct LoginView: View {
             }
         }
         // 登入頁一出現就開系統登入視窗(#348);關掉後留在這裡,按「登入」再開。
-        .task { await model.appeared() }
+        // 等 scene 進前景才開：冷啟動時太早開,系統登入視窗會開不起來(#351)。
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active { Task { await model.appeared() } }
+        }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現在畫面下方，VoiceOver 使用者不一定會移過去，直接念出來。
             if let message {

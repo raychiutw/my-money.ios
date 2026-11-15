@@ -1,5 +1,6 @@
 import AuthenticationServices
 import MyMoneyDomain
+import Synchronization
 import UIKit
 
 /// 「瀏覽器授權」的系統實作(#334):用 `ASWebAuthenticationSession` 開上游 Worker 的登入頁。
@@ -10,22 +11,36 @@ struct LiveBrowserAuthorizer: BrowserAuthorizer {
     func authorize(url: URL, callbackScheme: String) async throws -> URL {
         let anchor = PresentationAnchor()
         return try await withCheckedThrowingContinuation { continuation in
+            let once = ResumeOnce(continuation)
             let session = ASWebAuthenticationSession(url: url, callback: .customScheme(callbackScheme)) { callback, error in
                 if let callback {
-                    continuation.resume(returning: callback)
+                    once.resume(with: .success(callback))
                 } else if let error = error as? ASWebAuthenticationSessionError, error.code == .canceledLogin {
                     // 使用者關掉登入視窗:不是錯誤。
-                    continuation.resume(throwing: CancellationError())
+                    once.resume(with: .failure(CancellationError()))
                 } else {
-                    continuation.resume(throwing: error ?? CancellationError())
+                    once.resume(with: .failure(error ?? CancellationError()))
                 }
             }
             session.prefersEphemeralWebBrowserSession = true
             session.presentationContextProvider = anchor
             if !session.start() {
-                continuation.resume(throwing: CancellationError())
+                once.resume(with: .failure(CancellationError()))
             }
         }
+    }
+}
+
+/// `start()` 回 false 之後,系統還會帶錯誤呼叫 completion handler;continuation 只能 resume 一次，第二次會當機(#351)。
+private final class ResumeOnce: Sendable {
+    private let continuation: Mutex<CheckedContinuation<URL, any Error>?>
+
+    init(_ continuation: CheckedContinuation<URL, any Error>) {
+        self.continuation = Mutex(continuation)
+    }
+
+    func resume(with result: Result<URL, any Error>) {
+        continuation.withLock { $0.take() }?.resume(with: result)
     }
 }
 
