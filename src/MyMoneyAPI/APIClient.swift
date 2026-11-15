@@ -1,5 +1,7 @@
+import CryptoKit
 import Foundation
 import MyMoneyDomain
+import Synchronization
 
 /// 呼叫後端 API 的唯一入口。envelope 與錯誤映射都在這裡處理，各個 repository 只管自己的 DTO。
 public struct APIClient: Sendable {
@@ -12,17 +14,23 @@ public struct APIClient: Sendable {
     private let userAgent: String
     /// 同一時間只送一個 refresh;複製出去的 `APIClient` 共用同一個(#335)。
     private let refresher = SingleFlight()
+    /// DPoP 金鑰(#337);`nil` 時不綁定,照舊用 `Bearer`。
+    private let dpopKeys: (any DPoPKeyStore)?
+    /// 伺服器時間減本機時間(秒):proof 的 `iat` 用伺服器的時間,手機時間不準也不會被拒。複製出去的共用同一個。
+    private let clockOffset = ClockOffset()
 
     /// - Parameter deviceModel: `UIDevice.current.model`(iPhone／iPad),放進 User-Agent。
     public init(
         baseURL: URL = APIClient.productionBaseURL,
         urlSession: URLSession = .shared,
         session: any SessionProvider,
-        deviceModel: String = "iPhone"
+        deviceModel: String = "iPhone",
+        dpopKeys: (any DPoPKeyStore)? = nil
     ) {
         self.baseURL = baseURL
         self.urlSession = urlSession
         self.session = session
+        self.dpopKeys = dpopKeys
         userAgent = "MyMoney-iOS (\(deviceModel))"
     }
 
@@ -84,7 +92,8 @@ public struct APIClient: Sendable {
         query: [URLQueryItem] = [],
         body: Data?,
         expectsEnvelope: Bool = true,
-        retried: Bool = false
+        retried: Bool = false,
+        resigned: Bool = false
     ) async throws -> Data {
         var url = baseURL.appending(path: path)
         if !query.isEmpty {
@@ -97,8 +106,11 @@ public struct APIClient: Sendable {
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.httpBody = body
         let token = try await accessToken()
+        var proof: String?
         if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            proof = try dpopProof(method, url, accessToken: token)
+            request.setValue("\(proof == nil ? "Bearer" : "DPoP") \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue(proof, forHTTPHeaderField: "DPoP")
         }
         let (data, response) = try await urlSession.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -107,7 +119,16 @@ public struct APIClient: Sendable {
             let challenge = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "WWW-Authenticate") ?? ""
             if !retried, let token, challenge.contains("invalid_token") {
                 _ = try await accessToken(rejecting: token)
-                return try await perform(method, path, query: query, body: body, expectsEnvelope: expectsEnvelope, retried: true)
+                return try await perform(
+                    method, path, query: query, body: body, expectsEnvelope: expectsEnvelope, retried: true, resigned: resigned
+                )
+            }
+            // invalid_dpop_proof:多半是手機時間不準;依回應的 Date 校正後重簽、重送一次,不登出。
+            if !resigned, proof != nil, challenge.contains("invalid_dpop_proof") {
+                clockOffset.note(response)
+                return try await perform(
+                    method, path, query: query, body: body, expectsEnvelope: expectsEnvelope, retried: retried, resigned: true
+                )
             }
             try await handleUnauthorized(response, data: data)
         }
@@ -141,14 +162,60 @@ public struct APIClient: Sendable {
         return data
     }
 
-    private func sendForm(_ path: String, _ form: [String: String]) async throws -> (Data, Int) {
-        var request = URLRequest(url: baseURL.appending(path: path))
+    /// 有 DPoP 金鑰時帶 proof(換碼與 refresh 由此綁定金鑰);回 `invalid_dpop_proof` 時依 `Date` 校正、重簽送一次
+    /// (上游:proof 驗證失敗時不會消費授權碼與更新權杖)。
+    private func sendForm(_ path: String, _ form: [String: String], resigned: Bool = false) async throws -> (Data, Int) {
+        let url = baseURL.appending(path: path)
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let proof = try dpopProof("POST", url, accessToken: nil)
+        request.setValue(proof, forHTTPHeaderField: "DPoP")
         request.httpBody = Data(form.map { "\(Self.formEncode($0))=\(Self.formEncode($1))" }.joined(separator: "&").utf8)
         let (data, response) = try await urlSession.data(for: request)
-        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if !resigned, proof != nil, !(200..<300).contains(status),
+           (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error == "invalid_dpop_proof" {
+            clockOffset.note(response)
+            return try await sendForm(path, form, resigned: true)
+        }
+        return (data, status)
+    }
+
+    /// 登入時產生這次登入工作階段的新金鑰(取代舊的);產生失敗時不綁定,照舊用 `Bearer`(同 web)。
+    package func createDPoPKey() {
+        if (try? dpopKeys?.create()) == nil { dpopKeys?.delete() }
+    }
+
+    /// 登出、`invalid_grant`、刪除帳號時刪掉金鑰。
+    package func deleteDPoPKey() {
+        dpopKeys?.delete()
+    }
+
+    /// DPoP proof(RFC 9449 §4.2);沒有金鑰時是 `nil`。`htu` 不含 query 與 fragment;受保護的請求另帶 `ath`。
+    private func dpopProof(_ method: String, _ url: URL, accessToken: String?) throws -> String? {
+        guard let key = dpopKeys?.load() else { return nil }
+        var htu = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        htu?.query = nil
+        htu?.fragment = nil
+        let point = key.publicKey.rawRepresentation  // x || y
+        let header = DPoPHeader(jwk: .init(x: Self.base64URL(point.prefix(32)), y: Self.base64URL(point.suffix(32))))
+        let payload = DPoPPayload(
+            jti: UUID().uuidString, htm: method, htu: htu?.url?.absoluteString ?? url.absoluteString,
+            iat: Int(Date().timeIntervalSince1970 + clockOffset.seconds),
+            ath: accessToken.map { Self.base64URL(SHA256.hash(data: Data($0.utf8))) }
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        let signingInput = "\(Self.base64URL(try encoder.encode(header))).\(Self.base64URL(try encoder.encode(payload)))"
+        return "\(signingInput).\(Self.base64URL(try key.sign(Data(signingInput.utf8))))"
+    }
+
+    private static func base64URL(_ bytes: some Sequence<UInt8>) -> String {
+        Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 
     private static func oauthError(_ data: Data) -> RepositoryError {
@@ -178,6 +245,7 @@ public struct APIClient: Sendable {
         ])
         guard (200..<300).contains(status) else {
             if (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error == "invalid_grant" {
+                deleteDPoPKey()
                 await session.sessionDidExpire()
                 throw RepositoryError.sessionExpired
             }
@@ -228,6 +296,44 @@ private actor SingleFlight {
         defer { inFlight = nil }
         return try await task.value
     }
+}
+
+/// 伺服器與本機的時差(秒),由 `invalid_dpop_proof` 回應的 `Date` 算出。
+private final class ClockOffset: Sendable {
+    private let offset = Mutex<TimeInterval>(0)
+
+    var seconds: TimeInterval { offset.withLock { $0 } }
+
+    func note(_ response: URLResponse) {
+        guard
+            let header = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Date"),
+            let server = try? Date(header, strategy: .http)
+        else { return }
+        offset.withLock { $0 = server.timeIntervalSinceNow }
+    }
+}
+
+/// DPoP proof 的 JOSE header:`jwk` 只有公鑰。
+private struct DPoPHeader: Encodable {
+    struct JWK: Encodable {
+        var kty = "EC"
+        var crv = "P-256"
+        let x: String
+        let y: String
+    }
+
+    var typ = "dpop+jwt"
+    var alg = "ES256"
+    let jwk: JWK
+}
+
+private struct DPoPPayload: Encodable {
+    let jti: String
+    let htm: String
+    let htu: String
+    let iat: Int
+    /// 只有受保護的請求才有(`nil` 不輸出)。
+    let ath: String?
 }
 
 /// 每種 envelope 都有的部分:`{success}`,失敗時另有 `error`。

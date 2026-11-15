@@ -12,6 +12,11 @@
 # 6. 用不存在的更新權杖 refresh → oauth-token-refresh-invalid-grant.json(400)
 # 7. POST /oauth/revoke 撤銷剛建立的工作階段 → oauth-revoke.json(測試帳號不留下多餘的登入裝置)
 #
+# DPoP(#337):每次執行產生一把暫時的 P-256 金鑰(openssl,放在暫存目錄,結束時刪掉),換碼與 refresh 都帶 proof,
+# 所以權杖回應是 `token_type: "DPoP"`。另外錄:
+# - 換碼前用 htu 錯誤的 proof → oauth-token-invalid-dpop-proof.json(400;proof 驗證失敗不會消費授權碼)
+# - 用 DPoP 權杖 GET /accounts(只檢查 200,不存檔),再用 htu 錯誤的 proof → accounts-invalid-dpop-proof.json(401)
+#
 # 加上 account-security 時改錄「帳號安全」(#338)的 /auth/sessions 與 /auth/password,
 # 見 README「帳號安全(#338)」;錄完撤銷建立的兩個工作階段。
 # 加上 passkey 時改錄 passkey(#339)的 options、清單與錯誤回應,見 README「Passkey(#339)」;不建立任何 passkey。
@@ -32,7 +37,7 @@ fi
 export MYMONEY_TEST_PASSWORD TEST_EMAIL
 
 python3 -I - "$fixtures_dir" "${1:-oauth}" <<'PY'
-import base64, hashlib, json, os, re, secrets, sys, urllib.error, urllib.parse, urllib.request
+import atexit, base64, hashlib, json, os, re, secrets, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
 
 BASE = "https://my-money-api.onion523.workers.dev"
 REDIRECT = "com.raychiu.mymoney:/oauth/callback"
@@ -51,9 +56,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 opener = urllib.request.build_opener(NoRedirect)
 
-def call(method, path, form=None, json_body=None, token=None, ua=UA):
+def call(method, path, form=None, json_body=None, token=None, ua=UA, headers=None):
     data = None
-    request = urllib.request.Request(BASE + path, method=method, headers={"User-Agent": ua})
+    request = urllib.request.Request(BASE + path, method=method, headers={"User-Agent": ua, **(headers or {})})
     if form is not None:
         data = urllib.parse.urlencode(form).encode()
         request.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -71,6 +76,35 @@ def call(method, path, form=None, json_body=None, token=None, ua=UA):
 
 def b64url(raw):
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+# DPoP 金鑰:openssl 產生 P-256,私鑰只在暫存目錄
+key_dir = tempfile.mkdtemp()
+atexit.register(shutil.rmtree, key_dir, True)
+key_path = os.path.join(key_dir, "dpop.pem")
+subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", key_path], check=True)
+public_der = subprocess.run(["openssl", "ec", "-in", key_path, "-pubout", "-outform", "DER"],
+                            check=True, capture_output=True).stdout
+jwk = {"kty": "EC", "crv": "P-256", "x": b64url(public_der[-64:-32]), "y": b64url(public_der[-32:])}
+
+def der_to_raw(der):
+    # ECDSA-Sig-Value ::= SEQUENCE { r INTEGER, s INTEGER } → r||s 各 32 bytes(JWS ES256)
+    index = 2 if der[1] < 0x80 else 3
+    parts = []
+    for _ in range(2):
+        length = der[index + 1]
+        parts.append(der[index + 2:index + 2 + length].lstrip(b"\0").rjust(32, b"\0"))
+        index += 2 + length
+    return b"".join(parts)
+
+def dpop(method, path, access=None):
+    header = {"typ": "dpop+jwt", "alg": "ES256", "jwk": jwk}
+    payload = {"jti": str(uuid.uuid4()), "htm": method, "htu": BASE + path.split("?")[0], "iat": int(time.time())}
+    if access:
+        payload["ath"] = b64url(hashlib.sha256(access.encode()).digest())
+    signing_input = b64url(json.dumps(header).encode()) + "." + b64url(json.dumps(payload).encode())
+    der = subprocess.run(["openssl", "dgst", "-sha256", "-sign", key_path], input=signing_input.encode(),
+                         check=True, capture_output=True).stdout
+    return {"DPoP": signing_input + "." + b64url(der_to_raw(der))}
 
 def authorize(ua=UA):
     """走一次授權碼流程,回傳換權杖用的 form。"""
@@ -178,17 +212,31 @@ if mode == "passkey":
     sys.exit(0)
 
 exchange = authorize()
-status, _, body = call("POST", "/oauth/token", exchange)
+status, _, body = call("POST", "/oauth/token", exchange, headers=dpop("POST", "/oauth/wrong-htu"))
+save("oauth-token-invalid-dpop-proof.json", status, sanitize(body))
+
+status, _, body = call("POST", "/oauth/token", exchange, headers=dpop("POST", "/oauth/token"))
 if status != 200:
     sys.exit(f"換碼失敗(HTTP {status})")
-refresh = json.loads(body)["refresh_token"]
+token = json.loads(body)
+refresh, access = token["refresh_token"], token["access_token"]
 real_refreshes[refresh] = FAKE_REFRESH
+real_tokens.append(access)
+print(f"token_type = {token['token_type']}")
 save("oauth-token-authorization-code.json", status, sanitize(body))
 
-status, _, body = call("POST", "/oauth/token", exchange)
+status, _, _ = call("GET", "/accounts", headers={"Authorization": f"DPoP {access}", **dpop("GET", "/accounts", access)})
+print(f"GET /accounts(DPoP)→ HTTP {status}")
+status, headers, body = call("GET", "/accounts", headers={"Authorization": f"DPoP {access}", **dpop("GET", "/wrong-htu", access)})
+save("accounts-invalid-dpop-proof.json", status, sanitize(body))
+with open(os.path.join(out_dir, "accounts-invalid-dpop-proof.json.headers"), "w") as file:
+    file.write(f"WWW-Authenticate: {headers.get('WWW-Authenticate')}\n")
+
+status, _, body = call("POST", "/oauth/token", exchange, headers=dpop("POST", "/oauth/token"))
 save("oauth-token-invalid-grant.json", status, sanitize(body))
 
-status, _, body = call("POST", "/oauth/token", {"grant_type": "refresh_token", "refresh_token": refresh, "client_id": "ios"})
+status, _, body = call("POST", "/oauth/token", {"grant_type": "refresh_token", "refresh_token": refresh, "client_id": "ios"},
+                       headers=dpop("POST", "/oauth/token"))
 if status == 200:
     rotated = json.loads(body)["refresh_token"]
     real_refreshes[rotated] = FAKE_ROTATED
@@ -199,7 +247,7 @@ else:
 
 status, _, body = call("POST", "/oauth/token", {
     "grant_type": "refresh_token", "refresh_token": b64url(secrets.token_bytes(32)), "client_id": "ios",
-})
+}, headers=dpop("POST", "/oauth/token"))
 save("oauth-token-refresh-invalid-grant.json", status, sanitize(body))
 
 status, _, body = call("POST", "/oauth/revoke", {"token": refresh})

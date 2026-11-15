@@ -179,7 +179,11 @@ struct MyMoneyApp: App {
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
-        let client = APIClient(session: session, deviceModel: UIDevice.current.model)
+        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337)。
+        let client = APIClient(
+            session: session, deviceModel: UIDevice.current.model,
+            dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
+        )
         let passkeyAuthenticator = LivePasskeyAuthenticator()
         let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator)
         login = LoginModel(auth: auth, session: session)
