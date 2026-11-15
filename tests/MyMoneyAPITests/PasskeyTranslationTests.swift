@@ -46,12 +46,13 @@ struct PasskeyTranslationTests {
     /// `passkey-login-options.json` 的 challenge(標準 base64)。
     private let loginChallenge = Data(base64Encoded: "7xIYiecbMmN2yMnVZzdqGV+ZJtSSuQnrq0ywdCA/R/8=")!
 
-    @Test("登入頁要求 passkey(passkey_requested、state 相符):改走原生 passkey 登入並換到 session")
-    func passkeyRequestedSwitchesToPasskey() async throws {
+    /// 從「註冊」打開也一樣:Worker 註冊頁可以切到登入分頁再要求 passkey,使用者已經改成要登入。
+    @Test("登入頁要求 passkey(passkey_requested、state 相符):改走原生 passkey 登入並換到 session", arguments: [false, true])
+    func passkeyRequestedSwitchesToPasskey(registering: Bool) async throws {
         try routePasskeySignIn()
         let authenticator = FakePasskeyAuthenticator()
 
-        let session = try await auth(authenticator, browser: FakeBrowserAuthorizer(.passkeyRequested)).signIn(registering: false)
+        let session = try await auth(authenticator, browser: FakeBrowserAuthorizer(.passkeyRequested)).signIn(registering: registering)
 
         #expect(authenticator.assertions.count == 1)
         #expect(session.user.email == "mymoney-ios-test@example.com")
