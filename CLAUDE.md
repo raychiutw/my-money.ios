@@ -66,7 +66,7 @@ tests/MyMoneyUITests/          # XCUITest
 - **日期**:「今天」和「本月」一律用台灣時間算。呼叫 API 時明確帶上月份，不依賴後端用 UTC 算的預設值。wire 上的日期維持 `YYYY-MM-DD` 字串。
 - **DI**:只用 initializer 注入;app 層級的物件用 `Environment` 往下傳;`App` 是唯一的 composition root。畫面 model 由父層或路由建立後傳入，不在 view 裡用 `@State` 直接建立。
 - **Concurrency**:Domain 型別是 `Sendable` 的 value type;API 層維持 nonisolated;畫面 model 放在 main actor。
-- **認證**:上游 OAuth 2.1(ADR-0012):登入與註冊在系統登入視窗完成;存取權杖(15 分鐘)只放記憶體,更新權杖(輪替、閒置 30 天失效)與 DPoP 金鑰(Secure Enclave,每次登入換新)存 Keychain(Security framework)。沒有存取權杖(冷啟動)或快到期時,第一個請求送出前先 refresh。401 依 `WWW-Authenticate` 判斷，不看路徑:`invalid_token` 先 refresh 再重送一次,仍失敗才清掉 token、回到登入頁;`invalid_dpop_proof` 依 `Date` 校正時鐘、重送一次,不登出;沒有這個標頭的 401(帳密錯誤、「目前密碼錯誤」)照顯示後端訊息。refresh 回 `invalid_grant`(或本機沒有金鑰時的 `invalid_dpop_proof`)也回到登入頁;所有登出路徑都刪掉 DPoP 金鑰。這件事只在 `APIClient` 一個地方判斷：它透過 Domain 的 `SessionProvider` 通知 `AppSession`,所以新的 repository 只要經過 `APIClient` 就自動套用，畫面 model 不必自己處理。
+- **認證**:上游 OAuth 2.1(ADR-0012):登入與註冊在系統登入視窗完成(授權網址帶 `biometry`、`font_scale` 外觀參數,登入頁的「用 Face ID 登入」以 `error=passkey_requested` 導回、改走原生 passkey);存取權杖(15 分鐘)只放記憶體,更新權杖(輪替、閒置 30 天失效)與 DPoP 金鑰(Secure Enclave,每次登入換新)存 Keychain(Security framework)。沒有存取權杖(冷啟動)或快到期時,第一個請求送出前先 refresh。401 依 `WWW-Authenticate` 判斷，不看路徑:`invalid_token` 先 refresh 再重送一次,仍失敗才清掉 token、回到登入頁;`invalid_dpop_proof` 依 `Date` 校正時鐘、重送一次,不登出;沒有這個標頭的 401(帳密錯誤、「目前密碼錯誤」)照顯示後端訊息。refresh 回 `invalid_grant`(或本機沒有金鑰時的 `invalid_dpop_proof`)也回到登入頁;所有登出路徑都刪掉 DPoP 金鑰。這件事只在 `APIClient` 一個地方判斷：它透過 Domain 的 `SessionProvider` 通知 `AppSession`,所以新的 repository 只要經過 `APIClient` 就自動套用，畫面 model 不必自己處理。
 - **套件政策**:優先用 Apple 第一方。第一方真的做不到時，才用最活躍的免費第三方套件，並在 PR 說明第一方為什麼做不到。
 
 ## 測試慣例

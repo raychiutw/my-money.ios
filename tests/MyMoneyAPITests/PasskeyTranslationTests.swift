@@ -16,8 +16,10 @@ struct PasskeyTranslationTests {
         APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: FakeSessionProvider(token: token))
     }
 
-    private func auth(_ authenticator: FakePasskeyAuthenticator) -> LiveAuthRepository {
-        LiveAuthRepository(client: client(), browser: FakeBrowserAuthorizer(.cancelled), passkeys: authenticator)
+    private func auth(
+        _ authenticator: FakePasskeyAuthenticator, browser: FakeBrowserAuthorizer = FakeBrowserAuthorizer(.cancelled)
+    ) -> LiveAuthRepository {
+        LiveAuthRepository(client: client(), browser: browser, passkeys: authenticator)
     }
 
     private func repository(_ authenticator: FakePasskeyAuthenticator = FakePasskeyAuthenticator()) -> LivePasskeyRepository {
@@ -43,6 +45,42 @@ struct PasskeyTranslationTests {
 
     /// `passkey-login-options.json` 的 challenge(標準 base64)。
     private let loginChallenge = Data(base64Encoded: "7xIYiecbMmN2yMnVZzdqGV+ZJtSSuQnrq0ywdCA/R/8=")!
+
+    @Test("登入視窗按了「用 Face ID 登入」(passkey_requested、state 相符):改走原生 passkey 登入並換到 session")
+    func passkeyRequestedSwitchesToPasskey() async throws {
+        try routePasskeySignIn()
+        let authenticator = FakePasskeyAuthenticator()
+
+        let session = try await auth(authenticator, browser: FakeBrowserAuthorizer(.passkeyRequested)).signIn(registering: false)
+
+        #expect(authenticator.assertions.count == 1)
+        #expect(session.user.email == "mymoney-ios-test@example.com")
+    }
+
+    @Test("passkey_requested 之後使用者取消 passkey:丟 CancellationError(留在登入頁,不算錯誤)")
+    func passkeyRequestedThenCancelled() async throws {
+        try routePasskeySignIn()
+
+        await #expect(throws: CancellationError.self) {
+            try await auth(FakePasskeyAuthenticator(cancels: true), browser: FakeBrowserAuthorizer(.passkeyRequested))
+                .signIn(registering: false)
+        }
+    }
+
+    @Test("passkey_requested 的 state 跟送出的不同:照 state 不符拒絕,不叫 passkey")
+    func passkeyRequestedWithForgedStateIsRejected() async throws {
+        try routePasskeySignIn()
+        let authenticator = FakePasskeyAuthenticator()
+        let browser = FakeBrowserAuthorizer(.callback(
+            "com.raychiu.mymoney:/oauth/callback?error=passkey_requested&error_description=x&state=forged"
+        ))
+
+        await #expect(throws: RepositoryError.rejected("登入失敗，請再試一次")) {
+            try await auth(authenticator, browser: browser).signIn(registering: false)
+        }
+        #expect(authenticator.assertions.isEmpty)
+        #expect(stub.requests.isEmpty)
+    }
 
     @Test("passkey 登入:用登入 options 的 RP ID 與 challenge 向驗證器要 assertion")
     func signInAsksAuthenticator() async throws {

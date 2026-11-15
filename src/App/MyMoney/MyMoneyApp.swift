@@ -185,7 +185,16 @@ struct MyMoneyApp: App {
             dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
         )
         let passkeyAuthenticator = LivePasskeyAuthenticator()
-        let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator)
+        // 登入頁跟著這台的生物辨識種類顯示「用 Face ID 登入」,字級跟著 Dynamic Type 放大(#344)。
+        let auth = LiveAuthRepository(
+            client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator,
+            loginPage: { @MainActor in
+                LoginPageAppearance(
+                    biometry: await LiveDeviceAuthenticator().capability(),
+                    fontScale: UIFontMetrics(forTextStyle: .body).scaledValue(for: 17) / 17
+                )
+            }
+        )
         login = LoginModel(auth: auth, session: session)
         signOut = SignOutModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)
