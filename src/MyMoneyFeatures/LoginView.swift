@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 登入頁(parity.md「登入」):登入與註冊都開系統的安全登入視窗(#334),這裡沒有帳密欄位。
+/// 登入頁(parity.md「登入」):登入與註冊都在系統的安全登入視窗(#334),這裡只有品牌名稱與「登入」(#348)。
 /// 錯誤訊息放在 Section footer(DESIGN.md「元件對照」)。
 struct LoginView: View {
     let model: LoginModel
@@ -30,14 +30,6 @@ struct LoginView: View {
                 .disabled(model.isSubmitting)
                 .accessibilityIdentifier("login.submit")
                 .clearListRow()
-                // web 的 passkey 在前端登入頁;原生 app 的登入頁就是這裡(parity.md,#339)。
-                GlassCapsuleButton(title: "使用通行金鑰登入", systemImage: "person.badge.key") {
-                    Task { await model.signInWithPasskey() }
-                }
-                .frame(maxWidth: .infinity)
-                .disabled(model.isSubmitting)
-                .accessibilityIdentifier("login.passkey")
-                .clearListRow()
             } footer: {
                 if let message = model.errorMessage {
                     Text(message)
@@ -45,24 +37,9 @@ struct LoginView: View {
                         .accessibilityIdentifier("login.error")
                 }
             }
-
-            Section {
-                HStack(spacing: 4) {
-                    Text("還沒有帳號？")
-                        .foregroundStyle(.secondary)
-                    Button("立即註冊") {
-                        Task { await model.register() }
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Color.ciText)
-                    .fixedSize()
-                    .disabled(model.isSubmitting)
-                    .accessibilityIdentifier("login.register")
-                }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-            }
         }
+        // 登入頁一出現就開系統登入視窗(#348);關掉後留在這裡,按「登入」再開。
+        .task { await model.appeared() }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現在畫面下方，VoiceOver 使用者不一定會移過去，直接念出來。
             if let message {

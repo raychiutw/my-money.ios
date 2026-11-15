@@ -18,8 +18,9 @@
 
 ## 登入(W:pages/Login.tsx)
 
-- [x] 畫面有「我的記帳本」、「家庭財務，輕鬆掌握」、「登入」與「立即註冊」;帳密欄位、驗證與錯誤訊息都在上游 Worker 的登入頁(系統登入視窗)裡,註冊也在同一個視窗(`mode=register`)。成功後進入總覽(#334)。
-- [x] 「使用通行金鑰登入」(#339):`POST /auth/passkey/login/options` → 系統的 passkey 視窗(Face ID／Touch ID)→ `POST /oauth/passkey/authorize`(`client_id=ios`、redirect、PKCE `S256`、`state`、base64url 的 WebAuthn JSON)→ 授權碼走同一個 `/oauth/token`。不用相容端點 `/auth/passkey/login/verify`。取消不顯示錯誤,驗證失敗(沒有 `WWW-Authenticate` 的 401)照顯示後端訊息。**web 的 passkey 在前端登入頁(`pages.dev`,WebAuthn 授權橋接),iOS 在原生登入頁**:RP ID 同是 `my-money-onion.pages.dev`,靠 Associated Domains `webcredentials:`;上游 AASA 還沒有 Team ID(onion523/my-money#211),真機要等它才能用。
+- [x] 畫面有「我的記帳本」、「家庭財務，輕鬆掌握」與「登入」;帳密欄位、驗證與錯誤訊息都在上游 Worker 的登入頁(系統登入視窗)裡,註冊(分頁)和「用 Face ID 登入」(#344)也在同一個視窗。成功後進入總覽(#334)。
+- [x] 登入頁一出現(冷啟動沒有 session、登出、session 過期)就自動開系統登入視窗一次;關掉(取消)後不再自動開,按「登入」才重開;登入成功後下次回到登入頁會再自動開(第 114 項,#348)。
+- [x] 原生的「使用通行金鑰登入」與「還沒有帳號？立即註冊」已拿掉(#348):Worker 登入頁有註冊分頁與「用 Face ID 登入」。原生 passkey 登入的翻譯(`AuthRepository.signInWithPasskey`,#339)保留給登入視窗要求 passkey 時(`passkey_requested`,#344)。
 - [x] 授權碼 + PKCE(`S256`)、`client_id=ios`、scope `full`、比對 `state`;`POST /oauth/token`(form-urlencoded)。關掉登入視窗不顯示錯誤;callback 或換碼失敗時顯示後端的 `error_description`。登入期間按鈕停用,文字改成「登入中…」。
 
 ## 註冊(W:pages/Register.tsx)
@@ -385,6 +386,7 @@
 | 111 | 信用卡預設扣款帳戶:上游 `b06d17c`(#156)起,綁定目標必須是活存(bank)帳戶且是本人的或家庭共同帳戶,否則 400;他人私卡的 `payment_account_*` 回 null | 預設扣款帳戶選項只列本人的或家庭共同的活存帳戶(管理員也不能綁他人的私人帳戶);後端 400 的訊息原樣顯示(#327) | 無偏離 |
 | 112 | 用詞:web 是「銀行存款帳戶」「現金錢包」「收支明細」;iOS 是「活存帳戶」「現金」「記帳」(上游 `b06d17c`、#87 在詞彙表記下對照) | 維持 iOS 的精簡用詞,API wire 欄位與系統分類名稱完全一致 | 刻意偏離 |
 | 113 | 「全額結清」的預設歸屬(上游 `b3e0c92`、ADR 0037 決策 3,W:Accounts.tsx `handleOpenPay`):只有私帳欠款 → 私帳;有預設扣款帳戶 → 依它是不是家庭共同帳戶;只有公帳欠款 → 公帳;其餘依卡片本身。換扣款帳戶時歸屬跟著連動;上游 `3cf36ae`(#191)起改用「使用者有沒有手動選過歸屬」的旗標判斷(之前看備註結尾是不是 `(全額)`) | 預設規則與連動判斷相同;「帶入的扣款帳戶」包含上次繳款用的帳戶(#278),因為換帳戶本來就會連動,結果一致。iOS 選公帳／私帳不會改金額與備註(維持原本行為)。這是表單的預設值，送出的 `is_shared` 仍由使用者確認、後端照收，不是在 client 重算業務規則(#330、#333) | 無偏離 |
+| 114 | 開 app 先看到登入頁,按「登入」才進 Worker 登入(W:pages/Login.tsx) | 沒有 session 時登入頁一出現就自動開系統登入視窗一次,取消後不再自動開,畫面只留品牌名稱、標語與「登入」(使用者的決定,#348) | 刻意偏離 |
 
 第 27、29、31、32 項已經刪除:web 在 `bd0507b` 改成顯示錯誤橫幅加「重新嘗試」、用當地日期顯示加入時間、信用卡待繳總額是 0 時不顯示還款按鈕，也不再用結帳日判斷能不能做出帳作業，兩邊一致。
 

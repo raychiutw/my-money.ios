@@ -21,6 +21,21 @@ final class BrandColorUITests: XCTestCase {
         try assertLoginPage(appearance: .dark)
     }
 
+    /// 登入頁一出現會自動開系統登入視窗(#348):先關掉它，才看得到登入頁本身;關掉後不會再自動開。
+    @MainActor
+    private func closeSignInSheet(_ app: XCUIApplication) {
+        let predicate = NSPredicate(format: "label IN %@", ["Cancel", "取消"])
+        let cancel = [app, XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")]
+            .map { $0.buttons.matching(predicate).firstMatch }
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline, !cancel.contains(where: \.exists) { Thread.sleep(forTimeInterval: 0.25) }
+        guard let button = cancel.first(where: \.exists) else {
+            return XCTFail("沒有看到自動打開的系統登入視窗:\n\(app.debugDescription)")
+        }
+        button.tap()
+        XCTAssertTrue(app.buttons["login.submit"].wait(for: \.isEnabled, toEqual: true, timeout: 5), "關掉登入視窗後「登入」沒有恢復可按")
+    }
+
     /// 登入頁:標題與文字不是系統藍;「登入」是 CI 填色的膠囊(#176)。登入頁沒有帳密欄位(#334),「登入」一直可以按。
     @MainActor
     private func assertLoginPage(appearance: XCUIDevice.Appearance) throws {
@@ -32,6 +47,7 @@ final class BrandColorUITests: XCTestCase {
             throw XCTSkip("模擬器的正式 Keychain 裡有 session,登入頁看不到;請先登出或清除模擬器")
         }
         XCTAssertTrue(app.staticTexts["我的記帳本"].waitForExistence(timeout: 5), "沒有看到登入頁")
+        closeSignInSheet(app)
         let name = appearance == .dark ? "深色" : "淺色"
 
         let submit = app.buttons["login.submit"]

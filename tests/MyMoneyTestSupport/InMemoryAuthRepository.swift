@@ -52,12 +52,8 @@ public actor InMemoryAuthRepository: AuthRepository {
         return member.session
     }
 
-    /// 用 passkey 登入的次數。
-    public private(set) var passkeySignInCount = 0
-
     /// 跟 `signIn` 一樣以第一位成員登入(同一個 `gate` 與 `signInError`),不開系統的 passkey 視窗。
     public func signInWithPasskey() async throws -> Session {
-        passkeySignInCount += 1
         await gate?.pass()
         if let signInError { throw signInError }
         guard let member = members.first else { throw RepositoryError.rejected("找不到對應的 Passkey 憑證") }

@@ -11,24 +11,9 @@ final class CIColorUITests: XCTestCase {
     private static let appearances: [(XCUIDevice.Appearance, String)] = [(.light, "淺色"), (.dark, "深色")]
 
     @MainActor
-    private func launch(_ appearance: XCUIDevice.Appearance, signedIn: Bool = true) -> XCUIApplication {
+    private func launch(_ appearance: XCUIDevice.Appearance) -> XCUIApplication {
         XCUIDevice.shared.appearance = appearance
-        let app = XCUIApplication.launchUITesting()
-        if signedIn { app.signInWithSampleAccount() }
-        return app
-    }
-
-    /// 登入頁的「立即註冊」是 CI 文字色，不是黑／白。
-    @MainActor
-    func testLoginLinkIsCIText() throws {
-        for (appearance, name) in Self.appearances {
-            let app = launch(appearance, signedIn: false)
-            let link = app.buttons["login.register"]
-            XCTAssertTrue(link.waitForExistence(timeout: 5), "\(name):沒有註冊連結")
-            let stats = try PixelAnalysis.statistics(of: link.screenshot().image)
-            XCTAssertGreaterThan(stats.ci, 30, "\(name):「立即註冊」不是 CI 文字色(CI 色像素 \(stats.ci))")
-            app.terminate()
-        }
+        return XCUIApplication.launchUITesting(signedIn: true)
     }
 
     /// 記一筆的帳戶列：還沒選時的佔位文字「請選擇扣款／存入帳戶」是次要文字色,**不是**紅色系的 CI 色

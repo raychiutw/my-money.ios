@@ -29,17 +29,6 @@ struct LoginTests {
         #expect(relaunched.current?.user.name == "小明")
     }
 
-    @Test("註冊開登入視窗的註冊模式,註冊完直接登入")
-    func registerOpensRegisterModeAndSignsIn() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(auth: auth, session: session)
-
-        await model.register()
-
-        #expect(await auth.signInRequests == [true])
-        #expect(session.current?.user.name == "小明")
-    }
-
     @Test("關掉登入視窗:回到登入頁,不顯示錯誤")
     func cancellingShowsNoError() async {
         let session = AppSession(storage: storage)
@@ -91,43 +80,50 @@ struct LoginTests {
         #expect(!model.isSubmitting)
     }
 
-    @Test("使用 passkey 登入成功後進入 tab 外殼")
-    func passkeySignInSucceeds() async {
+    @Test("登入頁一出現就自動開登入視窗,登入成功進入 tab 外殼")
+    func appearingOpensSignInAutomatically() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
 
-        await model.signInWithPasskey()
+        await model.appeared()
 
+        #expect(await auth.signInRequests == [false])
         #expect(session.current?.user.name == "小明")
-        #expect(await auth.passkeySignInCount == 1)
     }
 
-    @Test("passkey 驗證時取消:回到登入頁,不顯示錯誤")
-    func passkeyCancellingShowsNoError() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], signInError: CancellationError()), session: session
-        )
+    @Test("關掉自動開的登入視窗後,登入頁再出現也不再自動開;按「登入」可以重開")
+    func cancellingStopsAutoOpenButButtonReopens() async {
+        let cancelling = InMemoryAuthRepository(members: [.sample], signInError: CancellationError())
+        let model = LoginModel(auth: cancelling, session: AppSession(storage: storage))
 
-        await model.signInWithPasskey()
-
+        await model.appeared()
+        await model.appeared()
+        #expect(await cancelling.signInRequests == [false])
         #expect(model.errorMessage == nil)
-        #expect(session.current == nil)
+
+        await model.signIn()
+        #expect(await cancelling.signInRequests == [false, false])
     }
 
-    @Test("passkey 驗證失敗時照顯示後端訊息")
-    func passkeyFailureShowsBackendMessage() async {
+    @Test("登出後回到登入頁,又自動開一次登入視窗")
+    func signingOutReenablesAutoOpen() async {
         let session = AppSession(storage: storage)
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(
-                members: [.sample], signInError: RepositoryError.invalidCredentials("Passkey 驗證已過期或重複使用，請重試")
-            ),
-            session: session
-        )
+        let model = LoginModel(auth: auth, session: session)
+        await model.appeared()
 
-        await model.signInWithPasskey()
+        session.signOut()
+        await model.appeared()
 
-        #expect(model.errorMessage == "Passkey 驗證已過期或重複使用，請重試")
-        #expect(session.current == nil)
+        #expect(await auth.signInRequests == [false, false])
+        #expect(session.current != nil)
+    }
+
+    @Test("關掉自動開(UI 測試預設)時,登入頁出現不開登入視窗")
+    func autoOpenCanBeTurnedOff() async {
+        let model = LoginModel(auth: auth, session: AppSession(storage: storage), opensSignInOnAppear: false)
+
+        await model.appeared()
+
+        #expect(await auth.signInRequests.isEmpty)
     }
 }
