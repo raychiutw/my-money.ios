@@ -2,7 +2,7 @@
 # 用專用測試帳號走一次 OAuth 授權碼流程(#334),錄下 /oauth/token 與 /oauth/revoke 的真實回應。
 # 流程與注意事項見 tests/MyMoneyAPITests/Fixtures/README.md「OAuth(#334)」。
 #
-# 用法:scripts/record-oauth-fixtures.sh [account-security]
+# 用法:scripts/record-oauth-fixtures.sh [account-security | passkey]
 #
 # 1. GET /oauth/authorize(client_id=ios、PKCE S256),從 Worker 的登入頁取出 csrf_token
 # 2. POST /oauth/authorize(form:csrf_token、mode=login、email、password)→ 302 到 callback,取出 code
@@ -14,6 +14,7 @@
 #
 # 加上 account-security 時改錄「帳號安全」(#338)的 /auth/sessions 與 /auth/password,
 # 見 README「帳號安全(#338)」;錄完撤銷建立的兩個工作階段。
+# 加上 passkey 時改錄 passkey(#339)的 options、清單與錯誤回應,見 README「Passkey(#339)」;不建立任何 passkey。
 #
 # 存檔前:存取權杖(JWT)只換掉簽章,header 與 payload(sub、email、name)保留給測試解出使用者;
 # 更新權杖換成假值。密碼只從環境變數或 Keychain 讀進 python,不會出現在指令列或輸出。
@@ -146,6 +147,32 @@ if mode == "account-security":
     save("auth-session-delete.json", status, sanitize(body))
     status, _, body = call("DELETE", "/auth/sessions/" + other_sid, token=access)
     save("auth-session-delete-not-found.json", status, sanitize(body))
+    status, _, _ = call("POST", "/oauth/revoke", {"token": refresh})
+    print(f"撤銷錄製用的工作階段 → HTTP {status}")
+    sys.exit(0)
+
+if mode == "passkey":
+    # 測試帳號沒有 passkey(要真機才建得出來):只錄 options、空清單與錯誤回應,錄完撤銷工作階段。
+    access, refresh, _ = sign_in()
+    status, _, body = call("POST", "/auth/passkey/login/options", json_body={})
+    save("passkey-login-options.json", status, sanitize(body))
+    status, _, body = call("POST", "/auth/passkey/register/options", json_body={}, token=access)
+    save("passkey-register-options.json", status, sanitize(body))
+    status, _, body = call("GET", "/auth/passkeys", token=access)
+    save("passkeys-empty.json", status, sanitize(body))
+    status, _, body = call("PATCH", "/auth/passkeys/fixture-nonexistent-passkey", json_body={"name": "x"}, token=access)
+    save("passkey-rename-not-found.json", status, sanitize(body))
+    # 不存在的 challenge:後端在查憑證之前就拒絕,不會留下任何紀錄。
+    client_data = b64url(json.dumps({"type": "webauthn.get", "challenge": b64url(secrets.token_bytes(32))}).encode())
+    challenge = b64url(hashlib.sha256(b64url(secrets.token_bytes(32)).encode()).digest())
+    status, headers, body = call("POST", "/oauth/passkey/authorize", json_body={
+        "response": {"id": "fixture", "rawId": "fixture", "type": "public-key",
+                     "response": {"clientDataJSON": client_data, "authenticatorData": "", "signature": ""}},
+        "client_id": "ios", "redirect_uri": REDIRECT, "code_challenge": challenge,
+        "code_challenge_method": "S256", "state": "fixture-state", "scope": "full"})
+    if status != 401 or headers.get("WWW-Authenticate"):
+        sys.exit(f"passkey 驗證失敗應該是沒有 WWW-Authenticate 的 401(HTTP {status})")
+    save("oauth-passkey-authorize-expired.json", status, sanitize(body))
     status, _, _ = call("POST", "/oauth/revoke", {"token": refresh})
     print(f"撤銷錄製用的工作階段 → HTTP {status}")
     sys.exit(0)

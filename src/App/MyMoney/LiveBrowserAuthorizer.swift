@@ -29,10 +29,21 @@ struct LiveBrowserAuthorizer: BrowserAuthorizer {
     }
 }
 
-/// 登入視窗疊在目前的 key window 上。
-private final class PresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding {
+/// 登入視窗與 passkey 視窗(`LivePasskeyAuthenticator`)疊在目前的 key window 上。
+final class PresentationAnchor: NSObject, ASWebAuthenticationPresentationContextProviding,
+    ASAuthorizationControllerPresentationContextProviding {
     @MainActor
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        keyWindow()
+    }
+
+    @MainActor
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        keyWindow()
+    }
+
+    @MainActor
+    private func keyWindow() -> ASPresentationAnchor {
         // 按得到登入鈕就一定有 window scene。
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let windows = scenes.flatMap(\.windows)

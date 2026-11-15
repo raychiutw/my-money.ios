@@ -22,7 +22,8 @@ struct SignedInScreensTests {
                 forecastRepository: InMemoryForecastRepository.sample(today: CalendarDay(year: 2026, month: 9, day: 28)),
                 householdRepository: InMemoryHouseholdRepository(household: nil),
                 botRepository: InMemoryBotRepository(bindings: []),
-                accountSecurityRepository: InMemoryAccountSecurityRepository(sessions: [])
+                accountSecurityRepository: InMemoryAccountSecurityRepository(sessions: []),
+                passkeyRepository: InMemoryPasskeyRepository(passkeys: [])
             )
         }
     }

@@ -11,10 +11,12 @@ public struct LiveAuthRepository: AuthRepository {
 
     private let client: APIClient
     private let browser: any BrowserAuthorizer
+    private let passkeys: any PasskeyAuthenticator
 
-    public init(client: APIClient, browser: any BrowserAuthorizer) {
+    public init(client: APIClient, browser: any BrowserAuthorizer, passkeys: any PasskeyAuthenticator) {
         self.client = client
         self.browser = browser
+        self.passkeys = passkeys
     }
 
     public func signIn(registering: Bool) async throws -> Session {
@@ -26,7 +28,7 @@ public struct LiveAuthRepository: AuthRepository {
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "scope", value: "full"),
-            URLQueryItem(name: "code_challenge", value: Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))),
+            URLQueryItem(name: "code_challenge", value: Self.codeChallenge(verifier)),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state),
         ] + (registering ? [URLQueryItem(name: "mode", value: "register")] : [])
@@ -42,6 +44,32 @@ public struct LiveAuthRepository: AuthRepository {
             throw RepositoryError.rejected("登入失敗，請再試一次")
         }
 
+        return try await exchange(code: code, verifier: verifier)
+    }
+
+    /// WebAuthn 授權橋接(#339):原生 assertion 連同 PKCE 送到 `POST /oauth/passkey/authorize` 換授權碼,
+    /// 再走跟系統登入視窗同一個 `/oauth/token`。不用相容端點 `/auth/passkey/login/verify`。
+    public func signInWithPasskey() async throws -> Session {
+        let options: LoginOptionsDTO = try await client.send("POST", "/auth/passkey/login/options", body: [String: String]())
+        guard let challenge = Data(base64URLEncoded: options.challenge) else { throw RepositoryError.unreadableResponse }
+        let assertion = try await passkeys.assertion(relyingPartyID: options.rpId, challenge: challenge)
+        let verifier = Self.randomBase64URL(byteCount: 32)
+        // 回應直接是 JSON(不經 callback 導回),state 只是照上游的參數帶上,不用比對。
+        let grant: AuthorizationCodeDTO = try await client.send("POST", "/oauth/passkey/authorize", body: PasskeyAuthorizeRequest(
+            response: WebAuthnCredentialJSON(credentialID: assertion.credentialID, response: AssertionJSON(
+                clientDataJSON: assertion.clientDataJSON.base64URLEncodedString(),
+                authenticatorData: assertion.authenticatorData.base64URLEncodedString(),
+                signature: assertion.signature.base64URLEncodedString(),
+                userHandle: assertion.userHandle?.base64URLEncodedString()
+            )),
+            clientID: Self.clientID, redirectURI: Self.redirectURI, codeChallenge: Self.codeChallenge(verifier),
+            codeChallengeMethod: "S256", state: Self.randomBase64URL(byteCount: 16), scope: "full"
+        ))
+        return try await exchange(code: grant.code, verifier: verifier)
+    }
+
+    /// 用授權碼換權杖(`POST /oauth/token`);系統登入視窗與 passkey 共用。
+    private func exchange(code: String, verifier: String) async throws -> Session {
         let data = try await client.postForm("/oauth/token", [
             "grant_type": "authorization_code",
             "code": code,
@@ -78,23 +106,19 @@ public struct LiveAuthRepository: AuthRepository {
     private static func user(fromAccessToken token: String) -> User? {
         let parts = token.split(separator: ".")
         guard parts.count == 3 else { return nil }
-        var base64 = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
         guard
-            let data = Data(base64Encoded: base64),
+            let data = Data(base64URLEncoded: String(parts[1])),
             let claims = try? JSONDecoder().decode(AccessTokenClaims.self, from: data)
         else { return nil }
         return User(id: UserID(claims.sub), email: claims.email, name: claims.name)
     }
 
     private static func randomBase64URL(byteCount: Int) -> String {
-        base64URL(SymmetricKey(size: SymmetricKeySize(bitCount: byteCount * 8)).withUnsafeBytes { Data($0) })
+        SymmetricKey(size: SymmetricKeySize(bitCount: byteCount * 8)).withUnsafeBytes { Data($0) }.base64URLEncodedString()
     }
 
-    private static func base64URL(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+    private static func codeChallenge(_ verifier: String) -> String {
+        Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncodedString()
     }
 }
 
@@ -109,6 +133,42 @@ struct TokenResponse: Decodable {
         case refreshToken = "refresh_token"
         case expiresIn = "expires_in"
     }
+}
+
+/// SimpleWebAuthn 的登入 options 裡用得到的部分;`challenge` 是 base64url。
+private struct LoginOptionsDTO: Decodable {
+    let rpId: String
+    let challenge: String
+}
+
+private struct AssertionJSON: Encodable {
+    let clientDataJSON: String
+    let authenticatorData: String
+    let signature: String
+    let userHandle: String?
+}
+
+private struct PasskeyAuthorizeRequest: Encodable {
+    let response: WebAuthnCredentialJSON<AssertionJSON>
+    let clientID: String
+    let redirectURI: String
+    let codeChallenge: String
+    let codeChallengeMethod: String
+    let state: String
+    let scope: String
+
+    enum CodingKeys: String, CodingKey {
+        case response, state, scope
+        case clientID = "client_id"
+        case redirectURI = "redirect_uri"
+        case codeChallenge = "code_challenge"
+        case codeChallengeMethod = "code_challenge_method"
+    }
+}
+
+/// `POST /oauth/passkey/authorize` 的 `data`。
+private struct AuthorizationCodeDTO: Decodable {
+    let code: String
 }
 
 /// 存取權杖 payload 裡顯示用的部分。

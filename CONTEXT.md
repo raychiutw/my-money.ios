@@ -84,6 +84,10 @@ _避免_: JWT、token(泛指)
 用來換新存取權杖的權杖,每用一次就換成新的一支(輪替);iOS 存在 Keychain(只限這支裝置)。登出時送去撤銷登入工作階段。
 _避免_: 長效 token
 
+**通行金鑰**(Passkey,上游 ADR 0040):
+用 Face ID／Touch ID 免密碼登入的憑證,綁定 web 的網域(RP ID `my-money-onion.pages.dev`),透過 iCloud 鑰匙圈在裝置間同步,所以 web 建立的也能在 iOS 登入。在「帳號安全」建立、改名、刪除;刪除只停用它之後的登入,不登出已登入的裝置。iOS 用「passkey 驗證器」(`PasskeyAuthenticator`)向系統要簽章,登入時換到授權碼後跟系統登入視窗走同一個換權杖流程。
+_避免_: 生物辨識密碼、Face ID 登入(指 passkey 時)、Keychain 密碼
+
 **我的**(iOS 補充):
 登入後每個 tab 主頁面右上角頭像打開的畫面，放本人的名稱與 email、機器人記帳、外觀、登出和版本。
 _避免_: 帳號(指這個畫面時)、設定、個人資料

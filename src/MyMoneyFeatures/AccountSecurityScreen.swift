@@ -1,10 +1,15 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「我的」→ 帳號安全(#338,與 web 的設定頁對等):登入裝置、修改密碼。
-/// passkey(#339)之後在最上面加自己的 `Section`,其他區塊不動。
+/// 「我的」→ 帳號安全(#338、#339,與 web 的設定頁對等):通行金鑰、登入裝置、修改密碼。
 struct AccountSecurityScreen: View {
     @Bindable var model: AccountSecurityModel
+    let passkeys: PasskeysModel
+    @State private var isNamingNewPasskey = false
+    @State private var newPasskeyName = ""
+    @State private var renamingPasskey: Passkey?
+    @State private var renamedName = ""
+    @State private var pendingPasskeyDeletion: Passkey?
     @State private var pendingSignOut: LoginSession?
     @State private var isSignOutOthersConfirming = false
     @FocusState private var focusedField: PasswordField?
@@ -15,14 +20,20 @@ struct AccountSecurityScreen: View {
 
     var body: some View {
         List {
+            passkeysSection
             sessionsSection
             passwordSection
         }
-        .skeletonTransition(value: model.isLoadingSessions)
+        .skeletonTransition(value: model.isLoadingSessions || passkeys.isLoading)
         .navigationTitle("帳號安全")
         .inlineNavigationTitle()
         .task { await model.load() }
-        .refreshable { await model.load() }
+        .task { await passkeys.load() }
+        .refreshable {
+            async let sessions: Void = model.load()
+            await passkeys.load()
+            await sessions
+        }
         // 從列上的 ⋯ 或滑動觸發,沒有按鈕可以當錨點,用畫面層級的 alert(DESIGN.md「元件對照」)。
         .alert(
             "登出裝置",
@@ -37,6 +48,87 @@ struct AccountSecurityScreen: View {
             Text(model.signOutConfirmation(for: session))
         }
         .errorAlert("無法登出裝置", message: model.alertMessage) { model.alertMessage = nil }
+        .alert(
+            "刪除通行金鑰",
+            isPresented: Binding(get: { pendingPasskeyDeletion != nil }, set: { if !$0 { pendingPasskeyDeletion = nil } }),
+            presenting: pendingPasskeyDeletion
+        ) { passkey in
+            Button("刪除", role: .destructive) {
+                Task { await passkeys.delete(passkey) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: { passkey in
+            Text(passkeys.deleteConfirmation(for: passkey))
+        }
+        .alert(
+            "重新命名",
+            isPresented: Binding(get: { renamingPasskey != nil }, set: { if !$0 { renamingPasskey = nil } }),
+            presenting: renamingPasskey
+        ) { passkey in
+            TextField("名稱", text: $renamedName)
+            Button("儲存") {
+                Task { await passkeys.rename(passkey, to: renamedName) }
+            }
+            Button("取消", role: .cancel) {}
+        }
+        .errorAlert("通行金鑰", message: passkeys.alertMessage) { passkeys.alertMessage = nil }
+    }
+
+    /// 通行金鑰(passkey,#339):建立、改名、刪除。刪除只停用之後的登入,不登出已登入的裝置。
+    private var passkeysSection: some View {
+        Section {
+            if passkeys.isLoading {
+                SkeletonItemRow()
+                    .skeletonRow()
+            } else if let message = passkeys.errorMessage, passkeys.passkeys == nil {
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+                GlassCapsuleButton(title: "重試") {
+                    Task { await passkeys.load() }
+                }
+            }
+            ForEach(passkeys.passkeys ?? []) { passkey in
+                PasskeyRow(passkey: passkey)
+                    .trailingMoreMenu(label: "\(passkey.name)的更多動作", identifier: "security.passkey.more") {
+                        Button("重新命名", systemImage: "pencil") {
+                            renamedName = passkey.name
+                            renamingPasskey = passkey
+                        }
+                        Button("刪除", systemImage: "trash", role: .destructive) {
+                            pendingPasskeyDeletion = passkey
+                        }
+                    }
+                    .swipeActions {
+                        DestructiveSwipeButton("刪除", systemImage: "trash") {
+                            pendingPasskeyDeletion = passkey
+                        }
+                    }
+            }
+            if passkeys.passkeys != nil {
+                Button {
+                    newPasskeyName = ""
+                    isNamingNewPasskey = true
+                } label: {
+                    ActionRowLabel(title: passkeys.isCreating ? "建立中…" : "建立通行金鑰", systemImage: "person.badge.key")
+                }
+                .disabled(passkeys.isCreating)
+                .accessibilityIdentifier("security.createPasskey")
+                // 名稱輸入掛在這顆按鈕上;留空由後端命名為「Passkey」。
+                .alert("建立通行金鑰", isPresented: $isNamingNewPasskey) {
+                    TextField("名稱", text: $newPasskeyName, prompt: Text("例如：我的 iPhone"))
+                    Button("繼續") {
+                        Task { await passkeys.create(name: newPasskeyName) }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("接著用 Face ID 或 Touch ID 建立，之後就能免密碼登入。")
+                }
+            }
+        } header: {
+            Text("通行金鑰")
+        } footer: {
+            Text("透過 iCloud 鑰匙圈同步，web 建立的通行金鑰也能在這台裝置登入。")
+        }
     }
 
     private var sessionsSection: some View {
@@ -132,6 +224,27 @@ struct AccountSecurityScreen: View {
                     .accessibilityIdentifier("security.passwordChanged")
             }
         }
+    }
+}
+
+/// 一個通行金鑰:名稱,下面是最後使用與建立時間,台灣時間。
+private struct PasskeyRow: View {
+    let passkey: Passkey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(passkey.name)
+            Group {
+                Text(passkey.lastUsedAt.map { "最後使用 \(AccountSecurityModel.timeText($0))" } ?? "尚未使用")
+                Text("建立於 \(AccountSecurityModel.timeText(passkey.createdAt))")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("security.passkey")
     }
 }
 

@@ -30,6 +30,14 @@ struct LoginView: View {
                 .disabled(model.isSubmitting)
                 .accessibilityIdentifier("login.submit")
                 .clearListRow()
+                // web 的 passkey 在前端登入頁;原生 app 的登入頁就是這裡(parity.md,#339)。
+                GlassCapsuleButton(title: "使用通行金鑰登入", systemImage: "person.badge.key") {
+                    Task { await model.signInWithPasskey() }
+                }
+                .frame(maxWidth: .infinity)
+                .disabled(model.isSubmitting)
+                .accessibilityIdentifier("login.passkey")
+                .clearListRow()
             } footer: {
                 if let message = model.errorMessage {
                     Text(message)

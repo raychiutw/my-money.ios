@@ -14,7 +14,7 @@ struct OAuthTranslationTests {
     private func auth(_ browser: FakeBrowserAuthorizer) -> LiveAuthRepository {
         LiveAuthRepository(
             client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session),
-            browser: browser
+            browser: browser, passkeys: FakePasskeyAuthenticator()
         )
     }
 

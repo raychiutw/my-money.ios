@@ -155,13 +155,14 @@ struct MyMoneyApp: App {
             }
             let bot = InMemoryBotRepository.sample()
             let security = InMemoryAccountSecurityRepository.sample()
+            let passkeys = InMemoryPasskeyRepository.sample()
             signedIn = SignedInScreens { user in
                 MainScreens(
                     currentUser: user.id,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
                     householdRepository: household, botRepository: bot, accountSecurityRepository: security,
-                    defaults: defaults
+                    passkeyRepository: passkeys, defaults: defaults
                 )
             }
             copiedFeedbackOverride = .seconds(30)
@@ -179,7 +180,8 @@ struct MyMoneyApp: App {
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
         let client = APIClient(session: session, deviceModel: UIDevice.current.model)
-        let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer())
+        let passkeyAuthenticator = LivePasskeyAuthenticator()
+        let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator)
         login = LoginModel(auth: auth, session: session)
         signOut = SignOutModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)
@@ -192,6 +194,7 @@ struct MyMoneyApp: App {
         let household = LiveHouseholdRepository(client: client)
         let bot = LiveBotRepository(client: client)
         let security = LiveAccountSecurityRepository(client: client)
+        let passkeys = LivePasskeyRepository(client: client, authenticator: passkeyAuthenticator)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
         signedIn = SignedInScreens { user in
@@ -199,7 +202,8 @@ struct MyMoneyApp: App {
                 currentUser: user.id,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
-                householdRepository: household, botRepository: bot, accountSecurityRepository: security
+                householdRepository: household, botRepository: bot, accountSecurityRepository: security,
+                passkeyRepository: passkeys
             )
         }
         copiedFeedbackOverride = nil

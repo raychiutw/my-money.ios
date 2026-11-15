@@ -90,4 +90,44 @@ struct LoginTests {
         await submission.value
         #expect(!model.isSubmitting)
     }
+
+    @Test("使用 passkey 登入成功後進入 tab 外殼")
+    func passkeySignInSucceeds() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(auth: auth, session: session)
+
+        await model.signInWithPasskey()
+
+        #expect(session.current?.user.name == "小明")
+        #expect(await auth.passkeySignInCount == 1)
+    }
+
+    @Test("passkey 驗證時取消:回到登入頁,不顯示錯誤")
+    func passkeyCancellingShowsNoError() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(members: [.sample], signInError: CancellationError()), session: session
+        )
+
+        await model.signInWithPasskey()
+
+        #expect(model.errorMessage == nil)
+        #expect(session.current == nil)
+    }
+
+    @Test("passkey 驗證失敗時照顯示後端訊息")
+    func passkeyFailureShowsBackendMessage() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(
+                members: [.sample], signInError: RepositoryError.invalidCredentials("Passkey 驗證已過期或重複使用，請重試")
+            ),
+            session: session
+        )
+
+        await model.signInWithPasskey()
+
+        #expect(model.errorMessage == "Passkey 驗證已過期或重複使用，請重試")
+        #expect(session.current == nil)
+    }
 }

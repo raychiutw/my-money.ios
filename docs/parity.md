@@ -19,6 +19,7 @@
 ## 登入(W:pages/Login.tsx)
 
 - [x] 畫面有「我的記帳本」、「家庭財務，輕鬆掌握」、「登入」與「立即註冊」;帳密欄位、驗證與錯誤訊息都在上游 Worker 的登入頁(系統登入視窗)裡,註冊也在同一個視窗(`mode=register`)。成功後進入總覽(#334)。
+- [x] 「使用通行金鑰登入」(#339):`POST /auth/passkey/login/options` → 系統的 passkey 視窗(Face ID／Touch ID)→ `POST /oauth/passkey/authorize`(`client_id=ios`、redirect、PKCE `S256`、`state`、base64url 的 WebAuthn JSON)→ 授權碼走同一個 `/oauth/token`。不用相容端點 `/auth/passkey/login/verify`。取消不顯示錯誤,驗證失敗(沒有 `WWW-Authenticate` 的 401)照顯示後端訊息。**web 的 passkey 在前端登入頁(`pages.dev`,WebAuthn 授權橋接),iOS 在原生登入頁**:RP ID 同是 `my-money-onion.pages.dev`,靠 Associated Domains `webcredentials:`;上游 AASA 還沒有 Team ID(onion523/my-money#211),真機要等它才能用。
 - [x] 授權碼 + PKCE(`S256`)、`client_id=ios`、scope `full`、比對 `state`;`POST /oauth/token`(form-urlencoded)。關掉登入視窗不顯示錯誤;callback 或換碼失敗時顯示後端的 `error_description`。登入期間按鈕停用,文字改成「登入中…」。
 
 ## 註冊(W:pages/Register.tsx)
@@ -260,7 +261,7 @@
 - [x] 登入裝置:`GET /auth/sessions`,照後端順序(最後使用時間新到舊)列出裝置名稱、client、最後使用與登入時間(Unix 秒轉台灣時間 `yyyy/MM/dd HH:mm`),`current` 標示「這台裝置」。
 - [x] 登出單一裝置:這台以外的列有 ⋯ 選單與左滑「登出」,先確認(畫面層級的 alert)再 `DELETE /auth/sessions/:id`;「登出其他所有裝置」先確認(掛在按鈕上)再 `DELETE /auth/sessions?scope=others`,只剩這台時停用。成功後重新載入清單,失敗照顯示後端訊息(例如「找不到此裝置工作階段」)。
 - [x] 修改密碼:`POST /auth/password {current_password, new_password}`;新密碼不到 6 個字元或目前密碼空白時按鈕停用(後端同樣檢查)。成功後顯示後端訊息「密碼已更新，其他裝置已登出」、清空欄位、重新載入清單,這台的權杖不變;「目前密碼錯誤」(沒有 `WWW-Authenticate` 的 401,不登出)與「嘗試次數過多，請於 15 分鐘後再試」(429)照顯示後端訊息。
-- [ ] Passkey 管理(#339)。
+- [x] 通行金鑰(#339,放在最上面):`GET /auth/passkeys` 照後端順序(建立時間新到舊)列出名稱、最後使用(沒用過顯示「尚未使用」)與建立時間。「建立通行金鑰」先問名稱(留空由後端命名為「Passkey」)→ `POST /auth/passkey/register/options` → 系統的 passkey 視窗 → `POST /auth/passkey/register/verify`(base64url 的 WebAuthn JSON 加 `name`)。⋯ 選單「重新命名」(`PATCH /auth/passkeys/:id`,空白不送出)與「刪除」(也可左滑,先確認再 `DELETE /auth/passkeys/:id`)。成功後重新載入清單;取消不顯示錯誤,失敗照顯示後端訊息。
 
 ## 前端常數
 

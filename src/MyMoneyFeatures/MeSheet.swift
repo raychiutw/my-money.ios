@@ -68,7 +68,7 @@ struct MeSheet: View {
             }
             .accessibilityIdentifier("me.bot")
             NavigationLink("帳號安全") {
-                AccountSecurityScreen(model: screens.accountSecurity)
+                AccountSecurityScreen(model: screens.accountSecurity, passkeys: screens.passkeys)
             }
             .accessibilityIdentifier("me.accountSecurity")
         }
