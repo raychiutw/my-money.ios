@@ -1,7 +1,7 @@
 import MyMoneyDomain
 import SwiftUI
 
-/// 「我的」sheet:姓名與 email,下面只有設定:機器人記帳、外觀(三列打勾)、登出、版本(ADR-0004、CONTEXT.md)。
+/// 「我的」sheet:姓名與 email,下面只有設定:機器人記帳、帳號安全、外觀(三列打勾)、登出、版本(ADR-0004、CONTEXT.md)。
 /// 週期收支、儲蓄目標、現金流預測原本在「規劃」分頁,#178 起搬到總覽的功能入口。
 struct MeSheet: View {
     let screens: MainScreens
@@ -9,8 +9,7 @@ struct MeSheet: View {
     @Environment(AppearanceSetting.self) private var appearanceSetting
     @Environment(AccountDeletionModel.self) private var deletion
     @Environment(AppLockModel.self) private var appLock
-    @Environment(BiometricLoginSettings.self) private var biometricLogin
-    @State private var isBindingBiometric = false
+    @Environment(SignOutModel.self) private var signOutModel
     @State private var isDeleteConfirming = false
     @Environment(\.appVersion) private var appVersion
     @Environment(\.dismiss) private var dismiss
@@ -27,9 +26,6 @@ struct MeSheet: View {
             .navigationTitle("我的")
             .inlineNavigationTitle()
             .errorAlert("無法刪除帳號", message: deletion.errorMessage) { deletion.clearError() }
-            .sheet(isPresented: $isBindingBiometric) {
-                BiometricBindingSheet(settings: biometricLogin)
-            }
             .toolbar {
                 // 不放 `.confirmationAction`:iOS 26 會把它畫成 accent 填滿的主要動作鈕(ADR-0008)。
                 ToolbarItem(placement: .primaryAction) {
@@ -71,6 +67,10 @@ struct MeSheet: View {
                 BotScreen(model: screens.bot)
             }
             .accessibilityIdentifier("me.bot")
+            NavigationLink("帳號安全") {
+                AccountSecurityScreen(model: screens.accountSecurity, passkeys: screens.passkeys)
+            }
+            .accessibilityIdentifier("me.accountSecurity")
         }
 
         // 三列打勾，點一下就生效;字級是 body,不縮小(ADR-0004)。
@@ -90,44 +90,22 @@ struct MeSheet: View {
             .tint(Color.ciFill)
             .disabled(!appLock.canEnable && !appLock.isEnabled)
             .accessibilityIdentifier("me.appLock")
-
-            // Face ID 登入(#310):開啟要重新輸入帳密綁定,關閉就清掉已存帳密。
-            Toggle(
-                "使用 \(biometricLogin.methodName) 登入",
-                isOn: Binding(
-                    get: { biometricLogin.isEnabled },
-                    set: { newValue in
-                        if newValue {
-                            biometricLogin.clearError()
-                            isBindingBiometric = true
-                        } else {
-                            biometricLogin.disable()
-                        }
-                    }
-                )
-            )
-            .tint(Color.ciFill)
-            .disabled(!biometricLogin.canEnable && !biometricLogin.isEnabled)
-            .accessibilityIdentifier("me.biometricLogin")
         } footer: {
             if let message = appLock.settingMessage {
                 Text(message)
             } else if !appLock.canEnable {
                 Text("這支手機還沒有設定 Face ID 或裝置密碼，請先到「設定」開啟。")
-            } else {
-                Text("\(biometricLogin.methodName) 登入:開啟時要重新輸入密碼，關閉會刪除這支手機上存的帳號密碼。")
             }
         }
         .task {
             await appLock.refreshCapability()
-            await biometricLogin.refresh()
         }
 
 
         Section {
-            // 登出不跳確認、不打 API(parity.md「全域」)。
+            // 登出不跳確認(parity.md「全域」);撤銷伺服器端的登入工作階段(#334),本機不等它完成。
             Button("登出", role: .destructive) {
-                session.signOut()
+                Task { await signOutModel.signOut() }
             }
             .accessibilityIdentifier("me.signOut")
         }

@@ -7,7 +7,7 @@ import Testing
 @Suite("登入後的畫面跟著 session 建立")
 struct SignedInScreensTests {
     private func session(_ id: String) -> Session {
-        Session(token: "token-\(id)", user: User(id: UserID(id), email: "\(id)@example.com", name: id))
+        InMemoryAuthRepository.Member(user: User(id: UserID(id), email: "\(id)@example.com", name: id)).session
     }
 
     private func makeScreens() -> SignedInScreens {
@@ -21,7 +21,9 @@ struct SignedInScreensTests {
                 statisticsRepository: InMemoryStatisticsRepository.sample(month: CalendarMonth(year: 2026, month: 9)),
                 forecastRepository: InMemoryForecastRepository.sample(today: CalendarDay(year: 2026, month: 9, day: 28)),
                 householdRepository: InMemoryHouseholdRepository(household: nil),
-                botRepository: InMemoryBotRepository(bindings: [])
+                botRepository: InMemoryBotRepository(bindings: []),
+                accountSecurityRepository: InMemoryAccountSecurityRepository(sessions: []),
+                passkeyRepository: InMemoryPasskeyRepository(passkeys: [])
             )
         }
     }

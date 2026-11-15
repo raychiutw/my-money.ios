@@ -9,7 +9,10 @@ struct DeleteAccountTranslationTests {
     private let session = FakeSessionProvider()
 
     private var auth: LiveAuthRepository {
-        LiveAuthRepository(client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session))
+        LiveAuthRepository(
+            client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session),
+            browser: FakeBrowserAuthorizer(.cancelled), passkeys: FakePasskeyAuthenticator()
+        )
     }
 
     /// 真實回應不能錄(會刪掉帳號):依後端 `backend/src/handlers/auth.ts` 的 `{success, message}` 手寫，沒有 `data`。

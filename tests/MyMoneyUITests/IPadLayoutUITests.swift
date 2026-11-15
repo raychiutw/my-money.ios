@@ -25,8 +25,7 @@ final class IPadLayoutUITests: XCTestCase {
             let submit = app.buttons["login.submit"]
             XCTAssertTrue(submit.waitForExistence(timeout: 10), "沒有登入頁")
             assertLimited(submit, in: app, "登入鈕(\(orientation.rawValue))")
-            let email = app.textFields["login.email"]
-            assertLimited(email, in: app, "登入的 email 欄位(\(orientation.rawValue))")
+            assertLimited(app.buttons["login.register"], in: app, "立即註冊(\(orientation.rawValue))")
             app.terminate()
         }
     }

@@ -17,8 +17,8 @@ public final class AppSession {
 
     @ObservationIgnored private let storage: any SessionStorage
 
-    /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。
-    /// 過期的 token 不在本機判斷，等後端回 401 時再回到登入頁(跟 web 一樣)。
+    /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。讀回來只有更新權杖,
+    /// 第一個請求由翻譯層先 refresh;更新權杖失效(`invalid_grant`)時才回到登入頁(#335)。
     public init(storage: any SessionStorage) {
         self.storage = storage
         current = storage.load()
@@ -45,8 +45,17 @@ public final class AppSession {
 }
 
 extension AppSession: SessionProvider {
-    public func currentToken() async -> String? {
-        current?.token
+    public func currentTokens() async -> SessionTokens? {
+        current?.tokens
+    }
+
+    /// refresh 輪替後換成新的權杖並存回裝置;已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
+    /// 登出後又登入了(目前的更新權杖不是這次送出的那個)也不理會,不會用舊 session 的權杖蓋掉新的。
+    public func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
+        guard let current, current.tokens.refresh == previousRefresh else { return }
+        let refreshed = Session(user: current.user, tokens: tokens)
+        storage.save(refreshed)
+        self.current = refreshed
     }
 
     /// 帳號刪除成功之後:跟登出一樣清掉 session,並記下是刪除帳號。
@@ -55,7 +64,7 @@ extension AppSession: SessionProvider {
         endedByDeletion = true
     }
 
-    /// 任何非 `/auth/*` 的請求回應 401 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
+    /// 任何請求回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
     public func sessionDidExpire() async {
         signOut()
         endedByExpiry = true

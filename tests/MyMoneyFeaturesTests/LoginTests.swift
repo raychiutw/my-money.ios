@@ -4,147 +4,130 @@ import MyMoneyTestSupport
 import Testing
 
 @MainActor
-@Suite("登入")
+@Suite("登入(系統登入視窗)")
 struct LoginTests {
     private let storage = InMemorySessionStorage()
     private let auth = InMemoryAuthRepository(members: [.sample])
 
     @Test("登入成功後進入 tab 外殼")
-    func loginSucceeds() async {
+    func signInSucceeds() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
-        model.email = "family@example.com"
-        model.password = "secret123"
 
-        await model.submit()
+        await model.signIn()
 
         #expect(session.current?.user.name == "小明")
+        #expect(await auth.signInRequests == [false])
     }
 
     @Test("登入成功後重開 app,直接進入 tab 外殼")
     func signedInSessionSurvivesRelaunch() async {
-        let model = LoginModel(auth: auth, session: AppSession(storage: storage))
-        model.email = "family@example.com"
-        model.password = "secret123"
-        await model.submit()
+        await LoginModel(auth: auth, session: AppSession(storage: storage)).signIn()
 
         let relaunched = AppSession(storage: storage)
 
         #expect(relaunched.current?.user.name == "小明")
     }
 
-    @Test("登入失敗時顯示後端回傳的訊息，留在登入頁")
-    func loginFailureShowsBackendMessage() async {
+    @Test("註冊開登入視窗的註冊模式,註冊完直接登入")
+    func registerOpensRegisterModeAndSignsIn() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
-        model.email = "family@example.com"
-        model.password = "wrong-password"
 
-        await model.submit()
+        await model.register()
 
-        #expect(model.errorMessage == "Email 或密碼錯誤")
-        #expect(session.current == nil)
-    }
-
-    @Test(
-        "Email 或密碼空白時不能送出",
-        arguments: [("", ""), ("family@example.com", ""), ("", "secret123"), ("  ", "secret123")]
-    )
-    func emailAndPasswordAreRequired(email: String, password: String) {
-        let model = LoginModel(auth: auth, session: AppSession(storage: storage))
-        model.email = email
-        model.password = password
-
-        #expect(!model.canSubmit)
-    }
-
-    @Test("Email 和密碼都填了才能送出")
-    func filledFormCanSubmit() {
-        let model = LoginModel(auth: auth, session: AppSession(storage: storage))
-        model.email = "family@example.com"
-        model.password = "secret123"
-
-        #expect(model.canSubmit)
-    }
-
-    @Test("送出期間按鈕停用，文字改成「登入中…」")
-    func submittingDisablesButton() async {
-        let gate = Gate()
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], gate: gate),
-            session: AppSession(storage: storage)
-        )
-        model.email = "family@example.com"
-        model.password = "secret123"
-        #expect(model.submitTitle == "登入")
-
-        let submission = Task { await model.submit() }
-        await gate.waitUntilReached()
-
-        #expect(model.submitTitle == "登入中…")
-        #expect(!model.canSubmit)
-
-        await gate.open()
-        await submission.value
-        #expect(model.submitTitle == "登入")
-    }
-
-    @Test("再次送出時先清掉上一次的錯誤訊息")
-    func resubmittingClearsPreviousError() async {
-        let gate = Gate()
-        await gate.open()
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], gate: gate),
-            session: AppSession(storage: storage)
-        )
-        model.email = "family@example.com"
-        model.password = "wrong-password"
-        await model.submit()
-        #expect(model.errorMessage == "Email 或密碼錯誤")
-
-        await gate.close()
-        model.password = "secret123"
-        let retry = Task { await model.submit() }
-        await gate.waitUntilReached()
-
-        #expect(model.errorMessage == nil)
-
-        await gate.open()
-        await retry.value
-    }
-
-    @Test("Email 前後的空白不算(鍵盤的自動完成會補上空白)")
-    func emailIsTrimmed() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(auth: auth, session: session)
-        model.email = " family@example.com "
-        model.password = "secret123"
-
-        await model.submit()
-
+        #expect(await auth.signInRequests == [true])
         #expect(session.current?.user.name == "小明")
     }
 
-    @Test("密碼預設隱藏")
-    func passwordIsHiddenByDefault() {
-        let model = LoginModel(auth: auth, session: AppSession(storage: storage))
+    @Test("關掉登入視窗:回到登入頁,不顯示錯誤")
+    func cancellingShowsNoError() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(members: [.sample], signInError: CancellationError()), session: session
+        )
 
-        #expect(!model.isPasswordVisible)
+        await model.signIn()
+
+        #expect(model.errorMessage == nil)
+        #expect(session.current == nil)
+        #expect(!model.isSubmitting)
     }
 
-    @Test("登出後回到的登入頁是空白的，密碼不留在記憶體裡")
-    func loginFormIsBlankAfterSignOut() async {
+    @Test("登入失敗時顯示後端回傳的訊息，留在登入頁")
+    func signInFailureShowsBackendMessage() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(members: [.sample], signInError: RepositoryError.rejected("授權碼無效或已被使用")),
+            session: session
+        )
+
+        await model.signIn()
+
+        #expect(model.errorMessage == "授權碼無效或已被使用")
+        #expect(session.current == nil)
+    }
+
+    @Test("登入期間按鈕停用;再次登入時先清掉上一次的錯誤訊息")
+    func submittingStateAndErrorReset() async {
+        let gate = Gate()
+        await gate.open()
+        let failing = LoginModel(
+            auth: InMemoryAuthRepository(members: [.sample], signInError: RepositoryError.rejected("失敗")),
+            session: AppSession(storage: storage)
+        )
+        await failing.signIn()
+        #expect(failing.errorMessage == "失敗")
+
+        let model = LoginModel(auth: InMemoryAuthRepository(members: [.sample], gate: gate), session: AppSession(storage: storage))
+        await gate.close()
+        let submission = Task { await model.signIn() }
+        await gate.waitUntilReached()
+        #expect(model.isSubmitting)
+        #expect(model.errorMessage == nil)
+
+        await gate.open()
+        await submission.value
+        #expect(!model.isSubmitting)
+    }
+
+    @Test("使用 passkey 登入成功後進入 tab 外殼")
+    func passkeySignInSucceeds() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
-        model.email = "family@example.com"
-        model.password = "secret123"
-        model.isPasswordVisible = true
-        await model.submit()
 
-        session.signOut()
+        await model.signInWithPasskey()
 
-        #expect(model.email.isEmpty)
-        #expect(model.password.isEmpty)
-        #expect(!model.isPasswordVisible)
+        #expect(session.current?.user.name == "小明")
+        #expect(await auth.passkeySignInCount == 1)
+    }
+
+    @Test("passkey 驗證時取消:回到登入頁,不顯示錯誤")
+    func passkeyCancellingShowsNoError() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(members: [.sample], signInError: CancellationError()), session: session
+        )
+
+        await model.signInWithPasskey()
+
+        #expect(model.errorMessage == nil)
+        #expect(session.current == nil)
+    }
+
+    @Test("passkey 驗證失敗時照顯示後端訊息")
+    func passkeyFailureShowsBackendMessage() async {
+        let session = AppSession(storage: storage)
+        let model = LoginModel(
+            auth: InMemoryAuthRepository(
+                members: [.sample], signInError: RepositoryError.invalidCredentials("Passkey 驗證已過期或重複使用，請重試")
+            ),
+            session: session
+        )
+
+        await model.signInWithPasskey()
+
+        #expect(model.errorMessage == "Passkey 驗證已過期或重複使用，請重試")
+        #expect(session.current == nil)
     }
 }

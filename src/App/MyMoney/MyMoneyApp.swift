@@ -13,16 +13,13 @@ import MyMoneyTestSupport
 struct MyMoneyApp: App {
     private let session: AppSession
     private let login: LoginModel
-    private let register: RegisterModel
+    private let signOut: SignOutModel
     private let accountDeletion: AccountDeletionModel
     private let signedIn: SignedInScreens
     /// App 鎖(#298):生物辨識鎖,純本機。
     private let appLock: AppLockModel
-    private let biometricSettings: BiometricLoginSettings
     /// 「我的」的外觀設定，套到整個 app(包含登入頁、sheet 和 alert)。
     private let appearance: AppearanceSetting
-    /// UI 測試關掉高強度密碼建議(見 `suggestsStrongPasswords`)。
-    private let suggestsStrongPasswords: Bool
     /// UI 測試拉長「已複製」的顯示時間(見 `copiedFeedbackDuration`);`nil` 是沿用預設值。
     ///
     /// 不要在 `init()` 建立 `EnvironmentValues()` 來取預設值：這麼早建立會讓整個 app 的
@@ -74,20 +71,10 @@ struct MyMoneyApp: App {
             appearance = AppearanceSetting(defaults: defaults)
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
+            // 登入鈕不開登入視窗，直接以範例帳號登入(#334)。
             let auth = InMemoryAuthRepository(members: [.sample])
-            // `-uiTestingSavedLogin`:已存好帳密(登入頁有 Face ID 按鈕);`-uiTestingBiometricLogin`:登入時會詢問要不要用 Face ID 登入。
-            // 登入用的假驗證器跟 App 鎖分開:其他 UI 測試登入時不會多出這個詢問。
-            let hasLoginBiometry = arguments.contains("-uiTestingSavedLogin") || arguments.contains("-uiTestingBiometricLogin")
-            let savedLogin = arguments.contains("-uiTestingSavedLogin")
-                ? SavedCredentials(email: InMemoryAuthRepository.Member.sample.email, password: InMemoryAuthRepository.Member.sample.password)
-                : nil
-            let biometricLogin = BiometricLogin(
-                vault: InMemoryCredentialVault(saved: savedLogin),
-                authenticator: FakeDeviceAuthenticator(capability: hasLoginBiometry ? .faceID : .unavailable, result: fakeResult)
-            )
-            login = LoginModel(auth: auth, session: session, biometricLogin: biometricLogin)
-            biometricSettings = BiometricLoginSettings(auth: auth, session: session, biometricLogin: biometricLogin)
-            register = RegisterModel(auth: auth, session: session)
+            login = LoginModel(auth: auth, session: session)
+            signOut = SignOutModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
             let includesFamily = arguments.contains("-uiTestingFamilyEntries")
@@ -167,15 +154,17 @@ struct MyMoneyApp: App {
                 }
             }
             let bot = InMemoryBotRepository.sample()
+            let security = InMemoryAccountSecurityRepository.sample()
+            let passkeys = InMemoryPasskeyRepository.sample()
             signedIn = SignedInScreens { user in
                 MainScreens(
                     currentUser: user.id,
                     accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                     savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
-                    householdRepository: household, botRepository: bot, defaults: defaults
+                    householdRepository: household, botRepository: bot, accountSecurityRepository: security,
+                    passkeyRepository: passkeys, defaults: defaults
                 )
             }
-            suggestsStrongPasswords = false
             copiedFeedbackOverride = .seconds(30)
             exposesSkeleton = true
             // `-uiTestingRowParts`:收支明細列不合成一個元素，圖示、標題、次要文字、金額、帳戶各自可查詢(量版面用,#246)。
@@ -183,18 +172,22 @@ struct MyMoneyApp: App {
             return
         }
         #endif
+        // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
+        LegacyCredentials.delete()
         session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         appLock = AppLockModel(authenticator: LiveDeviceAuthenticator(), defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
-        // APIClient 透過 session 取得 token,並在非 /auth/* 的 401 時讓 session 回到登入頁。
-        let client = APIClient(session: session)
-        let auth = LiveAuthRepository(client: client)
-        let biometricLogin = BiometricLogin(
-            vault: KeychainCredentialVault(service: "com.raychiu.mymoney.credentials"), authenticator: LiveDeviceAuthenticator()
+        // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
+        // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
+        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337)。
+        let client = APIClient(
+            session: session, deviceModel: UIDevice.current.model,
+            dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
         )
-        login = LoginModel(auth: auth, session: session, biometricLogin: biometricLogin)
-        biometricSettings = BiometricLoginSettings(auth: auth, session: session, biometricLogin: biometricLogin)
-        register = RegisterModel(auth: auth, session: session)
+        let passkeyAuthenticator = LivePasskeyAuthenticator()
+        let auth = LiveAuthRepository(client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator)
+        login = LoginModel(auth: auth, session: session)
+        signOut = SignOutModel(auth: auth, session: session)
         accountDeletion = AccountDeletionModel(auth: auth, session: session)
         let accounts = LiveAccountRepository(client: client)
         let transactions = LiveTransactionRepository(client: client)
@@ -204,6 +197,8 @@ struct MyMoneyApp: App {
         let forecast = LiveForecastRepository(client: client)
         let household = LiveHouseholdRepository(client: client)
         let bot = LiveBotRepository(client: client)
+        let security = LiveAccountSecurityRepository(client: client)
+        let passkeys = LivePasskeyRepository(client: client, authenticator: passkeyAuthenticator)
         // 登入後的畫面 model:每次有人登入時重建一份(見 `SignedInScreens`),
         // 資料版本也是每個 session 一份，這個 session 的所有畫面共用。
         signedIn = SignedInScreens { user in
@@ -211,10 +206,10 @@ struct MyMoneyApp: App {
                 currentUser: user.id,
                 accountRepository: accounts, transactionRepository: transactions, recurringRepository: recurring,
                 savingsGoalRepository: goals, statisticsRepository: statistics, forecastRepository: forecast,
-                householdRepository: household, botRepository: bot
+                householdRepository: household, botRepository: bot, accountSecurityRepository: security,
+                passkeyRepository: passkeys
             )
         }
-        suggestsStrongPasswords = true
         copiedFeedbackOverride = nil
         exposesSkeleton = false
         exposesRowParts = false
@@ -222,15 +217,14 @@ struct MyMoneyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(login: login, register: register, signedIn: signedIn, appLock: appLock)
+            RootView(login: login, signedIn: signedIn, appLock: appLock)
                 .environment(session)
                 .environment(appearance)
                 .environment(appLock)
-                .environment(biometricSettings)
+                .environment(signOut)
                 .task { lockWindow.start(appLock: appLock) }
                 .environment(accountDeletion)
                 .environment(\.appVersion, AppVersion(infoDictionary: Bundle.main.infoDictionary))
-                .environment(\.suggestsStrongPasswords, suggestsStrongPasswords)
                 .environment(\.exposesSkeletonToAccessibility, exposesSkeleton)
                 .environment(\.exposesRowPartsToAccessibility, exposesRowParts)
                 .transformEnvironment(\.copiedFeedbackDuration) { duration in

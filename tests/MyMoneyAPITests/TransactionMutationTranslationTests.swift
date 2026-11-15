@@ -88,9 +88,10 @@ struct TransactionMutationTranslationTests {
         #expect(data.starts(with: [0xEF, 0xBB, 0xBF]))
     }
 
-    @Test("匯出時 token 失效是 session 過期")
+    @Test("匯出時 token 失效且 refresh 後重送仍被拒是 session 過期")
     func exportExpiredSession() async throws {
         try stub.reply(status: 401, fixture: "accounts-invalid-token.json")
+        try stub.route("/oauth/token", [(200, "oauth-token-refresh.json")])
 
         await #expect(throws: RepositoryError.sessionExpired) {
             try await repository.exportCSV(

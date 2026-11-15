@@ -43,45 +43,6 @@ final class FieldLabelUITests: XCTestCase {
     }
 
     @MainActor
-    func testLoginFieldsHaveVisibleLabels() {
-        let app = launchSignedOut()
-        XCTAssertTrue(app.textFields["login.email"].waitForExistence(timeout: 5), "沒有看到登入頁")
-        for label in ["電子郵件", "密碼"] {
-            XCTAssertTrue(app.staticTexts[label].exists, "登入頁的欄位沒有看得見的「\(label)」標籤，只有 placeholder")
-        }
-    }
-
-    @MainActor
-    func testRegisterFieldsHaveVisibleLabels() {
-        let app = launchSignedOut()
-        app.buttons["login.register"].tap()
-        XCTAssertTrue(app.textFields["register.name"].waitForExistence(timeout: 5), "沒有看到註冊頁")
-        for label in ["姓名", "電子郵件", "密碼", "確認密碼"] {
-            XCTAssertTrue(app.staticTexts[label].exists, "註冊頁的欄位沒有看得見的「\(label)」標籤，只有 placeholder")
-        }
-    }
-
-    /// 無障礙字級下標籤在欄位上方，點標籤(整列的上半)也要能開始輸入;不然點整列的正中央會落在標籤上，欄位沒有焦點。
-    @MainActor
-    func testTappingTheLabelFocusesTheFieldAtAccessibilitySize() {
-        let app = launchSignedOut(contentSize: "UICTContentSizeCategoryAccessibilityXXXL")
-        XCTAssertTrue(app.textFields["login.email"].waitForExistence(timeout: 5), "沒有看到登入頁")
-        app.staticTexts["電子郵件"].tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "點「電子郵件」標籤沒有開始輸入")
-        app.textFields["login.email"].typeText("a@b.c")
-        XCTAssertEqual(app.textFields["login.email"].value as? String, "a@b.c")
-    }
-
-    @MainActor
-    private func launchSignedOut(contentSize: String? = nil) -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-resetSession"]
-        if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
-        app.launch()
-        return app
-    }
-
-    @MainActor
     private func assertNoteLabel(in app: XCUIApplication, field: String, form: String) {
         let note = app.textFields[field]
         for _ in 0..<8 where !(note.exists && note.isHittable) { app.swipeUp() }
@@ -97,15 +58,7 @@ final class FieldLabelUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "-resetSession"] + extraArguments
         app.launch()
-        let email = app.textFields["login.email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 5), "沒有看到登入頁")
-        email.tap()
-        email.typeText("family@example.com")
-        let password = app.secureTextFields["login.password"]
-        password.tap()
-        password.typeText("secret123")
-        app.buttons["login.submit"].tap()
-        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "登入後沒有進入 tab 外殼")
+        app.signInWithSampleAccount()
         return app
     }
 }

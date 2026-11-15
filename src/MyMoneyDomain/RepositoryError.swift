@@ -5,13 +5,13 @@ public enum RepositoryError: Error, Equatable, Sendable {
     /// 後端拒絕請求，並附上給人看的訊息(`{success: false, error}`),原樣顯示。
     case rejected(String)
 
-    /// `/auth/*` 回應 401:Email 或密碼錯誤(附後端訊息)。跟一般的 `rejected` 分開,Face ID 登入才能只在密碼真的錯了時清掉已存帳密。
+    /// 沒有 `WWW-Authenticate` 的 401:Email 或密碼錯誤、「目前密碼錯誤」(附後端訊息)。跟會讓 session 失效的 401 分開(不登出)。
     case invalidCredentials(String)
 
     /// 回應不是看得懂的 envelope,例如後端出錯時回的純文字。
     case unreadableResponse
 
-    /// token 無效或已過期(非 `/auth/*` 的請求回應 401)。app 會清掉 session、回到登入頁。
+    /// token 無效或已過期(401 帶 `WWW-Authenticate: … invalid_token`)。app 會清掉 session、回到登入頁。
     case sessionExpired
 }
 

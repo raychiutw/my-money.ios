@@ -25,6 +25,7 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
    - body 裡寫 `__EMAIL__`、`__PASSWORD__`,腳本會換成測試帳號的 email 與密碼，所以密碼不會出現在指令列或 shell history。
    - 腳本會把回應裡所有 JWT 換成假值 `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ZmFrZS1maXh0dXJlLXRva2Vu.ZmFrZS1zaWduYXR1cmU`,並在回應含有密碼時拒絕存檔。
    - 腳本會印出 HTTP 狀態碼與 Content-Type,把它填進下表。
+   - 回應有 `WWW-Authenticate` 時，腳本另存成 `<fixture>.headers`,`HTTPStub.reply(status:fixture:)` 會一起回應(401 的判斷靠它，#333)。
 3. 用 `git diff` 看一次存下來的內容：不能有真的 token、密碼或其他人的資料。
 4. 在下表補一列，再寫測試。
 
@@ -37,9 +38,9 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `auth-login-success.json` | `POST /auth/login`,正確的密碼 | 200 | `{success, data}` 解碼成 session |
-| `auth-login-wrong-password.json` | `POST /auth/login`,錯誤的密碼 | 401 | `/auth/*` 的 401 原樣傳遞「Email 或密碼錯誤」,不算 session 過期 |
+| `auth-login-wrong-password.json` | `POST /auth/login`,錯誤的密碼 | 401 | 沒有 `WWW-Authenticate` 的 401 原樣傳遞「Email 或密碼錯誤」,不算 session 過期(2026-11-15 重錄，後端 `c899f01`,確認沒有這個標頭) |
 | `auth-login-malformed-body.txt` | `POST /auth/login`,body 是 `not-json` | 500,`text/plain` | 回應不是 JSON 時顯示「伺服器無回應」 |
-| `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 非 `/auth/*` 的 401 是 session 過期 |
+| `accounts-invalid-token.json` | `GET /accounts`,帶無效的 token | 401 | 401 帶 `WWW-Authenticate: Bearer error="invalid_token"`(另存在 `accounts-invalid-token.json.headers`)是 session 過期,不看路徑(2026-11-15 重錄，後端 `c899f01`) |
 | `bot-bindings-delete.json` | `DELETE /bot/bindings/fixture-nonexistent-binding` | 200 | 只有 `{success, message}` 的 envelope 視為成功(這個 id 不存在，不會刪到任何資料) |
 | `auth-register-email-taken.json` | `POST /auth/register`,用測試帳號已經註冊過的 email | 409 | 「此 Email 已被使用」原樣傳遞(不會建立任何資料) |
 | `accounts-list-empty.json` | `GET /accounts`,測試帳號還沒有任何資產帳戶時 | 200 | 空清單 |
@@ -309,3 +310,52 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 | `accounts-create-bank-ignores-payment-account.json` | `POST /accounts`,**活存帳戶**也帶 `payment_account_id` | 201 | 後端忽略(存成 null),只有信用卡會寫入 |
 | `accounts-list-payment-account-dangling.json` | 綁定的活存帳戶被刪除之後的 `GET /accounts` | 200 | 卡上還留著 `payment_account_id`、`payment_account_name` 是 null(懸空) |
 | `forecast-365-days.json` | `GET /forecast`(2026-10-23,上游 `aecab6b`) | 200 | 預測延長到 12 個月:365 筆逐日餘額(#276);其他預測 fixture 是 60 天或更舊的期程,形狀相同,不重錄 |
+
+### OAuth(#334,2026-11-15,後端 `c899f01`)
+
+`/oauth/*` 不是 `{success, data}` envelope,也不是 JSON body:用 `scripts/record-oauth-fixtures.sh` 一次錄完(不用 `record-fixture.sh`)。腳本用測試帳號走一次授權碼流程:`GET /oauth/authorize` 從 Worker 登入頁取 `csrf_token` → `POST /oauth/authorize`(form)拿到 302 callback 的 `code` → 換權杖 → 同一個 code 再換一次 → 用更新權杖 refresh(#335)→ 用不存在的更新權杖 refresh → 撤銷剛建立的工作階段(測試帳號不留下多餘的登入裝置)。存檔前存取權杖(JWT)**只換掉簽章**(header 與 payload 保留,測試要從 payload 解出使用者;沒有簽章的權杖不能用),更新權杖換成 `fake-fixture-refresh-token`(輪替後的換成 `fake-fixture-rotated-refresh-token`);回應含有密碼或真的更新權杖時不存檔。
+
+DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金鑰(放暫存目錄,結束時刪掉),換碼與 refresh 都帶 proof,所以 `oauth-token-authorization-code.json`、`oauth-token-refresh.json` 是 `token_type: "DPoP"`。`invalid_dpop_proof` 回應另帶 `Date`,不存進 `.headers`(每次不同),測試用 `HTTPStub.setHeaders(_:forFirstReplyOf:)` 指定。
+
+**注意**:`oauth-token-*.json` 的存取權杖保留測試帳號真實的 JWT payload(`sub`、`sid`、`cnf.jkt`,以及 `email`、`name`),只有簽章是假的;錄完腳本已撤銷那些工作階段,`cnf.jkt` 對應的暫時金鑰也已刪掉,這些值不能再拿來呼叫 API。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `oauth-token-authorization-code.json` | `POST /oauth/token`,`grant_type=authorization_code`(PKCE) | 200 | `{access_token, token_type, expires_in: 900, refresh_token, scope}`;使用者取自存取權杖的 payload(`sub`、`email`、`name`) |
+| `oauth-token-invalid-grant.json` | 同一個 code 再換一次 | 400 | `{error: "invalid_grant", error_description: "授權碼無效或已被使用"}`,照顯示 `error_description` |
+| `oauth-token-refresh.json` | `POST /oauth/token`,`grant_type=refresh_token`、`client_id=ios`(#335) | 200 | 同換碼的格式;`refresh_token` 是輪替後的新權杖,要改存它 |
+| `oauth-token-refresh-invalid-grant.json` | 用不存在的更新權杖 refresh | 400 | `{error: "invalid_grant", error_description: "Refresh Token 無效或已過期"}`:清掉登入狀態回登入頁 |
+| `oauth-revoke.json` | `POST /oauth/revoke`,`token=<更新權杖>` | 200 | `{success: true}`(RFC 7009:不論權杖是否有效都回 200) |
+| `oauth-token-invalid-dpop-proof.json` | 換碼帶 htu 錯誤的 DPoP proof(#337) | 400 | `{error: "invalid_dpop_proof", error_description}`:依 `Date` 校正時鐘、重簽送一次(proof 驗證失敗不會消費授權碼) |
+| `accounts-invalid-dpop-proof.json` | `GET /accounts`,DPoP 權杖配 htu 錯誤的 proof(#337) | 401 | `WWW-Authenticate: DPoP error="invalid_dpop_proof"`(`.headers`):重簽重送一次,仍失敗照顯示、不登出 |
+
+### 帳號安全(#338,2026-11-15,後端 `c899f01`)
+
+`/auth/sessions` 與 `/auth/password` 要 OAuth 的存取權杖(舊版權杖沒有工作階段,`current` 全是 false):用 `scripts/record-oauth-fixtures.sh account-security` 錄。腳本登入兩次(iPhone 與 iPad 的 User-Agent),錄完刪掉 iPad 那個、撤銷 iPhone 那個,測試帳號不留下多餘的登入裝置。**沒有改到密碼**:「目前密碼錯誤」用錯的目前密碼,「新密碼太短」在驗證目前密碼之前就擋下;第二次登入成功會清掉那次累計的失敗次數。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `auth-sessions.json` | `GET /auth/sessions` | 200 | snake_case,`created_at`、`last_used_at` 是 Unix 秒;`current` 標示這台;裝置名稱「iPhone · My Money App」「iPad · My Money App」 |
+| `auth-session-delete.json` | `DELETE /auth/sessions/:id`,刪 iPad 那個 | 200 | `{success, data: {id}}` |
+| `auth-session-delete-not-found.json` | 同一個 id 再刪一次 | 404 | 「找不到此裝置工作階段」原樣傳遞 |
+| `auth-password-wrong-current.json` | `POST /auth/password`,目前密碼錯誤 | 401 | **沒有** `WWW-Authenticate`(腳本有檢查):照顯示「目前密碼錯誤」、不登出 |
+| `auth-password-too-short.json` | `POST /auth/password`,新密碼 5 個字元 | 400 | 「新密碼至少 6 個字元」原樣傳遞 |
+| `auth-sessions-revoke-others.json` | **手寫**:`DELETE /auth/sessions?scope=others`,依上游 `c899f01` `handlers/auth.ts` 的回應 `{success, data: {revoked_count}}`。不錄:會撤銷測試帳號其他所有工作階段(別的開發環境可能正在用) | 200 | 成功 |
+| `auth-password-changed.json` | **手寫**:`POST /auth/password` 成功,依同一支原始碼的 `{success, data: {message: "密碼已更新，其他裝置已登出"}}`。不錄:會改到測試帳號的密碼並撤銷其他工作階段 | 200 | 顯示後端的成功訊息 |
+
+### Passkey(#339,2026-11-15,後端 `c899f01`)
+
+用 `scripts/record-oauth-fixtures.sh passkey` 錄:登入一次、錄 options、空清單與錯誤回應,錄完撤銷工作階段。測試帳號**沒有 passkey**(要真機的 Face ID 才建得出來,而且上游 AASA 還沒有 Team ID,onion523/my-money#211),所以成功的驗證、非空清單、改名與刪除依上游 `c899f01` 的 `handlers/passkey.ts`、`handlers/oauth.ts` 手寫。登入與註冊 options 會在後端存一筆 5 分鐘到期的 challenge;註冊 options 第一次呼叫時替測試帳號產生 `webauthn_user_id`,不影響其他資料。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `passkey-login-options.json` | `POST /auth/passkey/login/options`(公開) | 200 | camelCase 的 SimpleWebAuthn options:`rpId` `my-money-onion.pages.dev`、base64url 的 `challenge` |
+| `passkey-register-options.json` | `POST /auth/passkey/register/options` | 200 | `rp.id`、base64url 的 `challenge` 與 `user.id`、`user.name` 是 email |
+| `passkeys-empty.json` | `GET /auth/passkeys` | 200 | 空清單 |
+| `passkey-rename-not-found.json` | `PATCH /auth/passkeys/fixture-nonexistent-passkey` | 404 | 「找不到指定的 Passkey」原樣傳遞 |
+| `oauth-passkey-authorize-expired.json` | `POST /oauth/passkey/authorize`,assertion 的 challenge 不存在 | 401 | **沒有** `WWW-Authenticate`(腳本有檢查):照顯示「Passkey 驗證已過期或重複使用，請重試」、不登出 |
+| `oauth-passkey-authorize.json` | **手寫**:`POST /oauth/passkey/authorize` 成功,`{success, data: {code, state}}` | 200 | 授權碼走 `/oauth/token` |
+| `passkeys-list.json` | **手寫**:`GET /auth/passkeys`,兩筆(`last_used_at` 一筆 `null`) | 200 | snake_case,Unix 秒 |
+| `passkey-register-verify.json` | **手寫**:`POST /auth/passkey/register/verify` 成功,`{success, data: {id, name, created_at, last_used_at: null}}` | 201 | 成功 |
+| `passkey-rename.json` | **手寫**:`PATCH /auth/passkeys/:id` 成功,`{success, data: {id, name}}` | 200 | 成功 |
+| `passkey-delete.json` | **手寫**:`DELETE /auth/passkeys/:id` 成功,`{success, data: {deleted: true}}` | 200 | 成功 |
