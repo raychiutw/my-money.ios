@@ -1,7 +1,7 @@
 import UIKit
 import XCTest
 
-/// 記帳頁每日支出長條圖(#163、#157 逐頁 HIG 審查):最高那根的金額標註(「$1,000」)要畫在圖的範圍裡,
+/// 記帳頁每日支出長條圖(#163、#157 逐頁 HIG 審查):最高那根的金額標註要畫在圖的範圍裡,
 /// 跟上面「支出佔收入」的比例條至少隔 4pt。以前標註畫在圖的上緣外面,字級放大之後直接壓到比例條。
 /// 圖與標註不是獨立的 accessibility 元素,所以用 OCR 量位置(同 `HouseholdHeroUITests`)。
 final class ChartAnnotationUITests: XCTestCase {
@@ -44,11 +44,13 @@ final class ChartAnnotationUITests: XCTestCase {
 
         let screenHeight = app.windows.firstMatch.frame.height
         let observations = try TextRecognition.observations(in: app.screenshot().image)
-        // 最高那根是今天(120 + 880 = 1,000);取離圖的上緣最近的「1,000」,避開主視覺的總支出。
-        let amounts = observations.filter { $0.text.contains("1,000") }
+        // 最高那根的金額從圖的摘要讀(「…，支出 5,000 元」):範例資料 10 號的信用卡還款也算每日支出(上游 a09e923),
+        // 最高那天跟著日期變。取離圖的上緣最近的那個金額,避開主視覺的總支出。
+        let peak = try XCTUnwrap(chart.label.components(separatedBy: "支出 ").last?.components(separatedBy: " 元").first, "圖的摘要沒有金額:\(chart.label)")
+        let amounts = observations.filter { $0.text.contains(peak) }
         let annotation = try XCTUnwrap(
             amounts.min { distance($0, toTopOf: chart, screenHeight: screenHeight) < distance($1, toTopOf: chart, screenHeight: screenHeight) },
-            "畫面上找不到長條圖的 $1,000 標註:\(observations.map(\.text))"
+            "畫面上找不到長條圖的 $\(peak) 標註:\(observations.map(\.text))"
         )
         // box 的原點在左下:標註的上緣(點,由上往下量)。
         let annotationTop = (1 - annotation.box.maxY) * screenHeight
