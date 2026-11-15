@@ -313,10 +313,12 @@ scripts/record-fixture.sh <fixture 檔名> <METHOD> <path> [JSON body] [--no-aut
 
 ### OAuth(#334,2026-11-15,後端 `c899f01`)
 
-`/oauth/*` 不是 `{success, data}` envelope,也不是 JSON body:用 `scripts/record-oauth-fixtures.sh` 一次錄完(不用 `record-fixture.sh`)。腳本用測試帳號走一次授權碼流程:`GET /oauth/authorize` 從 Worker 登入頁取 `csrf_token` → `POST /oauth/authorize`(form)拿到 302 callback 的 `code` → 換權杖 → 同一個 code 再換一次 → 撤銷剛建立的工作階段(測試帳號不留下多餘的登入裝置)。存檔前存取權杖(JWT)**只換掉簽章**(header 與 payload 保留,測試要從 payload 解出使用者;沒有簽章的權杖不能用),更新權杖換成 `fake-fixture-refresh-token`;回應含有密碼或真的更新權杖時不存檔。
+`/oauth/*` 不是 `{success, data}` envelope,也不是 JSON body:用 `scripts/record-oauth-fixtures.sh` 一次錄完(不用 `record-fixture.sh`)。腳本用測試帳號走一次授權碼流程:`GET /oauth/authorize` 從 Worker 登入頁取 `csrf_token` → `POST /oauth/authorize`(form)拿到 302 callback 的 `code` → 換權杖 → 同一個 code 再換一次 → 用更新權杖 refresh(#335)→ 用不存在的更新權杖 refresh → 撤銷剛建立的工作階段(測試帳號不留下多餘的登入裝置)。存檔前存取權杖(JWT)**只換掉簽章**(header 與 payload 保留,測試要從 payload 解出使用者;沒有簽章的權杖不能用),更新權杖換成 `fake-fixture-refresh-token`(輪替後的換成 `fake-fixture-rotated-refresh-token`);回應含有密碼或真的更新權杖時不存檔。
 
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
 | `oauth-token-authorization-code.json` | `POST /oauth/token`,`grant_type=authorization_code`(PKCE) | 200 | `{access_token, token_type, expires_in: 900, refresh_token, scope}`;使用者取自存取權杖的 payload(`sub`、`email`、`name`) |
 | `oauth-token-invalid-grant.json` | 同一個 code 再換一次 | 400 | `{error: "invalid_grant", error_description: "授權碼無效或已被使用"}`,照顯示 `error_description` |
+| `oauth-token-refresh.json` | `POST /oauth/token`,`grant_type=refresh_token`、`client_id=ios`(#335) | 200 | 同換碼的格式;`refresh_token` 是輪替後的新權杖,要改存它 |
+| `oauth-token-refresh-invalid-grant.json` | 用不存在的更新權杖 refresh | 400 | `{error: "invalid_grant", error_description: "Refresh Token 無效或已過期"}`:清掉登入狀態回登入頁 |
 | `oauth-revoke.json` | `POST /oauth/revoke`,`token=<更新權杖>` | 200 | `{success: true}`(RFC 7009:不論權杖是否有效都回 200) |

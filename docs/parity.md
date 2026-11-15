@@ -9,8 +9,9 @@
 ## 全域
 
 - [x] 登入與註冊在系統的安全登入視窗(上游 `/oauth/authorize`)完成,app 不接觸密碼(#334)。存取權杖只放記憶體,更新權杖存 Keychain(ADR-0012);舊版權杖在升級後清掉,要重新登入一次。
-- [x] API 回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時(不看路徑，上游 `c899f01` 的 `/auth/sessions` 等也走權杖驗證):清掉 token 和使用者資料，回到登入頁。`invalid_dpop_proof` 只顯示錯誤;沒有這個標頭的 401(帳密錯誤、「目前密碼錯誤」)照顯示後端的 `error`,不登出(#333)。
+- [x] API 回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時(不看路徑，上游 `c899f01` 的 `/auth/sessions` 等也走權杖驗證):先用更新權杖 refresh 再重送一次,重送仍 401 才清掉 token 和使用者資料，回到登入頁(#335)。`invalid_dpop_proof` 只顯示錯誤;沒有這個標頭的 401(帳密錯誤、「目前密碼錯誤」)照顯示後端的 `error`,不登出(#333)。
 - [x] 每個請求的 User-Agent 帶 `MyMoney-iOS (iPhone|iPad)`,後端用它產生工作階段的裝置名稱(上游 `parseDeviceName` 看到 `iPad` 才顯示「iPad · My Money App」,#333、#334)。
+- [x] 存取權杖沒有(冷啟動)或一分鐘內到期時,送出前先 `grant_type=refresh_token`(`client_id=ios`)換新並改存輪替後的更新權杖;同一時間只送一個 refresh(W:auth/oauth.ts 的 `inFlightRefresh`)。只有 `invalid_grant` 清掉登入狀態;網路錯誤與 5xx 保留更新權杖,原請求照一般錯誤顯示(上游 #208,#335)。與 web 的差異:web 遇到暫時性錯誤會等 500 毫秒重試一次,並把任何 400／401 都當成失效;iOS 不重試(使用者重新整理即可),只認 `invalid_grant`(spec #332)。web 另有到期前的計時器與回到前景時的主動 refresh,iOS 在下一個請求送出前才判斷,效果相同。
 - [x] 登出時不跳確認，直接清除本機狀態，回到登入頁;同時 `POST /oauth/revoke` 撤銷這台的登入工作階段,失敗也不影響登出(#334)。
 - [x] API 錯誤顯示後端回傳的 `error` 字串;回應不是 JSON 時，顯示「伺服器無回應」。
 - [x] UI 只有繁體中文。
