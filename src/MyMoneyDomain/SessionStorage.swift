@@ -37,6 +37,6 @@ public enum ProtectedSessionLoad: Sendable, Equatable {
     case cancelled
     /// 刷臉沒通過，或其他讀取錯誤。
     case failed
-    /// 保存已失效(臉部資料變更,或已經不在了):要重新登入。
+    /// 保存已失效(臉部資料變更,或已經不在了):要重新登入。回傳前已清掉保存。
     case invalidated
 }

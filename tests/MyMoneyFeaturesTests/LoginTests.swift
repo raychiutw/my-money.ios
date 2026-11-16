@@ -97,4 +97,24 @@ struct LoginTests {
         #expect(await auth.signInRequests == [false, false])
         #expect(session.current != nil)
     }
+
+    @Test("不在前景時關掉登入視窗:不再開,回到前景才再開")
+    func cancellingInBackgroundWaitsForForeground() async {
+        let gate = Gate()
+        let session = AppSession(storage: storage)
+        let closingOnce = InMemoryAuthRepository(members: [.sample], gate: gate, signInErrors: [CancellationError(), nil])
+        let model = LoginModel(auth: closingOnce, session: session)
+
+        let opening = Task { await model.appeared() }
+        await gate.waitUntilReached()
+        model.sceneLeftForeground()
+        await gate.open()
+        await opening.value
+        #expect(await closingOnce.signInRequests == [false])
+        #expect(session.current == nil)
+
+        await model.appeared()
+        #expect(await closingOnce.signInRequests == [false, false])
+        #expect(session.current?.user.name == "小明")
+    }
 }

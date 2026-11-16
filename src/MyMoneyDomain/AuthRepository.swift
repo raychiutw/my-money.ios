@@ -4,10 +4,6 @@ public protocol AuthRepository: Sendable {
     /// 使用者關掉登入視窗時丟 `CancellationError`,不是錯誤。
     func signIn(registering: Bool) async throws -> SignInResult
 
-    /// 用 passkey 登入(`PasskeyAuthenticator`,#339)。使用者關掉系統的 passkey 視窗時丟 `CancellationError`;
-    /// 驗證失敗丟附後端訊息的 `RepositoryError.invalidCredentials`。
-    func signInWithPasskey() async throws -> Session
-
     /// 撤銷伺服器端的登入工作階段(`POST /oauth/revoke`)。失敗也不丟錯:本機一律照樣登出。
     func signOut(_ session: Session) async
 

@@ -16,10 +16,8 @@ struct PasskeyTranslationTests {
         APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: FakeSessionProvider(token: token))
     }
 
-    private func auth(
-        _ authenticator: FakePasskeyAuthenticator, browser: FakeBrowserAuthorizer = FakeBrowserAuthorizer(.cancelled)
-    ) -> LiveAuthRepository {
-        LiveAuthRepository(client: client(), browser: browser, passkeys: authenticator)
+    private func auth(browser: FakeBrowserAuthorizer) -> LiveAuthRepository {
+        LiveAuthRepository(client: client(), browser: browser)
     }
 
     private func repository(_ authenticator: FakePasskeyAuthenticator = FakePasskeyAuthenticator()) -> LivePasskeyRepository {
@@ -37,106 +35,13 @@ struct PasskeyTranslationTests {
         return Dictionary((components.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { first, _ in first }
     }
 
-    private func routePasskeySignIn() throws {
-        try stub.route("/auth/passkey/login/options", [(200, "passkey-login-options.json")])
-        try stub.route("/oauth/passkey/authorize", [(200, "oauth-passkey-authorize.json")])
-        try stub.route("/oauth/token", [(200, "oauth-token-authorization-code.json")])
-    }
-
-    /// `passkey-login-options.json` 的 challenge(標準 base64)。
-    private let loginChallenge = Data(base64Encoded: "7xIYiecbMmN2yMnVZzdqGV+ZJtSSuQnrq0ywdCA/R/8=")!
-
     /// 登入頁的「用 Face ID 登入」改為送出帳密(#353),不再導回 passkey_requested;收到就照一般 error 顯示。
-    @Test("導回 passkey_requested 不再改走原生 passkey:照顯示 error_description,不叫 passkey")
+    @Test("導回 passkey_requested 不再改走原生 passkey:照顯示 error_description,不送任何請求")
     func passkeyRequestedNoLongerSwitchesToPasskey() async throws {
-        try routePasskeySignIn()
-        let authenticator = FakePasskeyAuthenticator()
-
         await #expect(throws: RepositoryError.rejected("x")) {
-            try await auth(authenticator, browser: FakeBrowserAuthorizer(.passkeyRequested)).signIn(registering: false)
+            try await auth(browser: FakeBrowserAuthorizer(.passkeyRequested)).signIn(registering: false)
         }
-        #expect(authenticator.assertions.isEmpty)
         #expect(stub.requests.isEmpty)
-    }
-
-    @Test("passkey 登入:用登入 options 的 RP ID 與 challenge 向驗證器要 assertion")
-    func signInAsksAuthenticator() async throws {
-        try routePasskeySignIn()
-        let authenticator = FakePasskeyAuthenticator()
-
-        _ = try await auth(authenticator).signInWithPasskey()
-
-        let options = try #require(stub.requests(to: "/auth/passkey/login/options").first)
-        #expect(options.httpMethod == "POST")
-        #expect(options.value(forHTTPHeaderField: "Authorization") == nil)
-        #expect(authenticator.assertions == [.init(relyingPartyID: "my-money-onion.pages.dev", challenge: loginChallenge)])
-    }
-
-    @Test("passkey 登入:assertion 以 base64url 的 WebAuthn JSON 連同 client_id、redirect、PKCE S256、state 送到 /oauth/passkey/authorize")
-    func signInAuthorizeBody() async throws {
-        try routePasskeySignIn()
-
-        _ = try await auth(FakePasskeyAuthenticator()).signInWithPasskey()
-
-        let body = try json(stub.requests(to: "/oauth/passkey/authorize").first)
-        #expect(body["client_id"] as? String == "ios")
-        #expect(body["redirect_uri"] as? String == "com.raychiu.mymoney:/oauth/callback")
-        #expect(body["code_challenge_method"] as? String == "S256")
-        #expect(body["scope"] as? String == "full")
-        #expect(((body["state"] as? String)?.count ?? 0) >= 16)
-        let response = try #require(body["response"] as? [String: Any])
-        #expect(response["id"] as? String == "-_8B")
-        #expect(response["rawId"] as? String == "-_8B")
-        #expect(response["type"] as? String == "public-key")
-        let inner = try #require(response["response"] as? [String: String])
-        #expect(inner == [
-            "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0In0",
-            "authenticatorData": "SZYN",
-            "signature": "MEX-",
-            "userHandle": "dXNlci1oYW5kbGU",
-        ])
-    }
-
-    @Test("passkey 登入:授權碼走同一個 /oauth/token 換權杖,code_verifier 的 S256 等於送出的 code_challenge")
-    func signInExchangesCode() async throws {
-        try routePasskeySignIn()
-
-        let session = try await auth(FakePasskeyAuthenticator()).signInWithPasskey()
-
-        let authorize = try json(stub.requests(to: "/oauth/passkey/authorize").first)
-        let token = form(stub.requests(to: "/oauth/token").first)
-        #expect(token["grant_type"] == "authorization_code")
-        #expect(token["code"] == "fixture-passkey-code")
-        #expect(token["redirect_uri"] == "com.raychiu.mymoney:/oauth/callback")
-        #expect(token["client_id"] == "ios")
-        let verifier = try #require(token["code_verifier"])
-        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-        #expect(authorize["code_challenge"] as? String == challenge)
-        #expect(session.user.email == "mymoney-ios-test@example.com")
-        #expect(session.tokens.refresh == "fake-fixture-refresh-token")
-    }
-
-    @Test("passkey 登入時使用者取消:丟 CancellationError,不送授權請求")
-    func signInCancelled() async throws {
-        try routePasskeySignIn()
-
-        await #expect(throws: CancellationError.self) {
-            try await auth(FakePasskeyAuthenticator(cancels: true)).signInWithPasskey()
-        }
-        #expect(stub.requests(to: "/oauth/passkey/authorize").isEmpty)
-    }
-
-    @Test("passkey 驗證失敗(沒有 WWW-Authenticate 的 401)照顯示後端訊息")
-    func signInRejected() async throws {
-        try stub.route("/auth/passkey/login/options", [(200, "passkey-login-options.json")])
-        try stub.route("/oauth/passkey/authorize", [(401, "oauth-passkey-authorize-expired.json")])
-
-        await #expect(throws: RepositoryError.invalidCredentials("Passkey 驗證已過期或重複使用，請重試")) {
-            try await auth(FakePasskeyAuthenticator()).signInWithPasskey()
-        }
-        #expect(stub.requests(to: "/oauth/token").isEmpty)
     }
 
     @Test("passkey 清單:名稱、建立時間與最後使用時間(Unix 秒,沒用過是 nil)")

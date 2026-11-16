@@ -50,7 +50,6 @@ struct MyMoneyApp: App {
                 storage.clear()
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
-            session = AppSession(storage: storage)
             // `-uiTestingAppLock`:範例帳號開著 App 鎖(重啟讀回 session 就會鎖);`-uiTestingAuthResult cancel|fail|unavailable`:假驗證器的結果(預設成功)。
             let fakeResult: DeviceAuthResult = switch UserDefaults.standard.string(forKey: "uiTestingAuthResult") {
             case "cancel": .cancelled
@@ -63,10 +62,9 @@ struct MyMoneyApp: App {
             let hasBiometry = arguments.contains("-uiTestingBiometry") || arguments.contains("-uiTestingAppLock")
             // `-uiTestingLockGrace N`:離開 app 滿 N 秒再回來就鎖(預設 60 秒,UI 測試縮短才測得到)。
             let grace = UserDefaults.standard.string(forKey: "uiTestingLockGrace").flatMap(TimeInterval.init) ?? AppLockModel.gracePeriod
-            appLock = AppLockModel(
-                authenticator: FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult),
-                defaults: defaults, gracePeriod: grace
-            )
+            let deviceAuthenticator = FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult)
+            session = AppSession(storage: storage, authenticator: deviceAuthenticator)
+            appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: defaults, gracePeriod: grace)
             if arguments.contains("-uiTestingAppLock") {
                 appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
             }
@@ -185,8 +183,8 @@ struct MyMoneyApp: App {
         #endif
         // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
         LegacyCredentials.delete()
-        session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         let deviceAuthenticator = LiveDeviceAuthenticator()
+        session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"), authenticator: deviceAuthenticator)
         appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
@@ -197,9 +195,9 @@ struct MyMoneyApp: App {
             dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
         )
         let passkeyAuthenticator = LivePasskeyAuthenticator()
-        // 登入頁跟著這台的生物辨識種類顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」),字級跟著 Dynamic Type 放大(#344)。
+        // 登入頁跟著這台的生物辨識種類顯示「用 Face ID 登入」按鈕(#353),字級跟著 Dynamic Type 放大(#344)。
         let auth = LiveAuthRepository(
-            client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator,
+            client: client, browser: LiveBrowserAuthorizer(),
             loginPage: { @MainActor in
                 LoginPageAppearance(
                     biometry: await deviceAuthenticator.capability(),

@@ -75,7 +75,7 @@ struct DPoPTranslationTests {
     func signInBindsNewKey() async throws {
         try stub.reply(status: 200, fixture: "oauth-token-authorization-code.json")
         let previous = Self.thumbprint(keys.publicKey)
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")), passkeys: FakePasskeyAuthenticator())
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")))
 
         _ = try await auth.signIn(registering: false)
 
@@ -93,28 +93,12 @@ struct DPoPTranslationTests {
         #expect(abs(proof.iat - Int(Date().timeIntervalSince1970)) <= 5)
     }
 
-    @Test("passkey 登入(#339)也產生新的金鑰,換碼帶 proof;/oauth/passkey/authorize 不帶")
-    func passkeySignInBindsNewKey() async throws {
-        try stub.route("/auth/passkey/login/options", [(200, "passkey-login-options.json")])
-        try stub.route("/oauth/passkey/authorize", [(200, "oauth-passkey-authorize.json")])
-        try stub.route("/oauth/token", [(200, "oauth-token-authorization-code.json")])
-        let previous = Self.thumbprint(keys.publicKey)
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.cancelled), passkeys: FakePasskeyAuthenticator())
-
-        _ = try await auth.signInWithPasskey()
-
-        #expect(Self.thumbprint(keys.publicKey) != previous, "每次登入要換新的金鑰")
-        let proof = try proof(stub.requests(to: "/oauth/token").first, signedBy: keys.publicKey)
-        #expect(proof["htu"] == stub.baseURL.appending(path: "oauth/token").absoluteString)
-        #expect(stub.requests(to: "/oauth/passkey/authorize").first?.value(forHTTPHeaderField: "DPoP") == nil)
-    }
-
     @Test("換碼回 invalid_dpop_proof:依 Date 校正時鐘、重簽一次,同一個授權碼換到權杖")
     func tokenEndpointRetriesOnceAfterClockSkew() async throws {
         let serverNow = Date().addingTimeInterval(300)
         try stub.route("/oauth/token", [(400, "oauth-token-invalid-dpop-proof.json"), (200, "oauth-token-authorization-code.json")])
         stub.setHeaders(["Date": Self.httpDate(serverNow)], forFirstReplyOf: "/oauth/token")
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")), passkeys: FakePasskeyAuthenticator())
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")))
 
         _ = try await auth.signIn(registering: false)
 
@@ -127,7 +111,7 @@ struct DPoPTranslationTests {
     @Test("換碼重送仍是 invalid_dpop_proof:顯示錯誤,只重送一次", .timeLimit(.minutes(1)))
     func tokenEndpointRetriesOnlyOnce() async throws {
         try stub.route("/oauth/token", [(400, "oauth-token-invalid-dpop-proof.json")])
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")), passkeys: FakePasskeyAuthenticator())
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")))
 
         await #expect(throws: RepositoryError.rejected("DPoP proof htu 不符")) {
             _ = try await auth.signIn(registering: false)
@@ -286,7 +270,7 @@ struct DPoPTranslationTests {
     @Test("登出:撤銷之後刪掉金鑰")
     func signOutDeletesKey() async throws {
         try stub.reply(status: 200, fixture: "oauth-revoke.json")
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.cancelled), passkeys: FakePasskeyAuthenticator())
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.cancelled))
         let current = Session(
             user: User(id: UserID("u"), email: "u@example.com", name: "U"),
             tokens: SessionTokens(access: "the-access", refresh: "r", accessExpiresAt: nil)
@@ -300,7 +284,7 @@ struct DPoPTranslationTests {
 
     @Test("刪除帳號成功:刪掉金鑰;失敗時保留")
     func accountDeletionDeletesKey() async throws {
-        let auth = LiveAuthRepository(client: client(FakeSessionProvider(tokens: Self.valid)), browser: FakeBrowserAuthorizer(.cancelled), passkeys: FakePasskeyAuthenticator())
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider(tokens: Self.valid)), browser: FakeBrowserAuthorizer(.cancelled))
         stub.reply(status: 404, json: Data(#"{"success":false,"error":"帳號不存在"}"#.utf8))
         _ = try? await auth.deleteAccount()
         #expect(keys.publicKey != nil)

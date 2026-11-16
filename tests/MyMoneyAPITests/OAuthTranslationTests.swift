@@ -12,12 +12,11 @@ struct OAuthTranslationTests {
     private let session = FakeSessionProvider()
 
     private func auth(
-        _ browser: FakeBrowserAuthorizer, loginPage: LoginPageAppearance = LoginPageAppearance(),
-        passkeys: FakePasskeyAuthenticator = FakePasskeyAuthenticator()
+        _ browser: FakeBrowserAuthorizer, loginPage: LoginPageAppearance = LoginPageAppearance()
     ) -> LiveAuthRepository {
         LiveAuthRepository(
             client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session),
-            browser: browser, passkeys: passkeys, loginPage: { loginPage }
+            browser: browser, loginPage: { loginPage }
         )
     }
 

@@ -64,14 +64,6 @@ public actor InMemoryAuthRepository: AuthRepository {
         return SignInResult(session: member.session, biometric: signsInBiometric)
     }
 
-    /// 跟 `signIn` 一樣以第一位成員登入(同一個 `gate` 與 `signInError`),不開系統的 passkey 視窗。
-    public func signInWithPasskey() async throws -> Session {
-        await gate?.pass()
-        if let signInError { throw signInError }
-        guard let member = members.first else { throw RepositoryError.rejected("找不到對應的 Passkey 憑證") }
-        return member.session
-    }
-
     public func signOut(_ session: Session) async {
         await gate?.pass()
         revokedRefreshTokens.append(session.tokens.refresh)

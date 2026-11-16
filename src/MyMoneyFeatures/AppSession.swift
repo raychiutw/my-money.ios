@@ -19,6 +19,10 @@ public final class AppSession {
     public private(set) var verifiedByBiometrics = false
 
     @ObservationIgnored private let storage: any SessionStorage
+    /// 綁定時查生物辨識種類，刷臉提示才寫得出 Face ID/Touch ID/Optic ID。
+    @ObservationIgnored private let authenticator: (any DeviceAuthenticator)?
+    /// 每次開始或結束 session 加一(refresh 輪替不算):刷臉回來時用它判斷 session 是否還是同一個。
+    @ObservationIgnored private var generation = 0
 
     /// 冷啟動時存著受生物辨識保護的 session(Face ID 登入的綁定,#357),還沒刷臉讀出來:
     /// 根畫面要呼叫 `unlockProtectedSession()`,這段期間不顯示登入頁。
@@ -27,8 +31,9 @@ public final class AppSession {
     /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。讀回來只有更新權杖,
     /// 第一個請求由翻譯層先 refresh;更新權杖失效(`invalid_grant`)時才回到登入頁(#335)。
     /// 受生物辨識保護的 session 要等 `unlockProtectedSession()` 刷臉才讀得出來。
-    public init(storage: any SessionStorage) {
+    public init(storage: any SessionStorage, authenticator: (any DeviceAuthenticator)? = nil) {
         self.storage = storage
+        self.authenticator = authenticator
         if storage.storedProtection() == .biometric {
             isUnlocking = true
         } else {
@@ -48,9 +53,8 @@ public final class AppSession {
             isBiometricSignInEnabled = true
             current = session
             didRestoreFromStorage = true
-        case .invalidated:
-            storage.clear()
-        case .cancelled, .failed:
+        case .invalidated, .cancelled, .failed:
+            // 失效時保存已由 `loadProtected` 清掉。
             break
         }
     }
@@ -59,7 +63,11 @@ public final class AppSession {
     /// 先存成受保護的再讀一次(讀取會跳刷臉),通過就留著;取消或失敗改用一般保存，照樣登入。
     public func start(_ result: SignInResult) async {
         guard result.biometric else { return start(result.session) }
-        if await bind(result.session) {
+        let generation = self.generation
+        let bound = await bind(result.session)
+        // 刷臉期間登出了:不登入。
+        guard generation == self.generation else { return }
+        if bound {
             begin(result.session, verifiedByBiometrics: true)
         } else {
             begin(result.session)
@@ -73,6 +81,7 @@ public final class AppSession {
     }
 
     private func begin(_ session: Session, verifiedByBiometrics: Bool = false) {
+        generation += 1
         self.verifiedByBiometrics = verifiedByBiometrics
         endedByExpiry = false
         endedByDeletion = false
@@ -92,10 +101,14 @@ public final class AppSession {
     }
 
     /// 存成受保護的再讀一次(讀取會跳刷臉):通過回傳 `true`;否則改用一般保存。
-    /// 刷臉期間 refresh 輪替過權杖就存最新的 session。
+    /// 刷臉期間 refresh 輪替過權杖就存最新的 session;登出、過期或換人了就不動保存(已經是別的 session 的)。
     private func bind(_ session: Session) async -> Bool {
+        let generation = self.generation
+        let name = await authenticator?.capability().biometryName ?? "Face ID"
         storage.save(session, protection: .biometric)
-        if case .success = await storage.loadProtected(reason: Self.bindReason) {
+        let result = await storage.loadProtected(reason: "以後打開「我的記帳本」直接用 \(name) 登入")
+        guard generation == self.generation else { return false }
+        if case .success = result {
             isBiometricSignInEnabled = true
             return true
         }
@@ -110,7 +123,6 @@ public final class AppSession {
     }
 
     private static let unlockReason = "登入「我的記帳本」"
-    private static let bindReason = "以後打開「我的記帳本」直接用生物辨識登入"
 
     /// 清掉 session(兩種保存都清)、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
     public func signOut() {
@@ -120,6 +132,7 @@ public final class AppSession {
         didRestoreFromStorage = false
         verifiedByBiometrics = false
         isBiometricSignInEnabled = false
+        generation += 1
         current = nil
     }
 }

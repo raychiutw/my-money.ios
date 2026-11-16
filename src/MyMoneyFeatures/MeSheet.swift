@@ -60,14 +60,7 @@ struct MeSheet: View {
     }
 
     /// 裝置的生物辨識名稱;只有裝置密碼或都沒有時是 `nil`。
-    private var biometryName: String? {
-        switch appLock.capability {
-        case .faceID: "Face ID"
-        case .touchID: "Touch ID"
-        case .opticID: "Optic ID"
-        case .passcodeOnly, .unavailable, nil: nil
-        }
-    }
+    private var biometryName: String? { appLock.capability?.biometryName }
 
     @ViewBuilder
     private func settings(appearance: Binding<Appearance>) -> some View {

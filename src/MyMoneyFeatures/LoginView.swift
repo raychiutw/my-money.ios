@@ -23,9 +23,13 @@ struct LoginView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
-        // 等 scene 進前景才開：冷啟動時太早開,系統登入視窗會開不起來(#351)。
+        // 等 scene 進前景才開：冷啟動時太早開,系統登入視窗會開不起來(#351);離開前景時關掉的視窗等回來再開。
         .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .active { Task { await model.appeared() } }
+            if phase == .active {
+                Task { await model.appeared() }
+            } else {
+                model.sceneLeftForeground()
+            }
         }
         .onChange(of: model.errorMessage) { _, message in
             // 錯誤出現時 VoiceOver 使用者不一定會移過去，直接念出來。

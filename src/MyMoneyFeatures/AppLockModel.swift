@@ -38,13 +38,8 @@ public final class AppLockModel {
 
     /// 例如「Face ID」;沒有生物辨識寫「裝置密碼」。還沒查過時是通用的「Face ID 或裝置密碼」。
     public var unlockMethodName: String {
-        switch capability {
-        case .faceID: "Face ID"
-        case .touchID: "Touch ID"
-        case .opticID: "Optic ID"
-        case .passcodeOnly, .unavailable: "裝置密碼"
-        case nil: "Face ID 或裝置密碼"
-        }
+        guard let capability else { return "Face ID 或裝置密碼" }
+        return capability.biometryName ?? "裝置密碼"
     }
 
     /// 查這支裝置能用哪一種驗證(鎖畫面出現與設定頁用)。
@@ -234,6 +229,18 @@ public final class AppLockModel {
         case .failed:
             state = .locked
             failureMessage = "驗證失敗，請再試一次"
+        }
+    }
+}
+
+extension DeviceAuthCapability {
+    /// 生物辨識名稱，例如「Face ID」;只有裝置密碼或都沒有時是 `nil`。
+    var biometryName: String? {
+        switch self {
+        case .faceID: "Face ID"
+        case .touchID: "Touch ID"
+        case .opticID: "Optic ID"
+        case .passcodeOnly, .unavailable: nil
         }
     }
 }

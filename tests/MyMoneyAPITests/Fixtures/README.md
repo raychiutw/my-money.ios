@@ -345,16 +345,13 @@ DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金�
 
 ### Passkey(#339,2026-11-15,後端 `c899f01`)
 
-用 `scripts/record-oauth-fixtures.sh passkey` 錄:登入一次、錄 options、空清單與錯誤回應,錄完撤銷工作階段。測試帳號**沒有 passkey**(要真機的 Face ID 才建得出來,而且上游 AASA 還沒有 Team ID,onion523/my-money#211),所以成功的驗證、非空清單、改名與刪除依上游 `c899f01` 的 `handlers/passkey.ts`、`handlers/oauth.ts` 手寫。登入與註冊 options 會在後端存一筆 5 分鐘到期的 challenge;註冊 options 第一次呼叫時替測試帳號產生 `webauthn_user_id`,不影響其他資料。
+用 `scripts/record-oauth-fixtures.sh passkey` 錄:登入一次、錄 options、空清單與錯誤回應,錄完撤銷工作階段。測試帳號**沒有 passkey**(要真機的 Face ID 才建得出來,而且上游 AASA 還沒有 Team ID,onion523/my-money#211),所以成功的建立、非空清單、改名與刪除依上游 `c899f01` 的 `handlers/passkey.ts` 手寫。passkey 登入已移除(#353 改由登入網頁刷臉),不再錄登入 options 與 `/oauth/passkey/authorize`。註冊 options 會在後端存一筆 5 分鐘到期的 challenge;註冊 options 第一次呼叫時替測試帳號產生 `webauthn_user_id`,不影響其他資料。
 
 | fixture | 請求 | HTTP | 用來驗證 |
 |---|---|---|---|
-| `passkey-login-options.json` | `POST /auth/passkey/login/options`(公開) | 200 | camelCase 的 SimpleWebAuthn options:`rpId` `my-money-onion.pages.dev`、base64url 的 `challenge` |
 | `passkey-register-options.json` | `POST /auth/passkey/register/options` | 200 | `rp.id`、base64url 的 `challenge` 與 `user.id`、`user.name` 是 email |
 | `passkeys-empty.json` | `GET /auth/passkeys` | 200 | 空清單 |
 | `passkey-rename-not-found.json` | `PATCH /auth/passkeys/fixture-nonexistent-passkey` | 404 | 「找不到指定的 Passkey」原樣傳遞 |
-| `oauth-passkey-authorize-expired.json` | `POST /oauth/passkey/authorize`,assertion 的 challenge 不存在 | 401 | **沒有** `WWW-Authenticate`(腳本有檢查):照顯示「Passkey 驗證已過期或重複使用，請重試」、不登出 |
-| `oauth-passkey-authorize.json` | **手寫**:`POST /oauth/passkey/authorize` 成功,`{success, data: {code, state}}` | 200 | 授權碼走 `/oauth/token` |
 | `passkeys-list.json` | **手寫**:`GET /auth/passkeys`,兩筆(`last_used_at` 一筆 `null`) | 200 | snake_case,Unix 秒 |
 | `passkey-register-verify.json` | **手寫**:`POST /auth/passkey/register/verify` 成功,`{success, data: {id, name, created_at, last_used_at: null}}` | 201 | 成功 |
 | `passkey-rename.json` | **手寫**:`PATCH /auth/passkeys/:id` 成功,`{success, data: {id, name}}` | 200 | 成功 |

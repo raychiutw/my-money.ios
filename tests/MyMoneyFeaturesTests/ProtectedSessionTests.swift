@@ -259,4 +259,72 @@ struct ProtectedSessionTests {
         session.signOut()
         #expect(!session.isBiometricSignInEnabled)
     }
+
+    // MARK: 刷臉期間 session 變了(code review)
+
+    @Test("開啟 Face ID 登入刷臉期間過期或登出:不把舊 session 寫回保存", arguments: [
+        InMemorySessionStorage.BiometricResult.pass, .cancel,
+    ])
+    func bindingDoesNotRestoreEndedSession(result: InMemorySessionStorage.BiometricResult) async {
+        let gate = Gate()
+        let storage = InMemorySessionStorage(session: sample, biometricResult: result, gate: gate)
+        let session = AppSession(storage: storage)
+
+        let enabling = Task { await session.setBiometricSignIn(true) }
+        await gate.waitUntilReached()
+        await session.sessionDidExpire()
+        await gate.open()
+        await enabling.value
+
+        #expect(storage.stored == nil)
+        #expect(session.current == nil)
+        #expect(!session.isBiometricSignInEnabled)
+    }
+
+    @Test("開啟 Face ID 登入刷臉期間登出又換人登入:保存是新的 session")
+    func bindingDoesNotOverwriteNewSession() async {
+        let gate = Gate()
+        let storage = InMemorySessionStorage(session: sample, biometricResult: .cancel, gate: gate)
+        let session = AppSession(storage: storage)
+        let other = Session(user: sample.user, tokens: rotated)
+
+        let enabling = Task { await session.setBiometricSignIn(true) }
+        await gate.waitUntilReached()
+        session.signOut()
+        session.start(other)
+        await gate.open()
+        await enabling.value
+
+        #expect(storage.stored?.session == other)
+        #expect(storage.stored?.protection == .standard)
+        #expect(session.current == other)
+    }
+
+    @Test("登入時綁定刷臉期間登出:不登入、不留下保存")
+    func signInBindingAbandonedAfterSignOut() async {
+        let gate = Gate()
+        let storage = InMemorySessionStorage(gate: gate)
+        let session = AppSession(storage: storage)
+
+        let signingIn = Task { await session.start(SignInResult(session: sample, biometric: true)) }
+        await gate.waitUntilReached()
+        session.signOut()
+        await gate.open()
+        await signingIn.value
+
+        #expect(storage.stored == nil)
+        #expect(session.current == nil)
+    }
+
+    @Test("綁定的刷臉提示依裝置寫生物辨識名稱", arguments: [
+        (DeviceAuthCapability.faceID, "Face ID"), (.touchID, "Touch ID"), (.opticID, "Optic ID"),
+    ])
+    func bindingPromptNamesBiometry(capability: DeviceAuthCapability, name: String) async {
+        let storage = InMemorySessionStorage()
+        let session = AppSession(storage: storage, authenticator: FakeDeviceAuthenticator(capability: capability))
+
+        await session.start(SignInResult(session: sample, biometric: true))
+
+        #expect(storage.lastPromptReason == "以後打開「我的記帳本」直接用 \(name) 登入")
+    }
 }

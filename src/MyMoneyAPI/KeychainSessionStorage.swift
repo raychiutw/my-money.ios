@@ -49,6 +49,8 @@ public struct KeychainSessionStorage: SessionStorage {
         let context = LAContext()
         context.localizedReason = reason
         query[kSecUseAuthenticationContext as String] = context
+        // LAContext 不是 Sendable,但它在這裡建立、設好 reason 後就只交給背景這一次的 SecItemCopyMatching,
+        // 本執行緒不再讀寫它(所有權整個移交),不會同時存取。
         let sendableQuery = query as CFDictionary
         // 讀取會等系統刷臉，放到背景，不阻塞 main thread。
         let (status, data) = await Task.detached { () -> (OSStatus, Data?) in
