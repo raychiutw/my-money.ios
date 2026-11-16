@@ -145,3 +145,26 @@ extension AppLockUITests {
         XCTAssertFalse(signOut.isHittable, "鎖著時「我的」sheet 裡的內容還點得到")
     }
 }
+
+/// 「我的」的「使用 Face ID 登入」開關(#358):跟 App 鎖同一區塊,名稱依裝置的生物辨識;沒有生物辨識不顯示。
+/// 開啟後真的刷臉讀 Keychain 只能真機確認(模擬器的受保護項目依註冊狀態而定),這裡只驗顯示。
+extension AppLockUITests {
+    @MainActor
+    func testBiometricSignInSwitchIsShownWithBiometry() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry"], signedIn: true)
+        declineOfferIfShown(in: app)
+        app.openMe()
+        let toggle = app.switches["me.biometricSignIn"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "有 Face ID 時「我的」沒有 Face ID 登入開關")
+        XCTAssertEqual(toggle.label, "使用 Face ID 登入")
+        XCTAssertEqual(toggle.value as? String, "0", "一般登入後應該是關的")
+    }
+
+    @MainActor
+    func testBiometricSignInSwitchIsHiddenWithoutBiometry() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openMe()
+        XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.switches["me.biometricSignIn"].exists, "沒有生物辨識不該顯示 Face ID 登入開關")
+    }
+}

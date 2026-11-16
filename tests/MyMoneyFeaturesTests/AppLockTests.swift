@@ -121,6 +121,18 @@ struct AppLockTests {
         #expect(model.state == .locked, "滿 60 秒要鎖")
     }
 
+    @Test("冷啟動已為讀 session 刷過臉(Face ID 登入):不再鎖;離開滿 60 秒回來照舊鎖(#358)")
+    func coldStartVerifiedByBiometricsDoesNotLockAgain() {
+        let (model, _, clock) = make()
+        model.sessionStarted(userID: me, restored: true, verifiedByBiometrics: true)
+        #expect(model.state == .unlocked)
+
+        model.enteredBackground()
+        clock.now += 60
+        model.becameActive()
+        #expect(model.state == .locked)
+    }
+
     @Test("鎖沒開:離開再久也不鎖")
     func disabledNeverLocks() {
         let (model, _, clock) = make(enabled: false)
@@ -297,6 +309,14 @@ struct AppLockOfferTests {
         model.sessionStarted(userID: me, restored: false)
         await model.evaluateOffer()
         #expect(model.shouldOfferEnabling)
+    }
+
+    @Test("這次登入剛完成 Face ID 綁定:不問(#358)")
+    func noOfferRightAfterBinding() async {
+        let (model, _) = make()
+        model.sessionStarted(userID: me, restored: false, verifiedByBiometrics: true)
+        await model.evaluateOffer()
+        #expect(!model.shouldOfferEnabling)
     }
 
     @Test("冷啟動讀回的 session 不問(不是登入)")
