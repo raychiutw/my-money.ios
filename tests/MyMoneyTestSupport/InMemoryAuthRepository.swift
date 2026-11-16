@@ -26,6 +26,7 @@ public actor InMemoryAuthRepository: AuthRepository {
     private let gate: Gate?
     private let signInError: (any Error)?
     private let deletionError: RepositoryError?
+    private let signsInBiometric: Bool
 
     /// 每次 `signIn` 是不是開註冊(依呼叫順序)。
     public private(set) var signInRequests: [Bool] = []
@@ -35,9 +36,12 @@ public actor InMemoryAuthRepository: AuthRepository {
     /// - Parameter gate: 給了就在回應前停住，直到測試放行(登入與登出都會停)。
     /// - Parameter signInError: 給了就讓 `signIn` 失敗;`CancellationError` 代表使用者關掉登入視窗。
     /// - Parameter deletionError: 給了就讓 `deleteAccount` 失敗(後端拒絕)。
+    /// - Parameter signsInBiometric: 登入結果當作使用者按了「用 Face ID 登入」(#357)。
     public init(
-        members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, deletionError: RepositoryError? = nil
+        members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, deletionError: RepositoryError? = nil,
+        signsInBiometric: Bool = false
     ) {
+        self.signsInBiometric = signsInBiometric
         self.members = members
         self.gate = gate
         self.signInError = signInError
@@ -49,7 +53,7 @@ public actor InMemoryAuthRepository: AuthRepository {
         await gate?.pass()
         if let signInError { throw signInError }
         guard let member = members.first else { throw RepositoryError.rejected("Email 或密碼錯誤") }
-        return SignInResult(session: member.session, biometric: false)
+        return SignInResult(session: member.session, biometric: signsInBiometric)
     }
 
     /// 跟 `signIn` 一樣以第一位成員登入(同一個 `gate` 與 `signInError`),不開系統的 passkey 視窗。

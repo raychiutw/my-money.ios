@@ -17,24 +17,68 @@ public final class AppSession {
 
     @ObservationIgnored private let storage: any SessionStorage
 
+    /// 冷啟動時存著受生物辨識保護的 session(Face ID 登入的綁定,#357),還沒刷臉讀出來:
+    /// 根畫面要呼叫 `unlockProtectedSession()`,這段期間不顯示登入頁。
+    public private(set) var isUnlocking = false
+
     /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。讀回來只有更新權杖,
     /// 第一個請求由翻譯層先 refresh;更新權杖失效(`invalid_grant`)時才回到登入頁(#335)。
+    /// 受生物辨識保護的 session 要等 `unlockProtectedSession()` 刷臉才讀得出來。
     public init(storage: any SessionStorage) {
         self.storage = storage
-        current = storage.load()
-        didRestoreFromStorage = current != nil
+        if storage.storedProtection() == .biometric {
+            isUnlocking = true
+        } else {
+            current = storage.load()
+            didRestoreFromStorage = current != nil
+        }
     }
 
-    /// 登入或註冊成功後開始 session,並存到裝置上。
+    /// 冷啟動刷臉讀出受保護的 session:通過進入 tab 外殼;取消或失敗維持未登入(綁定留著，下次冷啟動再試);
+    /// 保存已失效(臉部資料變更)就清掉。
+    public func unlockProtectedSession() async {
+        guard isUnlocking else { return }
+        defer { isUnlocking = false }
+        switch await storage.loadProtected(reason: Self.unlockReason) {
+        case let .success(session):
+            current = session
+            didRestoreFromStorage = true
+        case .invalidated:
+            storage.clear()
+        case .cancelled, .failed:
+            break
+        }
+    }
+
+    /// 系統登入視窗登入成功後開始 session。使用者按的是「用 Face ID 登入」時直接刷臉綁定(不詢問):
+    /// 先存成受保護的再讀一次(讀取會跳刷臉),通過就留著;取消或失敗改用一般保存，照樣登入。
+    public func start(_ result: SignInResult) async {
+        guard result.biometric else { return start(result.session) }
+        storage.save(result.session, protection: .biometric)
+        if case .success = await storage.loadProtected(reason: Self.bindReason) {
+            begin(result.session)
+        } else {
+            start(result.session)
+        }
+    }
+
+    /// 登入或註冊成功後開始 session,並用一般保存存到裝置上(取代之前的綁定)。
     public func start(_ session: Session) {
-        storage.save(session)
+        storage.save(session, protection: .standard)
+        begin(session)
+    }
+
+    private func begin(_ session: Session) {
         endedByExpiry = false
         endedByDeletion = false
         didRestoreFromStorage = false
         current = session
     }
 
-    /// 清掉 session、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
+    private static let unlockReason = "登入「我的記帳本」"
+    private static let bindReason = "以後打開「我的記帳本」直接用生物辨識登入"
+
+    /// 清掉 session(兩種保存都清)、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
     public func signOut() {
         endedByExpiry = false
         endedByDeletion = false
