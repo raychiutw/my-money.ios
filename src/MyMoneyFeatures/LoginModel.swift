@@ -39,7 +39,7 @@ public final class LoginModel {
         defer { isSubmitting = false }
         while !Task.isCancelled {
             do {
-                session.start(try await auth.signIn(registering: false))
+                await session.start(try await auth.signIn(registering: false))
                 return
             } catch is CancellationError {
                 // 使用者關掉登入視窗:不是錯誤，再開一次。

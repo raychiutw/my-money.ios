@@ -28,6 +28,7 @@ public actor InMemoryAuthRepository: AuthRepository {
     /// 依呼叫順序用掉的登入結果(`nil` 是成功);用完才輪到 `signInError`。
     private var scriptedSignInErrors: [(any Error)?]
     private let deletionError: RepositoryError?
+    private let signsInBiometric: Bool
 
     /// 每次 `signIn` 是不是開註冊(依呼叫順序)。
     public private(set) var signInRequests: [Bool] = []
@@ -38,10 +39,12 @@ public actor InMemoryAuthRepository: AuthRepository {
     /// - Parameter signInError: 給了就讓 `signIn` 失敗;`CancellationError` 代表使用者關掉登入視窗。
     /// - Parameter signInErrors: 前幾次 `signIn` 依序的結果(`nil` 是成功),例如「先關掉視窗、再登入成功」。
     /// - Parameter deletionError: 給了就讓 `deleteAccount` 失敗(後端拒絕)。
+    /// - Parameter signsInBiometric: 登入結果當作使用者按了「用 Face ID 登入」(#357)。
     public init(
         members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, signInErrors: [(any Error)?] = [],
-        deletionError: RepositoryError? = nil
+        deletionError: RepositoryError? = nil, signsInBiometric: Bool = false
     ) {
+        self.signsInBiometric = signsInBiometric
         self.members = members
         self.gate = gate
         self.signInError = signInError
@@ -49,7 +52,7 @@ public actor InMemoryAuthRepository: AuthRepository {
         self.deletionError = deletionError
     }
 
-    public func signIn(registering: Bool) async throws -> Session {
+    public func signIn(registering: Bool) async throws -> SignInResult {
         signInRequests.append(registering)
         await gate?.pass()
         if !scriptedSignInErrors.isEmpty {
@@ -58,7 +61,7 @@ public actor InMemoryAuthRepository: AuthRepository {
             throw signInError
         }
         guard let member = members.first else { throw RepositoryError.rejected("Email 或密碼錯誤") }
-        return member.session
+        return SignInResult(session: member.session, biometric: signsInBiometric)
     }
 
     /// 跟 `signIn` 一樣以第一位成員登入(同一個 `gate` 與 `signInError`),不開系統的 passkey 視窗。

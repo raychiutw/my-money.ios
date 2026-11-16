@@ -24,7 +24,7 @@ public struct LiveAuthRepository: AuthRepository {
         self.loginPage = loginPage
     }
 
-    public func signIn(registering: Bool) async throws -> Session {
+    public func signIn(registering: Bool) async throws -> SignInResult {
         let verifier = Self.randomBase64URL(byteCount: 32)
         let state = Self.randomBase64URL(byteCount: 16)
         var authorize = URLComponents(url: client.url(for: "/oauth/authorize"), resolvingAgainstBaseURL: false)!
@@ -43,11 +43,6 @@ public struct LiveAuthRepository: AuthRepository {
         let params = Dictionary(
             (URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }
         ) { first, _ in first }
-        // 登入頁要求 passkey(上游按鈕文字「用 Face ID 登入」):Worker 頁不能做 WebAuthn(RP ID 不同網域),導回來改走原生 passkey(上游 ADR 0042)。
-        if params["error"] == "passkey_requested" {
-            guard params["state"] == state else { throw RepositoryError.rejected("登入失敗，請再試一次") }
-            return try await signInWithPasskey()
-        }
         if let error = params["error"] {
             throw RepositoryError.rejected(params["error_description"] ?? error)
         }
@@ -55,7 +50,7 @@ public struct LiveAuthRepository: AuthRepository {
             throw RepositoryError.rejected("登入失敗，請再試一次")
         }
 
-        return try await exchange(code: code, verifier: verifier)
+        return SignInResult(session: try await exchange(code: code, verifier: verifier), biometric: params["biometric"] == "1")
     }
 
     /// WebAuthn 授權橋接(#339):原生 assertion 連同 PKCE 送到 `POST /oauth/passkey/authorize` 換授權碼,

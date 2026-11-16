@@ -19,7 +19,12 @@ public struct RootView: View {
 
     public var body: some View {
         Group {
-            if session.current == nil {
+            if session.isUnlocking {
+                // 冷啟動先刷臉讀出受保護的 session(#357),不先顯示未登入畫面(免得自動開登入視窗)。
+                Rectangle().fill(.background)
+                    .ignoresSafeArea()
+                    .task { await session.unlockProtectedSession() }
+            } else if session.current == nil {
                 LoginView(model: login)
             } else if let screens = signedIn.current {
                 MainTabView(screens: screens)
