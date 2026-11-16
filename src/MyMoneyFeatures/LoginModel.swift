@@ -40,7 +40,7 @@ public final class LoginModel {
         isSubmitting = true
         defer { isSubmitting = false }
         do {
-            session.start(try await auth.signIn(registering: false))
+            session.start(try await auth.signIn(registering: false).session)
             hasAutoOpened = false
         } catch is CancellationError {
             // 使用者關掉登入視窗:回到登入頁，不顯示錯誤。
