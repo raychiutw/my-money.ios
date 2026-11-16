@@ -24,8 +24,9 @@ struct LiveBrowserAuthorizer: BrowserAuthorizer {
             }
             session.prefersEphemeralWebBrowserSession = true
             session.presentationContextProvider = anchor
+            // 開不起來不能當成「使用者關掉」:關掉會自動再開(#356),會一直重開。
             if !session.start() {
-                once.resume(with: .failure(CancellationError()))
+                once.resume(with: .failure(RepositoryError.rejected("無法開啟登入視窗，請再試一次")))
             }
         }
     }

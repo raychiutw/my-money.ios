@@ -43,7 +43,7 @@ struct ProtectedSessionTests {
         let session = AppSession(storage: storage)
         let auth = InMemoryAuthRepository(members: [.sample], signsInBiometric: true)
 
-        await LoginModel(auth: auth, session: session).signIn()
+        await LoginModel(auth: auth, session: session).appeared()
 
         #expect(session.current?.user.name == "小明")
         #expect(storage.stored?.protection == .biometric)

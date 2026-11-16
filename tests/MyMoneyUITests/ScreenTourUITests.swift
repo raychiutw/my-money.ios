@@ -25,9 +25,7 @@ final class ScreenTourUITests: XCTestCase {
         app.launch()
         let tour = Tour(app: app, testCase: self)
 
-        // 登入頁(註冊在系統登入視窗,#334)。
-        XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 10), "沒有看到登入頁")
-        tour.captureScrolling("login")
+        // App 沒有登入頁(#356):未登入自動登入範例帳號，直接從總覽開始。
         tour.signIn()
 
         // 總覽，以及從總覽打開的記一筆、「我的」sheet(機器人記帳、模擬對話)。
@@ -153,12 +151,8 @@ private struct Tour {
         attach(screen, index: 1)
     }
 
-    /// 登入 in-memory 的範例帳號(`InMemoryAuthRepository.Member.sample`)。
+    /// 等未登入時自動登入 in-memory 的範例帳號(`InMemoryAuthRepository.Member.sample`,#334、#356)。
     func signIn() {
-        // `-uiTesting` 的登入鈕直接以範例帳號登入(#334);大字級時登入鈕可能在畫面外，先往上捲。
-        let submit = app.buttons["login.submit"]
-        for _ in 0..<4 where !(submit.exists && submit.isHittable) { app.swipeUp() }
-        submit.tap()
         // iPad 的 tab 是導覽列上的按鈕(identifier 是 SF Symbol 名稱)，不是 tabBars。
         XCTAssertTrue(
             app.tabBars.buttons["總覽"].waitForExistence(timeout: 10) || app.buttons["house"].waitForExistence(timeout: 3),
