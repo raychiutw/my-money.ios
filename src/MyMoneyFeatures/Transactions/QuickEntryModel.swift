@@ -7,6 +7,7 @@ import Observation
 @Observable
 public final class QuickEntryModel: Submitting {
     public private(set) var accounts: [Account] = []
+    private var recurringItems: [RecurringItem] = []
 
     public let title = "記一筆"
 
@@ -19,6 +20,7 @@ public final class QuickEntryModel: Submitting {
             guard type != oldValue else { return }
             category = type == .expense ? .dining : .salary
             recommendation = nil
+            selectedPresetID = nil
         }
     }
 
@@ -74,6 +76,7 @@ public final class QuickEntryModel: Submitting {
 
     @ObservationIgnored private let transactions: any TransactionRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
+    @ObservationIgnored private let recurringRepository: (any RecurringRepository)?
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     /// 記住上次選的帳戶(#273);`nil` 是不記(帳戶永遠從空白開始)。
@@ -86,12 +89,14 @@ public final class QuickEntryModel: Submitting {
     public init(
         transactions: any TransactionRepository,
         accounts: any AccountRepository,
+        recurring: (any RecurringRepository)? = nil,
         dataVersion: DataVersion,
         accountMemory: AccountMemory? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
     ) {
         self.transactions = transactions
         accountRepository = accounts
+        recurringRepository = recurring
         self.dataVersion = dataVersion
         self.accountMemory = accountMemory
         self.today = today
@@ -103,6 +108,7 @@ public final class QuickEntryModel: Submitting {
     ///
     /// 跟 `prepare` 分開:表單的 `.task` 在從帳戶清單頁返回時會再跑一次 `prepare`,不能因此清掉剛選的帳戶與分類的鎖定。
     public func startNewEntry() {
+        selectedPresetID = nil
         isCategoryChosen = false
         recommendation = nil
         accountID = accountMemory?.recall(among: accounts)
@@ -126,6 +132,27 @@ public final class QuickEntryModel: Submitting {
         if accountID == nil, !hasRecalled { accountID = accountMemory?.recall(among: accounts) }
         // 載入失敗時還不算帶入過:重試成功再帶入。
         if loaded { hasRecalled = true }
+    }
+
+    /// 「帶入週期項目」的候選(上游 2631757):目前類型的週期項目，私帳與看得到的公帳都有;沒有時畫面不顯示選單。
+    public var presetCandidates: [RecurringItem] { recurringItems.filter { $0.type == type } }
+
+    /// 選了的週期項目;`nil` 是「不套用(手動輸入)」。選了只帶入金額與備註(備註變動照常推薦分類，手動選過就不推薦),
+    /// 不動帳戶、歸屬、日期(上游 CONTEXT 的顯式帳戶原則);選回 `nil` 保留已填的內容。只是範本，送出的收支不帶關聯。
+    public var selectedPresetID: RecurringItemID? {
+        didSet {
+            guard selectedPresetID != oldValue,
+                  let item = presetCandidates.first(where: { $0.id == selectedPresetID }) else { return }
+            amountText = "\(item.amount.amount)"
+            note = item.name
+        }
+    }
+
+    public var presetTitle: String { "帶入週期\(type == .expense ? "支出" : "收入")項目(選填)" }
+
+    /// 載入週期項目(scope 全部)。失敗當作沒有候選:只是少了選單，記一筆照常可用。
+    public func loadRecurringPresets() async {
+        recurringItems = (try? await recurringRepository?.items(scope: .all)) ?? []
     }
 
     /// 使用者手動選分類:鎖定，之後備註怎麼改都不再覆蓋，提示也清掉。
@@ -187,6 +214,7 @@ public final class QuickEntryModel: Submitting {
         accountMemory?.remember(accountID)
         amountText = ""
         note = ""
+        selectedPresetID = nil
         date = today()
         // 帳戶不直接沿用在表單上:下一次打開由 `startNewEntry` 依記憶帶入;延期勾選不沿用。
         self.accountID = nil
@@ -194,6 +222,11 @@ public final class QuickEntryModel: Submitting {
         defersToNextStatement = false
         return true
     }
+}
+
+extension RecurringItem {
+    /// 帶入選單的選項文字:「[公帳] 房租 ($12,000)」(跟 web 的 `formatRecurringOptionLabel` 一樣)。
+    public var presetLabel: String { "[\(isShared ? "公帳" : "私帳")] \(name) (\(amount.formatted()))" }
 }
 
 extension CategoryRecommendation {

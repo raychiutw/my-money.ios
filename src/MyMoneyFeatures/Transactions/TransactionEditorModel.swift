@@ -81,6 +81,16 @@ public final class TransactionEditorModel: Submitting {
     /// 編輯不依備註推薦，不需要歷史。
     public func loadNoteHistory() async {}
 
+    /// 編輯不顯示「帶入週期項目」(上游只在新增模式有)。
+    public var presetCandidates: [RecurringItem] { [] }
+    public var presetTitle: String { "" }
+    public var selectedPresetID: RecurringItemID? {
+        get { nil }
+        set {}
+    }
+
+    public func loadRecurringPresets() async {}
+
     @ObservationIgnored private let recordedAt: Date?
     @ObservationIgnored private let updatedAt: Date?
     @ObservationIgnored private let lockedAccountDisplay: String?
