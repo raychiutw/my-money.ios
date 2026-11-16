@@ -128,7 +128,7 @@ struct OAuthTranslationTests {
         try stub.reply(status: 200, fixture: "oauth-token-authorization-code.json")
         let before = Date()
 
-        let result = try await auth(FakeBrowserAuthorizer(.code("the-code"))).signIn(registering: false)
+        let result = try await auth(FakeBrowserAuthorizer(.code("the-code"))).signIn(registering: false).session
 
         #expect(result.user == User(
             id: UserID("ff646114-6f6b-4a37-9e27-4757868af51d"),
@@ -139,6 +139,16 @@ struct OAuthTranslationTests {
         #expect(result.tokens.refresh == "fake-fixture-refresh-token")
         let expiry = try #require(result.tokens.accessExpiresAt)
         #expect(expiry >= before.addingTimeInterval(900) && expiry <= Date().addingTimeInterval(900))
+    }
+
+    @Test("導回網址帶 biometric=1 時登入結果標記為生物辨識登入,沒帶則否", arguments: [false, true])
+    func biometricFlagFromCallback(biometric: Bool) async throws {
+        try stub.reply(status: 200, fixture: "oauth-token-authorization-code.json")
+
+        let result = try await auth(FakeBrowserAuthorizer(.code("the-code", biometric: biometric))).signIn(registering: false)
+
+        #expect(result.biometric == biometric)
+        #expect(result.session.tokens.refresh == "fake-fixture-refresh-token")
     }
 
     @Test("token 端點的錯誤 {error, error_description} 照顯示 error_description")

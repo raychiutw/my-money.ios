@@ -44,12 +44,12 @@ public actor InMemoryAuthRepository: AuthRepository {
         self.deletionError = deletionError
     }
 
-    public func signIn(registering: Bool) async throws -> Session {
+    public func signIn(registering: Bool) async throws -> SignInResult {
         signInRequests.append(registering)
         await gate?.pass()
         if let signInError { throw signInError }
         guard let member = members.first else { throw RepositoryError.rejected("Email 或密碼錯誤") }
-        return member.session
+        return SignInResult(session: member.session, biometric: false)
     }
 
     /// 跟 `signIn` 一樣以第一位成員登入(同一個 `gate` 與 `signInError`),不開系統的 passkey 視窗。
