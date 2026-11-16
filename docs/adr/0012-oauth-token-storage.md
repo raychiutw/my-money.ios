@@ -9,8 +9,15 @@ status: accepted
 ## Decision
 
 - **登入與註冊都開系統的安全登入視窗**(`ASWebAuthenticationSession`,`prefersEphemeralWebBrowserSession = true`)載入上游的 `/oauth/authorize`,授權碼 + PKCE(`S256`)、比對 `state`;client `ios` 與 redirect URI `com.raychiu.mymoney:/oauth/callback` 是上游寫死的。app 不再接觸密碼,原生的帳密表單與註冊頁移除。「瀏覽器授權」是 Domain 的 seam(`BrowserAuthorizer`),App 層實作,測試用假物件;UI 測試(`-uiTesting`)的登入鈕直接以範例帳號登入。
-- **登入頁外觀與切換到 passkey(#344,上游 ADR 0042)**:授權網址多帶兩個純外觀參數。`biometry`:這台有 Face ID／Touch ID／Optic ID 時帶 `faceid`／`touchid`／`opticid`,登入頁才顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」);只有裝置密碼或都沒有就不帶。`font_scale`:Dynamic Type 的 body 字級除以預設 17pt,夾在 1～3.1、最多兩位小數、小數點固定用「.」(不跟語系),大於 1 才帶。兩者由 composition root 在每次開登入視窗時提供(`LoginPageAppearance`)。登入頁要求 passkey(按下上游的「用 Face ID 登入」按鈕)時 Worker 頁不做 WebAuthn(RP ID 是別的網域),而是導回 `error=passkey_requested`:`state` 相符就關掉登入視窗、直接走原生 passkey 登入(#339),使用者取消一樣留在登入頁、不顯示錯誤;`state` 不符照一般的 state 不符處理。
+- **登入頁外觀與切換到 passkey(#344,上游 ADR 0042)**:授權網址多帶兩個純外觀參數。`biometry`:這台有 Face ID／Touch ID／Optic ID 時帶 `faceid`／`touchid`／`opticid`,登入頁才顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」);只有裝置密碼或都沒有就不帶。`font_scale`:Dynamic Type 的 body 字級除以預設 17pt,夾在 1～3.1、最多兩位小數、小數點固定用「.」(不跟語系),大於 1 才帶。兩者由 composition root 在每次開登入視窗時提供(`LoginPageAppearance`)。上游的「用 Face ID 登入」按鈕改為帳密表單的第二個送出鈕(#353、#354):帳密通過後照常導回,多帶 `biometric=1`,登入結果(`SignInResult.biometric`)據此標記為生物辨識登入(#355)。原本導回 `error=passkey_requested` 改走原生 passkey 的路徑已移除。
 - **存取權杖只放記憶體;更新權杖與顯示用的使用者資料存 Keychain**(`WhenUnlockedThisDeviceOnly`:只限這支裝置、不進備份)。使用者資料從存取權杖的 JWT payload(`sub`、`email`、`name`)取得,只用於顯示,不驗章(後端驗)。
+- **更新權杖的兩種保護等級(Face ID 登入,#357)**:同一時間只存一份,各用一個 Keychain 項目(account `session`／`session.biometric`)。
+  - 一般:`WhenUnlockedThisDeviceOnly`。
+  - 受生物辨識保護:`WhenPasscodeSetThisDeviceOnly` 加 `SecAccessControl` `.biometryCurrentSet`——只認目前錄好的臉(指紋),**不接受裝置密碼**,新增或更改臉部資料後項目失效;只限這支裝置。寫入與刪除不需要刷臉,只有讀取內容會由系統跳刷臉;讀取在背景執行,不阻塞 main thread,結果分成功／取消／失敗／已失效(`ProtectedSessionLoad`;`errSecItemNotFound` 或內容解不出來算失效,失效時清掉)。查有沒有存、存哪一種只查屬性、不准跳提示(`LAContext.interactionNotAllowed`)。
+  - **綁定**:登入結果是生物辨識登入時直接刷臉(不詢問):先存成受保護的再讀一次,通過就留著;取消或失敗改存一般,照樣登入。一般登入一律存一般(取代舊的綁定,換帳號不會刷臉進到別人的帳號)。
+  - **冷啟動**:有受保護的保存時先刷臉(這段期間根畫面空白,不顯示登入頁),通過才進 tab 外殼;取消或失敗維持未登入,綁定留著下次再試;已失效就清掉。
+  - **refresh 輪替**:先刪再寫、保留原本的保護等級,不觸發刷臉。登出、刪除帳號、登入工作階段失效都清掉兩種保存。
+  - 真的刷臉、`.biometryCurrentSet` 在臉部資料變更後回哪個錯誤碼,只能在真機確認。
 - `Session` 是「使用者 + 權杖(`SessionTokens`)」的持有者:冷啟動讀回時沒有存取權杖,由更新權杖換新(#335);refresh 輪替後整份 `Session` 重新存一次。畫面 model 只看 `user`。
 - **登出**:先清掉本機,再 `POST /oauth/revoke`(帶更新權杖);撤銷失敗也一樣已經登出。
 - **舊版權杖遷移**:Keychain 裡解不出更新權杖的舊格式一律清掉、回登入頁重新登入一次(上游不提供把舊版權杖換成新工作階段的端點)。
@@ -25,5 +32,5 @@ status: accepted
 
 ## Consequences
 
-- 「Face ID 登入」(把密碼存 Keychain)失去用途,登入頁與「我的」的開關一併移除;刪除裝置上已存的帳密與相關文件由 #336 處理。
+- 「Face ID 登入」(把密碼存 Keychain)失去用途,登入頁與「我的」的開關一併移除;刪除裝置上已存的帳密與相關文件由 #336 處理。#353 起以「更新權杖受生物辨識保護」重新提供 Face ID 登入,不再碰密碼。
 - 每台裝置都是後端的一個登入工作階段,User-Agent 帶 `MyMoney-iOS (iPhone|iPad)`,後端據此顯示裝置名稱。
