@@ -167,13 +167,14 @@ public final class AppLockModel {
     // MARK: session
 
     /// 開始(或讀回)一個 session。`restored` 是冷啟動讀回上次存下的 session;剛登入成功是 `false`,不鎖。
-    public func sessionStarted(userID: UserID, restored: Bool) {
+    /// `verifiedByBiometrics`:這次已經刷過臉(Face ID 登入的冷啟動讀取或剛綁定,#358)——不再鎖一次，也不問要不要開啟。
+    public func sessionStarted(userID: UserID, restored: Bool, verifiedByBiometrics: Bool = false) {
         self.userID = userID
         failureMessage = nil
         backgroundedAt = nil
-        isFreshLogin = !restored
+        isFreshLogin = !restored && !verifiedByBiometrics
         shouldOfferEnabling = false
-        state = restored && isEnabled(for: userID) ? .locked : .unlocked
+        state = restored && !verifiedByBiometrics && isEnabled(for: userID) ? .locked : .unlocked
     }
 
     /// session 結束(登出、刪除帳號、401):沒有東西好鎖,解開鎖並回到登入頁。

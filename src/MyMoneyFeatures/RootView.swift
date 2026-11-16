@@ -43,8 +43,11 @@ public struct RootView: View {
         .onChange(of: session.current?.user.id, initial: true) {
             signedIn.update(for: session.current)
             // App 鎖(#298):讀回上次的 session(冷啟動)才一開始就鎖;剛登入成功不鎖;沒有 session 就沒有東西好鎖。
+            // 已經為讀 session 刷過臉(Face ID 登入)不再鎖，剛綁定也不問(#358)。
             if let user = session.current?.user.id {
-                appLock.sessionStarted(userID: user, restored: session.didRestoreFromStorage)
+                appLock.sessionStarted(
+                    userID: user, restored: session.didRestoreFromStorage, verifiedByBiometrics: session.verifiedByBiometrics
+                )
                 Task { await appLock.evaluateOffer() }
             } else {
                 appLock.sessionEnded(clearingSetting: !session.endedByExpiry, forgettingUser: session.endedByDeletion)

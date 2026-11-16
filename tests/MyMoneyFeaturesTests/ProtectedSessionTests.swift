@@ -169,4 +169,94 @@ struct ProtectedSessionTests {
 
         #expect(storage.stored == nil)
     }
+
+    // MARK: 與 App 鎖不重複刷臉(#358)
+
+    @Test("冷啟動刷臉讀出 session:標記這次已用生物辨識驗證(App 鎖不再鎖)")
+    func coldStartUnlockIsVerifiedByBiometrics() async {
+        let session = AppSession(storage: boundStorage())
+        await session.unlockProtectedSession()
+        #expect(session.verifiedByBiometrics)
+    }
+
+    @Test("冷啟動讀回一般保存的 session:沒有用生物辨識驗證")
+    func standardRestoreIsNotVerifiedByBiometrics() {
+        let session = AppSession(storage: InMemorySessionStorage(session: sample))
+        #expect(!session.verifiedByBiometrics)
+    }
+
+    @Test("剛完成 Face ID 綁定:已用生物辨識驗證;綁定取消則否")
+    func bindingIsVerifiedByBiometrics() async {
+        let bound = AppSession(storage: InMemorySessionStorage())
+        await bound.start(SignInResult(session: sample, biometric: true))
+        #expect(bound.verifiedByBiometrics)
+
+        let cancelled = AppSession(storage: InMemorySessionStorage(biometricResult: .cancel))
+        await cancelled.start(SignInResult(session: sample, biometric: true))
+        #expect(!cancelled.verifiedByBiometrics)
+    }
+
+    // MARK: 「我的」的「使用 Face ID 登入」開關(#358)
+
+    @Test("開關反映目前的保存:Face ID 登入的冷啟動是開,一般保存是關")
+    func switchReflectsStoredProtection() async {
+        let bound = AppSession(storage: boundStorage())
+        await bound.unlockProtectedSession()
+        #expect(bound.isBiometricSignInEnabled)
+
+        let standard = AppSession(storage: InMemorySessionStorage(session: sample))
+        #expect(!standard.isBiometricSignInEnabled)
+    }
+
+    @Test("開啟:刷臉通過才開,改成受保護的保存,仍然登入")
+    func enablingBindsOnPass() async {
+        let storage = InMemorySessionStorage(session: sample)
+        let session = AppSession(storage: storage)
+
+        await session.setBiometricSignIn(true)
+
+        #expect(session.isBiometricSignInEnabled)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(storage.stored?.session == sample)
+        #expect(storage.biometricPromptCount == 1)
+        #expect(session.current == sample)
+    }
+
+    @Test("開啟時刷臉取消或失敗:維持關閉,一般保存,仍然登入", arguments: [
+        InMemorySessionStorage.BiometricResult.cancel, .fail, .invalidate,
+    ])
+    func enablingStaysOffOnCancel(result: InMemorySessionStorage.BiometricResult) async {
+        let storage = InMemorySessionStorage(session: sample, biometricResult: result)
+        let session = AppSession(storage: storage)
+
+        await session.setBiometricSignIn(true)
+
+        #expect(!session.isBiometricSignInEnabled)
+        #expect(storage.stored?.protection == .standard)
+        #expect(storage.stored?.session == sample)
+        #expect(session.current == sample)
+    }
+
+    @Test("關閉:改回一般保存,不刷臉,不登出")
+    func disablingKeepsSignedIn() async {
+        let storage = boundStorage()
+        let session = AppSession(storage: storage)
+        await session.unlockProtectedSession()
+
+        await session.setBiometricSignIn(false)
+
+        #expect(!session.isBiometricSignInEnabled)
+        #expect(storage.stored?.protection == .standard)
+        #expect(storage.stored?.session == sample)
+        #expect(storage.biometricPromptCount == 1)
+        #expect(session.current == sample)
+    }
+
+    @Test("登出後開關回到關")
+    func signOutTurnsSwitchOff() async {
+        let session = AppSession(storage: boundStorage())
+        await session.unlockProtectedSession()
+        session.signOut()
+        #expect(!session.isBiometricSignInEnabled)
+    }
 }
