@@ -88,10 +88,10 @@ public final class StatementRolloverModel: Submitting, Identifiable {
         return pending ? "結帳日還沒到，結算上一期帳單" : "結算本期帳單"
     }
 
-    /// 有上期延入款、而且這一期還沒出過帳才提示:這些款項首次結算預設納入本期(也可以再延一次)。
+    /// 有上期延入款(上期勾了延至下期的款項，上游 `8dd0755`)、而且這一期還沒出過帳才提示:這些款項首次結算預設納入本期(也可以再延一次)。
     public var priorDeferredNote: String? {
         guard let preview, preview.priorDeferredCount > 0, !preview.hasRolledCycle else { return nil }
-        return "含 \(preview.priorDeferredCount) 筆上期延入款，已預設納入本期"
+        return "含 \(preview.priorDeferredCount) 筆上期延至下期的款項，已預設納入本期"
     }
 
     /// 明細第二行:日期;上期延入款與公帳的家庭報銷狀態後面加標記。

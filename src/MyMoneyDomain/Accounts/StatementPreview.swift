@@ -100,7 +100,7 @@ public struct StatementItem: Hashable, Sendable, Identifiable {
     public let isShared: Bool
     /// 公帳明細的支付來源與報銷狀態(上游 ADR 0029):待報銷、已撥款、已額外處理;不是公帳時是 `nil`。
     public let householdPayment: HouseholdPayment?
-    /// 上期延入:交易日在上一個結帳日(含)之前、還沒出帳的款項。
+    /// 上期延入:交易日在上一個結帳日(含)之前、勾了延至下期而還沒出帳的款項(上游 `8dd0755`;沒勾的由後端在出帳或校準時轉為已出帳)。
     public let isPriorDeferred: Bool
     /// 開窗時是否已經延至下期。
     public let isInitiallyDeferred: Bool
