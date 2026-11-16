@@ -1,65 +1,44 @@
 import XCTest
 
-/// 正式路徑(不帶 `-uiTesting`,也就是 TestFlight 版的 composition root)的互動色是**單色**(#134、ADR-0007):
-/// 淺色黑字、深色白字;主要按鈕是 CI 色填色的膠囊(ADR-0009、#176);不是系統藍。
+/// 正式路徑(不帶 `-uiTesting`,也就是 TestFlight 版的 composition root)的未登入流程(#356)。
 ///
-/// 其他 UI 測試都帶 `-uiTesting`,走不到正式路徑。TestFlight 1.0 (36381212551) 的標題和按鈕都變成系統藍，
-/// 原因是正式路徑的 `App.init()` 建立了 `EnvironmentValues()`(AccentColor 沒套到)。登入頁不會連網路，所以這裡直接啟動正式路徑。
+/// 其他 UI 測試都帶 `-uiTesting`,走不到正式路徑。App 沒有自己的登入頁(#356):未登入就自動開系統登入視窗(要等 scene 進前景,#351),
+/// 使用者關掉會再開。以前這裡驗證登入頁沒有系統藍(#134),登入頁拿掉後未登入畫面只剩背景，品牌色改由登入後的 UI 測試涵蓋。
 final class BrandColorUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
-        addTeardownBlock { XCUIDevice.shared.appearance = .light }
     }
 
     @MainActor
-    func testLoginPageHasNoBlueAndAFilledSubmitInLight() throws {
-        try assertLoginPage(appearance: .light)
-    }
-
-    @MainActor
-    func testLoginPageHasNoBlueAndAFilledSubmitInDark() throws {
-        try assertLoginPage(appearance: .dark)
-    }
-
-    /// 登入頁一出現會自動開系統登入視窗(#348):先關掉它，才看得到登入頁本身;關掉後不會再自動開。
-    @MainActor
-    private func closeSignInSheet(_ app: XCUIApplication) {
-        let predicate = NSPredicate(format: "label IN %@", ["Cancel", "取消"])
-        let cancel = [app, XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")]
-            .map { $0.buttons.matching(predicate).firstMatch }
-        let deadline = Date().addingTimeInterval(10)
-        while Date() < deadline, !cancel.contains(where: \.exists) { Thread.sleep(forTimeInterval: 0.25) }
-        guard let button = cancel.first(where: \.exists) else {
-            return XCTFail("沒有看到自動打開的系統登入視窗:\n\(app.debugDescription)")
-        }
-        button.tap()
-        XCTAssertTrue(app.buttons["login.submit"].wait(for: \.isEnabled, toEqual: true, timeout: 5), "關掉登入視窗後「登入」沒有恢復可按")
-    }
-
-    /// 登入頁:標題與文字不是系統藍;「登入」是 CI 填色的膠囊(#176)。登入頁沒有帳密欄位(#334),「登入」一直可以按。
-    @MainActor
-    private func assertLoginPage(appearance: XCUIDevice.Appearance) throws {
-        XCUIDevice.shared.appearance = appearance
+    func testSignInSheetOpensAutomaticallyAndReopensAfterClosing() throws {
         let app = XCUIApplication()
         app.launch()
         // 正式路徑沒有 -resetSession:模擬器裡如果手動登入過，會直接進 tab 外殼並連 prod,這時不跑。
         if app.tabBars.firstMatch.waitForExistence(timeout: 2) {
-            throw XCTSkip("模擬器的正式 Keychain 裡有 session,登入頁看不到;請先登出或清除模擬器")
+            throw XCTSkip("模擬器的正式 Keychain 裡有 session,看不到未登入畫面;請先登出或清除模擬器")
         }
-        XCTAssertTrue(app.staticTexts["我的記帳本"].waitForExistence(timeout: 5), "沒有看到登入頁")
-        closeSignInSheet(app)
-        let name = appearance == .dark ? "深色" : "淺色"
 
-        let submit = app.buttons["login.submit"]
-        XCTAssertTrue(submit.exists, "沒有「登入」按鈕")
-        XCTAssertTrue(submit.isEnabled, "\(name):「登入」應該可以按")
+        let cancel = waitForSignInSheet(app, "冷啟動沒有自動打開系統登入視窗")
+        cancel.tap()
+        // 等關掉的動畫跑完:不會再開的話，這時視窗已經不在。
+        Thread.sleep(forTimeInterval: 3)
 
-        let enabled = try PixelAnalysis.statistics(of: submit.screenshot().image, region: PixelAnalysis.center)
-        // 主要按鈕填 CI 色(ADR-0009、#176):啟用時中央大部分是 CI 填色、字是反白粗體;停用時淡化(不再是 CI 色)。
-        XCTAssertGreaterThan(enabled.ciFraction, 0.5, "\(name):「登入」沒有填 CI 色(CI 色只占 \(enabled.ciFraction))")
-        XCTAssertGreaterThan(enabled.lightFraction, 0.003, "\(name):「登入」的反白字看不到(亮色只占 \(enabled.lightFraction))")
+        _ = waitForSignInSheet(app, "關掉登入視窗後沒有再開")
+        XCTAssertFalse(app.buttons["login.retry"].exists, "關掉視窗不是錯誤，不該顯示「重試」")
+    }
 
-        let page = try PixelAnalysis.statistics(of: XCUIScreen.main.screenshot().image)
-        XCTAssertEqual(page.bluish, 0, "\(name):登入頁有系統藍")
+    /// 系統登入視窗的「取消」:可能在 app 自己,也可能在 SafariViewService。
+    @MainActor
+    private func waitForSignInSheet(_ app: XCUIApplication, _ message: String) -> XCUIElement {
+        let predicate = NSPredicate(format: "label IN %@", ["Cancel", "取消"])
+        let candidates = [app, XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")]
+            .map { $0.buttons.matching(predicate).firstMatch }
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline, !candidates.contains(where: \.exists) { Thread.sleep(forTimeInterval: 0.25) }
+        guard let button = candidates.first(where: \.exists) else {
+            XCTFail("\(message):\n\(app.debugDescription)")
+            return candidates[0]
+        }
+        return button
     }
 }

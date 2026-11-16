@@ -23,13 +23,16 @@ final class AppLockUITests: XCTestCase {
         XCTAssertTrue(first.tabBars.buttons["總覽"].waitForExistence(timeout: 10))
         first.terminate()
 
-        let app = XCUIApplication.launchUITesting(flags: lockFlags + ["-uiTestingAuthResult", "fail"], resettingSession: false)
+        // 登入也讓它失敗:被登出的話會停在「重試」,不會偷偷重新登入。
+        let app = XCUIApplication.launchUITesting(
+            flags: lockFlags + ["-uiTestingAuthResult", "fail", "-uiTestingSignInResults", "fail"], resettingSession: false
+        )
         let unlock = app.buttons["appLock.unlock"]
         XCTAssertTrue(unlock.waitForExistence(timeout: 10), "重啟後沒有看到鎖畫面")
         XCTAssertTrue(unlock.isHittable)
         XCTAssertTrue(app.staticTexts["appLock.error"].waitForExistence(timeout: 5), "驗證失敗沒有說明")
         XCTAssertFalse(app.tabBars.buttons["總覽"].isHittable, "鎖著時背後的內容還點得到")
-        XCTAssertFalse(app.buttons["login.submit"].exists, "驗證失敗不該登出")
+        XCTAssertTrue(app.tabBars.buttons["總覽"].exists, "驗證失敗不該登出")
     }
 
     /// 重啟 + 驗證成功:自動解鎖,進到 app。

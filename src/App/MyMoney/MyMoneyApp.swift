@@ -73,10 +73,18 @@ struct MyMoneyApp: App {
             appearance = AppearanceSetting(defaults: defaults)
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
-            // 登入鈕不開登入視窗，直接以範例帳號登入(#334)。
-            // 登入頁出現時預設不自動登入(既有測試自己按「登入」);`-uiTestingAutoSignIn` 才自動開(#348)。
-            let auth = InMemoryAuthRepository(members: [.sample])
-            login = LoginModel(auth: auth, session: session, opensSignInOnAppear: arguments.contains("-uiTestingAutoSignIn"))
+            // 未登入時自動「開登入視窗」不開系統視窗，直接以範例帳號登入(#334、#356)。
+            // `-uiTestingSignInResults ok,cancel,fail`:依序每次登入的結果(用完都成功);fail 讓未登入畫面停在錯誤與「重試」。
+            let signInErrors: [(any Error)?] = (UserDefaults.standard.string(forKey: "uiTestingSignInResults") ?? "")
+                .split(separator: ",").map { result in
+                    switch result {
+                    case "cancel": CancellationError()
+                    case "fail": RepositoryError.rejected("無法連線到伺服器")
+                    default: nil
+                    }
+                }
+            let auth = InMemoryAuthRepository(members: [.sample], signInErrors: signInErrors)
+            login = LoginModel(auth: auth, session: session)
             signOut = SignOutModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。

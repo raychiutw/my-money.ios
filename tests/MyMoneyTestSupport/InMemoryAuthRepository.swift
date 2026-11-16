@@ -25,6 +25,8 @@ public actor InMemoryAuthRepository: AuthRepository {
     private let members: [Member]
     private let gate: Gate?
     private let signInError: (any Error)?
+    /// 依呼叫順序用掉的登入結果(`nil` 是成功);用完才輪到 `signInError`。
+    private var scriptedSignInErrors: [(any Error)?]
     private let deletionError: RepositoryError?
 
     /// 每次 `signIn` 是不是開註冊(依呼叫順序)。
@@ -34,20 +36,27 @@ public actor InMemoryAuthRepository: AuthRepository {
 
     /// - Parameter gate: 給了就在回應前停住，直到測試放行(登入與登出都會停)。
     /// - Parameter signInError: 給了就讓 `signIn` 失敗;`CancellationError` 代表使用者關掉登入視窗。
+    /// - Parameter signInErrors: 前幾次 `signIn` 依序的結果(`nil` 是成功),例如「先關掉視窗、再登入成功」。
     /// - Parameter deletionError: 給了就讓 `deleteAccount` 失敗(後端拒絕)。
     public init(
-        members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, deletionError: RepositoryError? = nil
+        members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, signInErrors: [(any Error)?] = [],
+        deletionError: RepositoryError? = nil
     ) {
         self.members = members
         self.gate = gate
         self.signInError = signInError
+        scriptedSignInErrors = signInErrors
         self.deletionError = deletionError
     }
 
     public func signIn(registering: Bool) async throws -> Session {
         signInRequests.append(registering)
         await gate?.pass()
-        if let signInError { throw signInError }
+        if !scriptedSignInErrors.isEmpty {
+            if let error = scriptedSignInErrors.removeFirst() { throw error }
+        } else if let signInError {
+            throw signInError
+        }
         guard let member = members.first else { throw RepositoryError.rejected("Email 或密碼錯誤") }
         return member.session
     }
