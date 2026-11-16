@@ -238,11 +238,11 @@ struct StatementRolloverModelTests {
         #expect(model.periodNote == nil)
     }
 
-    @Test("上期延入款的提示:有上期延入款而且這一期還沒出過帳才顯示")
+    @Test("上期延入款的提示:只算上期勾了延至下期的款項(上游 8dd0755),而且這一期還沒出過帳才顯示")
     func priorDeferredNote() async {
         let model = model()
         await model.load()
-        #expect(model.priorDeferredNote == "含 1 筆上期延入款，已預設納入本期")
+        #expect(model.priorDeferredNote == "含 1 筆上期延至下期的款項，已預設納入本期")
     }
 
     @Test("明細的說明:日期，上期延入款與公帳的家庭報銷狀態加標記")

@@ -531,7 +531,7 @@ struct AccountsTranslationTests {
         let preview = try await repository.statementPreview(AccountID("a1d2f913-9872-4868-88de-0e523ca46a3c"))
 
         #expect(preview.items.isEmpty)
-        #expect(preview.endDate == CalendarDay(year: 2026, month: 10, day: 1))
+        #expect(preview.endDate == CalendarDay(year: 2026, month: 11, day: 1))
     }
 
     @Test("出帳預覽:沒設結帳日的卡後端回 400(上游 ADR 0030),原樣傳遞訊息")
