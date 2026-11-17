@@ -242,7 +242,7 @@ struct CreatedAtTests {
     func quickEntryHasNone() {
         let model = QuickEntryModel(
             transactions: InMemoryTransactionRepository(transactions: []), accounts: InMemoryAccountRepository.sample(),
-            dataVersion: DataVersion()
+            recurring: InMemoryRecurringRepository(items: []), dataVersion: DataVersion()
         )
         #expect(model.createdAtText == nil)
     }

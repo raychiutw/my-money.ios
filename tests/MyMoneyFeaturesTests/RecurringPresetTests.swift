@@ -68,6 +68,48 @@ struct RecurringPresetTests {
         #expect(entry.categoryHintText == nil)
     }
 
+    @Test("備註原本就等於項目名稱時，選了週期項目仍重新推薦分類(web 每次選取都重算)")
+    func selectingWithSameNoteStillRecommends() async {
+        let entry = await model()
+        entry.note = "房租"
+        // 切到收入再切回支出:分類重設為餐飲、推薦清掉，備註仍是「房租」。
+        entry.type = .income
+        entry.type = .expense
+        #expect(entry.category == .dining)
+
+        entry.selectedPresetID = RecurringItemID("sample-rent")
+
+        #expect(entry.category == TransactionCategory("居家水電"))
+        #expect(entry.categoryHintText == "智慧推薦為【居家水電】")
+    }
+
+    @Test("有週期項目但沒有目前類型的，不顯示選單")
+    func noCandidatesOfCurrentType() async throws {
+        let expenses = try await InMemoryRecurringRepository.sample().items(scope: .all).filter { $0.type == .expense }
+        let entry = await model(recurring: InMemoryRecurringRepository(items: expenses))
+        #expect(!entry.presetCandidates.isEmpty)
+
+        entry.type = .income
+
+        #expect(entry.presetCandidates.isEmpty)
+    }
+
+    @Test("編輯收支明細不顯示選單")
+    func editorHasNoCandidates() async {
+        let editor = TransactionEditorModel(
+            editing: Transaction(
+                id: TransactionID("rent"), accountID: SampleAccounts.savings.id, accountName: SampleAccounts.savings.name,
+                type: .expense, category: TransactionCategory("居家水電"), amount: Money(12000), note: "房租", date: today,
+                isShared: true, recorderName: "小明", recordedAt: nil
+            ),
+            transactions: transactions, accounts: InMemoryAccountRepository.sample(), dataVersion: DataVersion()
+        )
+        await editor.prepare()
+        await editor.loadRecurringPresets()
+
+        #expect(editor.presetCandidates.isEmpty)
+    }
+
     @Test("選回「不套用」保留已填的金額與備註;之後仍可自由修改")
     func clearingKeepsFilledFields() async {
         let entry = await model()

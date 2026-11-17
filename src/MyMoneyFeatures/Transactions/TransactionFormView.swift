@@ -74,7 +74,21 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
-                // 帳戶與日期放在最上面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
+                // 帶入週期項目:跟 web 一樣在類型之後、金額之前(iOS 的類型在導覽列，所以是表單第一區);選了帶入金額與備註。
+                if !model.presetCandidates.isEmpty {
+                    Section {
+                        Picker(model.presetTitle, selection: $model.selectedPresetID) {
+                            Text("不套用(手動輸入)").tag(RecurringItemID?.none)
+                            ForEach(model.presetCandidates) { item in
+                                Text(item.presetLabel).tag(Optional(item.id))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("quickEntry.recurringPreset")
+                    }
+                }
+
+                // 帳戶與日期放在前面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
                 // (上游 ADR 0011);金額欄仍然一打開就對焦。
                 Section {
                     if model.isStructureLocked {
@@ -125,20 +139,6 @@ struct TransactionFormView<Model: TransactionForm>: View {
                 if !model.isStructureLocked {
                     Section("歸屬") {
                         InlineChoiceRows([(true, OwnershipName.household), (false, OwnershipName.personal)], selection: $model.isShared)
-                    }
-                }
-
-                // 帶入週期項目:放在金額前面(跟 web 一樣在類型之後、金額之前);選了帶入金額與備註。
-                if !model.presetCandidates.isEmpty {
-                    Section {
-                        Picker(model.presetTitle, selection: $model.selectedPresetID) {
-                            Text("不套用(手動輸入)").tag(RecurringItemID?.none)
-                            ForEach(model.presetCandidates) { item in
-                                Text(item.presetLabel).tag(Optional(item.id))
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .accessibilityIdentifier("quickEntry.recurringPreset")
                     }
                 }
 

@@ -76,7 +76,7 @@ public final class QuickEntryModel: Submitting {
 
     @ObservationIgnored private let transactions: any TransactionRepository
     @ObservationIgnored private let accountRepository: any AccountRepository
-    @ObservationIgnored private let recurringRepository: (any RecurringRepository)?
+    @ObservationIgnored private let recurringRepository: any RecurringRepository
     @ObservationIgnored private let dataVersion: DataVersion
     @ObservationIgnored private let today: () -> CalendarDay
     /// 記住上次選的帳戶(#273);`nil` 是不記(帳戶永遠從空白開始)。
@@ -89,7 +89,7 @@ public final class QuickEntryModel: Submitting {
     public init(
         transactions: any TransactionRepository,
         accounts: any AccountRepository,
-        recurring: (any RecurringRepository)? = nil,
+        recurring: any RecurringRepository,
         dataVersion: DataVersion,
         accountMemory: AccountMemory? = nil,
         today: @escaping () -> CalendarDay = { CalendarDay.today() }
@@ -145,6 +145,8 @@ public final class QuickEntryModel: Submitting {
                   let item = presetCandidates.first(where: { $0.id == selectedPresetID }) else { return }
             amountText = "\(item.amount.amount)"
             note = item.name
+            // 備註原本就是項目名稱時 `note` 的 didSet 不會推薦;web 每次選取都重算。
+            preselectCategory()
         }
     }
 
@@ -152,7 +154,7 @@ public final class QuickEntryModel: Submitting {
 
     /// 載入週期項目(scope 全部)。失敗當作沒有候選:只是少了選單，記一筆照常可用。
     public func loadRecurringPresets() async {
-        recurringItems = (try? await recurringRepository?.items(scope: .all)) ?? []
+        recurringItems = (try? await recurringRepository.items(scope: .all)) ?? []
     }
 
     /// 使用者手動選分類:鎖定，之後備註怎麼改都不再覆蓋，提示也清掉。
