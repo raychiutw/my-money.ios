@@ -63,7 +63,7 @@ public final class AppSession {
             isBiometricSignInEnabled = true
             begin(session, verifiedByBiometrics: true, restoredFromStorage: true)
         case .invalidated, .cancelled, .failed:
-            // 失效時保存已由 `loadProtected` 清掉。
+            // 失效時保存(連同 DPoP 金鑰)已由 `loadProtected` 清掉。
             break
         }
     }
@@ -90,10 +90,10 @@ public final class AppSession {
         }
     }
 
-    /// 登入或註冊成功後開始 session,存到裝置上:登出時保留的是同一個人(#364)就換新、維持受保護(寫入不需刷臉,
-    /// Face ID 登入維持開啟);其他情況用一般保存,取代之前的(不同帳號就清掉前一個人的)。
+    /// 登入或註冊成功後開始 session,存到裝置上:裝置上受保護的 session(不論是否登出保留,#364)是同一個人就換新、
+    /// 維持受保護(寫入不需刷臉,Face ID 登入維持開啟);其他情況用一般保存,取代之前的(不同帳號就清掉前一個人的)。
     public func start(_ session: Session) {
-        if storage.storedProtection() == .biometric, storage.keptAfterSignOut() == session.user.id {
+        if storage.storedProtection() == .biometric, storage.storedUser() == session.user.id {
             storage.save(session, protection: .biometric)
             isBiometricSignInEnabled = true
         } else {

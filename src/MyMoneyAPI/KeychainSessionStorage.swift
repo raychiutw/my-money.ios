@@ -15,17 +15,28 @@ public struct KeychainSessionStorage: SessionStorage {
     private static let biometricAccount = "session.biometric"
     /// 「登出後保留」的記號(#364):內容是登出的人的 user id 的一般項目，跟 session 一樣存在 Keychain(重裝 app 也還在，與保存一致)。
     private static let keptAfterSignOutAccount = "session.kept-after-sign-out"
+    /// 存下的 session 是誰的:一般項目放 user id,受保護的 session 不刷臉也認得出是誰(網頁登入同一個人時維持受保護)。
+    private static let ownerAccount = "session.owner"
     private let service: String
+    /// 這個 session 的 DPoP 金鑰:保存失效時一併刪掉(ADR-0012)。
+    private let dpopKeys: (any DPoPKeyStore)?
 
-    /// - Parameter service: Keychain item 的 service;UI 測試用另一個，避免碰到真的 session。
-    public init(service: String) {
+    /// - Parameters:
+    ///   - service: Keychain item 的 service;UI 測試用另一個，避免碰到真的 session。
+    ///   - dpopKeys: 跟 `APIClient` 同一個金鑰存放。
+    public init(service: String, dpopKeys: (any DPoPKeyStore)? = nil) {
         self.service = service
+        self.dpopKeys = dpopKeys
     }
 
     public func storedProtection() -> SessionProtection? {
         if exists(account: Self.biometricAccount) { return .biometric }
         if exists(account: Self.standardAccount) { return .standard }
         return nil
+    }
+
+    public func storedUser() -> UserID? {
+        string(account: Self.ownerAccount).map(UserID.init)
     }
 
     public func load() -> Session? {
@@ -61,7 +72,10 @@ public struct KeychainSessionStorage: SessionStorage {
             return (status, result as? Data)
         }.value
         let loaded = Self.protectedLoad(status: status, data: data)
-        if loaded == .invalidated { clear() }
+        if loaded == .invalidated {
+            clear()
+            dpopKeys?.delete()
+        }
         return loaded
     }
 
@@ -86,7 +100,8 @@ public struct KeychainSessionStorage: SessionStorage {
         }
         item[kSecValueData as String] = data
         // 寫入失敗只影響下次開 app 要重新登入，這次的 session 照常使用(綁定時會讀不回來而改用一般保存)。
-        SecItemAdd(item as CFDictionary, nil)
+        guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { return }
+        setString(session.user.id.rawValue, account: Self.ownerAccount)
     }
 
     public func clear() {
@@ -95,28 +110,39 @@ public struct KeychainSessionStorage: SessionStorage {
     }
 
     public func keptAfterSignOut() -> UserID? {
-        var query = itemQuery(account: Self.keptAfterSignOutAccount)
+        // 舊版(#364 第一版)的記號沒有內容:仍算保留,只是認不出是誰。
+        string(account: Self.keptAfterSignOutAccount).map(UserID.init)
+    }
+
+    public func setKeptAfterSignOut(_ user: UserID?) {
+        setString(user?.rawValue, account: Self.keptAfterSignOutAccount)
+    }
+
+    /// 一般項目裡的字串;沒有時是 `nil`。
+    private func string(account: String) -> String? {
+        var query = itemQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else {
             return nil
         }
-        // 舊版(#364 第一版)的記號沒有內容:仍算保留,只是認不出是誰(網頁登入一律改一般保存)。
-        return UserID(String(decoding: data, as: UTF8.self))
+        return String(decoding: data, as: UTF8.self)
     }
 
-    public func setKeptAfterSignOut(_ user: UserID?) {
-        var item = itemQuery(account: Self.keptAfterSignOutAccount)
+    /// 寫入(先刪再寫)或刪掉(`nil`)一般項目裡的字串。
+    private func setString(_ value: String?, account: String) {
+        var item = itemQuery(account: account)
         SecItemDelete(item as CFDictionary)
-        guard let user else { return }
+        guard let value else { return }
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        item[kSecValueData as String] = Data(user.rawValue.utf8)
+        item[kSecValueData as String] = Data(value.utf8)
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    /// 刪掉兩種保存(不動「登出後保留」的記號)。
+    /// 刪掉兩種保存與「是誰的」(不動「登出後保留」的記號)。
     private func deleteSessions() {
+        SecItemDelete(itemQuery(account: Self.ownerAccount) as CFDictionary)
         SecItemDelete(itemQuery(account: Self.standardAccount) as CFDictionary)
         SecItemDelete(itemQuery(account: Self.biometricAccount) as CFDictionary)
     }

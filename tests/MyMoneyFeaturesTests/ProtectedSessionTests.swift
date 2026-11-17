@@ -90,17 +90,33 @@ struct ProtectedSessionTests {
         #expect(storage.stored?.protection == .biometric)
     }
 
-    @Test("冷啟動刷臉取消後改用一般登入:新的 session 用一般保存,取代舊的綁定")
-    func plainSignInAfterCancelReplacesBinding() async {
+    @Test("冷啟動刷臉取消後網頁一般登入同一個帳號:保存換成新的 session,仍受保護(不刷臉),Face ID 登入維持開啟")
+    func plainSignInAfterCancelKeepsBindingForSameUser() async {
         let storage = boundStorage(.cancel)
         let session = AppSession(storage: storage)
         await session.unlockProtectedSession()
-        let other = Session(user: sample.user, tokens: rotated)
+        let renewed = Session(user: sample.user, tokens: rotated)
+
+        await session.start(SignInResult(session: renewed, biometric: false))
+
+        #expect(storage.stored?.session == renewed)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(session.isBiometricSignInEnabled)
+        #expect(storage.biometricPromptCount == 1)
+    }
+
+    @Test("冷啟動刷臉取消後網頁一般登入另一個帳號:前一個人的保存清掉,新的人用一般保存")
+    func plainSignInAfterCancelReplacesBindingForOtherUser() async {
+        let storage = boundStorage(.cancel)
+        let session = AppSession(storage: storage)
+        await session.unlockProtectedSession()
+        let other = Session(user: User(id: UserID("other"), email: "other@example.com", name: "小美"), tokens: rotated)
 
         await session.start(SignInResult(session: other, biometric: false))
 
         #expect(storage.stored?.session == other)
         #expect(storage.stored?.protection == .standard)
+        #expect(!session.isBiometricSignInEnabled)
     }
 
     @Test("冷啟動保存已失效(臉部資料變更):清掉,未登入")

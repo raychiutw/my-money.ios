@@ -189,16 +189,17 @@ struct MyMoneyApp: App {
         // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
         LegacyCredentials.delete()
         let deviceAuthenticator = LiveDeviceAuthenticator()
-        session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"), authenticator: deviceAuthenticator)
+        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337);受保護的 session 失效時保存一併刪掉金鑰。
+        let dpopKeys = KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
+        session = AppSession(
+            storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session", dpopKeys: dpopKeys),
+            authenticator: deviceAuthenticator
+        )
         appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
-        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337)。
-        let client = APIClient(
-            session: session, deviceModel: UIDevice.current.model,
-            dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
-        )
+        let client = APIClient(session: session, deviceModel: UIDevice.current.model, dpopKeys: dpopKeys)
         let passkeyAuthenticator = LivePasskeyAuthenticator()
         // 登入頁跟著這台的生物辨識種類顯示「用 Face ID 登入」按鈕(#353),字級跟著 Dynamic Type 放大(#344)。
         let auth = LiveAuthRepository(

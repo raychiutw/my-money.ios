@@ -5,6 +5,9 @@ public protocol SessionStorage: Sendable {
     /// 存下的 session 用哪種保護等級;沒有存時是 `nil`。不會跳刷臉。
     func storedProtection() -> SessionProtection?
 
+    /// 存下的 session 是誰的(兩種保存都算);沒有存時是 `nil`。不會跳刷臉:網頁登入時判斷是不是同一個人。
+    func storedUser() -> UserID?
+
     /// 一般保存的 session;沒有存、或存的是受保護的(要用 `loadProtected`)時是 `nil`。不會跳刷臉。
     func load() -> Session?
 
@@ -44,6 +47,6 @@ public enum ProtectedSessionLoad: Sendable, Equatable {
     case cancelled
     /// 刷臉沒通過，或其他讀取錯誤。
     case failed
-    /// 保存已失效(臉部資料變更,或已經不在了):要重新登入。回傳前已清掉保存。
+    /// 保存已失效(臉部資料變更,或已經不在了):要重新登入。回傳前已清掉保存(live 實作連同 DPoP 金鑰)。
     case invalidated
 }

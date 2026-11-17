@@ -57,6 +57,10 @@ public final class InMemorySessionStorage: SessionStorage {
         state.withLock { $0.stored?.protection }
     }
 
+    public func storedUser() -> UserID? {
+        state.withLock { $0.stored?.session.user.id }
+    }
+
     public func load() -> Session? {
         state.withLock { $0.stored?.protection == .standard ? $0.stored?.session : nil }
     }
