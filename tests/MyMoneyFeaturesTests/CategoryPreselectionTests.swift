@@ -23,7 +23,7 @@ struct CategoryPreselectionTests {
         let model = QuickEntryModel(
             transactions: repository,
             accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
-            dataVersion: dataVersion,
+            recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion,
             today: { today }
         )
         await model.prepare()
@@ -165,7 +165,7 @@ struct CategoryPreselectionTests {
         let model = QuickEntryModel(
             transactions: repository,
             accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
-            dataVersion: dataVersion,
+            recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion,
             today: { today }
         )
         await model.prepare()

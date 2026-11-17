@@ -356,3 +356,11 @@ DPoP(#337,2026-11-15 重錄):腳本每次用 openssl 產生暫時的 P-256 金�
 | `passkey-register-verify.json` | **手寫**:`POST /auth/passkey/register/verify` 成功,`{success, data: {id, name, created_at, last_used_at: null}}` | 201 | 成功 |
 | `passkey-rename.json` | **手寫**:`PATCH /auth/passkeys/:id` 成功,`{success, data: {id, name}}` | 200 | 成功 |
 | `passkey-delete.json` | **手寫**:`DELETE /auth/passkeys/:id` 成功,`{success, data: {deleted: true}}` | 200 | 成功 |
+
+### 對齊上游 `8dd0755`(#362)
+
+2026-11-17 對 `8dd0755`(上游 ADR 0043:上期延入只含 `defer_to_next_statement = 1`,沒勾的歷史未出帳款在確認出帳或校準時轉為已出帳)的後端錄的。只打 GET,不出帳、不校準(那兩個是 POST,會改動測試帳號)。測試帳號兩張卡本期都沒有明細,所以只能比對頂層欄位:跟既有的 `accounts-rollover-preview.json` 完全相同;明細欄位上游的 SELECT 沒變。
+
+| fixture | 請求 | HTTP | 用來驗證 |
+|---|---|---|---|
+| `accounts-rollover-preview-empty.json`(重錄) | `GET /accounts/:id/rollover-preview`,「iOS 測試小額卡」 | 200 | `transactions: []`;區間 10/2～11/1 |

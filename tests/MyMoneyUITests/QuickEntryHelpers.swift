@@ -5,17 +5,23 @@ extension XCUIApplication {
     /// 點進清單頁、選一個帳戶(選了自動返回)。
     @MainActor
     func chooseQuickEntryAccount(_ name: String = "iOS 測試存款") {
-        let done = buttons["完成"]
-        if done.exists, done.isHittable { done.tap() }
         // 只在 collection view 裡找:sheet 後面底部 tab bar 也有一顆「帳戶」按鈕，但 tab bar 不是 collection view。
         let row = collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "帳戶")).firstMatch
-        for _ in 0..<6 where !(row.exists && row.isHittable) { swipeUp() }
-        // 收起鍵盤後表單停在哪裡取決於剛才聚焦的欄位:帳戶列也可能在目前位置的上面。
-        for _ in 0..<8 where !(row.exists && row.isHittable) { swipeDown() }
+        revealInQuickEntry(row)
         XCTAssertTrue(row.exists && row.isHittable, "記一筆沒有「帳戶」列")
         row.tap()
         let option = buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
         XCTAssertTrue(option.waitForExistence(timeout: 3), "沒有推入帳戶清單頁，或清單裡沒有「\(name)」")
         option.tap()
+    }
+
+    /// 收起數字鍵盤，再上下捲動記一筆表單直到 `element` 點得到(分類格很高，鍵盤又蓋住下半部)。
+    @MainActor
+    func revealInQuickEntry(_ element: XCUIElement) {
+        let done = buttons["完成"]
+        if done.exists, done.isHittable { done.tap() }
+        for _ in 0..<6 where !(element.exists && element.isHittable) { swipeUp() }
+        // 收起鍵盤後表單停在哪裡取決於剛才聚焦的欄位:目標也可能在目前位置的上面。
+        for _ in 0..<8 where !(element.exists && element.isHittable) { swipeDown() }
     }
 }
