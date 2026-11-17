@@ -9,7 +9,7 @@ status: accepted
 ## Decision
 
 - **登入與註冊都開系統的安全登入視窗**(`ASWebAuthenticationSession`,`prefersEphemeralWebBrowserSession = true`)載入上游的 `/oauth/authorize`,授權碼 + PKCE(`S256`)、比對 `state`;client `ios` 與 redirect URI `com.raychiu.mymoney:/oauth/callback` 是上游寫死的。app 不再接觸密碼,原生的帳密表單與註冊頁移除。「瀏覽器授權」是 Domain 的 seam(`BrowserAuthorizer`),App 層實作,測試用假物件;UI 測試(`-uiTesting`)的登入鈕直接以範例帳號登入。
-- **登入頁外觀(#344,上游 ADR 0042)與 Face ID 登入鈕(#353,上游 ADR 0043 `0043-oauth-login-biometric-submit.md`,onion523/my-money#217;上游另有一份同編號的結帳延入 ADR)**:授權網址多帶兩個純外觀參數。`biometry`:這台有 Face ID／Touch ID／Optic ID 時帶 `faceid`／`touchid`／`opticid`,登入頁才顯示「用 Face ID 登入」按鈕;只有裝置密碼或都沒有就不帶。`font_scale`:Dynamic Type 的 body 字級除以預設 17pt,夾在 1～3.1、最多兩位小數、小數點固定用「.」(不跟語系),大於 1 才帶。兩者由 composition root 在每次開登入視窗時提供(`LoginPageAppearance`)。這個按鈕是帳密表單的第二個送出鈕(#353、#354,`biometric=1` 的來源是上游 ADR 0043):帳密通過後照常導回,多帶 `biometric=1`,登入結果(`SignInResult.biometric`)據此標記為生物辨識登入(#355)。app 沒有原生 passkey 登入。
+- **登入頁外觀(#344,上游 ADR 0042)與 Face ID 登入鈕(#353,上游 ADR 0044 `0044-oauth-login-biometric-submit.md`,onion523/my-money#217)**:授權網址多帶兩個純外觀參數。`biometry`:這台有 Face ID／Touch ID／Optic ID 時帶 `faceid`／`touchid`／`opticid`,登入頁才顯示「用 Face ID 登入」按鈕;只有裝置密碼或都沒有就不帶。`font_scale`:Dynamic Type 的 body 字級除以預設 17pt,夾在 1～3.1、最多兩位小數、小數點固定用「.」(不跟語系),大於 1 才帶。兩者由 composition root 在每次開登入視窗時提供(`LoginPageAppearance`)。這個按鈕是帳密表單的第二個送出鈕(#353、#354,`biometric=1` 的來源是上游 ADR 0044):帳密通過後照常導回,多帶 `biometric=1`,登入結果(`SignInResult.biometric`)據此標記為生物辨識登入(#355)。app 沒有原生 passkey 登入。
 - **存取權杖只放記憶體;更新權杖與顯示用的使用者資料存 Keychain**(`WhenUnlockedThisDeviceOnly`:只限這支裝置、不進備份)。使用者資料從存取權杖的 JWT payload(`sub`、`email`、`name`)取得,只用於顯示,不驗章(後端驗)。
 - **更新權杖的兩種保護等級(Face ID 登入,#357)**:同一時間只存一份,各用一個 Keychain 項目(account `session`／`session.biometric`)。
   - 一般:`WhenUnlockedThisDeviceOnly`。
