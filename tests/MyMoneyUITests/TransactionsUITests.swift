@@ -848,7 +848,10 @@ final class TransactionsUITests: XCTestCase {
         for name in ["交通", "娛樂", "購物", "生活", "醫療", "教育", "其他"] {
             XCTAssertTrue(app.buttons[name].exists, "分類格缺少「\(name)」")
         }
-        app.buttons["交通"].tap()
+        // 帶入週期項目的選單(#361)多一列，分類格被數字鍵盤蓋住:先收起鍵盤、捲到看得到。
+        let transport = app.collectionViews.buttons["交通"]
+        app.revealInQuickEntry(transport)
+        transport.tap()
         XCTAssertTrue(app.buttons["交通"].isSelected, "點一下之後交通沒有被選起來")
         XCTAssertFalse(app.buttons["餐飲"].isSelected, "選了交通，餐飲還是選取狀態")
 

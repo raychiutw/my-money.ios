@@ -186,27 +186,14 @@ if mode == "account-security":
     sys.exit(0)
 
 if mode == "passkey":
-    # 測試帳號沒有 passkey(要真機才建得出來):只錄 options、空清單與錯誤回應,錄完撤銷工作階段。
+    # 測試帳號沒有 passkey(要真機才建得出來):只錄註冊 options、空清單與錯誤回應,錄完撤銷工作階段。
     access, refresh, _ = sign_in()
-    status, _, body = call("POST", "/auth/passkey/login/options", json_body={})
-    save("passkey-login-options.json", status, sanitize(body))
     status, _, body = call("POST", "/auth/passkey/register/options", json_body={}, token=access)
     save("passkey-register-options.json", status, sanitize(body))
     status, _, body = call("GET", "/auth/passkeys", token=access)
     save("passkeys-empty.json", status, sanitize(body))
     status, _, body = call("PATCH", "/auth/passkeys/fixture-nonexistent-passkey", json_body={"name": "x"}, token=access)
     save("passkey-rename-not-found.json", status, sanitize(body))
-    # 不存在的 challenge:後端在查憑證之前就拒絕,不會留下任何紀錄。
-    client_data = b64url(json.dumps({"type": "webauthn.get", "challenge": b64url(secrets.token_bytes(32))}).encode())
-    challenge = b64url(hashlib.sha256(b64url(secrets.token_bytes(32)).encode()).digest())
-    status, headers, body = call("POST", "/oauth/passkey/authorize", json_body={
-        "response": {"id": "fixture", "rawId": "fixture", "type": "public-key",
-                     "response": {"clientDataJSON": client_data, "authenticatorData": "", "signature": ""}},
-        "client_id": "ios", "redirect_uri": REDIRECT, "code_challenge": challenge,
-        "code_challenge_method": "S256", "state": "fixture-state", "scope": "full"})
-    if status != 401 or headers.get("WWW-Authenticate"):
-        sys.exit(f"passkey 驗證失敗應該是沒有 WWW-Authenticate 的 401(HTTP {status})")
-    save("oauth-passkey-authorize-expired.json", status, sanitize(body))
     status, _, _ = call("POST", "/oauth/revoke", {"token": refresh})
     print(f"撤銷錄製用的工作階段 → HTTP {status}")
     sys.exit(0)

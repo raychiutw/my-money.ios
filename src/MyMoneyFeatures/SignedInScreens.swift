@@ -69,8 +69,8 @@ public struct MainScreens {
             permissions: permissions, context: context
         )
         quickEntry = QuickEntryModel(
-            transactions: transactionRepository, accounts: accountRepository, dataVersion: dataVersion,
-            accountMemory: AccountMemory(defaults: defaults, userID: currentUser, purpose: .quickEntry)
+            transactions: transactionRepository, accounts: accountRepository, recurring: recurringRepository,
+            dataVersion: dataVersion, accountMemory: AccountMemory(defaults: defaults, userID: currentUser, purpose: .quickEntry)
         )
         recurring = RecurringModel(
             repository: recurringRepository, accounts: accountRepository, permissions: permissions, context: context

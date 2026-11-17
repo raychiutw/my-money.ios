@@ -108,10 +108,11 @@ public struct APIClient: Sendable {
         // 後端用 User-Agent 產生「工作階段」的裝置名稱(上游 parseDeviceName:含 MyMoney-iOS,再看有沒有 iPad)。
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.httpBody = body
-        let token = try await accessToken()
+        let tokens = try await accessToken()
+        let token = tokens?.access
         var proof: String?
         if let token {
-            proof = try dpopProof(method, url, accessToken: token)
+            proof = try dpopProof(method, url, accessToken: token, key: dpopKeys?.load())
             request.setValue("\(proof == nil ? "Bearer" : "DPoP") \(token)", forHTTPHeaderField: "Authorization")
             request.setValue(proof, forHTTPHeaderField: "DPoP")
         }
@@ -133,7 +134,7 @@ public struct APIClient: Sendable {
                     method, path, query: query, body: body, expectsEnvelope: expectsEnvelope, retried: retried, resigned: true
                 )
             }
-            try await handleUnauthorized(response, data: data)
+            try await handleUnauthorized(response, data: data, refresh: tokens?.refresh)
         }
         if !expectsEnvelope {
             guard (200..<300).contains(statusCode) else {
@@ -160,20 +161,27 @@ public struct APIClient: Sendable {
     /// OAuth 端點(`/oauth/token`、`/oauth/revoke`):body 是 form-urlencoded、不帶權杖,回應不是 `{success, data}` envelope。
     /// 非 2xx 時照顯示 `{error, error_description}` 的 `error_description`。
     package func postForm(_ path: String, _ form: [String: String]) async throws -> Data {
-        let (data, status) = try await sendForm(path, form)
+        try await postForm(path, form, signingWith: dpopKeys?.load())
+    }
+
+    /// 同上,proof 用指定的金鑰簽(換碼用還沒存的新金鑰);`nil` 是不帶 proof。
+    package func postForm(_ path: String, _ form: [String: String], signingWith key: DPoPKey?) async throws -> Data {
+        let (data, status) = try await sendForm(path, form, key: key)
         guard (200..<300).contains(status) else { throw Self.oauthError(data) }
         return data
     }
 
     /// 有 DPoP 金鑰時帶 proof(換碼與 refresh 由此綁定金鑰);回 `invalid_dpop_proof` 時依 `Date` 校正、重簽送一次
     /// (上游:proof 驗證失敗時不會消費授權碼與更新權杖)。
-    private func sendForm(_ path: String, _ form: [String: String], resigned: Bool = false) async throws -> (Data, Int) {
+    private func sendForm(
+        _ path: String, _ form: [String: String], key: DPoPKey?, resigned: Bool = false
+    ) async throws -> (Data, Int) {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let proof = try dpopProof("POST", url, accessToken: nil)
+        let proof = try dpopProof("POST", url, accessToken: nil, key: key)
         request.setValue(proof, forHTTPHeaderField: "DPoP")
         request.httpBody = Data(form.map { "\(Self.formEncode($0))=\(Self.formEncode($1))" }.joined(separator: "&").utf8)
         let (data, response) = try await urlSession.data(for: request)
@@ -181,14 +189,20 @@ public struct APIClient: Sendable {
         if !resigned, proof != nil, !(200..<300).contains(status),
            (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error == "invalid_dpop_proof" {
             clockOffset.note(response)
-            return try await sendForm(path, form, resigned: true)
+            return try await sendForm(path, form, key: key, resigned: true)
         }
         return (data, status)
     }
 
-    /// 登入時產生這次登入工作階段的新金鑰(取代舊的);產生失敗時不綁定,照舊用 `Bearer`(同 web)。
-    package func createDPoPKey() {
-        if (try? dpopKeys?.create()) == nil { dpopKeys?.delete() }
+    /// 登入時產生這次登入工作階段的新金鑰,先不存:換碼成功才用 `bindDPoPKey(_:)` 取代保存的,
+    /// 換碼失敗時保存的金鑰不動(#364 登出時保留的 session 還要用)。產生失敗(或沒有存放)時是 `nil`。
+    package func newDPoPKey() -> DPoPKey? {
+        try? dpopKeys?.generate()
+    }
+
+    /// 換碼成功後存下這次的金鑰,取代舊的;`nil` 或存不進去時刪掉舊的,不綁定、照舊用 `Bearer`(同 web)。
+    package func bindDPoPKey(_ key: DPoPKey?) {
+        guard let key, (try? dpopKeys?.save(key)) != nil else { return deleteDPoPKey() }
     }
 
     /// 登出、`invalid_grant`、刪除帳號時刪掉金鑰。
@@ -197,8 +211,8 @@ public struct APIClient: Sendable {
     }
 
     /// DPoP proof(RFC 9449 §4.2);沒有金鑰時是 `nil`。`htu` 不含 query 與 fragment;受保護的請求另帶 `ath`。
-    private func dpopProof(_ method: String, _ url: URL, accessToken: String?) throws -> String? {
-        guard let key = dpopKeys?.load() else { return nil }
+    private func dpopProof(_ method: String, _ url: URL, accessToken: String?, key: DPoPKey?) throws -> String? {
+        guard let key else { return nil }
         var htu = URLComponents(url: url, resolvingAgainstBaseURL: false)
         htu?.query = nil
         htu?.fragment = nil
@@ -220,49 +234,52 @@ public struct APIClient: Sendable {
         return error.map { RepositoryError.rejected($0.errorDescription ?? $0.error) } ?? RepositoryError.unreadableResponse
     }
 
-    /// 送出前取得可用的存取權杖(#335):沒有(冷啟動)、一分鐘內到期,或剛被 401 拒絕(`rejecting`)時先 refresh。
-    /// 別的請求已經換到新的就直接用,不再 refresh。
-    private func accessToken(rejecting rejected: String? = nil) async throws -> String? {
+    /// 送出前取得可用的權杖(#335):沒有存取權杖(冷啟動)、一分鐘內到期,或剛被 401 拒絕(`rejecting`)時先 refresh。
+    /// 別的請求已經換到新的就直接用,不再 refresh。回傳的 `access` 一定有值;未登入時是 `nil`。
+    private func accessToken(rejecting rejected: String? = nil) async throws -> SessionTokens? {
         guard let tokens = await session.currentTokens() else { return nil }
         if let access = tokens.access, access != rejected,
            (tokens.accessExpiresAt ?? .distantFuture) > Date().addingTimeInterval(60) {
-            return access
+            return tokens
         }
         return try await refresher.run { try await refresh() }
     }
 
     /// `grant_type=refresh_token`:成功時改存輪替後的新更新權杖。只有 `invalid_grant`(或沒有本機金鑰時的 `invalid_dpop_proof`)才登出;
     /// 網路錯誤與 5xx 照一般錯誤丟出,保留更新權杖(上游 #208)。
-    private func refresh() async throws -> String {
+    private func refresh() async throws -> SessionTokens {
         guard let tokens = await session.currentTokens() else { throw RepositoryError.sessionExpired }
         let (data, status) = try await sendForm("/oauth/token", [
             "grant_type": "refresh_token",
             "refresh_token": tokens.refresh,
             "client_id": Self.oauthClientID,
-        ])
+        ], key: dpopKeys?.load())
         guard (200..<300).contains(status) else {
             let error = (try? JSONDecoder().decode(OAuthErrorResponse.self, from: data))?.error
             // 本機沒有金鑰卻被要求 DPoP proof(session 已綁定、金鑰遺失):再試也不會過,跟 invalid_grant 一樣回登入頁。
             // 有金鑰時的 invalid_dpop_proof 是時鐘問題,sendForm 已重簽一次,照一般錯誤顯示、不登出。
             if error == "invalid_grant" || (error == "invalid_dpop_proof" && dpopKeys?.load() == nil) {
-                try await expireSession()
+                try await expireSession(refresh: tokens.refresh)
             }
             throw Self.oauthError(data)
         }
         guard let token = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
             throw RepositoryError.unreadableResponse
         }
-        await session.sessionDidRefresh(SessionTokens(
+        let refreshed = SessionTokens(
             access: token.accessToken, refresh: token.refreshToken,
             accessExpiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn))
-        ), replacing: tokens.refresh)
-        return token.accessToken
+        )
+        await session.sessionDidRefresh(refreshed, replacing: tokens.refresh)
+        return refreshed
     }
 
-    /// 登入工作階段失效(所有登出路徑都經過這裡):刪掉 DPoP 金鑰、通知 app 回登入頁。
-    private func expireSession() async throws -> Never {
-        deleteDPoPKey()
-        await session.sessionDidExpire()
+    /// 登入工作階段失效(所有登出路徑都經過這裡):通知 app 回登入頁,app 結束了目前的 session 才刪掉 DPoP 金鑰。
+    /// `refresh` 是請求送出時的更新權杖:送出後已經登出(Face ID 登入的人保留 session,#364)或換人,就不動保留的金鑰。
+    private func expireSession(refresh: String?) async throws -> Never {
+        if let refresh, await session.sessionDidExpire(refresh: refresh) {
+            deleteDPoPKey()
+        }
         throw RepositoryError.sessionExpired
     }
 
@@ -276,14 +293,14 @@ public struct APIClient: Sendable {
     /// 401 依 `WWW-Authenticate` 判斷，不看路徑(上游 c899f01:`/auth/sessions` 等也走權杖驗證)。
     /// `invalid_token`(refresh 後重送仍被拒)是登入工作階段失效;`invalid_dpop_proof` 只是這次的 proof 不對，不登出;
     /// 沒有 challenge 的 401 是帳密錯誤或「目前密碼錯誤」,照顯示後端訊息。
-    private func handleUnauthorized(_ response: URLResponse, data: Data) async throws -> Never {
+    private func handleUnauthorized(_ response: URLResponse, data: Data, refresh: String?) async throws -> Never {
         let challenge = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "WWW-Authenticate")
         let status = try? JSONDecoder().decode(StatusEnvelope.self, from: data)
         guard let challenge else {
             throw RepositoryError.invalidCredentials(status?.error ?? "Email 或密碼錯誤")
         }
         if challenge.contains("invalid_token") {
-            try await expireSession()
+            try await expireSession(refresh: refresh)
         }
         throw RepositoryError.rejected(status?.error ?? "請求失敗")
     }
@@ -291,9 +308,9 @@ public struct APIClient: Sendable {
 
 /// 同一時間只執行一個(refresh):進行中再呼叫的人等同一個結果。
 private actor SingleFlight {
-    private var inFlight: Task<String, any Error>?
+    private var inFlight: Task<SessionTokens, any Error>?
 
-    func run(_ operation: @escaping @Sendable () async throws -> String) async throws -> String {
+    func run(_ operation: @escaping @Sendable () async throws -> SessionTokens) async throws -> SessionTokens {
         if let inFlight { return try await inFlight.value }
         let task = Task { try await operation() }
         inFlight = task

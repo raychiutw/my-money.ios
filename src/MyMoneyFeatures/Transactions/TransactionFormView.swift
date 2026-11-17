@@ -36,6 +36,12 @@ public protocol TransactionForm: AnyObject, Observable {
     func chooseCategory(_ category: TransactionCategory)
     /// 載入備註歷史(智慧推薦的第一層);失敗時不擋記帳。
     func loadNoteHistory() async
+    /// 「帶入週期項目」選單(記一筆才有，上游 2631757):目前類型的候選;沒有候選(含編輯)就不顯示。
+    var presetCandidates: [RecurringItem] { get }
+    var presetTitle: String { get }
+    var selectedPresetID: RecurringItemID? { get set }
+    /// 載入週期項目;失敗時不擋記帳。
+    func loadRecurringPresets() async
     func save() async -> Bool
 }
 
@@ -68,7 +74,21 @@ struct TransactionFormView<Model: TransactionForm>: View {
                     }
                 }
 
-                // 帳戶與日期放在最上面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
+                // 帶入週期項目:跟 web 一樣在類型之後、金額之前(iOS 的類型在導覽列，所以是表單第一區);選了帶入金額與備註。
+                if !model.presetCandidates.isEmpty {
+                    Section {
+                        Picker(model.presetTitle, selection: $model.selectedPresetID) {
+                            Text("不套用(手動輸入)").tag(RecurringItemID?.none)
+                            ForEach(model.presetCandidates) { item in
+                                Text(item.presetLabel).tag(Optional(item.id))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("quickEntry.recurringPreset")
+                    }
+                }
+
+                // 帳戶與日期放在前面(#129):以前在最底下，每次都要捲到底才能選。帳戶每次打開都是空的、必須自己選
                 // (上游 ADR 0011);金額欄仍然一打開就對焦。
                 Section {
                     if model.isStructureLocked {
@@ -200,6 +220,7 @@ struct TransactionFormView<Model: TransactionForm>: View {
             }
             // 歷史另外載入:很慢或失敗都不影響記帳，只是少了歷史推薦。
             .task { await model.loadNoteHistory() }
+            .task { await model.loadRecurringPresets() }
             .onChange(of: model.categoryHintText) { _, hint in
                 if let hint {
                     AccessibilityNotification.Announcement(hint).post()

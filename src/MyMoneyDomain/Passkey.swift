@@ -1,30 +1,10 @@
 import Foundation
 
-/// 「passkey 驗證器」(#339):用 Face ID／Touch ID 對 challenge 簽章,或建立新的 passkey。
+/// 「passkey 驗證器」(#339):用 Face ID／Touch ID 建立新的 passkey(帳號安全)。
 /// App 層用 AuthenticationServices 實作,測試用假物件。使用者關掉系統的 passkey 視窗時丟 `CancellationError`。
 public protocol PasskeyAuthenticator: Sendable {
-    /// 登入:用這個 RP 底下任一個 passkey 對 `challenge` 簽章。
-    func assertion(relyingPartyID: String, challenge: Data) async throws -> PasskeyAssertion
-
     /// 建立:為 `userID`(WebAuthn 的 user handle)產生新的 passkey。
     func registration(relyingPartyID: String, challenge: Data, userID: Data, userName: String) async throws -> PasskeyRegistration
-}
-
-/// 驗證器簽好的 WebAuthn assertion(原始位元組;翻譯層負責 base64url)。
-public struct PasskeyAssertion: Equatable, Sendable {
-    public let credentialID: Data
-    public let clientDataJSON: Data
-    public let authenticatorData: Data
-    public let signature: Data
-    public let userHandle: Data?
-
-    public init(credentialID: Data, clientDataJSON: Data, authenticatorData: Data, signature: Data, userHandle: Data?) {
-        self.credentialID = credentialID
-        self.clientDataJSON = clientDataJSON
-        self.authenticatorData = authenticatorData
-        self.signature = signature
-        self.userHandle = userHandle
-    }
 }
 
 /// 驗證器建立的新 passkey(WebAuthn registration 的原始位元組)。

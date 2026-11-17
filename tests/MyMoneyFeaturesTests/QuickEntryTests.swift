@@ -15,7 +15,7 @@ struct QuickEntryTests {
         let model = QuickEntryModel(
             transactions: transactions,
             accounts: InMemoryAccountRepository(accounts: accounts, summary: .zero),
-            dataVersion: dataVersion,
+            recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion,
             today: { today }
         )
         await model.prepare()
@@ -43,7 +43,7 @@ struct QuickEntryTests {
             let model = QuickEntryModel(
                 transactions: transactions,
                 accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
-                dataVersion: dataVersion,
+                recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion,
                 accountMemory: AccountMemory(defaults: defaults, userID: UserID("me"), purpose: .quickEntry),
                 today: { today }
             )
@@ -72,7 +72,7 @@ struct QuickEntryTests {
         let model = QuickEntryModel(
             transactions: transactions,
             accounts: InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero),
-            dataVersion: dataVersion, accountMemory: memory, today: { today }
+            recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion, accountMemory: memory, today: { today }
         )
         await model.prepare()
         model.startNewEntry()
@@ -89,7 +89,7 @@ struct QuickEntryTests {
         memory.remember(SampleAccounts.savings.id)
         let accounts = InMemoryAccountRepository(accounts: SampleAccounts.all, summary: .zero)
         let model = QuickEntryModel(
-            transactions: transactions, accounts: accounts, dataVersion: dataVersion, accountMemory: memory, today: { today }
+            transactions: transactions, accounts: accounts, recurring: InMemoryRecurringRepository(items: []), dataVersion: dataVersion, accountMemory: memory, today: { today }
         )
         model.startNewEntry()
         await accounts.fail(with: .unreadableResponse)

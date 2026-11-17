@@ -26,7 +26,7 @@ struct SessionTests {
         let session = AppSession(storage: storage)
         let seenByTranslationLayer: any SessionProvider = session
 
-        await seenByTranslationLayer.sessionDidExpire()
+        _ = await seenByTranslationLayer.sessionDidExpire(refresh: session.current?.tokens.refresh ?? "")
 
         #expect(session.current == nil)
         #expect(AppSession(storage: storage).current == nil)
@@ -96,7 +96,7 @@ struct SessionTests {
         let sample = InMemoryAuthRepository.Member.sample.session
         session.start(sample)
 
-        await session.sessionDidExpire()
+        _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
         #expect(session.endedByExpiry)
 
         session.start(sample)

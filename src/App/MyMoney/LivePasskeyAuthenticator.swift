@@ -6,20 +6,6 @@ import UIKit
 /// RP ID 是 web 的網域,要 Associated Domains `webcredentials:` 與上游 AASA 的 Team ID 才能在真機上使用(onion523/my-money#211)。
 struct LivePasskeyAuthenticator: PasskeyAuthenticator {
     @MainActor
-    func assertion(relyingPartyID: String, challenge: Data) async throws -> PasskeyAssertion {
-        let request = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: relyingPartyID)
-            .createCredentialAssertionRequest(challenge: challenge)
-        request.userVerificationPreference = .required
-        guard let credential = try await PasskeyAuthorization.perform(request) as? ASAuthorizationPlatformPublicKeyCredentialAssertion else {
-            throw RepositoryError.rejected("Passkey 驗證失敗")
-        }
-        return PasskeyAssertion(
-            credentialID: credential.credentialID, clientDataJSON: credential.rawClientDataJSON,
-            authenticatorData: credential.rawAuthenticatorData, signature: credential.signature, userHandle: credential.userID
-        )
-    }
-
-    @MainActor
     func registration(relyingPartyID: String, challenge: Data, userID: Data, userName: String) async throws -> PasskeyRegistration {
         let request = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: relyingPartyID)
             .createCredentialRegistrationRequest(challenge: challenge, name: userName, userID: userID)

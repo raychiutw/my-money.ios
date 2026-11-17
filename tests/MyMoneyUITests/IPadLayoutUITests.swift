@@ -21,10 +21,11 @@ final class IPadLayoutUITests: XCTestCase {
     func testLoginContentIsLimitedInPortraitAndLandscape() throws {
         for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
             XCUIDevice.shared.orientation = orientation
-            let app = XCUIApplication.launchUITesting()
-            let submit = app.buttons["login.submit"]
-            XCTAssertTrue(submit.waitForExistence(timeout: 10), "沒有登入頁")
-            assertLimited(submit, in: app, "登入鈕(\(orientation.rawValue))")
+            // App 沒有登入頁(#356):未登入只在錯誤時有內容，量「重試」。
+            let app = XCUIApplication.launchUITesting(flags: ["-uiTestingSignInResults", "fail"])
+            let retry = app.buttons["login.retry"]
+            XCTAssertTrue(retry.waitForExistence(timeout: 10), "沒有未登入的錯誤畫面")
+            assertLimited(retry, in: app, "重試鈕(\(orientation.rawValue))")
             app.terminate()
         }
     }

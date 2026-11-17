@@ -42,15 +42,19 @@ struct MyMoneyApp: App {
         // 只在 Debug 生效,Release(TestFlight)不理會 -uiTesting。
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
-            let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
+            let keychain = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
             // 總覽選過的視角、外觀也另外存，每個 UI 測試從預設值開始。
             let defaultsSuite = "com.raychiu.mymoney.ui-testing"
             let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
             if arguments.contains("-resetSession") {
-                storage.clear()
+                keychain.clear()
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
-            session = AppSession(storage: storage)
+            // `-uiTestingProtectedSession`:範例帳號已綁定 Face ID 登入(#364 登出保留與登入入口頁)。受保護的 Keychain 讀取會跳真的刷臉,
+            // 改存在記憶體、用假刷臉(一律通過);重開 app 不保留。
+            let storage: any SessionStorage = arguments.contains("-uiTestingProtectedSession")
+                ? InMemorySessionStorage(session: InMemoryAuthRepository.Member.sample.session, protection: .biometric)
+                : keychain
             // `-uiTestingAppLock`:範例帳號開著 App 鎖(重啟讀回 session 就會鎖);`-uiTestingAuthResult cancel|fail|unavailable`:假驗證器的結果(預設成功)。
             let fakeResult: DeviceAuthResult = switch UserDefaults.standard.string(forKey: "uiTestingAuthResult") {
             case "cancel": .cancelled
@@ -63,20 +67,27 @@ struct MyMoneyApp: App {
             let hasBiometry = arguments.contains("-uiTestingBiometry") || arguments.contains("-uiTestingAppLock")
             // `-uiTestingLockGrace N`:離開 app 滿 N 秒再回來就鎖(預設 60 秒,UI 測試縮短才測得到)。
             let grace = UserDefaults.standard.string(forKey: "uiTestingLockGrace").flatMap(TimeInterval.init) ?? AppLockModel.gracePeriod
-            appLock = AppLockModel(
-                authenticator: FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult),
-                defaults: defaults, gracePeriod: grace
-            )
+            let deviceAuthenticator = FakeDeviceAuthenticator(capability: hasBiometry ? .faceID : .unavailable, result: fakeResult)
+            session = AppSession(storage: storage, authenticator: deviceAuthenticator)
+            appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: defaults, gracePeriod: grace)
             if arguments.contains("-uiTestingAppLock") {
                 appLock.setEnabledWithoutAuthentication(true, for: InMemoryAuthRepository.Member.sample.user.id)
             }
             appearance = AppearanceSetting(defaults: defaults)
             // `-uiTestingDark`:用 app 自己的外觀設定切深色(`-AppleInterfaceStyle` 對 app 的 window 樣式沒有作用,實測)。
             if arguments.contains("-uiTestingDark") { appearance.appearance = .dark }
-            // 登入鈕不開登入視窗，直接以範例帳號登入(#334)。
-            // 登入頁出現時預設不自動登入(既有測試自己按「登入」);`-uiTestingAutoSignIn` 才自動開(#348)。
-            let auth = InMemoryAuthRepository(members: [.sample])
-            login = LoginModel(auth: auth, session: session, opensSignInOnAppear: arguments.contains("-uiTestingAutoSignIn"))
+            // 未登入時自動「開登入視窗」不開系統視窗，直接以範例帳號登入(#334、#356)。
+            // `-uiTestingSignInResults ok,cancel,fail`:依序每次登入的結果(用完都成功);fail 讓未登入畫面停在錯誤與「重試」。
+            let signInErrors: [(any Error)?] = (UserDefaults.standard.string(forKey: "uiTestingSignInResults") ?? "")
+                .split(separator: ",").map { result in
+                    switch result {
+                    case "cancel": CancellationError()
+                    case "fail": RepositoryError.rejected("無法連線到伺服器")
+                    default: nil
+                    }
+                }
+            let auth = InMemoryAuthRepository(members: [.sample], signInErrors: signInErrors)
+            login = LoginModel(auth: auth, session: session)
             signOut = SignOutModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)
             // `-uiTestingFamilyEntries`:家人(小美)記的公帳交易、建立的家庭共同基金、替家庭代墊的個人信用卡(版型、編輯權限防呆與私卡代墊的 UI 測試)。
@@ -177,21 +188,22 @@ struct MyMoneyApp: App {
         #endif
         // 舊版「Face ID 登入」存的帳密已無用途,升級後刪掉(#336)。
         LegacyCredentials.delete()
-        session = AppSession(storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session"))
         let deviceAuthenticator = LiveDeviceAuthenticator()
+        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337);受保護的 session 失效時保存一併刪掉金鑰。
+        let dpopKeys = KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
+        session = AppSession(
+            storage: KeychainSessionStorage(service: "com.raychiu.mymoney.session", dpopKeys: dpopKeys),
+            authenticator: deviceAuthenticator
+        )
         appLock = AppLockModel(authenticator: deviceAuthenticator, defaults: .standard)
         appearance = AppearanceSetting(defaults: .standard)
         // APIClient 透過 session 取得存取權杖,並在 401 帶 `WWW-Authenticate: … invalid_token` 時讓 session 回到登入頁。
         // User-Agent 帶裝置型號:後端依它把登入裝置顯示成「iPhone／iPad · My Money App」。
-        // 權杖綁定這台的 DPoP 金鑰(實機在 Secure Enclave,#337)。
-        let client = APIClient(
-            session: session, deviceModel: UIDevice.current.model,
-            dpopKeys: KeychainDPoPKeyStore(service: "com.raychiu.mymoney.dpop")
-        )
+        let client = APIClient(session: session, deviceModel: UIDevice.current.model, dpopKeys: dpopKeys)
         let passkeyAuthenticator = LivePasskeyAuthenticator()
-        // 登入頁跟著這台的生物辨識種類顯示 passkey 登入按鈕(上游按鈕文字「用 Face ID 登入」),字級跟著 Dynamic Type 放大(#344)。
+        // 登入頁跟著這台的生物辨識種類顯示「用 Face ID 登入」按鈕(#353),字級跟著 Dynamic Type 放大(#344)。
         let auth = LiveAuthRepository(
-            client: client, browser: LiveBrowserAuthorizer(), passkeys: passkeyAuthenticator,
+            client: client, browser: LiveBrowserAuthorizer(),
             loginPage: { @MainActor in
                 LoginPageAppearance(
                     biometry: await deviceAuthenticator.capability(),

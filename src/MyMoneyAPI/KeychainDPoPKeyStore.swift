@@ -31,23 +31,17 @@ public struct KeychainDPoPKeyStore: DPoPKeyStore {
         return (try? P256.Signing.PrivateKey(rawRepresentation: data)).map(DPoPKey.init)
     }
 
-    public func create() throws -> DPoPKey {
-        let key: DPoPKey
-        let data: Data
-        if secureEnclave {
-            let privateKey = try SecureEnclave.P256.Signing.PrivateKey()
-            (key, data) = (DPoPKey(privateKey), privateKey.dataRepresentation)
-        } else {
-            let privateKey = P256.Signing.PrivateKey()
-            (key, data) = (DPoPKey(privateKey), privateKey.rawRepresentation)
-        }
+    public func generate() throws -> DPoPKey {
+        secureEnclave ? DPoPKey(try SecureEnclave.P256.Signing.PrivateKey()) : DPoPKey(P256.Signing.PrivateKey())
+    }
+
+    public func save(_ key: DPoPKey) throws {
         delete()
         var item = itemQuery
-        item[kSecValueData as String] = data
+        item[kSecValueData as String] = key.storedRepresentation
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         let status = SecItemAdd(item as CFDictionary, nil)
         guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
-        return key
     }
 
     public func delete() {

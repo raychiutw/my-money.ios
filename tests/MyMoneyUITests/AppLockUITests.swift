@@ -23,13 +23,16 @@ final class AppLockUITests: XCTestCase {
         XCTAssertTrue(first.tabBars.buttons["總覽"].waitForExistence(timeout: 10))
         first.terminate()
 
-        let app = XCUIApplication.launchUITesting(flags: lockFlags + ["-uiTestingAuthResult", "fail"], resettingSession: false)
+        // 登入也讓它失敗:被登出的話會停在「重試」,不會偷偷重新登入。
+        let app = XCUIApplication.launchUITesting(
+            flags: lockFlags + ["-uiTestingAuthResult", "fail", "-uiTestingSignInResults", "fail"], resettingSession: false
+        )
         let unlock = app.buttons["appLock.unlock"]
         XCTAssertTrue(unlock.waitForExistence(timeout: 10), "重啟後沒有看到鎖畫面")
         XCTAssertTrue(unlock.isHittable)
         XCTAssertTrue(app.staticTexts["appLock.error"].waitForExistence(timeout: 5), "驗證失敗沒有說明")
         XCTAssertFalse(app.tabBars.buttons["總覽"].isHittable, "鎖著時背後的內容還點得到")
-        XCTAssertFalse(app.buttons["login.submit"].exists, "驗證失敗不該登出")
+        XCTAssertTrue(app.tabBars.buttons["總覽"].exists, "驗證失敗不該登出")
     }
 
     /// 重啟 + 驗證成功:自動解鎖,進到 app。
@@ -143,5 +146,28 @@ extension AppLockUITests {
         let unlock = app.buttons["appLock.unlock"]
         XCTAssertTrue(unlock.waitForExistence(timeout: 10), "離開超過寬限時間回來沒有鎖畫面")
         XCTAssertFalse(signOut.isHittable, "鎖著時「我的」sheet 裡的內容還點得到")
+    }
+}
+
+/// 「我的」的「使用 Face ID 登入」開關(#358):跟 App 鎖同一區塊,名稱依裝置的生物辨識;沒有生物辨識不顯示。
+/// 開啟後真的刷臉讀 Keychain 只能真機確認(模擬器的受保護項目依註冊狀態而定),這裡只驗顯示。
+extension AppLockUITests {
+    @MainActor
+    func testBiometricSignInSwitchIsShownWithBiometry() throws {
+        let app = XCUIApplication.launchUITesting(flags: ["-uiTestingBiometry"], signedIn: true)
+        declineOfferIfShown(in: app)
+        app.openMe()
+        let toggle = app.switches["me.biometricSignIn"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "有 Face ID 時「我的」沒有 Face ID 登入開關")
+        XCTAssertEqual(toggle.label, "使用 Face ID 登入")
+        XCTAssertEqual(toggle.value as? String, "0", "一般登入後應該是關的")
+    }
+
+    @MainActor
+    func testBiometricSignInSwitchIsHiddenWithoutBiometry() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openMe()
+        XCTAssertTrue(app.buttons["me.signOut"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.switches["me.biometricSignIn"].exists, "沒有生物辨識不該顯示 Face ID 登入開關")
     }
 }

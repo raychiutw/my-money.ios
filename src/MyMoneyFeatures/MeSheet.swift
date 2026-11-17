@@ -59,6 +59,9 @@ struct MeSheet: View {
         .listRowBackground(Color.clear)
     }
 
+    /// 裝置的生物辨識名稱;只有裝置密碼或都沒有時是 `nil`。
+    private var biometryName: String? { appLock.capability?.biometryName }
+
     @ViewBuilder
     private func settings(appearance: Binding<Appearance>) -> some View {
         Section {
@@ -78,7 +81,7 @@ struct MeSheet: View {
             InlineChoiceRows(Appearance.allCases.map { ($0, $0.title) }, selection: appearance)
         }
 
-        // App 鎖(#299):開啟與關閉都要先驗證成功一次。裝置沒有生物辨識也沒有密碼時停用並說明。
+        // App 鎖(#299):開啟與關閉都要先驗證成功一次。裝置沒有生物辨識也沒有密碼時停用並說明。Face ID 登入放同一區塊(#358)。
         Section {
             Toggle(
                 "使用 \(appLock.unlockMethodName) 解鎖",
@@ -90,6 +93,18 @@ struct MeSheet: View {
             .tint(Color.ciFill)
             .disabled(!appLock.canEnable && !appLock.isEnabled)
             .accessibilityIdentifier("me.appLock")
+            // Face ID 登入(#358):冷啟動刷臉讀出登入工作階段。開啟要刷臉一次，關閉改一般保存、不登出;沒有生物辨識不顯示。
+            if let biometry = biometryName {
+                Toggle(
+                    "使用 \(biometry) 登入",
+                    isOn: Binding(
+                        get: { session.isBiometricSignInEnabled },
+                        set: { newValue in Task { await session.setBiometricSignIn(newValue) } }
+                    )
+                )
+                .tint(Color.ciFill)
+                .accessibilityIdentifier("me.biometricSignIn")
+            }
         } footer: {
             if let message = appLock.settingMessage {
                 Text(message)

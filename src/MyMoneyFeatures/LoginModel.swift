@@ -2,8 +2,8 @@ import Foundation
 import MyMoneyDomain
 import Observation
 
-/// 登入頁的 model(#334):登入與註冊都在系統的登入視窗完成,app 不接觸密碼。
-/// 登入頁一出現就自動開登入視窗一次(#348);使用者關掉後不再自動開,按「登入」才重開。
+/// 未登入時的 model(#334、#356):App 沒有自己的登入頁，登入與註冊都在系統的登入視窗完成,app 不接觸密碼。
+/// 未登入就自動開登入視窗;使用者關掉就再開(沒登入什麼都不能做),但只在 scene 在前景時，避免在背景連續重開(#351);其他錯誤停住、顯示訊息，按「重試」才再開。
 @MainActor
 @Observable
 public final class LoginModel {
@@ -15,37 +15,46 @@ public final class LoginModel {
 
     @ObservationIgnored private let auth: any AuthRepository
     @ObservationIgnored private let session: AppSession
-    @ObservationIgnored private let opensSignInOnAppear: Bool
-    /// 這次停在登入頁時已經自動開過;登入成功才重設,下次登出或過期回到登入頁會再自動開。
-    @ObservationIgnored private var hasAutoOpened = false
+    /// scene 在前景(scenePhase `.active`):關掉登入視窗後只有這時才再開。
+    @ObservationIgnored private var isSceneActive = false
 
-    /// - Parameter opensSignInOnAppear: UI 測試預設關掉,既有測試自己按「登入」。
-    public init(auth: any AuthRepository, session: AppSession, opensSignInOnAppear: Bool = true) {
+    public init(auth: any AuthRepository, session: AppSession) {
         self.auth = auth
         self.session = session
-        self.opensSignInOnAppear = opensSignInOnAppear
     }
 
-    /// 登入頁出現時:還沒自動開過就開系統的登入視窗。
+    /// 未登入的畫面出現、或回到前景時:開系統的登入視窗。錯誤停住時不自動開，等使用者按「重試」。
     public func appeared() async {
-        guard opensSignInOnAppear, !hasAutoOpened else { return }
-        hasAutoOpened = true
+        isSceneActive = true
+        guard errorMessage == nil else { return }
         await signIn()
     }
 
-    /// 按「登入」:開系統的登入視窗。
-    public func signIn() async {
-        guard !isSubmitting else { return }
+    /// scene 離開前景:之後關掉的登入視窗不再開，等回到前景(`appeared()`)。
+    public func sceneLeftForeground() {
+        isSceneActive = false
+    }
+
+    /// 按「重試」:清掉錯誤，再開系統的登入視窗。
+    public func retry() async {
         errorMessage = nil
+        await signIn()
+    }
+
+    private func signIn() async {
+        guard !isSubmitting, session.current == nil else { return }
         isSubmitting = true
         defer { isSubmitting = false }
-        do {
-            session.start(try await auth.signIn(registering: false))
-            hasAutoOpened = false
-        } catch is CancellationError {
-            // 使用者關掉登入視窗:回到登入頁，不顯示錯誤。
-        } catch {
-            errorMessage = error.localizedDescription
+        while isSceneActive, !Task.isCancelled {
+            do {
+                await session.start(try await auth.signIn(registering: false))
+                return
+            } catch is CancellationError {
+                // 使用者關掉登入視窗:不是錯誤，在前景就再開一次。
+            } catch {
+                errorMessage = error.localizedDescription
+                return
+            }
         }
     }
 }

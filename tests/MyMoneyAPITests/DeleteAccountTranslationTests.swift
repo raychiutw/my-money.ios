@@ -11,7 +11,7 @@ struct DeleteAccountTranslationTests {
     private var auth: LiveAuthRepository {
         LiveAuthRepository(
             client: APIClient(baseURL: stub.baseURL, urlSession: stub.urlSession, session: session),
-            browser: FakeBrowserAuthorizer(.cancelled), passkeys: FakePasskeyAuthenticator()
+            browser: FakeBrowserAuthorizer(.cancelled)
         )
     }
 

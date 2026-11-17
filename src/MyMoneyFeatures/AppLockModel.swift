@@ -38,13 +38,8 @@ public final class AppLockModel {
 
     /// 例如「Face ID」;沒有生物辨識寫「裝置密碼」。還沒查過時是通用的「Face ID 或裝置密碼」。
     public var unlockMethodName: String {
-        switch capability {
-        case .faceID: "Face ID"
-        case .touchID: "Touch ID"
-        case .opticID: "Optic ID"
-        case .passcodeOnly, .unavailable: "裝置密碼"
-        case nil: "Face ID 或裝置密碼"
-        }
+        guard let capability else { return "Face ID 或裝置密碼" }
+        return capability.biometryName ?? "裝置密碼"
     }
 
     /// 查這支裝置能用哪一種驗證(鎖畫面出現與設定頁用)。
@@ -167,13 +162,14 @@ public final class AppLockModel {
     // MARK: session
 
     /// 開始(或讀回)一個 session。`restored` 是冷啟動讀回上次存下的 session;剛登入成功是 `false`,不鎖。
-    public func sessionStarted(userID: UserID, restored: Bool) {
+    /// `verifiedByBiometrics`:這次已經刷過臉(Face ID 登入的冷啟動讀取或剛綁定,#358)——不再鎖一次，也不問要不要開啟。
+    public func sessionStarted(userID: UserID, restored: Bool, verifiedByBiometrics: Bool = false) {
         self.userID = userID
         failureMessage = nil
         backgroundedAt = nil
-        isFreshLogin = !restored
+        isFreshLogin = !restored && !verifiedByBiometrics
         shouldOfferEnabling = false
-        state = restored && isEnabled(for: userID) ? .locked : .unlocked
+        state = restored && !verifiedByBiometrics && isEnabled(for: userID) ? .locked : .unlocked
     }
 
     /// session 結束(登出、刪除帳號、401):沒有東西好鎖,解開鎖並回到登入頁。
@@ -233,6 +229,18 @@ public final class AppLockModel {
         case .failed:
             state = .locked
             failureMessage = "驗證失敗，請再試一次"
+        }
+    }
+}
+
+extension DeviceAuthCapability {
+    /// 生物辨識名稱，例如「Face ID」;只有裝置密碼或都沒有時是 `nil`。
+    var biometryName: String? {
+        switch self {
+        case .faceID: "Face ID"
+        case .touchID: "Touch ID"
+        case .opticID: "Optic ID"
+        case .passcodeOnly, .unavailable: nil
         }
     }
 }

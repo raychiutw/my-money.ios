@@ -37,11 +37,11 @@ struct HIGReviewCompletenessTests {
         return try String(contentsOf: review, encoding: .utf8)
     }
 
-    @Test("截圖巡覽有 27 頁以上，審查文件每一頁都有一節(標題寫頁面名稱)", arguments: reviews)
+    @Test("截圖巡覽有 26 頁以上，審查文件每一頁都有一節(標題寫頁面名稱)", arguments: reviews)
     func everyTourPageHasASection(review: String) throws {
         let pages = try tourPages()
-        // 27:註冊頁在 #334 移除(註冊改在系統登入視窗)。
-        #expect(pages.count >= 27, "截圖巡覽的頁面清單讀不到或變少了:\(pages)")
+        // 26:註冊頁在 #334 移除(註冊改在系統登入視窗),登入頁在 #356 移除(App 沒有登入頁)。
+        #expect(pages.count >= 26, "截圖巡覽的頁面清單讀不到或變少了:\(pages)")
         let text = try reviewText(review)
         let missing = pages.filter { !text.contains("### `\($0)`") }
         #expect(missing.isEmpty, "審查文件缺少這些頁面的一節(### `頁面名稱`):\(missing)")

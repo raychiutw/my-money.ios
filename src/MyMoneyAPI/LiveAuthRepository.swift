@@ -10,21 +10,19 @@ public struct LiveAuthRepository: AuthRepository {
 
     private let client: APIClient
     private let browser: any BrowserAuthorizer
-    private let passkeys: any PasskeyAuthenticator
     private let loginPage: @Sendable () async -> LoginPageAppearance
 
     /// `loginPage`:每次開登入視窗時取一次登入頁的外觀(生物辨識種類、字級倍數),由 composition root 提供(#344)。
     public init(
-        client: APIClient, browser: any BrowserAuthorizer, passkeys: any PasskeyAuthenticator,
+        client: APIClient, browser: any BrowserAuthorizer,
         loginPage: @escaping @Sendable () async -> LoginPageAppearance = { LoginPageAppearance() }
     ) {
         self.client = client
         self.browser = browser
-        self.passkeys = passkeys
         self.loginPage = loginPage
     }
 
-    public func signIn(registering: Bool) async throws -> Session {
+    public func signIn(registering: Bool) async throws -> SignInResult {
         let verifier = Self.randomBase64URL(byteCount: 32)
         let state = Self.randomBase64URL(byteCount: 16)
         var authorize = URLComponents(url: client.url(for: "/oauth/authorize"), resolvingAgainstBaseURL: false)!
@@ -43,11 +41,6 @@ public struct LiveAuthRepository: AuthRepository {
         let params = Dictionary(
             (URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }
         ) { first, _ in first }
-        // 登入頁要求 passkey(上游按鈕文字「用 Face ID 登入」):Worker 頁不能做 WebAuthn(RP ID 不同網域),導回來改走原生 passkey(上游 ADR 0042)。
-        if params["error"] == "passkey_requested" {
-            guard params["state"] == state else { throw RepositoryError.rejected("登入失敗，請再試一次") }
-            return try await signInWithPasskey()
-        }
         if let error = params["error"] {
             throw RepositoryError.rejected(params["error_description"] ?? error)
         }
@@ -55,47 +48,27 @@ public struct LiveAuthRepository: AuthRepository {
             throw RepositoryError.rejected("登入失敗，請再試一次")
         }
 
-        return try await exchange(code: code, verifier: verifier)
+        return SignInResult(session: try await exchange(code: code, verifier: verifier), biometric: params["biometric"] == "1")
     }
 
-    /// WebAuthn 授權橋接(#339):原生 assertion 連同 PKCE 送到 `POST /oauth/passkey/authorize` 換授權碼,
-    /// 再走跟系統登入視窗同一個 `/oauth/token`。不用相容端點 `/auth/passkey/login/verify`。
-    public func signInWithPasskey() async throws -> Session {
-        let options: LoginOptionsDTO = try await client.send("POST", "/auth/passkey/login/options", body: [String: String]())
-        guard let challenge = Data(base64URLEncoded: options.challenge) else { throw RepositoryError.unreadableResponse }
-        let assertion = try await passkeys.assertion(relyingPartyID: options.rpId, challenge: challenge)
-        let verifier = Self.randomBase64URL(byteCount: 32)
-        // 回應直接是 JSON(不經 callback 導回),state 只是照上游的參數帶上,不用比對。
-        let grant: AuthorizationCodeDTO = try await client.send("POST", "/oauth/passkey/authorize", body: PasskeyAuthorizeRequest(
-            response: WebAuthnCredentialJSON(credentialID: assertion.credentialID, response: AssertionJSON(
-                clientDataJSON: assertion.clientDataJSON.base64URLEncodedString(),
-                authenticatorData: assertion.authenticatorData.base64URLEncodedString(),
-                signature: assertion.signature.base64URLEncodedString(),
-                userHandle: assertion.userHandle?.base64URLEncodedString()
-            )),
-            clientID: APIClient.oauthClientID, redirectURI: Self.redirectURI, codeChallenge: Self.codeChallenge(verifier),
-            codeChallengeMethod: "S256", state: Self.randomBase64URL(byteCount: 16), scope: "full"
-        ))
-        return try await exchange(code: grant.code, verifier: verifier)
-    }
-
-    /// 用授權碼換權杖(`POST /oauth/token`);系統登入視窗與 passkey 共用。
+    /// 用授權碼換權杖(`POST /oauth/token`)。
     private func exchange(code: String, verifier: String) async throws -> Session {
-        // 每次登入換一把新的 DPoP 金鑰,換碼時用它綁定這個登入工作階段(#337)。
-        client.createDPoPKey()
+        // 每次登入換一把新的 DPoP 金鑰,換碼時用它綁定這個登入工作階段(#337);換碼成功才取代保存的(#364)。
+        let key = client.newDPoPKey()
         let data = try await client.postForm("/oauth/token", [
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": Self.redirectURI,
             "client_id": APIClient.oauthClientID,
             "code_verifier": verifier,
-        ])
+        ], signingWith: key)
         guard
             let token = try? JSONDecoder().decode(TokenResponse.self, from: data),
             let user = Self.user(fromAccessToken: token.accessToken)
         else {
             throw RepositoryError.unreadableResponse
         }
+        client.bindDPoPKey(key)
         return Session(
             user: user,
             tokens: SessionTokens(
@@ -179,42 +152,6 @@ struct TokenResponse: Decodable {
         case refreshToken = "refresh_token"
         case expiresIn = "expires_in"
     }
-}
-
-/// SimpleWebAuthn 的登入 options 裡用得到的部分;`challenge` 是 base64url。
-private struct LoginOptionsDTO: Decodable {
-    let rpId: String
-    let challenge: String
-}
-
-private struct AssertionJSON: Encodable {
-    let clientDataJSON: String
-    let authenticatorData: String
-    let signature: String
-    let userHandle: String?
-}
-
-private struct PasskeyAuthorizeRequest: Encodable {
-    let response: WebAuthnCredentialJSON<AssertionJSON>
-    let clientID: String
-    let redirectURI: String
-    let codeChallenge: String
-    let codeChallengeMethod: String
-    let state: String
-    let scope: String
-
-    enum CodingKeys: String, CodingKey {
-        case response, state, scope
-        case clientID = "client_id"
-        case redirectURI = "redirect_uri"
-        case codeChallenge = "code_challenge"
-        case codeChallengeMethod = "code_challenge_method"
-    }
-}
-
-/// `POST /oauth/passkey/authorize` 的 `data`。
-private struct AuthorizationCodeDTO: Decodable {
-    let code: String
 }
 
 /// 存取權杖 payload 裡顯示用的部分。

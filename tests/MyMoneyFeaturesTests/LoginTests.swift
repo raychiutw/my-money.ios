@@ -3,84 +3,14 @@ import MyMoneyFeatures
 import MyMoneyTestSupport
 import Testing
 
+/// 沒有 App 自己的登入頁(#356):未登入就自動開系統登入視窗，關掉再開，其他錯誤停住並可重試。
 @MainActor
 @Suite("登入(系統登入視窗)")
 struct LoginTests {
     private let storage = InMemorySessionStorage()
     private let auth = InMemoryAuthRepository(members: [.sample])
 
-    @Test("登入成功後進入 tab 外殼")
-    func signInSucceeds() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(auth: auth, session: session)
-
-        await model.signIn()
-
-        #expect(session.current?.user.name == "小明")
-        #expect(await auth.signInRequests == [false])
-    }
-
-    @Test("登入成功後重開 app,直接進入 tab 外殼")
-    func signedInSessionSurvivesRelaunch() async {
-        await LoginModel(auth: auth, session: AppSession(storage: storage)).signIn()
-
-        let relaunched = AppSession(storage: storage)
-
-        #expect(relaunched.current?.user.name == "小明")
-    }
-
-    @Test("關掉登入視窗:回到登入頁,不顯示錯誤")
-    func cancellingShowsNoError() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], signInError: CancellationError()), session: session
-        )
-
-        await model.signIn()
-
-        #expect(model.errorMessage == nil)
-        #expect(session.current == nil)
-        #expect(!model.isSubmitting)
-    }
-
-    @Test("登入失敗時顯示後端回傳的訊息，留在登入頁")
-    func signInFailureShowsBackendMessage() async {
-        let session = AppSession(storage: storage)
-        let model = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], signInError: RepositoryError.rejected("授權碼無效或已被使用")),
-            session: session
-        )
-
-        await model.signIn()
-
-        #expect(model.errorMessage == "授權碼無效或已被使用")
-        #expect(session.current == nil)
-    }
-
-    @Test("登入期間按鈕停用;再次登入時先清掉上一次的錯誤訊息")
-    func submittingStateAndErrorReset() async {
-        let gate = Gate()
-        await gate.open()
-        let failing = LoginModel(
-            auth: InMemoryAuthRepository(members: [.sample], signInError: RepositoryError.rejected("失敗")),
-            session: AppSession(storage: storage)
-        )
-        await failing.signIn()
-        #expect(failing.errorMessage == "失敗")
-
-        let model = LoginModel(auth: InMemoryAuthRepository(members: [.sample], gate: gate), session: AppSession(storage: storage))
-        await gate.close()
-        let submission = Task { await model.signIn() }
-        await gate.waitUntilReached()
-        #expect(model.isSubmitting)
-        #expect(model.errorMessage == nil)
-
-        await gate.open()
-        await submission.value
-        #expect(!model.isSubmitting)
-    }
-
-    @Test("登入頁一出現就自動開登入視窗,登入成功進入 tab 外殼")
+    @Test("未登入就自動開登入視窗,登入成功進入 tab 外殼")
     func appearingOpensSignInAutomatically() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
@@ -91,22 +21,72 @@ struct LoginTests {
         #expect(session.current?.user.name == "小明")
     }
 
-    @Test("關掉自動開的登入視窗後,登入頁再出現也不再自動開;按「登入」可以重開")
-    func cancellingStopsAutoOpenButButtonReopens() async {
-        let cancelling = InMemoryAuthRepository(members: [.sample], signInError: CancellationError())
-        let model = LoginModel(auth: cancelling, session: AppSession(storage: storage))
+    @Test("登入成功後重開 app,直接進入 tab 外殼")
+    func signedInSessionSurvivesRelaunch() async {
+        await LoginModel(auth: auth, session: AppSession(storage: storage)).appeared()
 
-        await model.appeared()
-        await model.appeared()
-        #expect(await cancelling.signInRequests == [false])
-        #expect(model.errorMessage == nil)
+        let relaunched = AppSession(storage: storage)
 
-        await model.signIn()
-        #expect(await cancelling.signInRequests == [false, false])
+        #expect(relaunched.current?.user.name == "小明")
     }
 
-    @Test("登出後回到登入頁,又自動開一次登入視窗")
-    func signingOutReenablesAutoOpen() async {
+    @Test("使用者關掉登入視窗:不顯示錯誤，再開一次")
+    func cancellingReopensSignIn() async {
+        let session = AppSession(storage: storage)
+        let closingTwice = InMemoryAuthRepository(members: [.sample], signInErrors: [CancellationError(), CancellationError(), nil])
+        let model = LoginModel(auth: closingTwice, session: session)
+
+        await model.appeared()
+
+        #expect(await closingTwice.signInRequests == [false, false, false])
+        #expect(model.errorMessage == nil)
+        #expect(session.current?.user.name == "小明")
+    }
+
+    @Test("其他錯誤:停住並顯示後端的訊息,不再自動開;按「重試」再開")
+    func otherErrorsStopUntilRetry() async {
+        let session = AppSession(storage: storage)
+        let failingOnce = InMemoryAuthRepository(members: [.sample], signInErrors: [RepositoryError.rejected("授權碼無效或已被使用")])
+        let model = LoginModel(auth: failingOnce, session: session)
+
+        await model.appeared()
+        #expect(model.errorMessage == "授權碼無效或已被使用")
+        #expect(session.current == nil)
+
+        // 回到前景(scenePhase .active)也不自動重開。
+        await model.appeared()
+        #expect(await failingOnce.signInRequests == [false])
+
+        await model.retry()
+        #expect(await failingOnce.signInRequests == [false, false])
+        #expect(model.errorMessage == nil)
+        #expect(session.current?.user.name == "小明")
+    }
+
+    @Test("登入視窗開著時不重複開;重試時先清掉上一次的錯誤訊息")
+    func submittingStateAndErrorReset() async {
+        let gate = Gate()
+        await gate.open()
+        let failingOnce = InMemoryAuthRepository(members: [.sample], gate: gate, signInErrors: [RepositoryError.rejected("失敗")])
+        let model = LoginModel(auth: failingOnce, session: AppSession(storage: storage))
+        await model.appeared()
+        #expect(model.errorMessage == "失敗")
+
+        await gate.close()
+        let submission = Task { await model.retry() }
+        await gate.waitUntilReached()
+        #expect(model.isSubmitting)
+        #expect(model.errorMessage == nil)
+        await model.appeared()
+        #expect(await failingOnce.signInRequests == [false, false])
+
+        await gate.open()
+        await submission.value
+        #expect(!model.isSubmitting)
+    }
+
+    @Test("登出後回到未登入,又自動開一次登入視窗")
+    func signingOutReopensSignIn() async {
         let session = AppSession(storage: storage)
         let model = LoginModel(auth: auth, session: session)
         await model.appeared()
@@ -118,12 +98,23 @@ struct LoginTests {
         #expect(session.current != nil)
     }
 
-    @Test("關掉自動開(UI 測試預設)時,登入頁出現不開登入視窗")
-    func autoOpenCanBeTurnedOff() async {
-        let model = LoginModel(auth: auth, session: AppSession(storage: storage), opensSignInOnAppear: false)
+    @Test("不在前景時關掉登入視窗:不再開,回到前景才再開")
+    func cancellingInBackgroundWaitsForForeground() async {
+        let gate = Gate()
+        let session = AppSession(storage: storage)
+        let closingOnce = InMemoryAuthRepository(members: [.sample], gate: gate, signInErrors: [CancellationError(), nil])
+        let model = LoginModel(auth: closingOnce, session: session)
+
+        let opening = Task { await model.appeared() }
+        await gate.waitUntilReached()
+        model.sceneLeftForeground()
+        await gate.open()
+        await opening.value
+        #expect(await closingOnce.signInRequests == [false])
+        #expect(session.current == nil)
 
         await model.appeared()
-
-        #expect(await auth.signInRequests.isEmpty)
+        #expect(await closingOnce.signInRequests == [false, false])
+        #expect(session.current?.user.name == "小明")
     }
 }
