@@ -42,14 +42,19 @@ struct MyMoneyApp: App {
         // 只在 Debug 生效,Release(TestFlight)不理會 -uiTesting。
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-uiTesting") {
-            let storage = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
+            let keychain = KeychainSessionStorage(service: "com.raychiu.mymoney.session.ui-testing")
             // 總覽選過的視角、外觀也另外存，每個 UI 測試從預設值開始。
             let defaultsSuite = "com.raychiu.mymoney.ui-testing"
             let defaults = UserDefaults(suiteName: defaultsSuite) ?? .standard
             if arguments.contains("-resetSession") {
-                storage.clear()
+                keychain.clear()
                 defaults.removePersistentDomain(forName: defaultsSuite)
             }
+            // `-uiTestingProtectedSession`:範例帳號已綁定 Face ID 登入(#364 登出保留與登入入口頁)。受保護的 Keychain 讀取會跳真的刷臉,
+            // 改存在記憶體、用假刷臉(一律通過);重開 app 不保留。
+            let storage: any SessionStorage = arguments.contains("-uiTestingProtectedSession")
+                ? InMemorySessionStorage(session: InMemoryAuthRepository.Member.sample.session, protection: .biometric)
+                : keychain
             // `-uiTestingAppLock`:範例帳號開著 App 鎖(重啟讀回 session 就會鎖);`-uiTestingAuthResult cancel|fail|unavailable`:假驗證器的結果(預設成功)。
             let fakeResult: DeviceAuthResult = switch UserDefaults.standard.string(forKey: "uiTestingAuthResult") {
             case "cancel": .cancelled

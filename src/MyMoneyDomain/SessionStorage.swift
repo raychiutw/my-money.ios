@@ -18,8 +18,15 @@ public protocol SessionStorage: Sendable {
     /// 用指定的保護等級存檔(先刪再寫,兩種保存只會留一份)。寫入不需要刷臉。
     func save(_ session: Session, protection: SessionProtection)
 
-    /// 清掉兩種保存。
+    /// 清掉兩種保存,連同「登出後保留」的記號。
     func clear()
+
+    /// 「登出後保留」的記號(#364):Face ID 登入的人主動登出、受保護的 session 留在裝置上。
+    /// 有記號時冷啟動停在登入入口頁、不自動刷臉。存在裝置上、跨冷啟動;不會跳刷臉。
+    func isKeptAfterSignOut() -> Bool
+
+    /// 設定或清掉「登出後保留」的記號;存檔(`save`)不會動到它。
+    func setKeptAfterSignOut(_ kept: Bool)
 }
 
 /// session 保存的保護等級(#357)。

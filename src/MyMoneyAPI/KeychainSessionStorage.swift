@@ -13,6 +13,8 @@ import Security
 public struct KeychainSessionStorage: SessionStorage {
     private static let standardAccount = "session"
     private static let biometricAccount = "session.biometric"
+    /// 「登出後保留」的記號(#364):沒有內容的一般項目，跟 session 一樣存在 Keychain(重裝 app 也還在，與保存一致)。
+    private static let keptAfterSignOutAccount = "session.kept-after-sign-out"
     private let service: String
 
     /// - Parameter service: Keychain item 的 service;UI 測試用另一個，避免碰到真的 session。
@@ -69,7 +71,7 @@ public struct KeychainSessionStorage: SessionStorage {
 
     public func save(_ session: Session, protection: SessionProtection) {
         guard let data = Self.encode(session) else { return }
-        clear()
+        deleteSessions()
         var item: [String: Any]
         switch protection {
         case .standard:
@@ -88,6 +90,25 @@ public struct KeychainSessionStorage: SessionStorage {
     }
 
     public func clear() {
+        deleteSessions()
+        setKeptAfterSignOut(false)
+    }
+
+    public func isKeptAfterSignOut() -> Bool {
+        exists(account: Self.keptAfterSignOutAccount)
+    }
+
+    public func setKeptAfterSignOut(_ kept: Bool) {
+        var item = itemQuery(account: Self.keptAfterSignOutAccount)
+        SecItemDelete(item as CFDictionary)
+        guard kept else { return }
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        item[kSecValueData as String] = Data()
+        SecItemAdd(item as CFDictionary, nil)
+    }
+
+    /// 刪掉兩種保存(不動「登出後保留」的記號)。
+    private func deleteSessions() {
         SecItemDelete(itemQuery(account: Self.standardAccount) as CFDictionary)
         SecItemDelete(itemQuery(account: Self.biometricAccount) as CFDictionary)
     }

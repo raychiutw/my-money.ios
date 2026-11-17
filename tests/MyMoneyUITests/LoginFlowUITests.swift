@@ -42,6 +42,26 @@ final class LoginFlowUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "按「重試」沒有再登入")
     }
 
+    /// Face ID 登入的人登出(#364):停在登入入口頁(品牌與「登入」),不自動開登入視窗(這裡讓它失敗，開了就會看到「重試」);
+    /// 按「登入」刷臉讀出保留的 session(假刷臉通過),進入 tab 外殼。
+    @MainActor
+    func testProtectedSignOutShowsEntryAndSignInUnlocks() throws {
+        let app = XCUIApplication.launchUITesting(
+            flags: ["-uiTestingProtectedSession", "-uiTestingSignInResults", "fail"], signedIn: true
+        )
+
+        app.openMe()
+        app.buttons["me.signOut"].tap()
+
+        let entry = app.buttons["login.entry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "Face ID 登入的人登出後沒有顯示登入入口頁")
+        XCTAssertTrue(app.staticTexts["我的記帳本"].exists)
+        XCTAssertFalse(app.buttons["login.retry"].exists, "登入入口頁不該自動開登入視窗")
+
+        entry.tap()
+        XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "按「登入」沒有刷臉進入")
+    }
+
     /// 使用者關掉登入視窗:不顯示錯誤，自動再開(這次成功)。
     @MainActor
     func testClosingSignInReopensIt() throws {

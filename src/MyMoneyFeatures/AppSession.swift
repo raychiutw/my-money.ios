@@ -28,6 +28,12 @@ public final class AppSession {
     /// 根畫面要呼叫 `unlockProtectedSession()`,這段期間不顯示登入頁。
     public private(set) var isUnlocking = false
 
+    /// 顯示登入入口頁(#364):Face ID 登入的人主動登出後，只有品牌與「登入」;冷啟動也停在這裡、不自動刷臉。
+    public private(set) var showsSignInEntry = false
+
+    /// 登出時保留的 session(只放記憶體):登出前送出的 refresh 晚回來時，把保留的換成輪替後的權杖。
+    @ObservationIgnored private var keptSession: Session?
+
     /// 讀回上次存下的 session:30 天內重開 app 直接進入 tab 外殼。讀回來只有更新權杖,
     /// 第一個請求由翻譯層先 refresh;更新權杖失效(`invalid_grant`)時才回到登入頁(#335)。
     /// 受生物辨識保護的 session 要等 `unlockProtectedSession()` 刷臉才讀得出來。
@@ -35,7 +41,12 @@ public final class AppSession {
         self.storage = storage
         self.authenticator = authenticator
         if storage.storedProtection() == .biometric {
-            isUnlocking = true
+            // 主動登出後停在入口頁，等使用者按「登入」才刷臉;只是關掉 App 的冷啟動直接刷臉。
+            if storage.isKeptAfterSignOut() {
+                showsSignInEntry = true
+            } else {
+                isUnlocking = true
+            }
         } else {
             current = storage.load()
             didRestoreFromStorage = current != nil
@@ -49,6 +60,8 @@ public final class AppSession {
         defer { isUnlocking = false }
         switch await storage.loadProtected(reason: Self.unlockReason) {
         case let .success(session):
+            storage.setKeptAfterSignOut(false)
+            generation += 1
             verifiedByBiometrics = true
             isBiometricSignInEnabled = true
             current = session
@@ -57,6 +70,13 @@ public final class AppSession {
             // 失效時保存已由 `loadProtected` 清掉。
             break
         }
+    }
+
+    /// 登入入口頁按「登入」:有保留的 session 就刷臉(根畫面跟冷啟動一樣呼叫 `unlockProtectedSession()`;
+    /// 取消或失敗就未登入、開登入網頁，保留的先不刪);沒有就直接開登入網頁。
+    public func signInFromEntry() {
+        showsSignInEntry = false
+        isUnlocking = storage.storedProtection() == .biometric
     }
 
     /// 系統登入視窗登入成功後開始 session。使用者按的是「用 Face ID 登入」時直接刷臉綁定(不詢問):
@@ -80,7 +100,11 @@ public final class AppSession {
         begin(session)
     }
 
+    /// 開始新的 session:保存已經換成這次登入的(同帳號換新、不同帳號取代前一個人的),「登出後保留」的記號不再適用。
     private func begin(_ session: Session, verifiedByBiometrics: Bool = false) {
+        storage.setKeptAfterSignOut(false)
+        keptSession = nil
+        showsSignInEntry = false
         generation += 1
         self.verifiedByBiometrics = verifiedByBiometrics
         endedByExpiry = false
@@ -124,11 +148,32 @@ public final class AppSession {
 
     private static let unlockReason = "登入「我的記帳本」"
 
-    /// 清掉 session(兩種保存都清)、回到登入頁。登出不打 API,也不跳確認(跟 web 一樣)。
+    /// 主動登出(#364)。Face ID 登入(受保護的保存)的人保留 session(連同 DPoP 金鑰)、記下「登出後保留」、
+    /// 顯示登入入口頁，回傳 `true`,呼叫端不撤銷;其他人跟 `signOut()` 一樣全部清掉，回傳 `false`,呼叫端要撤銷。
+    public func signOutByUser() -> Bool {
+        guard let current, storage.storedProtection() == .biometric else {
+            signOut()
+            return false
+        }
+        end()
+        storage.setKeptAfterSignOut(true)
+        keptSession = current
+        showsSignInEntry = true
+        return true
+    }
+
+    /// 清掉 session(兩種保存與「登出後保留」的記號都清)、開登入網頁。用於刪除帳號、session 失效與一般登出。
     public func signOut() {
+        storage.clear()
+        keptSession = nil
+        showsSignInEntry = false
+        end()
+    }
+
+    /// 結束目前的 session(不動保存)。
+    private func end() {
         endedByExpiry = false
         endedByDeletion = false
-        storage.clear()
         didRestoreFromStorage = false
         verifiedByBiometrics = false
         isBiometricSignInEnabled = false
@@ -144,7 +189,14 @@ extension AppSession: SessionProvider {
 
     /// refresh 輪替後換成新的權杖並存回裝置;已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
     /// 登出後又登入了(目前的更新權杖不是這次送出的那個)也不理會,不會用舊 session 的權杖蓋掉新的。
+    /// 登出時保留的 session 送出的 refresh 晚回來:保留的換成新的權杖(舊的已輪替作廢),不刷臉(#364)。
     public func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
+        if current == nil, let kept = keptSession, kept.tokens.refresh == previousRefresh {
+            let refreshed = Session(user: kept.user, tokens: tokens)
+            storage.save(refreshed)
+            keptSession = refreshed
+            return
+        }
         guard let current, current.tokens.refresh == previousRefresh else { return }
         let refreshed = Session(user: current.user, tokens: tokens)
         storage.save(refreshed)
