@@ -19,7 +19,7 @@ public final class InMemorySessionStorage: SessionStorage {
         var biometricResult: BiometricResult
         var biometricPromptCount = 0
         var lastPromptReason: String?
-        var keptAfterSignOut = false
+        var keptAfterSignOut: UserID?
     }
 
     private let state: Mutex<State>
@@ -89,15 +89,15 @@ public final class InMemorySessionStorage: SessionStorage {
     public func clear() {
         state.withLock {
             $0.stored = nil
-            $0.keptAfterSignOut = false
+            $0.keptAfterSignOut = nil
         }
     }
 
-    public func isKeptAfterSignOut() -> Bool {
+    public func keptAfterSignOut() -> UserID? {
         state.withLock { $0.keptAfterSignOut }
     }
 
-    public func setKeptAfterSignOut(_ kept: Bool) {
-        state.withLock { $0.keptAfterSignOut = kept }
+    public func setKeptAfterSignOut(_ user: UserID?) {
+        state.withLock { $0.keptAfterSignOut = user }
     }
 }

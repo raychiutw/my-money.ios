@@ -165,7 +165,7 @@ struct ProtectedSessionTests {
         let session = AppSession(storage: storage)
         await session.unlockProtectedSession()
 
-        await session.sessionDidExpire()
+        _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
 
         #expect(storage.stored == nil)
     }
@@ -272,7 +272,7 @@ struct ProtectedSessionTests {
 
         let enabling = Task { await session.setBiometricSignIn(true) }
         await gate.waitUntilReached()
-        await session.sessionDidExpire()
+        _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
         await gate.open()
         await enabling.value
 

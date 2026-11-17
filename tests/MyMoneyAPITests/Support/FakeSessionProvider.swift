@@ -24,6 +24,11 @@ final class FakeSessionProvider: SessionProvider {
         state.withLock { $0.tokens }
     }
 
+    /// app 那一側登出了(例如 Face ID 登入的人登出、保留 session,#364):之後沒有權杖,不算過期。
+    func endSession() {
+        state.withLock { $0.tokens = nil }
+    }
+
     func currentTokens() async -> SessionTokens? {
         tokens
     }
@@ -32,10 +37,12 @@ final class FakeSessionProvider: SessionProvider {
         state.withLock { $0.tokens = tokens }
     }
 
-    func sessionDidExpire() async {
+    func sessionDidExpire(refresh: String) async -> Bool {
         state.withLock {
+            guard $0.tokens?.refresh == refresh else { return false }
             $0.tokens = nil
             $0.expirations += 1
+            return true
         }
     }
 }

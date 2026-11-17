@@ -13,7 +13,7 @@ import Security
 public struct KeychainSessionStorage: SessionStorage {
     private static let standardAccount = "session"
     private static let biometricAccount = "session.biometric"
-    /// 「登出後保留」的記號(#364):沒有內容的一般項目，跟 session 一樣存在 Keychain(重裝 app 也還在，與保存一致)。
+    /// 「登出後保留」的記號(#364):內容是登出的人的 user id 的一般項目，跟 session 一樣存在 Keychain(重裝 app 也還在，與保存一致)。
     private static let keptAfterSignOutAccount = "session.kept-after-sign-out"
     private let service: String
 
@@ -91,19 +91,27 @@ public struct KeychainSessionStorage: SessionStorage {
 
     public func clear() {
         deleteSessions()
-        setKeptAfterSignOut(false)
+        setKeptAfterSignOut(nil)
     }
 
-    public func isKeptAfterSignOut() -> Bool {
-        exists(account: Self.keptAfterSignOutAccount)
+    public func keptAfterSignOut() -> UserID? {
+        var query = itemQuery(account: Self.keptAfterSignOutAccount)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else {
+            return nil
+        }
+        // 舊版(#364 第一版)的記號沒有內容:仍算保留,只是認不出是誰(網頁登入一律改一般保存)。
+        return UserID(String(decoding: data, as: UTF8.self))
     }
 
-    public func setKeptAfterSignOut(_ kept: Bool) {
+    public func setKeptAfterSignOut(_ user: UserID?) {
         var item = itemQuery(account: Self.keptAfterSignOutAccount)
         SecItemDelete(item as CFDictionary)
-        guard kept else { return }
+        guard let user else { return }
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        item[kSecValueData as String] = Data()
+        item[kSecValueData as String] = Data(user.rawValue.utf8)
         SecItemAdd(item as CFDictionary, nil)
     }
 

@@ -121,16 +121,39 @@ struct KeepOnSignOutTests {
         #expect(session.current == sample)
     }
 
-    @Test("刷臉取消後網頁登入同一個帳號:保存換成新的 session,不再停在入口頁")
+    @Test("刷臉取消後網頁登入同一個帳號:保存換成新的 session,仍受保護、Face ID 登入維持開啟,不再停在入口頁")
     func webSignInSameAccountReplaces() async {
         let storage = boundStorage(.cancel)
         let session = await signedOutKeepingAfterCancel(storage)
         let renewed = Session(user: sample.user, tokens: SessionTokens(access: "a2", refresh: "r2", accessExpiresAt: nil))
+        let prompts = storage.biometricPromptCount
 
         session.start(renewed)
 
         #expect(storage.stored?.session == renewed)
-        #expect(!AppSession(storage: storage).showsSignInEntry)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(session.isBiometricSignInEnabled)
+        #expect(storage.biometricPromptCount == prompts)
+        let relaunched = AppSession(storage: storage)
+        #expect(!relaunched.showsSignInEntry)
+        #expect(relaunched.isUnlocking)
+    }
+
+    @Test("登出後冷啟動、刷臉取消,網頁登入同一個帳號:一樣仍受保護")
+    func webSignInSameAccountAfterColdStartStaysProtected() async {
+        let storage = boundStorage()
+        _ = await signedOutKeeping(storage)
+        storage.setBiometricResult(.cancel)
+        let relaunched = AppSession(storage: storage)
+        relaunched.signInFromEntry()
+        await relaunched.unlockProtectedSession()
+        let renewed = Session(user: sample.user, tokens: SessionTokens(access: "a2", refresh: "r2", accessExpiresAt: nil))
+
+        relaunched.start(renewed)
+
+        #expect(storage.stored?.session == renewed)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(relaunched.isBiometricSignInEnabled)
     }
 
     @Test("刷臉取消後網頁按「用 Face ID 登入」重新綁定:之後冷啟動照舊自動刷臉,不停在入口頁")
@@ -171,7 +194,7 @@ struct KeepOnSignOutTests {
         session.signInFromEntry()
         await session.unlockProtectedSession()
 
-        await session.sessionDidExpire()
+        _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
 
         #expect(storage.stored == nil)
         #expect(!session.showsSignInEntry)
@@ -207,6 +230,19 @@ struct KeepOnSignOutTests {
         #expect(storage.stored?.session.tokens == rotated)
         #expect(storage.stored?.protection == .biometric)
         #expect(storage.biometricPromptCount == 1)
+    }
+
+    @Test("登出前送出的請求晚回 401:不清掉保留的 session,仍停在入口頁")
+    func lateExpiryKeepsKeptSession() async {
+        let storage = boundStorage()
+        let session = await signedOutKeeping(storage)
+
+        _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
+
+        #expect(storage.stored?.session == sample)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(session.showsSignInEntry)
+        #expect(AppSession(storage: storage).showsSignInEntry)
     }
 
     @Test("刪除帳號照舊全部清掉,不顯示登入入口頁")

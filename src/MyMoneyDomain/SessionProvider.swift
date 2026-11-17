@@ -10,5 +10,7 @@ public protocol SessionProvider: Sendable {
     func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async
 
     /// 登入工作階段失效時呼叫(refresh 回 `invalid_grant`,或 refresh 後重送仍 401 `invalid_token`):app 要清掉 session、回到登入頁。
-    func sessionDidExpire() async
+    /// `refresh` 是請求送出時的更新權杖;目前的 session 已經不是它(送出後登出或換人)時不理會。
+    /// 回傳是否結束了目前的 session:是才刪 DPoP 金鑰(登出時保留的 session 還要用它,#364)。
+    func sessionDidExpire(refresh: String) async -> Bool
 }

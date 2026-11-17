@@ -53,21 +53,22 @@ public struct LiveAuthRepository: AuthRepository {
 
     /// 用授權碼換權杖(`POST /oauth/token`)。
     private func exchange(code: String, verifier: String) async throws -> Session {
-        // 每次登入換一把新的 DPoP 金鑰,換碼時用它綁定這個登入工作階段(#337)。
-        client.createDPoPKey()
+        // 每次登入換一把新的 DPoP 金鑰,換碼時用它綁定這個登入工作階段(#337);換碼成功才取代保存的(#364)。
+        let key = client.newDPoPKey()
         let data = try await client.postForm("/oauth/token", [
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": Self.redirectURI,
             "client_id": APIClient.oauthClientID,
             "code_verifier": verifier,
-        ])
+        ], signingWith: key)
         guard
             let token = try? JSONDecoder().decode(TokenResponse.self, from: data),
             let user = Self.user(fromAccessToken: token.accessToken)
         else {
             throw RepositoryError.unreadableResponse
         }
+        client.bindDPoPKey(key)
         return Session(
             user: user,
             tokens: SessionTokens(

@@ -42,7 +42,7 @@ public final class AppSession {
         self.authenticator = authenticator
         if storage.storedProtection() == .biometric {
             // 主動登出後停在入口頁，等使用者按「登入」才刷臉;只是關掉 App 的冷啟動直接刷臉。
-            if storage.isKeptAfterSignOut() {
+            if storage.keptAfterSignOut() != nil {
                 showsSignInEntry = true
             } else {
                 isUnlocking = true
@@ -60,12 +60,8 @@ public final class AppSession {
         defer { isUnlocking = false }
         switch await storage.loadProtected(reason: Self.unlockReason) {
         case let .success(session):
-            storage.setKeptAfterSignOut(false)
-            generation += 1
-            verifiedByBiometrics = true
             isBiometricSignInEnabled = true
-            current = session
-            didRestoreFromStorage = true
+            begin(session, verifiedByBiometrics: true, restoredFromStorage: true)
         case .invalidated, .cancelled, .failed:
             // 失效時保存已由 `loadProtected` 清掉。
             break
@@ -94,22 +90,28 @@ public final class AppSession {
         }
     }
 
-    /// 登入或註冊成功後開始 session,並用一般保存存到裝置上(取代之前的綁定)。
+    /// 登入或註冊成功後開始 session,存到裝置上:登出時保留的是同一個人(#364)就換新、維持受保護(寫入不需刷臉,
+    /// Face ID 登入維持開啟);其他情況用一般保存,取代之前的(不同帳號就清掉前一個人的)。
     public func start(_ session: Session) {
-        save(session)
+        if storage.storedProtection() == .biometric, storage.keptAfterSignOut() == session.user.id {
+            storage.save(session, protection: .biometric)
+            isBiometricSignInEnabled = true
+        } else {
+            save(session)
+        }
         begin(session)
     }
 
     /// 開始新的 session:保存已經換成這次登入的(同帳號換新、不同帳號取代前一個人的),「登出後保留」的記號不再適用。
-    private func begin(_ session: Session, verifiedByBiometrics: Bool = false) {
-        storage.setKeptAfterSignOut(false)
+    private func begin(_ session: Session, verifiedByBiometrics: Bool = false, restoredFromStorage: Bool = false) {
+        storage.setKeptAfterSignOut(nil)
         keptSession = nil
         showsSignInEntry = false
         generation += 1
         self.verifiedByBiometrics = verifiedByBiometrics
         endedByExpiry = false
         endedByDeletion = false
-        didRestoreFromStorage = false
+        didRestoreFromStorage = restoredFromStorage
         current = session
     }
 
@@ -148,18 +150,26 @@ public final class AppSession {
 
     private static let unlockReason = "登入「我的記帳本」"
 
-    /// 主動登出(#364)。Face ID 登入(受保護的保存)的人保留 session(連同 DPoP 金鑰)、記下「登出後保留」、
-    /// 顯示登入入口頁，回傳 `true`,呼叫端不撤銷;其他人跟 `signOut()` 一樣全部清掉，回傳 `false`,呼叫端要撤銷。
-    public func signOutByUser() -> Bool {
+    /// 主動登出的結果:呼叫端依此決定要不要撤銷伺服器端的登入工作階段。
+    public enum UserSignOut: Equatable, Sendable {
+        /// Face ID 登入的人:session(連同 DPoP 金鑰)保留在裝置上,不撤銷。
+        case keptForFaceID
+        /// 其他人:全部清掉,要撤銷。
+        case cleared
+    }
+
+    /// 主動登出(#364)。Face ID 登入(受保護的保存)的人保留 session、記下「登出後保留」、顯示登入入口頁;
+    /// 其他人跟 `signOut()` 一樣全部清掉。
+    public func signOutByUser() -> UserSignOut {
         guard let current, storage.storedProtection() == .biometric else {
             signOut()
-            return false
+            return .cleared
         }
         end()
-        storage.setKeptAfterSignOut(true)
+        storage.setKeptAfterSignOut(current.user.id)
         keptSession = current
         showsSignInEntry = true
-        return true
+        return .keptForFaceID
     }
 
     /// 清掉 session(兩種保存與「登出後保留」的記號都清)、開登入網頁。用於刪除帳號、session 失效與一般登出。
@@ -210,8 +220,11 @@ extension AppSession: SessionProvider {
     }
 
     /// 任何請求回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
-    public func sessionDidExpire() async {
+    /// 只處理目前的 session:送出後已經登出(含保留的,#364)或換人,晚到的 401 不理會。
+    public func sessionDidExpire(refresh: String) async -> Bool {
+        guard current?.tokens.refresh == refresh else { return false }
         signOut()
         endedByExpiry = true
+        return true
     }
 }

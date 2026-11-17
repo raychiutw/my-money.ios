@@ -93,6 +93,20 @@ struct DPoPTranslationTests {
         #expect(abs(proof.iat - Int(Date().timeIntervalSince1970)) <= 5)
     }
 
+    @Test("換碼失敗(授權碼被拒或網路錯誤):保存的金鑰不換(Face ID 登入的人登出時保留的 session 還要用,#364)", arguments: [
+        (status: 400, fixture: "oauth-token-invalid-grant.json") as (status: Int, fixture: String)?, nil,
+    ])
+    func failedExchangeKeepsStoredKey(reply: (status: Int, fixture: String)?) async throws {
+        try stub.route("/oauth/token", [reply])
+        let previous = Self.thumbprint(keys.publicKey)
+        let auth = LiveAuthRepository(client: client(FakeSessionProvider()), browser: FakeBrowserAuthorizer(.code("the-code")))
+
+        _ = try? await auth.signIn(registering: false)
+
+        #expect(stub.requests(to: "/oauth/token").count == 1)
+        #expect(Self.thumbprint(keys.publicKey) == previous)
+    }
+
     @Test("換碼回 invalid_dpop_proof:依 Date 校正時鐘、重簽一次,同一個授權碼換到權杖")
     func tokenEndpointRetriesOnceAfterClockSkew() async throws {
         let serverNow = Date().addingTimeInterval(300)
@@ -265,6 +279,20 @@ struct DPoPTranslationTests {
 
         #expect(session.expirationCount == 1)
         #expect(keys.publicKey == nil)
+    }
+
+    @Test("登出前送出的請求在登出後才回 401 invalid_token:不通知過期、不刪金鑰(保留的 session 還要用,#364)", .timeLimit(.minutes(1)))
+    func lateInvalidTokenAfterSignOutKeepsKey() async throws {
+        try stub.route("/bot/bindings/a", [(401, "accounts-invalid-token.json")], delay: 0.3)
+        let session = FakeSessionProvider(tokens: Self.valid)
+        let request = Task { try await client(session).send("DELETE", "/bot/bindings/a") }
+        while stub.requests(to: "/bot/bindings/a").isEmpty { await Task.yield() }
+
+        session.endSession()
+        _ = await request.result
+
+        #expect(session.expirationCount == 0)
+        #expect(keys.publicKey != nil)
     }
 
     @Test("登出:撤銷之後刪掉金鑰")
