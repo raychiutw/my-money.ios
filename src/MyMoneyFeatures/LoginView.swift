@@ -39,3 +39,34 @@ struct LoginView: View {
         }
     }
 }
+
+/// 登入入口頁(#364):Face ID 登入的人主動登出後才出現(冷啟動也停在這裡),只有品牌與「登入」。
+/// 按「登入」有保留的 session 就刷臉，沒有(或刷臉取消、失敗)就開登入網頁。
+struct SignInEntryView: View {
+    let signIn: () -> Void
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(spacing: 8) {
+                    Text("我的記帳本")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.tint)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("家庭財務，輕鬆掌握")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            }
+
+            Section {
+                PrimaryCapsuleButton(title: "登入", fillsWidth: true, action: signIn)
+                    .accessibilityIdentifier("login.entry")
+                    .clearListRow()
+            }
+        }
+    }
+}
