@@ -17,7 +17,7 @@ struct KeepOnSignOutTests {
         _ storage: InMemorySessionStorage, auth: InMemoryAuthRepository? = nil
     ) async -> AppSession {
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         await SignOutModel(auth: auth ?? InMemoryAuthRepository(members: [.sample]), session: session).signOut()
         return session
     }
@@ -71,7 +71,7 @@ struct KeepOnSignOutTests {
         session.signInFromEntry()
         #expect(!session.showsSignInEntry)
         #expect(session.isUnlocking)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(session.current == sample)
         #expect(session.verifiedByBiometrics)
@@ -90,7 +90,7 @@ struct KeepOnSignOutTests {
         let login = LoginModel(auth: auth, session: session)
 
         session.signInFromEntry()
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(session.current == nil)
         #expect(!session.showsSignInEntry)
@@ -146,7 +146,7 @@ struct KeepOnSignOutTests {
         storage.setBiometricResult(.cancel)
         let relaunched = AppSession(storage: storage)
         relaunched.signInFromEntry()
-        await relaunched.unlockProtectedSession()
+        await relaunched.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         let renewed = Session(user: sample.user, tokens: SessionTokens(access: "a2", refresh: "r2", accessExpiresAt: nil))
 
         relaunched.start(renewed)
@@ -192,7 +192,7 @@ struct KeepOnSignOutTests {
         let storage = boundStorage()
         let session = await signedOutKeeping(storage)
         session.signInFromEntry()
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
 
@@ -210,7 +210,7 @@ struct KeepOnSignOutTests {
         storage.setBiometricResult(.invalidate)
 
         session.signInFromEntry()
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(session.current == nil)
         #expect(!session.showsSignInEntry)
@@ -249,7 +249,7 @@ struct KeepOnSignOutTests {
     func accountDeletionClearsEverything() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         session.signOutAfterAccountDeletion()
 
@@ -263,7 +263,7 @@ struct KeepOnSignOutTests {
         let session = await signedOutKeeping(storage)
         storage.setBiometricResult(.cancel)
         session.signInFromEntry()
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         return session
     }
 }

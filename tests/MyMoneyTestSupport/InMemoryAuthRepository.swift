@@ -1,3 +1,4 @@
+import Foundation
 import MyMoneyDomain
 
 /// 不連網路的登入、登出與刪除帳號:登入不開登入視窗,直接以第一位成員登入(UI 測試的登入鈕就是這樣進入 app)。
@@ -22,6 +23,16 @@ public actor InMemoryAuthRepository: AuthRepository {
         }
     }
 
+    /// `refreshSession()` 的結果(#365);跟 `APIClient` 一樣透過 `SessionProvider` 通知 app。
+    public enum RefreshResult: Sendable {
+        /// 換新成功，更新權杖輪替成這組。
+        case rotated(SessionTokens)
+        /// 更新權杖已失效(`invalid_grant`):通知 app 結束 session,結束了就刪 DPoP 金鑰。
+        case rejected
+        /// 網路錯誤：照一般錯誤丟出，不動 session。
+        case offline
+    }
+
     private let members: [Member]
     private let gate: Gate?
     private let signInError: (any Error)?
@@ -29,6 +40,14 @@ public actor InMemoryAuthRepository: AuthRepository {
     private var scriptedSignInErrors: [(any Error)?]
     private let deletionError: RepositoryError?
     private let signsInBiometric: Bool
+    private let refreshResult: RefreshResult?
+    private let sessionProvider: (any SessionProvider)?
+    private let refreshGate: Gate?
+
+    /// `refreshSession()` 呼叫了幾次。
+    public private(set) var refreshCount = 0
+    /// `refreshSession()` 被拒、app 結束了 session 時刪掉了 DPoP 金鑰(跟 `APIClient` 一樣)。
+    public private(set) var deletedDPoPKey = false
 
     /// 每次 `signIn` 是不是開註冊(依呼叫順序)。
     public private(set) var signInRequests: [Bool] = []
@@ -40,10 +59,17 @@ public actor InMemoryAuthRepository: AuthRepository {
     /// - Parameter signInErrors: 前幾次 `signIn` 依序的結果(`nil` 是成功),例如「先關掉視窗、再登入成功」。
     /// - Parameter deletionError: 給了就讓 `deleteAccount` 失敗(後端拒絕)。
     /// - Parameter signsInBiometric: 登入結果當作使用者按了「用 Face ID 登入」(#357)。
+    /// - Parameter refreshResult: `refreshSession()` 的結果;`nil` 是成功但不輪替(UI 測試，不通知 app)。
+    /// - Parameter sessionProvider: `refreshSession()` 取權杖與通知結果的對象(app 的 `AppSession`)。
+    /// - Parameter refreshGate: 給了就讓 `refreshSession()` 停住，直到測試放行。
     public init(
         members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, signInErrors: [(any Error)?] = [],
-        deletionError: RepositoryError? = nil, signsInBiometric: Bool = false
+        deletionError: RepositoryError? = nil, signsInBiometric: Bool = false,
+        refreshResult: RefreshResult? = nil, sessionProvider: (any SessionProvider)? = nil, refreshGate: Gate? = nil
     ) {
+        self.refreshResult = refreshResult
+        self.sessionProvider = sessionProvider
+        self.refreshGate = refreshGate
         self.signsInBiometric = signsInBiometric
         self.members = members
         self.gate = gate
@@ -67,6 +93,23 @@ public actor InMemoryAuthRepository: AuthRepository {
     public func signOut(_ session: Session) async {
         await gate?.pass()
         revokedRefreshTokens.append(session.tokens.refresh)
+    }
+
+    public func refreshSession() async throws {
+        refreshCount += 1
+        await refreshGate?.pass()
+        guard let refreshResult, let sessionProvider, let tokens = await sessionProvider.currentTokens() else { return }
+        switch refreshResult {
+        case let .rotated(rotated):
+            await sessionProvider.sessionDidRefresh(rotated, replacing: tokens.refresh)
+        case .rejected:
+            if await sessionProvider.sessionDidExpire(refresh: tokens.refresh) {
+                deletedDPoPKey = true
+            }
+            throw RepositoryError.sessionExpired
+        case .offline:
+            throw URLError(.notConnectedToInternet)
+        }
     }
 
     public func deleteAccount() async throws {

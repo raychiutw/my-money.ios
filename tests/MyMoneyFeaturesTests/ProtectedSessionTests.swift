@@ -68,7 +68,7 @@ struct ProtectedSessionTests {
 
         #expect(session.isUnlocking)
         #expect(session.current == nil)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(!session.isUnlocking)
         #expect(session.current == sample)
@@ -83,7 +83,7 @@ struct ProtectedSessionTests {
         let storage = boundStorage(result)
         let session = AppSession(storage: storage)
 
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(!session.isUnlocking)
         #expect(session.current == nil)
@@ -94,7 +94,7 @@ struct ProtectedSessionTests {
     func plainSignInAfterCancelKeepsBindingForSameUser() async {
         let storage = boundStorage(.cancel)
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         let renewed = Session(user: sample.user, tokens: rotated)
 
         await session.start(SignInResult(session: renewed, biometric: false))
@@ -109,7 +109,7 @@ struct ProtectedSessionTests {
     func plainSignInAfterCancelReplacesBindingForOtherUser() async {
         let storage = boundStorage(.cancel)
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         let other = Session(user: User(id: UserID("other"), email: "other@example.com", name: "小美"), tokens: rotated)
 
         await session.start(SignInResult(session: other, biometric: false))
@@ -124,7 +124,7 @@ struct ProtectedSessionTests {
         let storage = boundStorage(.invalidate)
         let session = AppSession(storage: storage)
 
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         #expect(session.current == nil)
         #expect(storage.stored == nil)
@@ -144,7 +144,7 @@ struct ProtectedSessionTests {
     func refreshKeepsProtectionWithoutPrompt() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         await session.sessionDidRefresh(rotated, replacing: sample.tokens.refresh)
 
@@ -157,7 +157,7 @@ struct ProtectedSessionTests {
     func signOutClearsProtectedSession() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         session.signOut()
 
@@ -168,7 +168,7 @@ struct ProtectedSessionTests {
     func accountDeletionClearsProtectedSession() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         session.signOutAfterAccountDeletion()
 
@@ -179,7 +179,7 @@ struct ProtectedSessionTests {
     func expiryClearsProtectedSession() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         _ = await session.sessionDidExpire(refresh: sample.tokens.refresh)
 
@@ -191,7 +191,7 @@ struct ProtectedSessionTests {
     @Test("冷啟動刷臉讀出 session:標記這次已用生物辨識驗證(App 鎖不再鎖)")
     func coldStartUnlockIsVerifiedByBiometrics() async {
         let session = AppSession(storage: boundStorage())
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         #expect(session.verifiedByBiometrics)
     }
 
@@ -217,7 +217,7 @@ struct ProtectedSessionTests {
     @Test("開關反映目前的保存:Face ID 登入的冷啟動是開,一般保存是關")
     func switchReflectsStoredProtection() async {
         let bound = AppSession(storage: boundStorage())
-        await bound.unlockProtectedSession()
+        await bound.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         #expect(bound.isBiometricSignInEnabled)
 
         let standard = AppSession(storage: InMemorySessionStorage(session: sample))
@@ -257,7 +257,7 @@ struct ProtectedSessionTests {
     func disablingKeepsSignedIn() async {
         let storage = boundStorage()
         let session = AppSession(storage: storage)
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
 
         await session.setBiometricSignIn(false)
 
@@ -271,7 +271,7 @@ struct ProtectedSessionTests {
     @Test("登出後開關回到關")
     func signOutTurnsSwitchOff() async {
         let session = AppSession(storage: boundStorage())
-        await session.unlockProtectedSession()
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
         session.signOut()
         #expect(!session.isBiometricSignInEnabled)
     }
