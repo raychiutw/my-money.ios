@@ -11,9 +11,9 @@ final class LoginFlowUITests: XCTestCase {
     }
 
     /// 沒有 session 就自動登入，看到 5 個 tab(總覽、交易、帳戶、家庭、統計;規劃不再是 tab);「我的」顯示名稱與 email,設定有機器人記帳。
-    /// 登出後回到未登入、又自動開登入視窗(這次讓它失敗，停在「重試」才看得到),按「重試」再登入。
+    /// 登出後停在登入入口頁(#367),不自動開登入視窗;按「登入」才開(這次讓它失敗，停在「重試」才看得到),按「重試」再登入。
     @MainActor
-    func testSignInShowsTabShellAndSignOutReopensSignIn() throws {
+    func testSignInShowsTabShellAndSignOutShowsEntry() throws {
         let app = XCUIApplication.launchUITesting(flags: ["-uiTestingSignInResults", "ok,fail"], signedIn: true)
         XCTAssertFalse(app.staticTexts["我的記帳本"].exists, "不該有 App 自己的登入頁(#356)")
 
@@ -33,8 +33,14 @@ final class LoginFlowUITests: XCTestCase {
 
         app.buttons["me.signOut"].tap()
 
+        let entry = app.buttons["login.entry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "一般登入的人登出後沒有顯示登入入口頁")
         let retry = app.buttons["login.retry"]
-        XCTAssertTrue(retry.waitForExistence(timeout: 5), "登出後沒有回到未登入、自動開登入視窗")
+        XCTAssertFalse(retry.exists, "登入入口頁不該自動開登入視窗")
+        XCTAssertFalse(app.tabBars.buttons["總覽"].exists)
+
+        entry.tap()
+        XCTAssertTrue(retry.waitForExistence(timeout: 5), "入口頁按「登入」沒有開登入視窗")
         XCTAssertEqual(app.staticTexts["login.error"].label, "無法連線到伺服器")
         XCTAssertFalse(app.tabBars.buttons["總覽"].exists)
 
@@ -60,6 +66,28 @@ final class LoginFlowUITests: XCTestCase {
 
         entry.tap()
         XCTAssertTrue(app.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "按「登入」沒有刷臉進入")
+    }
+
+    /// 登出後冷啟動仍停在入口頁(#367,記號存在 Keychain);按「登入」開的登入視窗被關掉就回到入口頁、不再重開,再按一次才登入。
+    @MainActor
+    func testSignOutEntrySurvivesRelaunchAndClosingSignInReturnsToIt() throws {
+        let app = XCUIApplication.launchUITesting(signedIn: true)
+        app.openMe()
+        app.buttons["me.signOut"].tap()
+        XCTAssertTrue(app.buttons["login.entry"].waitForExistence(timeout: 5), "登出後沒有顯示登入入口頁")
+        app.terminate()
+
+        let relaunched = XCUIApplication.launchUITesting(flags: ["-uiTestingSignInResults", "cancel"], resettingSession: false)
+        let entry = relaunched.buttons["login.entry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "登出後冷啟動沒有停在登入入口頁")
+        XCTAssertFalse(relaunched.tabBars.buttons["總覽"].exists, "登出後冷啟動不該自動登入")
+
+        entry.tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "關掉登入視窗後沒有回到登入入口頁")
+        XCTAssertFalse(relaunched.tabBars.buttons["總覽"].exists, "關掉登入視窗後不該再自動開")
+
+        entry.tap()
+        XCTAssertTrue(relaunched.tabBars.buttons["總覽"].waitForExistence(timeout: 5), "再按「登入」沒有登入")
     }
 
     /// 使用者關掉登入視窗:不顯示錯誤，自動再開(這次成功)。

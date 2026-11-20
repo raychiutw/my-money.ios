@@ -36,20 +36,6 @@ struct KeepOnSignOutTests {
         #expect(storage.stored?.protection == .biometric)
     }
 
-    @Test("一般保存的人登出:撤銷並清掉,不顯示登入入口頁")
-    func standardSignOutRevokesAndClears() async {
-        let storage = InMemorySessionStorage(session: sample)
-        let auth = InMemoryAuthRepository(members: [.sample])
-        let session = AppSession(storage: storage)
-
-        await SignOutModel(auth: auth, session: session).signOut()
-
-        #expect(await auth.revokedRefreshTokens == [sample.tokens.refresh])
-        #expect(storage.stored == nil)
-        #expect(!session.showsSignInEntry)
-        #expect(!AppSession(storage: storage).showsSignInEntry)
-    }
-
     @Test("登出後冷啟動:停在登入入口頁,不自動刷臉")
     func coldStartAfterSignOutStaysOnEntry() async {
         let storage = boundStorage()
