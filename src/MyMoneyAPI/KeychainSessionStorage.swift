@@ -15,6 +15,8 @@ public struct KeychainSessionStorage: SessionStorage {
     private static let biometricAccount = "session.biometric"
     /// 「登出後保留」的記號(#364):內容是登出的人的 user id 的一般項目，跟 session 一樣存在 Keychain(重裝 app 也還在，與保存一致)。
     private static let keptAfterSignOutAccount = "session.kept-after-sign-out"
+    /// 「主動登出」的記號(#367):一般項目，有就是使用者自己登出的(內容固定為 "1"),跟其他記號一樣存在 Keychain。
+    private static let signedOutByUserAccount = "session.signed-out-by-user"
     /// 存下的 session 是誰的:一般項目放 user id,受保護的 session 不刷臉也認得出是誰(網頁登入同一個人時維持受保護)。
     private static let ownerAccount = "session.owner"
     private let service: String
@@ -107,6 +109,7 @@ public struct KeychainSessionStorage: SessionStorage {
     public func clear() {
         deleteSessions()
         setKeptAfterSignOut(nil)
+        setSignedOutByUser(false)
     }
 
     public func keptAfterSignOut() -> UserID? {
@@ -116,6 +119,14 @@ public struct KeychainSessionStorage: SessionStorage {
 
     public func setKeptAfterSignOut(_ user: UserID?) {
         setString(user?.rawValue, account: Self.keptAfterSignOutAccount)
+    }
+
+    public func signedOutByUser() -> Bool {
+        string(account: Self.signedOutByUserAccount) != nil
+    }
+
+    public func setSignedOutByUser(_ signedOut: Bool) {
+        setString(signedOut ? "1" : nil, account: Self.signedOutByUserAccount)
     }
 
     /// 一般項目裡的字串;沒有時是 `nil`。
@@ -140,7 +151,7 @@ public struct KeychainSessionStorage: SessionStorage {
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    /// 刪掉兩種保存與「是誰的」(不動「登出後保留」的記號)。
+    /// 刪掉兩種保存與「是誰的」(不動「登出後保留」與「主動登出」的記號)。
     private func deleteSessions() {
         SecItemDelete(itemQuery(account: Self.ownerAccount) as CFDictionary)
         SecItemDelete(itemQuery(account: Self.standardAccount) as CFDictionary)

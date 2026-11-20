@@ -43,6 +43,7 @@ public actor InMemoryAuthRepository: AuthRepository {
     private let refreshResult: RefreshResult?
     private let sessionProvider: (any SessionProvider)?
     private let refreshGate: Gate?
+    private let signInDelay: Duration?
 
     /// `refreshSession()` 呼叫了幾次。
     public private(set) var refreshCount = 0
@@ -62,11 +63,14 @@ public actor InMemoryAuthRepository: AuthRepository {
     /// - Parameter refreshResult: `refreshSession()` 的結果;`nil` 是成功但不輪替(UI 測試，不通知 app)。
     /// - Parameter sessionProvider: `refreshSession()` 取權杖與通知結果的對象(app 的 `AppSession`)。
     /// - Parameter refreshGate: 給了就讓 `refreshSession()` 停住，直到測試放行。
+    /// - Parameter signInDelay: 給了就讓每次 `signIn` 先等這麼久(UI 測試看得到登入視窗開著的期間)。
     public init(
         members: [Member], gate: Gate? = nil, signInError: (any Error)? = nil, signInErrors: [(any Error)?] = [],
         deletionError: RepositoryError? = nil, signsInBiometric: Bool = false,
-        refreshResult: RefreshResult? = nil, sessionProvider: (any SessionProvider)? = nil, refreshGate: Gate? = nil
+        refreshResult: RefreshResult? = nil, sessionProvider: (any SessionProvider)? = nil, refreshGate: Gate? = nil,
+        signInDelay: Duration? = nil
     ) {
+        self.signInDelay = signInDelay
         self.refreshResult = refreshResult
         self.sessionProvider = sessionProvider
         self.refreshGate = refreshGate
@@ -81,6 +85,7 @@ public actor InMemoryAuthRepository: AuthRepository {
     public func signIn(registering: Bool) async throws -> SignInResult {
         signInRequests.append(registering)
         await gate?.pass()
+        if let signInDelay { try await Task.sleep(for: signInDelay) }
         if !scriptedSignInErrors.isEmpty {
             if let error = scriptedSignInErrors.removeFirst() { throw error }
         } else if let signInError {

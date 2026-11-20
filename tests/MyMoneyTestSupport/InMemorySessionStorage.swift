@@ -10,7 +10,7 @@ public final class InMemorySessionStorage: SessionStorage {
         case pass
         case cancel
         case fail
-        /// 臉部資料變更：保存失效(跟 Keychain 一樣，讀取時就清掉)。
+        /// 臉部資料變更：保存失效(跟 Keychain 一樣，讀取時就清掉，連同記號)。
         case invalidate
     }
 
@@ -20,6 +20,7 @@ public final class InMemorySessionStorage: SessionStorage {
         var biometricPromptCount = 0
         var lastPromptReason: String?
         var keptAfterSignOut: UserID?
+        var signedOutByUser = false
     }
 
     private let state: Mutex<State>
@@ -67,18 +68,21 @@ public final class InMemorySessionStorage: SessionStorage {
 
     public func loadProtected(reason: String) async -> ProtectedSessionLoad {
         await gate?.pass()
-        return state.withLock { state in
-            guard let stored = state.stored, stored.protection == .biometric else { return .invalidated }
+        let prompt: (session: Session, result: BiometricResult)? = state.withLock { state in
+            guard let stored = state.stored, stored.protection == .biometric else { return nil }
             state.biometricPromptCount += 1
             state.lastPromptReason = reason
-            switch state.biometricResult {
-            case .pass: return .success(stored.session)
-            case .cancel: return .cancelled
-            case .fail: return .failed
-            case .invalidate:
-                state.stored = nil
-                return .invalidated
-            }
+            return (stored.session, state.biometricResult)
+        }
+        guard let prompt else { return .invalidated }
+        switch prompt.result {
+        case .pass: return .success(prompt.session)
+        case .cancel: return .cancelled
+        case .fail: return .failed
+        case .invalidate:
+            // 跟 Keychain 一樣，失效時 `clear()`:連同記號一起清掉(`Mutex` 不可重入，在鎖外呼叫)。
+            clear()
+            return .invalidated
         }
     }
 
@@ -94,6 +98,7 @@ public final class InMemorySessionStorage: SessionStorage {
         state.withLock {
             $0.stored = nil
             $0.keptAfterSignOut = nil
+            $0.signedOutByUser = false
         }
     }
 
@@ -103,5 +108,13 @@ public final class InMemorySessionStorage: SessionStorage {
 
     public func setKeptAfterSignOut(_ user: UserID?) {
         state.withLock { $0.keptAfterSignOut = user }
+    }
+
+    public func signedOutByUser() -> Bool {
+        state.withLock { $0.signedOutByUser }
+    }
+
+    public func setSignedOutByUser(_ signedOut: Bool) {
+        state.withLock { $0.signedOutByUser = signedOut }
     }
 }

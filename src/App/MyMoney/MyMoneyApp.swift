@@ -86,7 +86,11 @@ struct MyMoneyApp: App {
                     default: nil
                     }
                 }
-            let auth = InMemoryAuthRepository(members: [.sample], signInErrors: signInErrors)
+            // `-uiTestingSlowSignIn`:每次登入先等 3 秒,看得到入口頁離開、登入視窗開著的期間(#367;XCUITest 約每秒才查一次畫面)。
+            let auth = InMemoryAuthRepository(
+                members: [.sample], signInErrors: signInErrors,
+                signInDelay: arguments.contains("-uiTestingSlowSignIn") ? .seconds(3) : nil
+            )
             login = LoginModel(auth: auth, session: session)
             signOut = SignOutModel(auth: auth, session: session)
             accountDeletion = AccountDeletionModel(auth: auth, session: session)

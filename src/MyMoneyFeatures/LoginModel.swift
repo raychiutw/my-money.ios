@@ -3,7 +3,7 @@ import MyMoneyDomain
 import Observation
 
 /// 未登入時的 model(#334、#356):App 沒有自己的登入頁，登入與註冊都在系統的登入視窗完成,app 不接觸密碼。
-/// 未登入就自動開登入視窗;使用者關掉就再開(沒登入什麼都不能做),但只在 scene 在前景時，避免在背景連續重開(#351);其他錯誤停住、顯示訊息，按「重試」才再開。
+/// 未登入就自動開登入視窗;使用者關掉就再開(沒登入什麼都不能做;主動登出後從登入入口頁開的例外，關掉回到入口頁,#367),但只在 scene 在前景時，避免在背景連續重開(#351);其他錯誤停住、顯示訊息，按「重試」才再開。
 @MainActor
 @Observable
 public final class LoginModel {
@@ -55,7 +55,11 @@ public final class LoginModel {
                 await session.start(try await auth.signIn(registering: false))
                 return
             } catch is CancellationError {
-                // 使用者關掉登入視窗:不是錯誤，在前景就再開一次。
+                // 使用者關掉登入視窗:不是錯誤。主動登出後從入口頁開的就回到入口頁(#367);其他情況在前景就再開一次。
+                if session.closingSignInReturnsToEntry {
+                    session.returnToSignInEntry()
+                    return
+                }
             } catch {
                 errorMessage = error.localizedDescription
                 return
