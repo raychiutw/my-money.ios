@@ -21,10 +21,11 @@ public struct RootView: View {
     public var body: some View {
         Group {
             if session.isUnlocking {
-                // 冷啟動先刷臉讀出受保護的 session(#357),不先顯示未登入畫面(免得自動開登入視窗)。
+                // 冷啟動先刷臉讀出受保護的 session(#357),不先顯示未登入畫面(免得自動開登入視窗);
+                // 刷臉通過後換新權杖完成前也停在這裡(#365)。
                 Rectangle().fill(.background)
                     .ignoresSafeArea()
-                    .task { await session.unlockProtectedSession() }
+                    .task { await login.unlockProtectedSession() }
             } else if session.showsSignInEntry {
                 // Face ID 登入的人主動登出後停在登入入口頁(#364)。
                 SignInEntryView { session.signInFromEntry() }

@@ -245,6 +245,11 @@ public struct APIClient: Sendable {
         return try await refresher.run { try await refresh() }
     }
 
+    /// 不管存取權杖是否還有效，直接用更新權杖換新(#365 刷臉後進首頁前);跟一般請求共用同一個 refresh。
+    package func refreshSession() async throws {
+        _ = try await refresher.run { try await refresh() }
+    }
+
     /// `grant_type=refresh_token`:成功時改存輪替後的新更新權杖。只有 `invalid_grant`(或沒有本機金鑰時的 `invalid_dpop_proof`)才登出;
     /// 網路錯誤與 5xx 照一般錯誤丟出,保留更新權杖(上游 #208)。
     private func refresh() async throws -> SessionTokens {

@@ -31,6 +31,9 @@ public final class AppSession {
     /// 顯示登入入口頁(#364):Face ID 登入的人主動登出後，只有品牌與「登入」;冷啟動也停在這裡、不自動刷臉。
     public private(set) var showsSignInEntry = false
 
+    /// 刷臉讀出、正在換新權杖的 session(#365):還沒進首頁，翻譯層 refresh 用它的權杖。
+    @ObservationIgnored private var unlockingSession: Session?
+
     /// 登出時保留的 session(只放記憶體):登出前送出的 refresh 晚回來時，把保留的換成輪替後的權杖。
     @ObservationIgnored private var keptSession: Session?
 
@@ -53,15 +56,23 @@ public final class AppSession {
         }
     }
 
-    /// 冷啟動刷臉讀出受保護的 session:通過進入 tab 外殼;取消或失敗維持未登入(綁定留著，下次冷啟動再試);
-    /// 保存已失效(臉部資料變更)就清掉。
-    public func unlockProtectedSession() async {
+    /// 刷臉讀出受保護的 session(冷啟動或登入入口頁按「登入」):通過後先用 `auth` 換新權杖(#365),換新完成前維持解鎖中;
+    /// 換新成功或網路錯誤等失敗進入 tab 外殼;更新權杖已失效(`invalid_grant`)就清掉保存、不進首頁,直接開登入網頁。
+    /// 取消或失敗維持未登入(綁定留著，下次冷啟動再試);保存已失效(臉部資料變更)就清掉。
+    public func unlockProtectedSession(refreshingWith auth: any AuthRepository) async {
         guard isUnlocking else { return }
         defer { isUnlocking = false }
         switch await storage.loadProtected(reason: Self.unlockReason) {
         case let .success(session):
+            // 換新期間還沒進首頁(`current` 是 nil):權杖由 `unlockingSession` 提供給翻譯層,
+            // 輪替與失效都經過 `SessionProvider`,跟一般請求的 refresh 同一套。
+            unlockingSession = session
+            // 失敗不用在這裡處理:失效已由 `sessionDidExpire` 清掉 `unlockingSession`,其他錯誤照樣進首頁。
+            try? await auth.refreshSession()
+            guard let unlocked = unlockingSession else { return }
+            unlockingSession = nil
             isBiometricSignInEnabled = true
-            begin(session, verifiedByBiometrics: true, restoredFromStorage: true)
+            begin(unlocked, verifiedByBiometrics: true, restoredFromStorage: true)
         case .invalidated, .cancelled, .failed:
             // 失效時保存(連同 DPoP 金鑰)已由 `loadProtected` 清掉。
             break
@@ -194,13 +205,20 @@ public final class AppSession {
 
 extension AppSession: SessionProvider {
     public func currentTokens() async -> SessionTokens? {
-        current?.tokens
+        current?.tokens ?? unlockingSession?.tokens
     }
 
-    /// refresh 輪替後換成新的權杖並存回裝置;已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
+    /// refresh 輪替後換成新的權杖並存回裝置(刷臉後換新也是,#365);已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
     /// 登出後又登入了(目前的更新權杖不是這次送出的那個)也不理會,不會用舊 session 的權杖蓋掉新的。
     /// 登出時保留的 session 送出的 refresh 晚回來:保留的換成新的權杖(舊的已輪替作廢),不刷臉(#364)。
     public func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
+        // 刷臉後換新(#365):存回新權杖(維持原本的保護等級),進首頁時用新的。
+        if current == nil, let unlocking = unlockingSession, unlocking.tokens.refresh == previousRefresh {
+            let refreshed = Session(user: unlocking.user, tokens: tokens)
+            storage.save(refreshed)
+            unlockingSession = refreshed
+            return
+        }
         if current == nil, let kept = keptSession, kept.tokens.refresh == previousRefresh {
             let refreshed = Session(user: kept.user, tokens: tokens)
             storage.save(refreshed)
@@ -220,8 +238,17 @@ extension AppSession: SessionProvider {
     }
 
     /// 任何請求回應 401 且 `WWW-Authenticate` 含 `invalid_token` 時，翻譯層會呼叫這裡：跟登出一樣清掉 session、回到登入頁。
+    /// 刷臉後換新被拒(#365)時清掉保存、不進首頁。
     /// 只處理目前的 session:送出後已經登出(含保留的,#364)或換人,晚到的 401 不理會。
     public func sessionDidExpire(refresh: String) async -> Bool {
+        // 刷臉後換新被拒(#365):清掉保存(連同登出保留的記號)、不進首頁;回傳 true 讓翻譯層刪 DPoP 金鑰。
+        if current == nil, unlockingSession?.tokens.refresh == refresh {
+            unlockingSession = nil
+            storage.clear()
+            keptSession = nil
+            showsSignInEntry = false
+            return true
+        }
         guard current?.tokens.refresh == refresh else { return false }
         signOut()
         endedByExpiry = true

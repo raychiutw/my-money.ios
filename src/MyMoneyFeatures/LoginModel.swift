@@ -35,6 +35,11 @@ public final class LoginModel {
         isSceneActive = false
     }
 
+    /// 刷臉讀出受保護的 session(冷啟動或登入入口頁按「登入」),通過後先用這裡的 `auth` 換新權杖再進首頁(#365)。
+    public func unlockProtectedSession() async {
+        await session.unlockProtectedSession(refreshingWith: auth)
+    }
+
     /// 按「重試」:清掉錯誤，再開系統的登入視窗。
     public func retry() async {
         errorMessage = nil
