@@ -68,21 +68,21 @@ public final class InMemorySessionStorage: SessionStorage {
 
     public func loadProtected(reason: String) async -> ProtectedSessionLoad {
         await gate?.pass()
-        return state.withLock { state in
-            guard let stored = state.stored, stored.protection == .biometric else { return .invalidated }
+        let prompt: (session: Session, result: BiometricResult)? = state.withLock { state in
+            guard let stored = state.stored, stored.protection == .biometric else { return nil }
             state.biometricPromptCount += 1
             state.lastPromptReason = reason
-            switch state.biometricResult {
-            case .pass: return .success(stored.session)
-            case .cancel: return .cancelled
-            case .fail: return .failed
-            case .invalidate:
-                // 跟 Keychain 一樣，失效時 `clear()`:連同記號一起清掉。
-                state.stored = nil
-                state.keptAfterSignOut = nil
-                state.signedOutByUser = false
-                return .invalidated
-            }
+            return (stored.session, state.biometricResult)
+        }
+        guard let prompt else { return .invalidated }
+        switch prompt.result {
+        case .pass: return .success(prompt.session)
+        case .cancel: return .cancelled
+        case .fail: return .failed
+        case .invalidate:
+            // 跟 Keychain 一樣，失效時 `clear()`:連同記號一起清掉(`Mutex` 不可重入，在鎖外呼叫)。
+            clear()
+            return .invalidated
         }
     }
 

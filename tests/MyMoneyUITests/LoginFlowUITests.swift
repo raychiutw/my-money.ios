@@ -69,6 +69,7 @@ final class LoginFlowUITests: XCTestCase {
     }
 
     /// 登出後冷啟動仍停在入口頁(#367,記號存在 Keychain);按「登入」開的登入視窗被關掉就回到入口頁、不再重開,再按一次才登入。
+    /// 登入放慢(`-uiTestingSlowSignIn`),才看得到入口頁先離開、再回來。
     @MainActor
     func testSignOutEntrySurvivesRelaunchAndClosingSignInReturnsToIt() throws {
         let app = XCUIApplication.launchUITesting(signedIn: true)
@@ -77,12 +78,16 @@ final class LoginFlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.entry"].waitForExistence(timeout: 5), "登出後沒有顯示登入入口頁")
         app.terminate()
 
-        let relaunched = XCUIApplication.launchUITesting(flags: ["-uiTestingSignInResults", "cancel"], resettingSession: false)
+        let relaunched = XCUIApplication.launchUITesting(
+            flags: ["-uiTestingSignInResults", "cancel", "-uiTestingSlowSignIn"], resettingSession: false
+        )
         let entry = relaunched.buttons["login.entry"]
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "登出後冷啟動沒有停在登入入口頁")
         XCTAssertFalse(relaunched.tabBars.buttons["總覽"].exists, "登出後冷啟動不該自動登入")
 
         entry.tap()
+        // 先等入口頁離開(登入視窗開了),才知道之後看到的入口頁是關掉視窗後回來的，不是按之前那個。
+        XCTAssertTrue(entry.waitForNonExistence(timeout: 5), "按「登入」沒有離開登入入口頁")
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "關掉登入視窗後沒有回到登入入口頁")
         XCTAssertFalse(relaunched.tabBars.buttons["總覽"].exists, "關掉登入視窗後不該再自動開")
 

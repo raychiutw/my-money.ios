@@ -44,7 +44,7 @@ public final class AppSession {
         self.storage = storage
         self.authenticator = authenticator
         // 主動登出後(不論有沒有保留 session,#367)停在入口頁，等使用者按「登入」;舊版只有「登出後保留」的記號，也算。
-        if storage.signedOutByUser() || storage.keptAfterSignOut() != nil {
+        if wasSignedOutByUser {
             showsSignInEntry = true
         } else if storage.storedProtection() == .biometric {
             // 只是關掉 App 的冷啟動直接刷臉。
@@ -85,12 +85,20 @@ public final class AppSession {
         isUnlocking = storage.storedProtection() == .biometric
     }
 
-    /// 使用者關掉登入網頁(#367):主動登出後(從入口頁按「登入」開的)回到入口頁、回傳 `true`,不再重開;
-    /// 其他情況(過期、被撤銷、從沒登入過)回傳 `false`,由登入 model 照舊再開(#356)。
-    public func returnToSignInEntryIfSignedOut() -> Bool {
-        guard current == nil, storage.signedOutByUser() || storage.keptAfterSignOut() != nil else { return false }
+    /// 使用者關掉登入網頁時是否回到入口頁(#367):主動登出後(從入口頁按「登入」開的)是，不再重開;
+    /// 其他情況(過期、被撤銷、從沒登入過)不是，由登入 model 照舊再開(#356)。
+    public var closingSignInReturnsToEntry: Bool {
+        current == nil && wasSignedOutByUser
+    }
+
+    /// 回到登入入口頁(關掉登入網頁時，`closingSignInReturnsToEntry` 為真才呼叫)。
+    public func returnToSignInEntry() {
         showsSignInEntry = true
-        return true
+    }
+
+    /// 主動登出過(不論有沒有保留 session,#367);舊版只有「登出後保留」的記號，也算。
+    private var wasSignedOutByUser: Bool {
+        storage.signedOutByUser() || storage.keptAfterSignOut() != nil
     }
 
     /// 系統登入視窗登入成功後開始 session。使用者按的是「用 Face ID 登入」時直接刷臉綁定(不詢問):
@@ -187,7 +195,7 @@ public final class AppSession {
             keptSession = current
             result = .keptForFaceID
         } else {
-            signOut()
+            clearSession()
             result = .cleared
         }
         storage.setSignedOutByUser(true)
@@ -195,12 +203,16 @@ public final class AppSession {
         return result
     }
 
-    /// 清掉 session(兩種保存與「登出後保留」「主動登出」的記號都清)、開登入網頁。用於刪除帳號、session 失效;
-    /// 一般保存的人主動登出也先經過這裡，再由 `signOutByUser()` 記下「主動登出」。
+    /// 清掉 session(兩種保存與「登出後保留」「主動登出」的記號都清)、開登入網頁。用於刪除帳號、session 失效。
     public func signOut() {
+        clearSession()
+        showsSignInEntry = false
+    }
+
+    /// 清掉保存與記號、結束目前的 session;登入入口頁顯示與否由呼叫端決定。
+    private func clearSession() {
         storage.clear()
         keptSession = nil
-        showsSignInEntry = false
         end()
     }
 

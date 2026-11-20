@@ -56,7 +56,10 @@ public final class LoginModel {
                 return
             } catch is CancellationError {
                 // 使用者關掉登入視窗:不是錯誤。主動登出後從入口頁開的就回到入口頁(#367);其他情況在前景就再開一次。
-                if session.returnToSignInEntryIfSignedOut() { return }
+                if session.closingSignInReturnsToEntry {
+                    session.returnToSignInEntry()
+                    return
+                }
             } catch {
                 errorMessage = error.localizedDescription
                 return
