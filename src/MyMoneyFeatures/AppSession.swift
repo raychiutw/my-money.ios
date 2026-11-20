@@ -57,7 +57,7 @@ public final class AppSession {
     }
 
     /// 刷臉讀出受保護的 session(冷啟動或登入入口頁按「登入」):通過後先用 `auth` 換新權杖(#365),換新完成前維持解鎖中;
-    /// 換新成功或網路錯誤等失敗進入 tab 外殼;更新權杖已失效(`invalid_grant`)就清掉保存、不進首頁,直接開登入網頁。
+    /// 換新成功或網路錯誤等失敗進入 tab 外殼;更新權杖被伺服器拒絕就清掉保存、不進首頁,直接開登入網頁。
     /// 取消或失敗維持未登入(綁定留著，下次冷啟動再試);保存已失效(臉部資料變更)就清掉。
     public func unlockProtectedSession(refreshingWith auth: any AuthRepository) async {
         guard isUnlocking else { return }
@@ -205,30 +205,22 @@ public final class AppSession {
 
 extension AppSession: SessionProvider {
     public func currentTokens() async -> SessionTokens? {
-        current?.tokens ?? unlockingSession?.tokens
+        activeSession?.tokens
     }
 
     /// refresh 輪替後換成新的權杖並存回裝置(刷臉後換新也是,#365);已經登出(refresh 進行中按了登出)就不理會,不會讓人重新登入;
     /// 登出後又登入了(目前的更新權杖不是這次送出的那個)也不理會,不會用舊 session 的權杖蓋掉新的。
     /// 登出時保留的 session 送出的 refresh 晚回來:保留的換成新的權杖(舊的已輪替作廢),不刷臉(#364)。
     public func sessionDidRefresh(_ tokens: SessionTokens, replacing previousRefresh: String) async {
-        // 刷臉後換新(#365):存回新權杖(維持原本的保護等級),進首頁時用新的。
-        if current == nil, let unlocking = unlockingSession, unlocking.tokens.refresh == previousRefresh {
-            let refreshed = Session(user: unlocking.user, tokens: tokens)
-            storage.save(refreshed)
-            unlockingSession = refreshed
-            return
-        }
-        if current == nil, let kept = keptSession, kept.tokens.refresh == previousRefresh {
-            let refreshed = Session(user: kept.user, tokens: tokens)
-            storage.save(refreshed)
-            keptSession = refreshed
-            return
-        }
-        guard let current, current.tokens.refresh == previousRefresh else { return }
-        let refreshed = Session(user: current.user, tokens: tokens)
+        guard let matched = holder(of: previousRefresh) else { return }
+        let refreshed = Session(user: matched.session.user, tokens: tokens)
+        // 存回時維持原本的保護等級;刷臉後換新(#365)進首頁時用新的。
         storage.save(refreshed)
-        self.current = refreshed
+        switch matched.holder {
+        case .current: current = refreshed
+        case .unlocking: unlockingSession = refreshed
+        case .kept: keptSession = refreshed
+        }
     }
 
     /// 帳號刪除成功之後:跟登出一樣清掉 session,並記下是刪除帳號。
@@ -241,17 +233,50 @@ extension AppSession: SessionProvider {
     /// 刷臉後換新被拒(#365)時清掉保存、不進首頁。
     /// 只處理目前的 session:送出後已經登出(含保留的,#364)或換人,晚到的 401 不理會。
     public func sessionDidExpire(refresh: String) async -> Bool {
-        // 刷臉後換新被拒(#365):清掉保存(連同登出保留的記號)、不進首頁;回傳 true 讓翻譯層刪 DPoP 金鑰。
-        if current == nil, unlockingSession?.tokens.refresh == refresh {
+        switch holder(of: refresh)?.holder {
+        case .unlocking:
+            // 刷臉後換新被拒(#365):清掉保存(連同登出保留的記號)、不進首頁;回傳 true 讓翻譯層刪 DPoP 金鑰。
             unlockingSession = nil
             storage.clear()
             keptSession = nil
             showsSignInEntry = false
             return true
+        case .current:
+            signOut()
+            endedByExpiry = true
+            return true
+        case .kept, nil:
+            return false
         }
-        guard current?.tokens.refresh == refresh else { return false }
-        signOut()
-        endedByExpiry = true
-        return true
+    }
+
+    /// 持有更新權杖的是哪一份 session。
+    private enum TokenHolder {
+        /// 已進首頁的 session。
+        case current
+        /// 刷臉讀出、正在換新的 session(#365)。
+        case unlocking
+        /// 登出時保留的 session(#364)。
+        case kept
+    }
+
+    /// 翻譯層送請求與 refresh 用的 session:進首頁後是目前的，刷臉後換新期間是解鎖中的(#365)。
+    private var activeSession: Session? {
+        current ?? unlockingSession
+    }
+
+    /// 這個更新權杖屬於哪一份 session:進首頁後只認目前的;還沒進首頁時，解鎖中的優先，其次是登出時保留的。
+    /// 都不是(已經登出、換人或輪替過)就是 `nil`,晚回來的結果不理會。
+    private func holder(of refresh: String) -> (holder: TokenHolder, session: Session)? {
+        if let current {
+            return current.tokens.refresh == refresh ? (.current, current) : nil
+        }
+        if let unlockingSession, unlockingSession.tokens.refresh == refresh {
+            return (.unlocking, unlockingSession)
+        }
+        if let keptSession, keptSession.tokens.refresh == refresh {
+            return (.kept, keptSession)
+        }
+        return nil
     }
 }

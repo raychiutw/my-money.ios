@@ -84,7 +84,7 @@ public struct LiveAuthRepository: AuthRepository {
         client.deleteDPoPKey()
     }
 
-    /// 沿用 `APIClient` 的 refresh:輪替、`invalid_grant` 登出並刪 DPoP 金鑰、網路錯誤不登出都一樣。
+    /// 沿用 `APIClient` 的 refresh:輪替、`invalid_grant`(或本機沒有金鑰時的 `invalid_dpop_proof`)登出並刪 DPoP 金鑰、網路錯誤不登出都一樣。
     public func refreshSession() async throws {
         try await client.refreshSession()
     }

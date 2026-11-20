@@ -3,7 +3,7 @@ import MyMoneyFeatures
 import MyMoneyTestSupport
 import Testing
 
-/// 刷臉讀出受保護的 session 後先換新權杖，再進首頁(#365):更新權杖已失效就直接開登入網頁，不先閃一下首頁。
+/// 刷臉讀出受保護的 session 後先換新權杖,再進首頁(#365):更新權杖已失效就直接開登入網頁,不先閃一下首頁。
 @MainActor
 @Suite("刷臉後先 refresh 再進首頁(#365)")
 struct RefreshBeforeHomeTests {
@@ -12,7 +12,7 @@ struct RefreshBeforeHomeTests {
 
     /// 刷臉讀出受保護的 session 的兩條路徑。
     enum Path: CaseIterable, Sendable {
-        /// 只是關掉 App 的冷啟動：直接刷臉。
+        /// 只是關掉 App 的冷啟動:直接刷臉。
         case coldStart
         /// 主動登出後的登入入口頁按「登入」。
         case signInEntry
@@ -107,6 +107,32 @@ struct RefreshBeforeHomeTests {
 
         #expect(!session.isUnlocking)
         #expect(session.current?.tokens == rotated)
+    }
+
+    @Test("入口頁刷臉後換新時,登出前送出的 refresh 晚回來成功:併入這次換新,不重複換新,保存與首頁都是新權杖", .timeLimit(.minutes(1)))
+    func lateRefreshFromBeforeSignOutJoinsUnlock() async {
+        let storage = boundStorage()
+        let session = AppSession(storage: storage)
+        await session.unlockProtectedSession(refreshingWith: InMemoryAuthRepository(members: [.sample]))
+        // 首頁的請求用舊的更新權杖送出 refresh,還沒回來就登出(保留)、在入口頁按「登入」。
+        #expect(session.signOutByUser() == .keptForFaceID)
+        session.signInFromEntry()
+        // 翻譯層的 refresh 共用進行中的那一個:這次換新本身不再輪替(`refreshResult` 是 nil),結果由晚回來的那個帶回。
+        let gate = Gate()
+        let auth = InMemoryAuthRepository(members: [.sample], sessionProvider: session, refreshGate: gate)
+
+        let unlocking = Task { await session.unlockProtectedSession(refreshingWith: auth) }
+        await gate.waitUntilReached()
+        await session.sessionDidRefresh(rotated, replacing: sample.tokens.refresh)
+        await gate.open()
+        await unlocking.value
+
+        #expect(await auth.refreshCount == 1)
+        #expect(session.current == Session(user: sample.user, tokens: rotated))
+        #expect(session.verifiedByBiometrics)
+        #expect(storage.stored?.session.tokens == rotated)
+        #expect(storage.stored?.protection == .biometric)
+        #expect(storage.keptAfterSignOut() == nil)
     }
 
     @Test("刷臉取消:不換新")

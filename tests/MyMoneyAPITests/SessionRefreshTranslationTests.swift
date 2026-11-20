@@ -4,7 +4,7 @@ import MyMoneyDomain
 import Testing
 
 /// 刷臉讀出受保護的 session 後先換新權杖(#365):`AuthRepository.refreshSession()` 不經一般請求，直接用更新權杖換新，
-/// 沿用 `APIClient` 既有的 refresh(輪替、`invalid_grant` 登出並刪 DPoP 金鑰、網路錯誤不登出)。
+/// 沿用 `APIClient` 既有的 refresh(輪替、`invalid_grant` 或沒有本機金鑰時的 `invalid_dpop_proof` 登出並刪 DPoP 金鑰、網路錯誤不登出)。
 @Suite("刷臉後先換新權杖")
 struct SessionRefreshTranslationTests {
     private let stub = HTTPStub()
@@ -45,6 +45,17 @@ struct SessionRefreshTranslationTests {
         }
         #expect(session.expirationCount == 1)
         #expect(keys.publicKey == nil)
+    }
+
+    @Test("本機沒有 DPoP 金鑰時被要求 proof(invalid_dpop_proof):跟 invalid_grant 一樣通知 app 結束 session,丟 sessionExpired")
+    func invalidDPoPProofWithoutKeyExpiresSession() async throws {
+        try stub.route("/oauth/token", [(400, "oauth-token-invalid-dpop-proof.json")])
+        let session = FakeSessionProvider(tokens: Self.valid)
+
+        await #expect(throws: RepositoryError.sessionExpired) {
+            try await auth(session, keys: InMemoryDPoPKeyStore(hasKey: false)).refreshSession()
+        }
+        #expect(session.expirationCount == 1)
     }
 
     @Test("網路錯誤:照一般錯誤丟出,不登出、保留更新權杖")

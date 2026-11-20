@@ -8,8 +8,8 @@ public protocol AuthRepository: Sendable {
     func signOut(_ session: Session) async
 
     /// 用目前 session 的更新權杖換新權杖(#365):刷臉讀出受保護的 session 後、進首頁前先換一次。
-    /// 透過 `SessionProvider` 通知 app:成功時 `sessionDidRefresh`(存回新權杖);更新權杖已失效(`invalid_grant`,
-    /// 或本機沒有金鑰時的 `invalid_dpop_proof`)時 `sessionDidExpire`,並丟 `RepositoryError.sessionExpired`。
+    /// 透過 `SessionProvider` 通知 app:成功時 `sessionDidRefresh`(存回新權杖);更新權杖被伺服器拒絕(已失效,
+    /// 或綁定的金鑰已不在裝置上)時 `sessionDidExpire`,並丟 `RepositoryError.sessionExpired`。
     /// 網路錯誤等其他失敗照一般錯誤丟出，不動 session。
     func refreshSession() async throws
 
