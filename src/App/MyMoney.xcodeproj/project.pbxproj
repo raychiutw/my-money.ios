@@ -302,7 +302,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.34.1;
+				MARKETING_VERSION = 0.34.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raychiu.mymoney;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -337,7 +337,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.34.1;
+				MARKETING_VERSION = 0.34.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raychiu.mymoney;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -355,7 +355,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.34.1;
+				MARKETING_VERSION = 0.34.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raychiu.mymoney.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -372,7 +372,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.34.1;
+				MARKETING_VERSION = 0.34.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raychiu.mymoney.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
